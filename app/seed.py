@@ -113,8 +113,8 @@ def seed_appliance_models():
         for i, cpu_data in enumerate(data["cpu_options"]):
             qty, base_desc = _parse_quantity(cpu_data["desc"])
             cpu = _get_or_create_cpu(
-                base_desc, cpu_data["cores"],
-                cpu_data["threads"], cpu_data["ghz"],
+                base_desc, cpu_data["cores"] // qty,
+                cpu_data["threads"] // qty, cpu_data["ghz"],
             )
             db.session.add(ModelCpuOption(
                 model_id=model.id, cpu_id=cpu.id,

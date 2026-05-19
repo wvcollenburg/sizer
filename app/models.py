@@ -148,7 +148,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [1, 2, 4, 8],
-            "drives_per_node": 1,
+            "drives_per_node": 2,
         },
         "nic_options": [
             {"desc": "2 x 2.5GbE 2-port Network Cards (OB+Intel i226-V)", "ports": 4, "speed": "2.5GbE"},
@@ -170,7 +170,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [1, 2, 4, 8],
-            "drives_per_node": 1,
+            "drives_per_node": 3,
         },
         "nic_options": [
             {"desc": "1 x 2.5GbE/10GbE 2-port each (Intel i226-LM/V + Intel X710-DA2)", "ports": 4, "speed": "2.5GbE/10GbE"},
@@ -215,11 +215,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [16, 32, 64, 128],
         "ram_slots": 4,
         "storage": {
-            "type": "hybrid",
+            "type": "hdd_only",
             "hdd_options_tb": [2, 4, 8],
-            "ssd_options_tb": [0.24, 0.48, 0.96, 1.92, 3.84],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 1GbE 2-port Network Card (Intel i350)", "ports": 2, "speed": "1GbE"},
@@ -243,11 +241,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [16, 32, 64, 128],
         "ram_slots": 4,
         "storage": {
-            "type": "hybrid",
+            "type": "hdd_only",
             "hdd_options_tb": [4, 8, 12],
-            "ssd_options_tb": [0.48, 0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 2-port Network Card (Intel X710-T2L)", "ports": 2, "speed": "10GbE"},
@@ -270,11 +266,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [32, 64, 128],
         "ram_slots": 4,
         "storage": {
-            "type": "hybrid",
+            "type": "hdd_only",
             "hdd_options_tb": [4, 8, 12, 16],
-            "ssd_options_tb": [0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-Port Network Card (Intel XL710+X557)", "ports": 4, "speed": "10GbE"},
@@ -377,11 +371,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [16, 32, 64, 128],
         "ram_slots": 4,
         "storage": {
-            "type": "hybrid",
-            "hdd_options_tb": [2, 4, 8],
+            "type": "ssd_only",
             "ssd_options_tb": [0.24, 0.48, 0.96, 1.92, 3.84],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 1GbE 2-port Network Card (Intel i350)", "ports": 2, "speed": "1GbE"},
@@ -405,11 +397,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [16, 32, 64, 128],
         "ram_slots": 4,
         "storage": {
-            "type": "hybrid",
-            "hdd_options_tb": [4, 8, 12],
+            "type": "ssd_only",
             "ssd_options_tb": [0.48, 0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 2-port Network Card (Intel X710-T2L)", "ports": 2, "speed": "10GbE"},
@@ -479,11 +469,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [128, 192, 256, 384, 512],
         "ram_slots": 8,
         "storage": {
-            "type": "hybrid",
+            "type": "hdd_only",
             "hdd_options_tb": [2, 4, 8, 12, 16],
-            "ssd_options_tb": [0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X550-T2)", "ports": 4, "speed": "10GbE"},
@@ -506,11 +494,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [128, 192, 256, 384, 512],
         "ram_slots": 8,
         "storage": {
-            "type": "hybrid",
+            "type": "hdd_only",
             "hdd_options_tb": [4, 8, 12, 16, 20],
-            "ssd_options_tb": [0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 3,
-            "ssd_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X710-T4L OCP)", "ports": 4, "speed": "10GbE"},
@@ -531,11 +517,9 @@ APPLIANCE_MODELS = {
         "ram_options_gb": [256, 512],
         "ram_slots": 8,
         "storage": {
-            "type": "hybrid_nvme",
+            "type": "hdd_only",
             "hdd_options_tb": [8, 16, 20],
-            "nvme_options_tb": [3.84, 7.68],
-            "hdd_count": 3,
-            "nvme_count": 1,
+            "drives_per_node": 4,
         },
         "nic_options": [
             {"desc": "1 x 10/25GbE SFP28 4-port Network Card (Broadcom 57504 OCP)", "ports": 4, "speed": "25GbE"},
@@ -721,7 +705,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [0.96, 1.92, 3.84, 7.68],
-            "drives_per_node": 4,
+            "drives_per_node": 10,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X722)", "ports": 4, "speed": "10GbE"},
@@ -774,7 +758,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [0.96, 1.92, 3.84, 7.68, 15.36],
-            "drives_per_node": 4,
+            "drives_per_node": 10,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X710-T4L)", "ports": 4, "speed": "10GbE"},
@@ -826,7 +810,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [0.96, 1.92, 3.84, 7.68, 15.36],
-            "drives_per_node": 4,
+            "drives_per_node": 10,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port OCP Network Card (Intel X710-T4L)", "ports": 4, "speed": "10GbE"},
@@ -902,7 +886,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "nvme_only",
             "nvme_options_tb": [1.92, 3.84, 7.68, 15.36, 30.72],
-            "drives_per_node": 4,
+            "drives_per_node": 10,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port OCP Network Card (Intel E610-XT4)", "ports": 4, "speed": "10GbE"},
@@ -929,7 +913,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "hdd_only",
             "hdd_options_tb": [8, 12, 16],
-            "drives_per_node": 8,
+            "drives_per_node": 12,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X722)", "ports": 4, "speed": "10GbE"},
@@ -956,8 +940,8 @@ APPLIANCE_MODELS = {
             "type": "hybrid",
             "hdd_options_tb": [2, 4, 8, 12, 16],
             "ssd_options_tb": [0.96, 1.92, 3.84, 7.68],
-            "hdd_count": 7,
-            "ssd_count": 1,
+            "hdd_count": 9,
+            "ssd_count": 3,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X722)", "ports": 4, "speed": "10GbE"},
@@ -983,7 +967,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "hdd_only",
             "hdd_options_tb": [8, 12, 16, 20],
-            "drives_per_node": 8,
+            "drives_per_node": 12,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port OCP Network Card (Intel X710-T4L)", "ports": 4, "speed": "10GbE"},
@@ -1010,8 +994,8 @@ APPLIANCE_MODELS = {
             "type": "hybrid_nvme",
             "hdd_options_tb": [4, 8, 12, 16, 20],
             "nvme_options_tb": [0.96, 1.92, 3.84, 7.68, 15.36],
-            "hdd_count": 7,
-            "nvme_count": 1,
+            "hdd_count": 9,
+            "nvme_count": 3,
         },
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port Network Card (Intel X710-T4L OCP)", "ports": 4, "speed": "10GbE"},
@@ -1033,7 +1017,7 @@ APPLIANCE_MODELS = {
         "storage": {
             "type": "hdd_only",
             "hdd_options_tb": [16, 20],
-            "drives_per_node": 8,
+            "drives_per_node": 12,
         },
         "nic_options": [
             {"desc": "1 x 10/25GbE SFP28 4-port Network Card (Broadcom 57504 OCP)", "ports": 4, "speed": "25GbE"},
@@ -1056,8 +1040,8 @@ APPLIANCE_MODELS = {
             "type": "hybrid_nvme",
             "hdd_options_tb": [8, 16, 20],
             "nvme_options_tb": [3.84, 7.68],
-            "hdd_count": 7,
-            "nvme_count": 1,
+            "hdd_count": 9,
+            "nvme_count": 3,
         },
         "nic_options": [
             {"desc": "1 x 10/25GbE SFP28 4-port Network Card (Broadcom 57504 OCP)", "ports": 4, "speed": "25GbE"},

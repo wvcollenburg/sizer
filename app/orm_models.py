@@ -173,7 +173,12 @@ class Model(db.Model):
             "min_nodes": self.min_nodes,
             "notes": self.notes,
             "cpu_options": [
-                {**link.cpu.to_dict(), "desc": f"{link.quantity} x {link.cpu.description}"}
+                {
+                    "desc": f"{link.quantity} x {link.cpu.description}",
+                    "cores": link.cpu.cores * link.quantity,
+                    "threads": link.cpu.threads * link.quantity,
+                    "ghz": link.cpu.ghz,
+                }
                 for link in self.cpu_links
             ],
             "ram_options_gb": sorted([r.size_gb for r in self.ram_options]),

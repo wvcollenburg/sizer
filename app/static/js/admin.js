@@ -478,10 +478,10 @@ async function openEditModel(id) {
 
     const stor = m.storage || {};
     document.getElementById('edit-stor-type').value = stor.type || 'nvme_only';
-    document.getElementById('edit-stor-dpn').value = stor.drives_per_node || 1;
-    document.getElementById('edit-stor-hdd-count').value = stor.hdd_count || 3;
-    document.getElementById('edit-stor-ssd-count').value = stor.ssd_count || 1;
-    document.getElementById('edit-stor-nvme-count').value = stor.nvme_count || 1;
+    document.getElementById('edit-stor-dpn').value = stor.drives_per_node || '';
+    document.getElementById('edit-stor-hdd-count').value = stor.hdd_count || '';
+    document.getElementById('edit-stor-ssd-count').value = stor.ssd_count || '';
+    document.getElementById('edit-stor-nvme-count').value = stor.nvme_count || '';
     updateStorageFields();
 
     selectedDrives = [];
