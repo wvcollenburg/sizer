@@ -4,6 +4,11 @@ from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 
+OS_CORE_OVERHEAD = 1
+OS_RAM_GB = 4
+RAM_BUFFER_GB = 2
+USABLE_RAM_OVERHEAD = OS_RAM_GB + RAM_BUFFER_GB  # 6 GB reserved per node
+
 
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5):
@@ -32,6 +37,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "nic_speed_mbps": summary["nic_speed_mbps"],
         "vcpu_ratio": vcpu_ratio,
         "current_total_ghz": summary.get("total_host_ghz", 0),
+        "max_vm_ram_gb": summary.get("max_vm_ram_gb", 0),
+        "max_vm_cores": summary.get("max_vm_cores", 0),
     }
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
@@ -86,7 +93,26 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "growth_factor": round(growth_factor, 3),
     }
 
-    return {"recommendations": deduped[:8], "projection": projection}
+    warnings = []
+    max_vm_ram = needs["max_vm_ram_gb"]
+    for rec in deduped[:8]:
+        usable_ram = rec["ram_per_node_gb"] - USABLE_RAM_OVERHEAD
+        if max_vm_ram > 0 and usable_ram > 0:
+            pct_used = max_vm_ram / usable_ram
+            if pct_used >= 0.90:
+                warnings.append({
+                    "model": rec["model"],
+                    "type": "ram_tight_fit",
+                    "message": (
+                        f"Largest VM ({max_vm_ram:.0f} GB RAM) uses "
+                        f"{pct_used * 100:.0f}% of usable node RAM "
+                        f"({usable_ram:.0f} GB). This may impact HA - "
+                        f"the VM cannot fail over to a node that is "
+                        f"already near capacity."
+                    ),
+                })
+
+    return {"recommendations": deduped[:8], "projection": projection, "warnings": warnings}
 
 
 MAX_NODES_PER_CLUSTER = 8
@@ -144,9 +170,18 @@ def _fit_model(model, needs, required_cores):
     results = []
     storage = model["storage"]
     min_nodes = max(model.get("min_nodes", 3), 3)
+    max_vm_ram = needs.get("max_vm_ram_gb", 0)
+    max_vm_cores = needs.get("max_vm_cores", 0)
+
+    viable_ram_options = [
+        r for r in model["ram_options_gb"]
+        if max_vm_ram <= 0 or (r - USABLE_RAM_OVERHEAD) >= max_vm_ram
+    ]
+    if not viable_ram_options:
+        return results
 
     max_raw, max_biggest = _max_raw_per_node(storage)
-    max_ram = max(model["ram_options_gb"]) if model["ram_options_gb"] else 0
+    max_usable_ram = max(viable_ram_options) - USABLE_RAM_OVERHEAD
 
     needed_nodes_storage = 0
     if max_raw > 0 and needs["usable_storage_tb"] > 0:
@@ -158,11 +193,11 @@ def _fit_model(model, needs, required_cores):
                 break
 
     needed_nodes_ram = 0
-    if max_ram > 0 and needs["ram_gb"] > 0:
+    if max_usable_ram > 0 and needs["ram_gb"] > 0:
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1_nodes = n - len(layout)
-            if max_ram * n1_nodes >= needs["ram_gb"]:
+            if max_usable_ram * n1_nodes >= needs["ram_gb"]:
                 needed_nodes_ram = n
                 break
 
@@ -174,17 +209,21 @@ def _fit_model(model, needs, required_cores):
 
     for cpu_idx, cpu in cpus_by_cores:
         cores_per_node = cpu["cores"]
+        usable_cores = cores_per_node - OS_CORE_OVERHEAD
         threads_per_node = cpu["threads"]
         ghz_per_node = cpu["ghz"] * cores_per_node
 
-        if cores_per_node == 0:
+        if usable_cores <= 0:
+            continue
+
+        if max_vm_cores > 0 and usable_cores < max_vm_cores:
             continue
 
         needed_nodes_cpu = 0
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1 = n - len(layout)
-            if cores_per_node * n1 >= required_cores:
+            if usable_cores * n1 >= required_cores:
                 needed_nodes_cpu = n
                 break
 
@@ -195,12 +234,12 @@ def _fit_model(model, needs, required_cores):
             layout = _cluster_layout(node_count)
             num_clusters = len(layout)
             n1_nodes = node_count - num_clusters
-            n1_cores = cores_per_node * n1_nodes
+            n1_usable_cores = usable_cores * n1_nodes
 
-            if n1_cores < required_cores:
+            if n1_usable_cores < required_cores:
                 continue
 
-            ram_gb = _pick_ram(model["ram_options_gb"], needs["ram_gb"],
+            ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
                                node_count, num_clusters)
             if not ram_gb:
                 continue
@@ -210,7 +249,9 @@ def _fit_model(model, needs, required_cores):
             if not stor:
                 continue
 
+            usable_ram = ram_gb - USABLE_RAM_OVERHEAD
             total_cores = cores_per_node * node_count
+            total_usable_cores = usable_cores * node_count
             total_threads = threads_per_node * node_count
             total_ghz = ghz_per_node * node_count
             total_ram = ram_gb * node_count
@@ -218,24 +259,24 @@ def _fit_model(model, needs, required_cores):
             raw_per_node = stor["raw_per_node"]
             biggest_disk = stor["biggest_disk"]
             total_raw = raw_per_node * node_count
-            usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
+            usable_storage = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
 
-            if usable < needs["usable_storage_tb"]:
+            if usable_storage < needs["usable_storage_tb"]:
                 continue
 
             n1_ghz = ghz_per_node * n1_nodes
-            rec_ratio = needs["vcpus"] / n1_cores if n1_cores > 0 else 99
+            rec_ratio = needs["vcpus"] / n1_usable_cores if n1_usable_cores > 0 else 99
 
             cost_tier = _model_cost_tier(model["name"])
-            excess_cores = total_cores - required_cores
+            excess_cores = total_usable_cores - required_cores
 
             score = node_count * 20
             score += cost_tier * 6
             score += excess_cores * 0.3
 
-            core_headroom = (n1_cores - required_cores) / required_cores if required_cores > 0 else 0
-            ram_headroom = (ram_gb * n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
-            stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
+            core_headroom = (n1_usable_cores - required_cores) / required_cores if required_cores > 0 else 0
+            ram_headroom = (usable_ram * n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
+            stor_headroom = (usable_storage - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
             score += core_headroom * 3
             score += ram_headroom * 3
@@ -261,24 +302,26 @@ def _fit_model(model, needs, required_cores):
                 "cpu_index": cpu_idx,
                 "cores_per_node": cores_per_node,
                 "threads_per_node": threads_per_node,
+                "usable_cores_per_node": usable_cores,
+                "usable_ram_per_node_gb": usable_ram,
                 "ghz": cpu["ghz"],
                 "ram_per_node_gb": ram_gb,
                 "storage_config": stor,
                 "vcpu_ratio": round(rec_ratio, 2),
                 "totals": {
-                    "cores": total_cores,
+                    "cores": total_usable_cores,
                     "threads": total_threads,
                     "total_ghz": round(total_ghz, 1),
-                    "ram_gb": total_ram,
+                    "ram_gb": round(usable_ram * node_count, 1),
                     "raw_storage_tb": round(total_raw, 2),
-                    "usable_storage_tb": round(usable, 2),
+                    "usable_storage_tb": round(usable_storage, 2),
                 },
                 "n_minus_1": {
-                    "cores": cores_per_node * n1_nodes,
+                    "cores": usable_cores * n1_nodes,
                     "threads": threads_per_node * n1_nodes,
                     "total_ghz": round(n1_ghz, 1),
-                    "ram_gb": ram_gb * n1_nodes,
-                    "usable_storage_tb": round(usable, 2),
+                    "ram_gb": round(usable_ram * n1_nodes, 1),
+                    "usable_storage_tb": round(usable_storage, 2),
                 },
                 "score": round(score, 2),
             })
@@ -337,7 +380,8 @@ def _max_raw_per_node(storage):
 def _pick_ram(options, total_needed_gb, node_count, num_clusters=1):
     n1_nodes = node_count - num_clusters
     for r in sorted(options):
-        if r * n1_nodes >= total_needed_gb:
+        usable = r - USABLE_RAM_OVERHEAD
+        if usable * n1_nodes >= total_needed_gb:
             return r
     return None
 
