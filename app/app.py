@@ -125,6 +125,7 @@ def create_app():
                 "project": data["project"],
                 "hosts": data["hosts"],
                 "datastores": data["datastores"],
+                "vms": data["vms"],
                 "vm_count": len(data["vms"]),
                 "active_vm_count": data["summary"]["active_vms"],
                 "recommendations": result["recommendations"],
