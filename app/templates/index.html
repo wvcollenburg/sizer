@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC// Infrastructure Sizer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">v9.8</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="mode-selector">
+            <button class="mode-btn active" data-mode="appliance" onclick="switchMode('appliance')">
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
+                <span class="mode-label">Appliance (Certified)</span>
+                <span class="mode-desc">Fixed hardware configurations</span>
+            </button>
+            <button class="mode-btn" data-mode="validated" onclick="switchMode('validated')">
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+                <span class="mode-label">Software Only (Validated)</span>
+                <span class="mode-desc">Flexible configurations with rules</span>
+            </button>
+            <button class="mode-btn" data-mode="import" onclick="switchMode('import')">
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+                <span class="mode-label">VMware Import</span>
+                <span class="mode-desc">Import Live Optics or RVTools export</span>
+            </button>
+            <button class="mode-btn" data-mode="manual" onclick="switchMode('manual')">
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                <span class="mode-label">Manual Input</span>
+                <span class="mode-desc">Enter workload requirements manually</span>
+            </button>
+        </section>
+
+        <!-- APPLIANCE MODE -->
+        <section id="appliance-form" class="config-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Show Models</label>
+                    <select id="status-filter" onchange="loadModels()">
+                        <option value="active">Active Only</option>
+                        <option value="all_current">Active + EOL</option>
+                        <option value="all">All (incl. EOS)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="model-select" onchange="loadModelDetails()">
+                        <option value="">-- Select Model --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Node Count</label>
+                    <input type="number" id="node-count" value="3" min="1" max="99" onchange="calculate()">
+                </div>
+            </div>
+
+            <div id="model-details" class="model-details" style="display:none">
+                <div class="detail-header">
+                    <span id="detail-model-name" class="detail-model-name"></span>
+                    <span id="detail-status" class="status-badge"></span>
+                    <span id="detail-category" class="category-badge"></span>
+                    <span id="detail-chassis" class="chassis-info"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>CPU</label>
+                        <select id="cpu-select" onchange="calculate()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>RAM (GB)</label>
+                        <select id="ram-select" onchange="calculate()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>NIC</label>
+                        <select id="nic-select" onchange="calculate()"></select>
+                    </div>
+                </div>
+
+                <div id="storage-section" class="form-row"></div>
+            </div>
+        </section>
+
+        <!-- VALIDATED MODE -->
+        <section id="validated-form" class="config-form" style="display:none">
+            <div class="validated-rules">
+                <h3>Validated Installer Rules</h3>
+                <ul>
+                    <li>1 or 3+ disks per node (no 2-disk configs)</li>
+                    <li>Hybrid: fast tier must be 7-24.3% of total capacity</li>
+                    <li>Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
+                    <li>JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
+                    <li>Internal storage only &mdash; no SAN or DAS</li>
+                    <li>Minimum 3 nodes</li>
+                </ul>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Node Count</label>
+                    <input type="number" id="val-node-count" value="3" min="3" max="99">
+                </div>
+                <div class="form-group">
+                    <label>CPU Cores per Node</label>
+                    <input type="number" id="val-cores" value="8" min="2" max="128">
+                </div>
+                <div class="form-group">
+                    <label>Threads per Node</label>
+                    <input type="number" id="val-threads" value="16" min="2" max="256">
+                </div>
+                <div class="form-group">
+                    <label>Base GHz</label>
+                    <input type="number" id="val-ghz" value="2.1" min="0.5" max="6" step="0.1">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>RAM per Node (GB)</label>
+                    <select id="val-ram">
+                        <option value="16">16 GB</option>
+                        <option value="32">32 GB</option>
+                        <option value="64" selected>64 GB</option>
+                        <option value="96">96 GB</option>
+                        <option value="128">128 GB</option>
+                        <option value="192">192 GB</option>
+                        <option value="256">256 GB</option>
+                        <option value="384">384 GB</option>
+                        <option value="512">512 GB</option>
+                        <option value="768">768 GB</option>
+                        <option value="1024">1024 GB</option>
+                        <option value="1536">1536 GB</option>
+                        <option value="2048">2048 GB</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>NIC</label>
+                    <select id="val-nic"></select>
+                </div>
+            </div>
+
+            <div class="disk-config">
+                <div class="disk-header">
+                    <h3>Disk Configuration (per node)</h3>
+                    <button class="btn btn-sm" onclick="addDisk()">+ Add Disk</button>
+                </div>
+                <div id="disk-list"></div>
+                <div id="disk-validation" class="validation-msg"></div>
+            </div>
+
+            <button class="btn btn-primary" onclick="calculateValidated()">Calculate</button>
+        </section>
+
+        <!-- IMPORT MODE -->
+        <section id="import-form" class="config-form" style="display:none">
+            <div class="import-upload">
+                <h3>Upload VMware Environment Export</h3>
+                <p class="import-desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+                    <div class="upload-text">Drop .xlsx file here or click to browse</div>
+                    <input type="file" id="file-input" accept=".xlsx" onchange="handleFileSelect(this)">
+                </div>
+                <div id="upload-status" class="upload-status" style="display:none"></div>
+            </div>
+
+            <div id="import-results" style="display:none">
+                <div class="import-summary">
+                    <h3>Environment Summary</h3>
+                    <div class="summary-grid" id="env-summary"></div>
+                </div>
+
+                <div class="import-workload">
+                    <h3>Workload Requirements</h3>
+                    <div class="summary-grid" id="workload-summary"></div>
+                </div>
+
+                <div class="ratio-control">
+                    <div class="ratio-header">
+                        <h3>Virtualization Ratio</h3>
+                        <div class="ratio-current" id="ratio-current"></div>
+                    </div>
+                    <div class="ratio-slider-row">
+                        <label>Target vCPU : Core ratio</label>
+                        <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
+                               oninput="updateRatioDisplay()">
+                        <span class="ratio-value" id="ratio-value">3.00 : 1</span>
+                    </div>
+                    <div class="ratio-bar-container">
+                        <div class="ratio-bar">
+                            <div class="ratio-bar-fill" id="ratio-bar-fill"></div>
+                            <div class="ratio-bar-marker" id="ratio-bar-marker" title="Current environment"></div>
+                        </div>
+                        <div class="ratio-labels">
+                            <span>1:1 Conservative</span>
+                            <span>4:1 Moderate</span>
+                            <span>8:1 Aggressive</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="growth-control">
+                    <h3>Growth Projection</h3>
+                    <div class="growth-inputs">
+                        <div class="form-group">
+                            <label>Projection Years</label>
+                            <select id="growth-years" onchange="recalcRecommendations()">
+                                <option value="1">1 year</option>
+                                <option value="2">2 years</option>
+                                <option value="3">3 years</option>
+                                <option value="4">4 years</option>
+                                <option value="5" selected>5 years</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>YoY Growth %</label>
+                            <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
+                                   onchange="recalcRecommendations()">
+                        </div>
+                        <div class="form-group">
+                            <label>Snapshot Overhead %</label>
+                            <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
+                                   onchange="recalcRecommendations()">
+                        </div>
+                    </div>
+                    <div id="projection-summary" class="projection-summary"></div>
+                </div>
+
+                <div class="import-recommendations">
+                    <h3>SC// Recommendations</h3>
+                    <p class="rec-desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                    <div id="rec-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MANUAL INPUT MODE -->
+        <section id="manual-form" class="config-form" style="display:none">
+            <div class="manual-section">
+                <h3>Current Environment</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Platform</label>
+                        <input type="text" id="man-platform" placeholder="e.g. Dell PowerEdge R740">
+                    </div>
+                    <div class="form-group">
+                        <label>Cluster Name</label>
+                        <input type="text" id="man-cluster" placeholder="e.g. Production">
+                    </div>
+                    <div class="form-group">
+                        <label>Hosts</label>
+                        <input type="number" id="man-hosts" value="" min="0" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Total Cores</label>
+                        <input type="number" id="man-cores" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Threads</label>
+                        <input type="number" id="man-threads" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Total GHz</label>
+                        <input type="number" id="man-ghz" value="" min="0" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Host RAM (GB)</label>
+                        <input type="number" id="man-host-ram" value="" min="0" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Peak CPU %</label>
+                        <input type="number" id="man-peak-cpu" value="" min="0" max="100" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Avg CPU %</label>
+                        <input type="number" id="man-avg-cpu" value="" min="0" max="100" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Peak Memory %</label>
+                        <input type="number" id="man-peak-mem" value="" min="0" max="100" step="0.1" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Avg Memory %</label>
+                        <input type="number" id="man-avg-mem" value="" min="0" max="100" step="0.1" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Avg IOPS</label>
+                        <input type="number" id="man-avg-iops" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Peak IOPS</label>
+                        <input type="number" id="man-peak-iops" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>P95 IOPS</label>
+                        <input type="number" id="man-p95-iops" value="" min="0" placeholder="0 = unknown">
+                    </div>
+                    <div class="form-group">
+                        <label>NIC Speed</label>
+                        <select id="man-nic-speed">
+                            <option value="1000">1 GbE</option>
+                            <option value="2500">2.5 GbE</option>
+                            <option value="10000" selected>10 GbE</option>
+                            <option value="25000">25 GbE</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="manual-section">
+                <h3>Workload Requirements</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Total VMs</label>
+                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Active VMs</label>
+                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Total vCPUs *</label>
+                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Provisioned RAM (GB) *</label>
+                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field">
+                    </div>
+                    <div class="form-group">
+                        <label>Used RAM (GB)</label>
+                        <input type="number" id="man-used-ram" value="" min="0" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Provisioned Storage (TB)</label>
+                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Datastore Used (TB) *</label>
+                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field">
+                    </div>
+                    <div class="form-group">
+                        <label>Datastore Total (TB)</label>
+                        <input type="number" id="man-ds-total" value="" min="0" step="0.01" placeholder="0">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="calculateManual()">Get Recommendations</button>
+
+            <div id="manual-results" style="display:none">
+                <div class="ratio-control">
+                    <div class="ratio-header">
+                        <h3>Virtualization Ratio</h3>
+                        <div class="ratio-current" id="man-ratio-current"></div>
+                    </div>
+                    <div class="ratio-slider-row">
+                        <label>Target vCPU : Core ratio</label>
+                        <input type="range" id="man-ratio-slider" min="1" max="8" step="0.25" value="3"
+                               oninput="updateManualRatioDisplay()">
+                        <span class="ratio-value" id="man-ratio-value">3.00 : 1</span>
+                    </div>
+                    <div class="ratio-bar-container">
+                        <div class="ratio-bar">
+                            <div class="ratio-bar-fill" id="man-ratio-bar-fill"></div>
+                            <div class="ratio-bar-marker" id="man-ratio-bar-marker" title="Current environment"></div>
+                        </div>
+                        <div class="ratio-labels">
+                            <span>1:1 Conservative</span>
+                            <span>4:1 Moderate</span>
+                            <span>8:1 Aggressive</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="growth-control">
+                    <h3>Growth Projection</h3>
+                    <div class="growth-inputs">
+                        <div class="form-group">
+                            <label>Projection Years</label>
+                            <select id="man-growth-years" onchange="recalcManualRecommendations()">
+                                <option value="1">1 year</option>
+                                <option value="2">2 years</option>
+                                <option value="3">3 years</option>
+                                <option value="4">4 years</option>
+                                <option value="5" selected>5 years</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>YoY Growth %</label>
+                            <input type="number" id="man-growth-pct" value="10" min="0" max="50" step="1"
+                                   onchange="recalcManualRecommendations()">
+                        </div>
+                        <div class="form-group">
+                            <label>Snapshot Overhead %</label>
+                            <input type="number" id="man-snapshot-pct" value="20" min="0" max="100" step="5"
+                                   onchange="recalcManualRecommendations()">
+                        </div>
+                    </div>
+                    <div id="man-projection-summary" class="projection-summary"></div>
+                </div>
+
+                <div class="import-recommendations">
+                    <h3>SC// Recommendations</h3>
+                    <p class="rec-desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                    <div id="man-rec-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESULTS -->
+        <section id="results" class="results-section" style="display:none">
+            <h2>Sizing Results</h2>
+            <div id="error-msg" class="error-msg" style="display:none"></div>
+
+            <div class="results-grid">
+                <div class="result-card">
+                    <h3>Per Node</h3>
+                    <table id="per-node-table"></table>
+                </div>
+                <div class="result-card highlight">
+                    <h3>Cluster Total (<span id="result-nodes"></span> nodes)</h3>
+                    <table id="cluster-table"></table>
+                </div>
+                <div class="result-card n1">
+                    <h3>N-1 (Update/Failure)</h3>
+                    <p class="n1-desc">Resources available with one node offline</p>
+                    <table id="n1-table"></table>
+                </div>
+            </div>
+            <div class="results-export">
+                <button class="btn btn-export" onclick="exportConfig()" id="config-export-btn" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)</p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC// Sizer Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Sizer</h1>
+            <span class="header-sep">|</span>
+            <span class="header-sub">Model Administration</span>
+            <a href="/" class="back-link">Back to Sizer</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Tab Navigation -->
+        <div class="tab-bar">
+            <button class="tab active" data-tab="models" onclick="switchTab('models')">Models</button>
+            <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
+            <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
+            <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
+        </div>
+
+        <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
+        <div class="tab-content active" id="tab-models">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="btn btn-primary" onclick="openAddModel()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Model
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportModels()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Template
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <select id="status-filter" onchange="loadModels()">
+                        <option value="all">All Statuses</option>
+                        <option value="Active" selected>Active</option>
+                        <option value="EOL">EOL</option>
+                        <option value="EOS">EOS</option>
+                    </select>
+                    <select id="category-filter" onchange="loadModels()">
+                        <option value="all">All Categories</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="model-table-wrap">
+                <table class="model-table" id="model-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Category</th>
+                            <th>Form Factor</th>
+                            <th>Socket</th>
+                            <th>CPUs</th>
+                            <th>RAM Options</th>
+                            <th>Storage</th>
+                            <th>Min Nodes</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="model-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ CPU CATALOG TAB ═══════════════════ -->
+        <div class="tab-content" id="tab-cpus">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="btn btn-primary" onclick="openAddCatalogItem('cpu')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add CPU
+                    </button>
+                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import Catalog
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Template
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <span class="count-badge" id="cpu-count"></span>
+                </div>
+            </div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th style="width:80px">Cores</th>
+                            <th style="width:80px">Threads</th>
+                            <th style="width:80px">GHz</th>
+                            <th style="width:100px">Used By</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cpu-catalog-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ NIC CATALOG TAB ═══════════════════ -->
+        <div class="tab-content" id="tab-nics">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="btn btn-primary" onclick="openAddCatalogItem('nic')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add NIC
+                    </button>
+                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import Catalog
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Template
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <span class="count-badge" id="nic-count"></span>
+                </div>
+            </div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th style="width:80px">Ports</th>
+                            <th style="width:120px">Speed</th>
+                            <th style="width:100px">Used By</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nic-catalog-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ DRIVE CATALOG TAB ═══════════════════ -->
+        <div class="tab-content" id="tab-drives">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <button class="btn btn-primary" onclick="openAddCatalogItem('drive')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Drive
+                    </button>
+                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import Catalog
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Template
+                    </button>
+                </div>
+                <div class="toolbar-right">
+                    <span class="count-badge" id="drive-count"></span>
+                </div>
+            </div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th style="width:120px">Type</th>
+                            <th style="width:120px">Size (TB)</th>
+                            <th style="width:100px">Used By</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drive-catalog-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ CATALOG IMPORT MODAL ═══════════════════ -->
+        <div class="modal-overlay" id="catalog-import-modal" style="display:none">
+            <div class="modal" style="max-width:600px">
+                <div class="modal-header">
+                    <h2>Import from Excel</h2>
+                    <button class="modal-close" onclick="closeCatalogImport()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="import-info">Upload an Excel file with any combination of these sheets:</p>
+                    <p class="import-info"><strong>Catalog:</strong> CPUs, NICs, Drives</p>
+                    <p class="import-info"><strong>Models:</strong> Models, Model CPU Options, Model RAM Options, Model Storage, Model Drive Options, Model NIC Options</p>
+                    <p class="import-info">Only include the sheets you need. Catalog items are imported first, then models. Existing entries are skipped.</p>
+                    <p class="import-info">Use <strong>Template</strong> to download a file with all sheets and example rows.</p>
+                    <div class="form-group" style="margin-top:1rem">
+                        <label>Excel file (.xlsx)</label>
+                        <input type="file" id="catalog-import-file" accept=".xlsx">
+                    </div>
+                    <div id="catalog-import-status" style="display:none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeCatalogImport()">Cancel</button>
+                    <button class="btn btn-primary" onclick="doCatalogImport()">Import</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ CATALOG ITEM MODAL ═══════════════════ -->
+        <div class="modal-overlay" id="catalog-modal" style="display:none">
+            <div class="modal" style="max-width:560px">
+                <div class="modal-header">
+                    <h2 id="catalog-modal-title">Add Item</h2>
+                    <button class="modal-close" onclick="closeCatalogModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="catalog-modal-body"></div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeCatalogModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveCatalogItem()">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ MODEL EDIT MODAL ═══════════════════ -->
+        <div class="modal-overlay" id="edit-modal" style="display:none">
+            <div class="modal modal-wide">
+                <div class="modal-header">
+                    <h2 id="edit-title">Add Model</h2>
+                    <button class="modal-close" onclick="closeEdit()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit-id">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Model Name *</label>
+                            <input type="text" id="edit-name" placeholder="e.g. HC3450F" oninput="onModelNameInput()">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="edit-status">
+                                <option value="Active">Active</option>
+                                <option value="EOL">EOL</option>
+                                <option value="EOS">EOS</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <input type="text" id="edit-category" placeholder="e.g. 1U All-Flash">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Form Factor</label>
+                            <input type="text" id="edit-form-factor" placeholder="e.g. 1U Rack">
+                        </div>
+                        <div class="form-group">
+                            <label>Chassis</label>
+                            <input type="text" id="edit-chassis" placeholder="e.g. Dell PowerEdge R660">
+                        </div>
+                        <div class="form-group">
+                            <label>Socket</label>
+                            <select id="edit-socket">
+                                <option value="single">Single</option>
+                                <option value="dual">Dual</option>
+                                <option value="virtual">Virtual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>PSU</label>
+                            <input type="text" id="edit-psu" placeholder="e.g. 2x 800W">
+                        </div>
+                        <div class="form-group">
+                            <label>RAM Slots</label>
+                            <input type="number" id="edit-ram-slots" value="0" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Min Nodes</label>
+                            <input type="number" id="edit-min-nodes" value="1" min="1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="edit-notes" rows="2"></textarea>
+                    </div>
+
+                    <hr>
+
+                    <!-- CPU Options (picker) -->
+                    <div class="sub-section">
+                        <div class="sub-header">
+                            <h3>CPU Options</h3>
+                        </div>
+                        <div class="picker-row">
+                            <select id="cpu-picker" class="picker-select">
+                                <option value="">Select a CPU to add...</option>
+                            </select>
+                            <button class="btn btn-small" onclick="addCpuFromPicker()">Add</button>
+                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('cpu', true)">New CPU</button>
+                        </div>
+                        <div id="cpu-chips" class="chip-list"></div>
+                    </div>
+
+                    <!-- RAM Options -->
+                    <div class="sub-section">
+                        <div class="sub-header">
+                            <h3>RAM Options (GB)</h3>
+                        </div>
+                        <div id="ram-list" class="chip-list"></div>
+                    </div>
+
+                    <!-- Storage Config -->
+                    <div class="sub-section">
+                        <div class="sub-header">
+                            <h3>Storage Configuration</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select id="edit-stor-type" onchange="updateStorageFields()">
+                                    <option value="nvme_only">NVMe Only</option>
+                                    <option value="ssd_only">SSD Only</option>
+                                    <option value="hdd_only">HDD Only</option>
+                                    <option value="hybrid">Hybrid (HDD + SSD)</option>
+                                    <option value="hybrid_nvme">Hybrid (HDD + NVMe)</option>
+                                    <option value="nvme_and_ssd">NVMe + SSD</option>
+                                    <option value="cloud">Cloud</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="stor-drives-per-node-wrap">
+                                <label>Drives Per Node</label>
+                                <input type="number" id="edit-stor-dpn" min="1" value="1">
+                            </div>
+                            <div class="form-group" id="stor-hdd-count-wrap" style="display:none">
+                                <label>HDD Count</label>
+                                <input type="number" id="edit-stor-hdd-count" min="1" value="3">
+                            </div>
+                            <div class="form-group" id="stor-ssd-count-wrap" style="display:none">
+                                <label>SSD Count</label>
+                                <input type="number" id="edit-stor-ssd-count" min="1" value="1">
+                            </div>
+                            <div class="form-group" id="stor-nvme-count-wrap" style="display:none">
+                                <label>NVMe Count</label>
+                                <input type="number" id="edit-stor-nvme-count" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="sub-header" style="margin-top:0.5rem">
+                            <h4>Drive Size Options</h4>
+                        </div>
+                        <div class="picker-row">
+                            <select id="drive-picker" class="picker-select">
+                                <option value="">Select a drive to add...</option>
+                            </select>
+                            <button class="btn btn-small" onclick="addDriveFromPicker()">Add</button>
+                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('drive', true)">New Drive</button>
+                        </div>
+                        <div id="drive-chips" class="chip-list"></div>
+                    </div>
+
+                    <!-- NIC Options (picker) -->
+                    <div class="sub-section">
+                        <div class="sub-header">
+                            <h3>NIC Options</h3>
+                        </div>
+                        <div class="picker-row">
+                            <select id="nic-picker" class="picker-select">
+                                <option value="">Select a NIC to add...</option>
+                            </select>
+                            <button class="btn btn-small" onclick="addNicFromPicker()">Add</button>
+                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('nic', true)">New NIC</button>
+                        </div>
+                        <div id="nic-chips" class="chip-list"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveModel()">Save Model</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>

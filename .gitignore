@@ -1,0 +1,8 @@
+.claude/
+_archive/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+*.sqlite3
