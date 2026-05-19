@@ -173,7 +173,13 @@
 
             <div id="import-results" style="display:none">
                 <div class="import-summary">
-                    <h3>Environment Summary</h3>
+                    <div class="section-header-row">
+                        <h3>Environment Summary</h3>
+                        <button class="btn btn-advanced" id="btn-vm-exclusions" onclick="openVmExclusionModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            Exclude VMs <span id="vm-exclusion-count"></span>
+                        </button>
+                    </div>
                     <div class="summary-grid" id="env-summary"></div>
                 </div>
 
@@ -453,6 +459,50 @@
     <footer>
         <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)</p>
     </footer>
+
+    <!-- VM Exclusion Modal -->
+    <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Exclude VMs from Sizing</h2>
+                <button class="modal-close" onclick="closeVmExclusionModal()">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." oninput="filterVmTable()">
+                <div class="modal-actions">
+                    <button class="btn btn-sm" onclick="selectPoweredOffVms()">Select powered off</button>
+                    <button class="btn btn-sm" onclick="selectLikelyCVMs()">Select likely CVMs</button>
+                    <button class="btn btn-sm btn-muted" onclick="clearAllVmExclusions()">Clear all</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="vm-table">
+                        <thead>
+                            <tr>
+                                <th class="vm-col-check">Excl. Compute</th>
+                                <th class="vm-col-check">Excl. Storage</th>
+                                <th class="vm-col-name sortable" onclick="sortVmTable('name')">VM Name</th>
+                                <th class="vm-col-power sortable" onclick="sortVmTable('powered_on')">Power</th>
+                                <th class="vm-col-num sortable" onclick="sortVmTable('vcpus')">vCPUs</th>
+                                <th class="vm-col-num sortable" onclick="sortVmTable('provisioned_memory_gb')">RAM (GB)</th>
+                                <th class="vm-col-num sortable" onclick="sortVmTable('vdisk_used_gb')">Storage (GB)</th>
+                                <th class="vm-col-os">OS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vm-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="vm-exclusion-summary" id="vm-exclusion-summary"></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" onclick="closeVmExclusionModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="applyVmExclusions()">Apply Exclusions</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/js/app.js"></script>
 </body>
