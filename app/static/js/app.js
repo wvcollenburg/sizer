@@ -6,6 +6,12 @@ let lastProjection = {};
 let lastSummary = {};
 let lastConfigResult = null;
 
+let importVms = [];
+let originalImportSummary = null;
+let vmExclusions = { compute: new Set(), storage: new Set() };
+let vmSortField = 'name';
+let vmSortAsc = true;
+
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadValidatedNics();
@@ -497,6 +503,10 @@ async function uploadFile(file) {
         }
 
         importSummary = data.summary;
+        originalImportSummary = JSON.parse(JSON.stringify(data.summary));
+        importVms = data.vms || [];
+        vmExclusions = { compute: new Set(), storage: new Set() };
+        updateExclusionCountBadge();
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}`, false);
         displayImportResults(data);
@@ -965,4 +975,231 @@ async function exportConfig() {
         btn.textContent = origText;
         btn.disabled = false;
     }
+}
+
+// ==================== VM EXCLUSION MODAL ====================
+
+const CVM_PATTERNS = [
+    /^stctlvm/i, /^scvm/i, /^cvm/i, /^ntnx/i, /^nutanix/i,
+    /^svt-/i, /^omnistack/i, /simplivity/i, /^vsa-/i, /^vsa\d/i,
+    /^hpe\s*simplivity/i, /witness/i,
+];
+
+function openVmExclusionModal() {
+    if (!importVms.length) return;
+    renderVmTable();
+    updateVmExclusionSummary();
+    document.getElementById('vm-exclusion-modal').style.display = 'flex';
+    document.getElementById('vm-search').value = '';
+    document.getElementById('vm-search').focus();
+}
+
+function closeVmExclusionModal() {
+    document.getElementById('vm-exclusion-modal').style.display = 'none';
+}
+
+function renderVmTable() {
+    const sorted = importVms.map((vm, i) => ({ ...vm, _idx: i }));
+    sorted.sort((a, b) => {
+        let va = a[vmSortField], vb = b[vmSortField];
+        if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+        if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+        if (va < vb) return vmSortAsc ? -1 : 1;
+        if (va > vb) return vmSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    const tbody = document.getElementById('vm-table-body');
+    tbody.innerHTML = sorted.map(vm => {
+        const compChecked = vmExclusions.compute.has(vm._idx) ? 'checked' : '';
+        const storChecked = vmExclusions.storage.has(vm._idx) ? 'checked' : '';
+        const excluded = vmExclusions.compute.has(vm._idx) || vmExclusions.storage.has(vm._idx);
+        const powerClass = vm.powered_on ? 'vm-power-on' : 'vm-power-off';
+        const powerLabel = vm.powered_on ? 'On' : 'Off';
+        const rowClass = excluded ? 'vm-excluded' : '';
+        return `<tr class="${rowClass}" data-idx="${vm._idx}">
+            <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
+            <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
+            <td class="vm-col-name" title="${vm.name}">${vm.name}</td>
+            <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
+            <td class="vm-col-num">${vm.vcpus}</td>
+            <td class="vm-col-num">${vm.provisioned_memory_gb.toFixed(1)}</td>
+            <td class="vm-col-num">${vm.vdisk_used_gb.toFixed(1)}</td>
+            <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
+        </tr>`;
+    }).join('');
+
+    document.querySelectorAll('.vm-table th.sortable').forEach(th => {
+        const arrows = th.querySelector('.sort-arrow');
+        if (arrows) arrows.remove();
+    });
+    const headers = document.querySelectorAll('.vm-table th.sortable');
+    headers.forEach(th => {
+        const field = th.getAttribute('onclick').match(/'(.+?)'/)?.[1];
+        if (field === vmSortField) {
+            const arrow = document.createElement('span');
+            arrow.className = 'sort-arrow';
+            arrow.textContent = vmSortAsc ? ' ▲' : ' ▼';
+            th.appendChild(arrow);
+        }
+    });
+}
+
+function sortVmTable(field) {
+    if (vmSortField === field) {
+        vmSortAsc = !vmSortAsc;
+    } else {
+        vmSortField = field;
+        vmSortAsc = true;
+    }
+    renderVmTable();
+    filterVmTable();
+}
+
+function filterVmTable() {
+    const q = document.getElementById('vm-search').value.toLowerCase();
+    document.querySelectorAll('#vm-table-body tr').forEach(row => {
+        const name = row.children[2].textContent.toLowerCase();
+        const os = row.children[7].textContent.toLowerCase();
+        row.classList.toggle('vm-hidden', q && !name.includes(q) && !os.includes(q));
+    });
+}
+
+function toggleVmExclusion(idx, type, checked) {
+    if (checked) {
+        vmExclusions[type].add(idx);
+    } else {
+        vmExclusions[type].delete(idx);
+    }
+    const row = document.querySelector(`#vm-table-body tr[data-idx="${idx}"]`);
+    if (row) {
+        const excluded = vmExclusions.compute.has(idx) || vmExclusions.storage.has(idx);
+        row.classList.toggle('vm-excluded', excluded);
+    }
+    updateVmExclusionSummary();
+}
+
+function selectPoweredOffVms() {
+    importVms.forEach((vm, i) => {
+        if (!vm.powered_on) {
+            vmExclusions.compute.add(i);
+            vmExclusions.storage.add(i);
+        }
+    });
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+function selectLikelyCVMs() {
+    importVms.forEach((vm, i) => {
+        if (CVM_PATTERNS.some(rx => rx.test(vm.name))) {
+            vmExclusions.compute.add(i);
+            vmExclusions.storage.add(i);
+        }
+    });
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+function clearAllVmExclusions() {
+    vmExclusions.compute.clear();
+    vmExclusions.storage.clear();
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+function updateVmExclusionSummary() {
+    const allExcluded = new Set([...vmExclusions.compute, ...vmExclusions.storage]);
+
+    let compVcpus = 0, compRam = 0, compActive = 0;
+    vmExclusions.compute.forEach(i => {
+        const vm = importVms[i];
+        if (vm.powered_on && !vm.is_template) {
+            compVcpus += vm.vcpus;
+            compRam += vm.provisioned_memory_gb;
+            compActive++;
+        }
+    });
+
+    let storGb = 0;
+    vmExclusions.storage.forEach(i => {
+        storGb += importVms[i].vdisk_used_gb;
+    });
+
+    const el = document.getElementById('vm-exclusion-summary');
+    if (allExcluded.size === 0) {
+        el.textContent = 'No VMs excluded';
+    } else {
+        const parts = [];
+        if (vmExclusions.compute.size > 0) {
+            let label = `Compute: ${vmExclusions.compute.size} VMs`;
+            if (compActive > 0) label += ` (-${compVcpus} vCPUs, -${compRam.toFixed(1)} GB RAM)`;
+            if (compActive < vmExclusions.compute.size) label += ` (${vmExclusions.compute.size - compActive} already off)`;
+            parts.push(label);
+        }
+        if (vmExclusions.storage.size > 0) {
+            parts.push(`Storage: ${vmExclusions.storage.size} VMs (-${(storGb / 1024).toFixed(2)} TB)`);
+        }
+        el.innerHTML = `<strong>${allExcluded.size} VM(s) excluded</strong> &mdash; ${parts.join(' | ')}`;
+    }
+}
+
+function updateExclusionCountBadge() {
+    const el = document.getElementById('vm-exclusion-count');
+    const total = new Set([...vmExclusions.compute, ...vmExclusions.storage]).size;
+    el.innerHTML = total > 0 ? `<span class="exclusion-active">${total}</span>` : '';
+}
+
+function applyVmExclusions() {
+    if (!originalImportSummary) return;
+
+    const adjusted = JSON.parse(JSON.stringify(originalImportSummary));
+
+    let exclVcpus = 0, exclProvRam = 0, exclUsedRam = 0;
+    let exclActiveCount = 0;
+    vmExclusions.compute.forEach(i => {
+        const vm = importVms[i];
+        if (vm.powered_on && !vm.is_template) {
+            exclVcpus += vm.vcpus;
+            exclProvRam += vm.provisioned_memory_gb;
+            exclUsedRam += vm.consumed_memory_gb;
+            exclActiveCount++;
+        }
+    });
+
+    adjusted.total_vcpus = originalImportSummary.total_vcpus - exclVcpus;
+    adjusted.total_vm_provisioned_memory_gb = Math.round((originalImportSummary.total_vm_provisioned_memory_gb - exclProvRam) * 10) / 10;
+    adjusted.total_vm_used_memory_gb = Math.round((originalImportSummary.total_vm_used_memory_gb - exclUsedRam) * 10) / 10;
+    adjusted.active_vms = originalImportSummary.active_vms - exclActiveCount;
+
+    if (adjusted.total_host_cores > 0) {
+        adjusted.vcpu_per_core_ratio = Math.round((adjusted.total_vcpus / adjusted.total_host_cores) * 100) / 100;
+    }
+
+    let exclStorGbAll = 0, exclProvStorGbActive = 0, exclStorGbActive = 0;
+    vmExclusions.storage.forEach(i => {
+        const vm = importVms[i];
+        exclStorGbAll += vm.vdisk_used_gb;
+        if (vm.powered_on && !vm.is_template) {
+            exclStorGbActive += vm.vdisk_used_gb;
+            exclProvStorGbActive += vm.vdisk_size_gb;
+        }
+    });
+
+    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024) * 100) / 100;
+    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive) * 10) / 10;
+    adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / 1024 * 100) / 100;
+    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive) * 10) / 10;
+    adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
+
+    if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
+
+    importSummary = adjusted;
+    updateExclusionCountBadge();
+    displayImportResults({ summary: adjusted, recommendations: [], projection: lastProjection['import'] });
+    recalcRecommendations();
+    closeVmExclusionModal();
 }
