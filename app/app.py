@@ -243,18 +243,15 @@ def calculate_appliance(data, node_count):
     total_raw = raw_per_node * node_count
     usable = (total_raw - biggest_disk) / 2 if node_count > 1 else raw_per_node
 
-    usable_cores = cpu["cores"] - 1
-    usable_ram = ram_gb - 6
-
-    total_cores = usable_cores * node_count
+    total_cores = cpu["cores"] * node_count
     total_threads = cpu["threads"] * node_count
     total_ghz = cpu["ghz"] * cpu["cores"] * node_count
-    total_ram = usable_ram * node_count
+    total_ram = ram_gb * node_count
 
-    n1_cores = usable_cores * (node_count - 1) if node_count > 1 else usable_cores
+    n1_cores = cpu["cores"] * (node_count - 1) if node_count > 1 else cpu["cores"]
     n1_threads = cpu["threads"] * (node_count - 1) if node_count > 1 else cpu["threads"]
     n1_ghz = cpu["ghz"] * cpu["cores"] * (node_count - 1) if node_count > 1 else total_ghz
-    n1_ram = usable_ram * (node_count - 1) if node_count > 1 else usable_ram
+    n1_ram = ram_gb * (node_count - 1) if node_count > 1 else ram_gb
 
     return {
         "mode": "appliance",
@@ -262,17 +259,17 @@ def calculate_appliance(data, node_count):
         "node_count": node_count,
         "per_node": {
             "cpu": cpu["desc"],
-            "cores": usable_cores,
+            "cores": cpu["cores"],
             "threads": cpu["threads"],
             "ghz": cpu["ghz"],
-            "ram_gb": usable_ram,
+            "ram_gb": ram_gb,
             "raw_storage_tb": round(raw_per_node, 2),
         },
         "cluster_total": {
             "cores": total_cores,
             "threads": total_threads,
             "total_ghz": round(total_ghz, 2),
-            "ram_gb": round(total_ram, 1),
+            "ram_gb": total_ram,
             "raw_storage_tb": round(total_raw, 2),
             "usable_storage_tb": round(usable, 2),
         },
@@ -280,7 +277,7 @@ def calculate_appliance(data, node_count):
             "cores": n1_cores,
             "threads": n1_threads,
             "total_ghz": round(n1_ghz, 2),
-            "ram_gb": round(n1_ram, 1),
+            "ram_gb": n1_ram,
             "usable_storage_tb": round(usable, 2),
         },
         "form_factor": model["form_factor"],
@@ -377,18 +374,15 @@ def calculate_validated(data, node_count):
     total_raw = raw_per_node * node_count
     usable = (total_raw - biggest_disk) / 2
 
-    usable_cores = cores - 1
-    usable_ram = ram_gb - 6
-
-    total_cores = usable_cores * node_count
+    total_cores = cores * node_count
     total_threads = threads * node_count
     total_ghz = ghz * cores * node_count
-    total_ram = usable_ram * node_count
+    total_ram = ram_gb * node_count
 
-    n1_cores = usable_cores * (node_count - 1)
+    n1_cores = cores * (node_count - 1)
     n1_threads = threads * (node_count - 1)
     n1_ghz = ghz * cores * (node_count - 1)
-    n1_ram = usable_ram * (node_count - 1)
+    n1_ram = ram_gb * (node_count - 1)
 
     storage_type = "All-Flash"
     if is_hybrid:
@@ -401,10 +395,10 @@ def calculate_validated(data, node_count):
         "node_count": node_count,
         "storage_type": storage_type,
         "per_node": {
-            "cores": usable_cores,
+            "cores": cores,
             "threads": threads,
             "ghz": ghz,
-            "ram_gb": round(usable_ram, 1),
+            "ram_gb": ram_gb,
             "disk_count": disk_count,
             "raw_storage_tb": round(raw_per_node, 2),
             "disks": disks,
@@ -413,7 +407,7 @@ def calculate_validated(data, node_count):
             "cores": total_cores,
             "threads": total_threads,
             "total_ghz": round(total_ghz, 2),
-            "ram_gb": round(total_ram, 1),
+            "ram_gb": total_ram,
             "raw_storage_tb": round(total_raw, 2),
             "usable_storage_tb": round(usable, 2),
         },
@@ -421,7 +415,7 @@ def calculate_validated(data, node_count):
             "cores": n1_cores,
             "threads": n1_threads,
             "total_ghz": round(n1_ghz, 2),
-            "ram_gb": round(n1_ram, 1),
+            "ram_gb": n1_ram,
             "usable_storage_tb": round(usable, 2),
         },
         "validation": {
