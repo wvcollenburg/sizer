@@ -3,6 +3,7 @@ _archive/
 __pycache__/
 *.pyc
 *.pyo
-.env
+.env*
+!.env.template
 *.db
 *.sqlite3
