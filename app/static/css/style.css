@@ -944,6 +944,21 @@ footer {
     font-size: 0.9rem;
 }
 
+.rec-warnings {
+    margin-bottom: 1rem;
+}
+
+.rec-warning {
+    background: #fff3cd;
+    border: 1px solid var(--yellow);
+    border-left: 4px solid var(--orange);
+    border-radius: var(--radius);
+    padding: 0.6rem 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: #856404;
+}
+
 /* ── Section header with inline button ──────────────────────────────── */
 
 .section-header-row {
