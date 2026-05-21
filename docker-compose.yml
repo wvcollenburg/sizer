@@ -22,6 +22,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://sizer:sizer@db:5432/sizer
     restart: unless-stopped

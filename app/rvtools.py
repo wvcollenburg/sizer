@@ -168,8 +168,6 @@ def _build_summary(data):
     datastores = data["datastores"]
 
     active_vms = [v for v in vms if v["powered_on"] and not v["is_template"]]
-    max_vm_ram_gb = max((v["provisioned_memory_gb"] for v in active_vms), default=0)
-    max_vm_cores = max((v["vcpus"] for v in active_vms), default=0)
 
     total_host_cores = sum(h["cpu_cores"] for h in hosts)
     total_host_threads = sum(h["cpu_threads"] for h in hosts)
@@ -237,9 +235,6 @@ def _build_summary(data):
 
         "vcpu_per_core_ratio": round(total_vcpus / total_host_cores, 2) if total_host_cores > 0 else 0,
         "vcpu_per_thread_ratio": round(total_vcpus / total_host_threads, 2) if total_host_threads > 0 else 0,
-
-        "max_vm_ram_gb": round(max_vm_ram_gb, 1),
-        "max_vm_cores": max_vm_cores,
 
         "source": "rvtools",
     }
