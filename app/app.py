@@ -1,7 +1,8 @@
 import os
 import tempfile
+from functools import wraps
 
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, Response
 from database import db, init_db
 from sqlalchemy.orm import joinedload
 from orm_models import (
@@ -22,6 +23,19 @@ def create_app():
     app = Flask(__name__)
     init_db(app)
     app.register_blueprint(admin_bp)
+
+    auth_user = os.environ.get("BASIC_AUTH_USER")
+    auth_pass = os.environ.get("BASIC_AUTH_PASS")
+
+    if auth_user and auth_pass:
+        @app.before_request
+        def require_basic_auth():
+            auth = request.authorization
+            if not auth or auth.username != auth_user or auth.password != auth_pass:
+                return Response(
+                    "Authentication required.", 401,
+                    {"WWW-Authenticate": 'Basic realm="SC// Sizer"'},
+                )
 
     @app.route("/")
     def index():
