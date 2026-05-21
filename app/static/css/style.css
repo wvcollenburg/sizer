@@ -980,6 +980,25 @@ footer {
     margin-left: 4px;
 }
 
+/* ── Recommendation warnings ───────────────────────────────────────── */
+
+.rec-warnings {
+    padding: 0.5rem 1rem;
+    background: #fff8e1;
+    border-top: 1px solid #ffe082;
+}
+
+.rec-warning {
+    color: #b35900;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding: 0.2rem 0;
+}
+
+.rec-warning::before {
+    content: "\26A0\FE0F ";
+}
+
 .btn-muted {
     background: var(--surface2);
     color: var(--text);

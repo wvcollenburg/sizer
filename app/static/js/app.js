@@ -558,7 +558,7 @@ async function recalcRecommendations() {
         if (data.recommendations) {
             lastRecommendations['import'] = data.recommendations;
             lastSummary['import'] = importSummary;
-            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import');
+            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
         }
         if (data.projection) {
             lastProjection['import'] = data.projection;
@@ -707,16 +707,24 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
-    renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import');
+    renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
 }
 
-function renderRecommendationsTo(recommendations, listId, sliderId, mode) {
+function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
     const recList = document.getElementById(listId);
     if (!recommendations || recommendations.length === 0) {
         recList.innerHTML = '<div class="no-recs">No matching configurations found. The workload may exceed available appliance capacities. Consider Software Only (Validated) mode.</div>';
         return;
+    }
+
+    const warningsByModel = {};
+    if (warnings) {
+        warnings.forEach(w => {
+            if (!warningsByModel[w.model]) warningsByModel[w.model] = [];
+            warningsByModel[w.model].push(w);
+        });
     }
 
     const targetRatio = parseFloat(document.getElementById(sliderId).value);
@@ -728,6 +736,11 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode) {
         const n1Label = r.num_clusters > 1
             ? `N-1 per Cluster (${r.num_clusters} spares)`
             : 'N-1 Available';
+        const modelWarnings = warningsByModel[r.model] || [];
+        const warningHtml = modelWarnings.length > 0
+            ? `<div class="rec-warnings">${modelWarnings.map(w =>
+                `<div class="rec-warning">${w.message}</div>`).join('')}</div>`
+            : '';
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -737,7 +750,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode) {
                 <span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>
                 <span class="rec-nodes">${r.node_count} nodes</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
-            </div>
+            </div>${warningHtml}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>Per Node</h4>
@@ -877,7 +890,7 @@ async function recalcManualRecommendations() {
     if (data.recommendations) {
         lastRecommendations['manual'] = data.recommendations;
         lastSummary['manual'] = manualSummary;
-        renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual');
+        renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual', data.warnings);
     }
     if (data.projection) {
         lastProjection['manual'] = data.projection;
@@ -1196,6 +1209,16 @@ function applyVmExclusions() {
     adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
+
+    let maxVmRam = 0, maxVmCores = 0;
+    importVms.forEach((vm, i) => {
+        if (vm.powered_on && !vm.is_template && !vmExclusions.compute.has(i)) {
+            if (vm.provisioned_memory_gb > maxVmRam) maxVmRam = vm.provisioned_memory_gb;
+            if (vm.vcpus > maxVmCores) maxVmCores = vm.vcpus;
+        }
+    });
+    adjusted.max_vm_ram_gb = Math.round(maxVmRam * 10) / 10;
+    adjusted.max_vm_cores = maxVmCores;
 
     importSummary = adjusted;
     updateExclusionCountBadge();
