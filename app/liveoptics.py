@@ -259,6 +259,9 @@ def _build_summary(data):
 
         "vcpu_per_core_ratio": round(total_vcpus / total_host_cores, 2) if total_host_cores > 0 else 0,
         "vcpu_per_thread_ratio": round(total_vcpus / total_host_threads, 2) if total_host_threads > 0 else 0,
+
+        "max_vm_ram_gb": max((v["provisioned_memory_gb"] for v in active_vms), default=0),
+        "max_vm_cores": max((v["vcpus"] for v in active_vms), default=0),
     }
 
 

@@ -558,7 +558,7 @@ async function recalcRecommendations() {
         if (data.recommendations) {
             lastRecommendations['import'] = data.recommendations;
             lastSummary['import'] = importSummary;
-            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import');
+            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
         }
         if (data.projection) {
             lastProjection['import'] = data.projection;
@@ -707,12 +707,12 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
-    renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import');
+    renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
 }
 
-function renderRecommendationsTo(recommendations, listId, sliderId, mode) {
+function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
     const recList = document.getElementById(listId);
     if (!recommendations || recommendations.length === 0) {
         recList.innerHTML = '<div class="no-recs">No matching configurations found. The workload may exceed available appliance capacities. Consider Software Only (Validated) mode.</div>';
@@ -721,7 +721,14 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode) {
 
     const targetRatio = parseFloat(document.getElementById(sliderId).value);
 
-    recList.innerHTML = recommendations.map((r, i) => {
+    let warningsHtml = '';
+    if (warnings && warnings.length > 0) {
+        warningsHtml = '<div class="rec-warnings">' +
+            warnings.map(w => `<div class="rec-warning">${w}</div>`).join('') +
+            '</div>';
+    }
+
+    recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
         const clusterInfo = r.num_clusters > 1
             ? `${r.num_clusters} clusters (${r.cluster_layout.join(' + ')})`
             : '1 cluster';
@@ -877,7 +884,7 @@ async function recalcManualRecommendations() {
     if (data.recommendations) {
         lastRecommendations['manual'] = data.recommendations;
         lastSummary['manual'] = manualSummary;
-        renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual');
+        renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual', data.warnings);
     }
     if (data.projection) {
         lastProjection['manual'] = data.projection;
@@ -1178,6 +1185,17 @@ function applyVmExclusions() {
     if (adjusted.total_host_cores > 0) {
         adjusted.vcpu_per_core_ratio = Math.round((adjusted.total_vcpus / adjusted.total_host_cores) * 100) / 100;
     }
+
+    // Recalculate max VM sizes from remaining active VMs
+    let maxVmRam = 0, maxVmCores = 0;
+    importVms.forEach((vm, i) => {
+        if (vm.powered_on && !vm.is_template && !vmExclusions.compute.has(i)) {
+            if (vm.provisioned_memory_gb > maxVmRam) maxVmRam = vm.provisioned_memory_gb;
+            if (vm.vcpus > maxVmCores) maxVmCores = vm.vcpus;
+        }
+    });
+    adjusted.max_vm_ram_gb = maxVmRam;
+    adjusted.max_vm_cores = maxVmCores;
 
     let exclStorGbAll = 0, exclProvStorGbActive = 0, exclStorGbActive = 0;
     vmExclusions.storage.forEach(i => {

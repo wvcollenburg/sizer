@@ -14,7 +14,7 @@ from orm_models import (
 from models import DISK_SIZES_TB, RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
-from recommend import generate_recommendations
+from recommend import generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD
 from export_pptx import generate_proposal, generate_config_slide
 from admin_routes import admin_bp
 
@@ -144,6 +144,7 @@ def create_app():
                 "active_vm_count": data["summary"]["active_vms"],
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
+                "warnings": result.get("warnings", []),
                 "source": file_type,
             })
         except Exception as e:
@@ -243,15 +244,19 @@ def calculate_appliance(data, node_count):
     total_raw = raw_per_node * node_count
     usable = (total_raw - biggest_disk) / 2 if node_count > 1 else raw_per_node
 
-    total_cores = cpu["cores"] * node_count
+    # Apply HyperCore OS overhead
+    usable_cores = cpu["cores"] - OS_CORE_OVERHEAD
+    usable_ram = ram_gb - USABLE_RAM_OVERHEAD
+
+    total_cores = usable_cores * node_count
     total_threads = cpu["threads"] * node_count
     total_ghz = cpu["ghz"] * cpu["cores"] * node_count
-    total_ram = ram_gb * node_count
+    total_ram = usable_ram * node_count
 
-    n1_cores = cpu["cores"] * (node_count - 1) if node_count > 1 else cpu["cores"]
+    n1_cores = usable_cores * (node_count - 1) if node_count > 1 else usable_cores
     n1_threads = cpu["threads"] * (node_count - 1) if node_count > 1 else cpu["threads"]
     n1_ghz = cpu["ghz"] * cpu["cores"] * (node_count - 1) if node_count > 1 else total_ghz
-    n1_ram = ram_gb * (node_count - 1) if node_count > 1 else ram_gb
+    n1_ram = usable_ram * (node_count - 1) if node_count > 1 else usable_ram
 
     return {
         "mode": "appliance",
@@ -259,10 +264,10 @@ def calculate_appliance(data, node_count):
         "node_count": node_count,
         "per_node": {
             "cpu": cpu["desc"],
-            "cores": cpu["cores"],
+            "cores": usable_cores,
             "threads": cpu["threads"],
             "ghz": cpu["ghz"],
-            "ram_gb": ram_gb,
+            "ram_gb": usable_ram,
             "raw_storage_tb": round(raw_per_node, 2),
         },
         "cluster_total": {
@@ -369,20 +374,24 @@ def calculate_validated(data, node_count):
                     "flash_percentage": round(flash_pct, 1),
                 }
 
+    # Apply HyperCore OS overhead
+    usable_cores = cores - OS_CORE_OVERHEAD
+    usable_ram = ram_gb - USABLE_RAM_OVERHEAD
+
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
     total_raw = raw_per_node * node_count
     usable = (total_raw - biggest_disk) / 2
 
-    total_cores = cores * node_count
+    total_cores = usable_cores * node_count
     total_threads = threads * node_count
     total_ghz = ghz * cores * node_count
-    total_ram = ram_gb * node_count
+    total_ram = usable_ram * node_count
 
-    n1_cores = cores * (node_count - 1)
+    n1_cores = usable_cores * (node_count - 1)
     n1_threads = threads * (node_count - 1)
     n1_ghz = ghz * cores * (node_count - 1)
-    n1_ram = ram_gb * (node_count - 1)
+    n1_ram = usable_ram * (node_count - 1)
 
     storage_type = "All-Flash"
     if is_hybrid:
@@ -395,10 +404,10 @@ def calculate_validated(data, node_count):
         "node_count": node_count,
         "storage_type": storage_type,
         "per_node": {
-            "cores": cores,
+            "cores": usable_cores,
             "threads": threads,
             "ghz": ghz,
-            "ram_gb": ram_gb,
+            "ram_gb": usable_ram,
             "disk_count": disk_count,
             "raw_storage_tb": round(raw_per_node, 2),
             "disks": disks,
