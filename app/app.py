@@ -361,6 +361,18 @@ def calculate_validated(data, node_count):
     if disk_count == 2:
         return {"error": "Disk count must be 1 or 3+. 2 disks is not supported."}
 
+    # Cluster-wide hard limit (not published; surfaced only when exceeded).
+    total_cluster_disks = disk_count * node_count
+    if total_cluster_disks > 100:
+        return {
+            "error": (
+                f"Cluster disk limit exceeded: {total_cluster_disks} disks "
+                f"({disk_count} per node × {node_count} nodes). The maximum is "
+                f"100 disks per cluster. When more storage capacity is required, "
+                f"the recommendation is to deploy multiple clusters."
+            )
+        }
+
     has_spinning = any(d["type"] in ("SAS", "NLSAS", "SATA", "HDD") for d in disks)
     has_flash = any(d["type"] in ("SSD", "NVMe") for d in disks)
     is_hybrid = has_spinning and has_flash

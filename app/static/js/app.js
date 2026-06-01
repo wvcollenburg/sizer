@@ -245,6 +245,15 @@ async function calculateValidated() {
     const disks = collectValidatedDisks();
 
     const validation = validateDisks(disks);
+    const totalClusterDisks = disks.length * nodeCount;
+    if (totalClusterDisks > 100) {
+        validation.errors.push(
+            `Cluster disk limit exceeded: ${totalClusterDisks} disks ` +
+            `(${disks.length} per node × ${nodeCount} nodes). The maximum is ` +
+            `100 disks per cluster. When more storage capacity is required, the ` +
+            `recommendation is to deploy multiple clusters.`
+        );
+    }
     const valDiv = document.getElementById('disk-validation');
     if (validation.errors.length > 0) {
         valDiv.innerHTML = validation.errors.map(e => `<div class="val-error">${e}</div>`).join('');
