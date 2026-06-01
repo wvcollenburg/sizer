@@ -480,7 +480,13 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             area.classList.remove('drag-over');
-            const file = extractDroppedFile(e.dataTransfer);
+            const dt = e.dataTransfer;
+            console.log('[drop] target=', e.target.id || e.target.tagName,
+                'files=', dt.files && dt.files.length,
+                'items=', dt.items && Array.from(dt.items).map(i => i.kind + ':' + i.type),
+                'types=', dt.types && Array.from(dt.types));
+            const file = extractDroppedFile(dt);
+            console.log('[drop] extracted file=', file && file.name);
             if (file) uploadFile(file);
         });
     }
