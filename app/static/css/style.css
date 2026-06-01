@@ -459,6 +459,9 @@ footer {
     top: 0; left: 0; width: 100%; height: 100%;
     opacity: 0;
     cursor: pointer;
+    /* Let drag/drop pass through to .upload-area; on Linux a drop onto a native
+       file input yields an empty dataTransfer. Clicks are handled by the area. */
+    pointer-events: none;
 }
 
 .upload-status {
