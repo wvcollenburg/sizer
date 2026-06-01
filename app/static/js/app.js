@@ -466,7 +466,10 @@ let importSummary = null;
 document.addEventListener('DOMContentLoaded', () => {
     const area = document.getElementById('upload-area');
     if (area) {
-        area.addEventListener('click', () => document.getElementById('file-input').click());
+        area.addEventListener('click', e => {
+            if (e.target.id === 'file-input') return; // overlay input already opens the dialog natively
+            document.getElementById('file-input').click();
+        });
         area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
         area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
         area.addEventListener('drop', e => {
