@@ -259,6 +259,14 @@
                             <span>8:1 Aggressive</span>
                         </div>
                     </div>
+                    <div class="full-cluster-option">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
+                            Size CPU for full cluster
+                        </label>
+                        <span class="info-icon" id="full-cluster-info" tabindex="0"
+                              title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
+                    </div>
                 </div>
 
                 <div class="growth-control">

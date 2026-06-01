@@ -551,6 +551,8 @@ async function uploadFile(file) {
         updateExclusionCountBadge();
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
         document.getElementById('storage-pref').value = 'auto';
+        document.getElementById('size-full-cluster').checked = false;
+        updateFullClusterInfo(false, null);
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}`, false);
         displayImportResults(data);
@@ -588,6 +590,7 @@ async function recalcRecommendations() {
     const targetNodesRaw = document.getElementById('target-nodes').value;
     const targetNodes = targetNodesRaw ? parseInt(targetNodesRaw, 10) : null;
     const storagePref = document.getElementById('storage-pref').value;
+    const sizeFullCluster = document.getElementById('size-full-cluster').checked;
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -601,6 +604,7 @@ async function recalcRecommendations() {
                 snapshot_pct: snapshotPct,
                 target_nodes: targetNodes,
                 storage_pref: storagePref,
+                size_full_cluster: sizeFullCluster,
             }),
         });
         const data = await resp.json();
@@ -608,6 +612,7 @@ async function recalcRecommendations() {
             lastRecommendations['import'] = data.recommendations;
             lastSummary['import'] = importSummary;
             renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
+            updateFullClusterInfo(sizeFullCluster, data.recommendations);
         }
         if (data.projection) {
             lastProjection['import'] = data.projection;
@@ -615,6 +620,26 @@ async function recalcRecommendations() {
         }
     } catch (e) {
         console.error('Recalc failed:', e);
+    }
+}
+
+const FULL_CLUSTER_INFO_BASE =
+    'By default CPU is sized for N-1, so the cluster keeps full performance even ' +
+    'if a node fails. Enabling this sizes CPU across all nodes — lowering node ' +
+    'count and cost, but during a node failure performance can degrade as the ' +
+    'effective vCPU:core ratio rises.';
+
+// Append the worst-case degraded ratio across the current recommendations to the
+// (i) tooltip when full-cluster sizing is active.
+function updateFullClusterInfo(enabled, recommendations) {
+    const icon = document.getElementById('full-cluster-info');
+    if (!icon) return;
+    if (enabled && recommendations && recommendations.length > 0) {
+        const worst = Math.max(...recommendations.map(r => r.vcpu_ratio_degraded || 0));
+        icon.title = FULL_CLUSTER_INFO_BASE +
+            ` During a node failure the vCPU:core ratio rises to up to ${worst.toFixed(2)}:1.`;
+    } else {
+        icon.title = FULL_CLUSTER_INFO_BASE;
     }
 }
 
@@ -792,13 +817,16 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const n1Label = r.num_clusters > 1
             ? `N-1 per Cluster (${r.num_clusters} spares)`
             : 'N-1 Available';
+        const ratioBadge = r.sized_full_cluster
+            ? `<span class="rec-ratio-badge degraded" title="Normal vCPU:core ratio (full cluster). Rises to ${r.vcpu_ratio_degraded.toFixed(2)}:1 during a node failure.">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
+            : `<span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>`;
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
                 <span class="rec-model">${r.model}</span>
                 <span class="rec-category">${r.category}</span>
-                <span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>
+                ${ratioBadge}
                 <span class="rec-nodes">${r.node_count} nodes</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>

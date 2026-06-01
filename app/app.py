@@ -164,10 +164,12 @@ def create_app():
         years = data.get("years", 5)
         target_nodes = data.get("target_nodes")
         storage_pref = data.get("storage_pref")
+        size_full_cluster = data.get("size_full_cluster", False)
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
-                                          storage_pref=storage_pref)
+                                          storage_pref=storage_pref,
+                                          size_full_cluster=size_full_cluster)
         return jsonify(result)
 
     @app.route("/api/export-config", methods=["POST"])

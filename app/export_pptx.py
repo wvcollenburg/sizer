@@ -409,16 +409,21 @@ def _slide_proposal(prs, r):
 
 def _slide_projection(prs, s, r, p):
     slide = _add_slide(prs)
+    full_cluster = r.get("sized_full_cluster", False)
+    cpu_basis = "full cluster (N)" if full_cluster else "N-1"
     _add_title(slide, f"Capacity Planning — {p['years']} Year Projection",
                f"{p['growth_pct']}% YoY growth  —  {p['snapshot_pct']}% snapshot overhead  "
-               f"—  Growth factor: {p['growth_factor']}x")
+               f"—  Growth factor: {p['growth_factor']}x  —  CPU sizing: {cpu_basis}")
 
     n1 = r["n_minus_1"]
 
     headers = ["Resource", "Current", f"Year {p['years']} Projected",
                "Proposed (N-1)", "Headroom"]
 
-    vcpu_headroom = n1["cores"] * r["vcpu_ratio"] - p["projected_vcpus"]
+    # vCPU is sized against the full cluster when that mode is on; RAM, GHz and
+    # storage remain N-1, so only this row's basis changes.
+    cpu_basis_cores = r["totals"]["cores"] if full_cluster else n1["cores"]
+    vcpu_headroom = cpu_basis_cores * r["vcpu_ratio"] - p["projected_vcpus"]
     ram_headroom = n1["ram_gb"] - p["projected_ram_gb"]
     stor_headroom = n1["usable_storage_tb"] - p["projected_storage_tb"]
     ghz_headroom = n1["total_ghz"] - p.get("projected_ghz", 0)
@@ -426,7 +431,8 @@ def _slide_projection(prs, s, r, p):
     rows = [
         headers,
         ["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
-         f"{_fmt_num(n1['cores'])} cores @ {r['vcpu_ratio']:.1f}:1",
+         f"{_fmt_num(cpu_basis_cores)} cores @ {r['vcpu_ratio']:.1f}:1"
+         + (" (N)" if full_cluster else ""),
          f"+{_fmt_num(int(vcpu_headroom))} vCPU capacity"],
         ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]),
          _fmt_ram(n1["ram_gb"]),
@@ -470,7 +476,18 @@ def _slide_projection(prs, s, r, p):
     run.font.bold = True
     run.font.color.rgb = GREEN if all_ok else SC_BLUE
 
-    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.1), Inches(12), Inches(0.7))
+    if full_cluster:
+        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(12), Inches(0.4))
+        ctf = cpu_note.text_frame
+        ctf.word_wrap = True
+        cp = ctf.paragraphs[0]
+        cr = cp.add_run()
+        cr.text = ("CPU capacity is sized on the assumption that all nodes are operational; "
+                   "in the event of a node failure, CPU performance may be temporarily reduced.")
+        cr.font.size = Pt(10.5)
+        cr.font.color.rgb = CHARCOAL
+
+    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(12), Inches(0.7))
     dtf = disclaimer.text_frame
     dtf.word_wrap = True
     dp = dtf.paragraphs[0]

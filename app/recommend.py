@@ -23,7 +23,7 @@ STORAGE_CATEGORIES = {
 
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
-                             storage_pref=None):
+                             storage_pref=None, size_full_cluster=False):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -40,6 +40,9 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # Optional storage-media preference. Anything else (incl. "auto") = no filter.
     if storage_pref not in ("flash", "hybrid", "spinning"):
         storage_pref = None
+
+    # Size CPU against the full cluster instead of N-1 (degraded on node failure).
+    size_full_cluster = bool(size_full_cluster)
     growth = growth_pct / 100
     snap_base = snapshot_pct / 100
 
@@ -63,6 +66,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "current_total_ghz": summary.get("total_host_ghz", 0),
         "max_vm_ram_gb": summary.get("max_vm_ram_gb", 0),
         "max_vm_cores": summary.get("max_vm_cores", 0),
+        "size_full_cluster": size_full_cluster,
     }
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
@@ -201,15 +205,17 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
 
     # CPU is fixable by a higher ratio only if some config already meets RAM and
     # storage within the cap, with cores the sole resource pushing it over.
+    # The core pool at the target is the full cluster (full-cluster sizing) or
+    # N-1 (default), matching how _fit_model gated the CPU fit.
     layout = _cluster_layout(target_nodes)
-    n1 = target_nodes - len(layout)
-    if n1 > 0:
+    cpu_nodes = target_nodes if needs.get("size_full_cluster") else target_nodes - len(layout)
+    if cpu_nodes > 0:
         fixable = [c for c in deduped
                    if c["_nodes_for_cpu"] > target_nodes
                    and c["_nodes_for_ram"] <= target_nodes
                    and c["_nodes_for_storage"] <= target_nodes]
         if fixable:
-            needed = min(needs["vcpus"] / (c["usable_cores_per_node"] * n1)
+            needed = min(needs["vcpus"] / (c["usable_cores_per_node"] * cpu_nodes)
                          for c in fixable)
             suggested = math.ceil(needed * 4) / 4   # round up to a 0.25 step
             if suggested <= 8:                      # within the ratio slider range
@@ -326,11 +332,16 @@ def _fit_model(model, needs, required_cores):
         if cores_per_node == 0 or usable_cores <= 0:
             continue
 
+        full_cluster = needs.get("size_full_cluster", False)
+
         needed_nodes_cpu = 0
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1 = n - len(layout)
-            if usable_cores * n1 >= required_cores:
+            # When sizing for the full cluster, all nodes carry load; otherwise
+            # the workload must fit with one node down per cluster (N-1).
+            cpu_nodes = n if full_cluster else n1
+            if usable_cores * cpu_nodes >= required_cores:
                 needed_nodes_cpu = n
                 break
 
@@ -342,8 +353,10 @@ def _fit_model(model, needs, required_cores):
             num_clusters = len(layout)
             n1_nodes = node_count - num_clusters
             n1_usable_cores = usable_cores * n1_nodes
+            full_usable_cores = usable_cores * node_count
+            cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
 
-            if n1_usable_cores < required_cores:
+            if cpu_avail < required_cores:
                 continue
 
             ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
@@ -372,7 +385,11 @@ def _fit_model(model, needs, required_cores):
                 continue
 
             n1_ghz = ghz_per_node * n1_nodes
-            rec_ratio = needs["vcpus"] / n1_usable_cores if n1_usable_cores > 0 else 99
+            # Operational ratio is measured against the sizing basis; the degraded
+            # ratio is always the N-1 case (what you'd run at during a failure).
+            n1_ratio = needs["vcpus"] / n1_usable_cores if n1_usable_cores > 0 else 99
+            full_ratio = needs["vcpus"] / full_usable_cores if full_usable_cores > 0 else 99
+            rec_ratio = full_ratio if full_cluster else n1_ratio
 
             cost_tier = _model_cost_tier(model["name"])
             excess_cores = usable_cores * node_count - required_cores
@@ -381,7 +398,7 @@ def _fit_model(model, needs, required_cores):
             score += cost_tier * 6
             score += excess_cores * 0.3
 
-            core_headroom = (n1_usable_cores - required_cores) / required_cores if required_cores > 0 else 0
+            core_headroom = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
             ram_headroom = (usable_ram_per_node * n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
@@ -415,6 +432,8 @@ def _fit_model(model, needs, required_cores):
                 "usable_ram_per_node_gb": usable_ram_per_node,
                 "storage_config": stor,
                 "vcpu_ratio": round(rec_ratio, 2),
+                "vcpu_ratio_degraded": round(n1_ratio, 2),
+                "sized_full_cluster": full_cluster,
                 "totals": {
                     "cores": usable_cores * node_count,
                     "threads": total_threads,
