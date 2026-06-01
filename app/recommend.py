@@ -12,11 +12,19 @@ USABLE_RAM_OVERHEAD = OS_RAM_GB + RAM_BUFFER_GB  # 6 GB total per node
 
 
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
-                             snapshot_pct=20, years=5):
+                             snapshot_pct=20, years=5, target_nodes=None):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
     years = max(1, min(years, 5))
+
+    # Optional hard cap on node count. Blank/0/invalid means "no limit".
+    try:
+        target_nodes = int(target_nodes) if target_nodes else None
+    except (TypeError, ValueError):
+        target_nodes = None
+    if target_nodes is not None and target_nodes < 1:
+        target_nodes = None
     growth = growth_pct / 100
     snap_base = snapshot_pct / 100
 
@@ -73,8 +81,30 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             seen.add(key)
             deduped.append(c)
 
-    # Build warnings — only warn when EVERY recommendation is tight on RAM
+    # Apply the optional node-count ceiling: drop anything that needs more
+    # nodes than the user is willing to deploy. If nothing fits within the
+    # cap, return no recommendations and explain why (naming the smallest
+    # feasible count so the user knows how high to raise the target).
     warnings = []
+    if target_nodes is not None:
+        within_cap = [c for c in deduped if c["node_count"] <= target_nodes]
+        if not within_cap:
+            min_feasible = min((c["node_count"] for c in deduped), default=None)
+            if min_feasible is not None:
+                warnings.append(
+                    f"No SC// configuration can fit this workload within "
+                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}. "
+                    f"The smallest feasible configuration needs at least "
+                    f"{min_feasible} nodes — raise the target node count."
+                )
+            else:
+                warnings.append(
+                    f"No SC// configuration can fit this workload within "
+                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
+                )
+        deduped = within_cap
+
+    # Build warnings — only warn when EVERY recommendation is tight on RAM
     max_vm_ram = needs["max_vm_ram_gb"]
     if max_vm_ram > 0 and deduped:
         all_tight = all(

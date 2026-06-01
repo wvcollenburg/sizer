@@ -533,6 +533,7 @@ async function uploadFile(file) {
         importVms = data.vms || [];
         vmExclusions = { compute: new Set(), storage: new Set() };
         updateExclusionCountBadge();
+        document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}`, false);
         displayImportResults(data);
@@ -567,6 +568,8 @@ async function recalcRecommendations() {
     const years = parseInt(document.getElementById('growth-years').value);
     const growthPct = parseFloat(document.getElementById('growth-pct').value);
     const snapshotPct = parseFloat(document.getElementById('snapshot-pct').value);
+    const targetNodesRaw = document.getElementById('target-nodes').value;
+    const targetNodes = targetNodesRaw ? parseInt(targetNodesRaw, 10) : null;
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -578,6 +581,7 @@ async function recalcRecommendations() {
                 years: years,
                 growth_pct: growthPct,
                 snapshot_pct: snapshotPct,
+                target_nodes: targetNodes,
             }),
         });
         const data = await resp.json();
@@ -741,7 +745,15 @@ function displayImportResults(data) {
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
     const recList = document.getElementById(listId);
     if (!recommendations || recommendations.length === 0) {
-        recList.innerHTML = '<div class="no-recs">No matching configurations found. The workload may exceed available appliance capacities. Consider Software Only (Validated) mode.</div>';
+        // A warning here (e.g. an infeasible target node count) explains the
+        // empty result better than the generic capacity message.
+        if (warnings && warnings.length > 0) {
+            recList.innerHTML = '<div class="rec-warnings">' +
+                warnings.map(w => `<div class="rec-warning">${w}</div>`).join('') +
+                '</div>';
+        } else {
+            recList.innerHTML = '<div class="no-recs">No matching configurations found. The workload may exceed available appliance capacities. Consider Software Only (Validated) mode.</div>';
+        }
         return;
     }
 

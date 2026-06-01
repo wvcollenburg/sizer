@@ -235,6 +235,12 @@
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
                                    onchange="recalcRecommendations()">
                         </div>
+                        <div class="form-group">
+                            <label>Target Node Count</label>
+                            <input type="number" id="target-nodes" placeholder="No limit" min="3" step="1"
+                                   title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
+                                   onchange="recalcRecommendations()">
+                        </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>
