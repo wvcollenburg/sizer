@@ -251,7 +251,7 @@ async function calculateValidated() {
             `Cluster disk limit exceeded: ${totalClusterDisks} disks ` +
             `(${disks.length} per node × ${nodeCount} nodes). The maximum is ` +
             `100 disks per cluster. When more storage capacity is required, the ` +
-            `recommendation is to deploy multiple clusters.`
+            `recommendation is to deploy multiple clusters or use bigger disks.`
         );
     }
     const valDiv = document.getElementById('disk-validation');
