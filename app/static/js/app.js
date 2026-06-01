@@ -486,15 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // (a common Linux miss that otherwise navigates away from the page).
     ['dragover', 'drop'].forEach(evt =>
         window.addEventListener(evt, e => e.preventDefault()));
-
-    // TEMP diagnostic: see exactly where the drop lands and what it carries.
-    document.addEventListener('drop', e => {
-        const dt = e.dataTransfer;
-        console.log('[doc drop] target=', e.target.id || e.target.className || e.target.tagName,
-            'files=', dt.files && dt.files.length,
-            'items=', dt.items && Array.from(dt.items).map(i => i.kind + ':' + i.type),
-            'types=', dt.types && Array.from(dt.types));
-    }, true); // capture phase, fires regardless of stopPropagation
 });
 
 // dataTransfer.files is reliable on macOS/Windows but is sometimes empty on Linux,
