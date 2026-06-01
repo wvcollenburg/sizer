@@ -1087,10 +1087,11 @@ function toggleVmExclusion(idx, type, checked) {
 }
 
 function selectPoweredOffVms() {
+    const includeStorage = document.getElementById('excl-include-storage')?.checked;
     importVms.forEach((vm, i) => {
         if (!vm.powered_on) {
             vmExclusions.compute.add(i);
-            vmExclusions.storage.add(i);
+            if (includeStorage) vmExclusions.storage.add(i);
         }
     });
     renderVmTable();
