@@ -369,7 +369,7 @@ def calculate_validated(data, node_count):
                 f"Cluster disk limit exceeded: {total_cluster_disks} disks "
                 f"({disk_count} per node × {node_count} nodes). The maximum is "
                 f"100 disks per cluster. When more storage capacity is required, "
-                f"the recommendation is to deploy multiple clusters."
+                f"the recommendation is to deploy multiple clusters or use bigger disks."
             )
         }
 
