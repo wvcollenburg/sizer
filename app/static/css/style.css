@@ -837,6 +837,45 @@ footer {
     font-weight: 600;
 }
 
+.rec-ratio-badge.degraded {
+    background: #fdecea;
+    border-color: var(--red);
+    color: var(--red);
+    cursor: help;
+}
+
+.full-cluster-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+}
+
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    cursor: help;
+    flex-shrink: 0;
+}
+
 .rec-desc {
     color: var(--text-muted);
     font-size: 0.85rem;
