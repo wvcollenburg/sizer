@@ -149,9 +149,58 @@
             <div class="disk-config">
                 <div class="disk-header">
                     <h3>Disk Configuration (per node)</h3>
-                    <button class="btn btn-sm" onclick="addDisk()">+ Add Disk</button>
+                    <div class="tier-mode-toggle">
+                        <label class="radio-inline">
+                            <input type="radio" name="disk-tier-mode" value="single" checked
+                                   onchange="setTierMode('single')"> Single tier
+                        </label>
+                        <label class="radio-inline">
+                            <input type="radio" name="disk-tier-mode" value="dual"
+                                   onchange="setTierMode('dual')"> Dual tier (hybrid)
+                        </label>
+                    </div>
                 </div>
-                <div id="disk-list"></div>
+
+                <div id="single-tier-config">
+                    <div class="tier-row">
+                        <span class="tier-label">Tier</span>
+                        <select id="st-type" class="disk-type" onchange="populateDiskSizes(this)">
+                            <option value="SAS">SAS (Spinning)</option>
+                            <option value="NLSAS">NLSAS (Spinning)</option>
+                            <option value="SATA">SATA (Spinning)</option>
+                            <option value="SSD">SSD (Flash)</option>
+                            <option value="NVMe">NVMe (Flash)</option>
+                        </select>
+                        <select id="st-size" class="disk-size"></select>
+                        <input type="number" id="st-qty" class="disk-qty" value="4" min="1" max="48">
+                        <span class="qty-label">drives</span>
+                    </div>
+                </div>
+
+                <div id="dual-tier-config" style="display:none">
+                    <div class="tier-row">
+                        <span class="tier-label">Capacity</span>
+                        <select id="dt-cap-type" class="disk-type" onchange="populateDiskSizes(this)">
+                            <option value="SAS">SAS (Spinning)</option>
+                            <option value="NLSAS">NLSAS (Spinning)</option>
+                            <option value="SATA">SATA (Spinning)</option>
+                        </select>
+                        <select id="dt-cap-size" class="disk-size"></select>
+                        <input type="number" id="dt-cap-qty" class="disk-qty" value="6" min="1" max="48">
+                        <span class="qty-label">drives</span>
+                    </div>
+                    <div class="tier-row">
+                        <span class="tier-label">Fast</span>
+                        <select id="dt-fast-type" class="disk-type" onchange="populateDiskSizes(this)">
+                            <option value="SSD">SSD (Flash)</option>
+                            <option value="NVMe">NVMe (Flash)</option>
+                        </select>
+                        <select id="dt-fast-size" class="disk-size"></select>
+                        <input type="number" id="dt-fast-qty" class="disk-qty" value="2" min="1" max="48">
+                        <span class="qty-label">drives</span>
+                    </div>
+                </div>
+
                 <div id="disk-validation" class="validation-msg"></div>
             </div>
 
