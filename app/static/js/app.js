@@ -15,9 +15,7 @@ let vmSortAsc = true;
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadValidatedNics();
-    addDisk();
-    addDisk();
-    addDisk();
+    initDiskTiers();
 });
 
 function switchMode(mode) {
@@ -244,12 +242,7 @@ async function calculateValidated() {
     const ghz = parseFloat(document.getElementById('val-ghz').value);
     const ramGb = parseInt(document.getElementById('val-ram').value);
 
-    const disks = [];
-    document.querySelectorAll('.disk-row').forEach(row => {
-        const type = row.querySelector('.disk-type').value;
-        const size = parseFloat(row.querySelector('.disk-size').value);
-        if (type && size) disks.push({type, size_tb: size});
-    });
+    const disks = collectValidatedDisks();
 
     const validation = validateDisks(disks);
     const valDiv = document.getElementById('disk-validation');
@@ -312,54 +305,68 @@ function validateDisks(disks) {
     return {errors, warnings};
 }
 
-function addDisk() {
-    const list = document.getElementById('disk-list');
-    const idx = list.children.length;
-    const row = document.createElement('div');
-    row.className = 'disk-row';
-    row.innerHTML = `
-        <span class="disk-num">${idx + 1}</span>
-        <select class="disk-type" onchange="updateDiskSizes(this)">
-            <option value="SAS">SAS (Spinning)</option>
-            <option value="NLSAS">NLSAS (Spinning)</option>
-            <option value="SATA">SATA (Spinning)</option>
-            <option value="SSD">SSD (Flash)</option>
-            <option value="NVMe">NVMe (Flash)</option>
-        </select>
-        <select class="disk-size"></select>
-        <button class="btn btn-sm btn-danger" onclick="removeDisk(this)">&times;</button>
-    `;
-    list.appendChild(row);
-    updateDiskSizes(row.querySelector('.disk-type'));
-    updateDiskNumbers();
+const DISK_SIZES = {
+    spinning: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24],
+    SSD: [0.24, 0.48, 0.96, 1.92, 3.84, 7.68, 15.36, 30.72],
+    NVMe: [0.25, 0.5, 0.96, 1, 1.92, 2, 3.84, 4, 7.68, 8, 15.36, 30.72],
+};
+
+function sizesForType(type) {
+    if (['SAS', 'NLSAS', 'SATA', 'HDD'].includes(type)) return DISK_SIZES.spinning;
+    if (type === 'SSD') return DISK_SIZES.SSD;
+    return DISK_SIZES.NVMe;
 }
 
-function removeDisk(btn) {
-    btn.closest('.disk-row').remove();
-    updateDiskNumbers();
-}
-
-function updateDiskNumbers() {
-    document.querySelectorAll('.disk-row').forEach((row, i) => {
-        row.querySelector('.disk-num').textContent = i + 1;
-    });
-}
-
-function updateDiskSizes(typeSelect) {
-    const row = typeSelect.closest('.disk-row');
-    const sizeSelect = row.querySelector('.disk-size');
-    const type = typeSelect.value;
-
-    let sizes;
-    if (['SAS', 'NLSAS', 'SATA', 'HDD'].includes(type)) {
-        sizes = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
-    } else if (type === 'SSD') {
-        sizes = [0.24, 0.48, 0.96, 1.92, 3.84, 7.68, 15.36, 30.72];
-    } else {
-        sizes = [0.25, 0.5, 0.96, 1, 1.92, 2, 3.84, 4, 7.68, 8, 15.36, 30.72];
-    }
-
+// Fill the size dropdown that belongs to the same tier row as this type select,
+// preserving the current selection when the new media still offers that size.
+function populateDiskSizes(typeSelect) {
+    const sizeSelect = typeSelect.closest('.tier-row').querySelector('.disk-size');
+    const sizes = sizesForType(typeSelect.value);
+    const prev = sizeSelect.value;
     sizeSelect.innerHTML = sizes.map(s => `<option value="${s}">${s} TB</option>`).join('');
+    if (sizes.map(String).includes(prev)) sizeSelect.value = prev;
+}
+
+function setTierMode(mode) {
+    document.getElementById('single-tier-config').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('dual-tier-config').style.display = mode === 'dual' ? 'block' : 'none';
+}
+
+// Seed the size dropdowns and pick sensible defaults (single = all-flash NVMe,
+// dual = a valid hybrid with the fast tier inside the 7-24.3% band).
+function initDiskTiers() {
+    document.getElementById('st-type').value = 'NVMe';
+    populateDiskSizes(document.getElementById('st-type'));
+    document.getElementById('st-size').value = '3.84';
+
+    document.getElementById('dt-cap-type').value = 'SATA';
+    populateDiskSizes(document.getElementById('dt-cap-type'));
+    document.getElementById('dt-cap-size').value = '8';
+
+    document.getElementById('dt-fast-type').value = 'NVMe';
+    populateDiskSizes(document.getElementById('dt-fast-type'));
+    document.getElementById('dt-fast-size').value = '3.84';
+
+    setTierMode('single');
+}
+
+// Expand the tier selections into the flat per-disk list the API expects.
+function collectValidatedDisks() {
+    const mode = document.querySelector('input[name="disk-tier-mode"]:checked').value;
+    const disks = [];
+    const addTier = (typeId, sizeId, qtyId) => {
+        const type = document.getElementById(typeId).value;
+        const size = parseFloat(document.getElementById(sizeId).value);
+        const qty = parseInt(document.getElementById(qtyId).value, 10) || 0;
+        for (let i = 0; i < qty; i++) disks.push({type, size_tb: size});
+    };
+    if (mode === 'single') {
+        addTier('st-type', 'st-size', 'st-qty');
+    } else {
+        addTier('dt-cap-type', 'dt-cap-size', 'dt-cap-qty');
+        addTier('dt-fast-type', 'dt-fast-size', 'dt-fast-qty');
+    }
+    return disks;
 }
 
 async function loadValidatedNics() {

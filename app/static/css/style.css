@@ -267,6 +267,41 @@ select:focus, input:focus {
     min-width: 0;
 }
 
+.tier-mode-toggle { display: flex; gap: 1rem; }
+
+.radio-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.tier-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.tier-label {
+    min-width: 80px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+}
+
+.tier-row select { flex: 1; min-width: 0; }
+
+.disk-qty { width: 72px; flex-shrink: 0; }
+
+.qty-label { font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0; }
+
 .btn {
     background: var(--accent);
     color: #fff;
