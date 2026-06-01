@@ -290,6 +290,16 @@
                                    title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
                                    onchange="recalcRecommendations()">
                         </div>
+                        <div class="form-group">
+                            <label>Storage Type</label>
+                            <select id="storage-pref" onchange="recalcRecommendations()"
+                                    title="Prefer a specific storage media. Auto considers all options.">
+                                <option value="auto" selected>Auto</option>
+                                <option value="flash">All-Flash</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="spinning">All-Spinning</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>

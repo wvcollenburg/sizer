@@ -550,6 +550,7 @@ async function uploadFile(file) {
         vmExclusions = { compute: new Set(), storage: new Set() };
         updateExclusionCountBadge();
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
+        document.getElementById('storage-pref').value = 'auto';
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}`, false);
         displayImportResults(data);
@@ -586,6 +587,7 @@ async function recalcRecommendations() {
     const snapshotPct = parseFloat(document.getElementById('snapshot-pct').value);
     const targetNodesRaw = document.getElementById('target-nodes').value;
     const targetNodes = targetNodesRaw ? parseInt(targetNodesRaw, 10) : null;
+    const storagePref = document.getElementById('storage-pref').value;
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -598,6 +600,7 @@ async function recalcRecommendations() {
                 growth_pct: growthPct,
                 snapshot_pct: snapshotPct,
                 target_nodes: targetNodes,
+                storage_pref: storagePref,
             }),
         });
         const data = await resp.json();
