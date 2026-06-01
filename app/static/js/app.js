@@ -466,10 +466,7 @@ let importSummary = null;
 document.addEventListener('DOMContentLoaded', () => {
     const area = document.getElementById('upload-area');
     if (area) {
-        area.addEventListener('click', e => {
-            if (e.target.id === 'file-input') return; // overlay input already opens the dialog natively
-            document.getElementById('file-input').click();
-        });
+        area.addEventListener('click', () => document.getElementById('file-input').click());
         // Linux/GTK browsers (Firefox, Brave) require dragenter to be prevented too,
         // not just dragover, before they will accept a drop.
         const allow = e => { e.preventDefault(); e.stopPropagation(); area.classList.add('drag-over'); };
@@ -480,13 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             area.classList.remove('drag-over');
-            const dt = e.dataTransfer;
-            console.log('[drop] target=', e.target.id || e.target.tagName,
-                'files=', dt.files && dt.files.length,
-                'items=', dt.items && Array.from(dt.items).map(i => i.kind + ':' + i.type),
-                'types=', dt.types && Array.from(dt.types));
-            const file = extractDroppedFile(dt);
-            console.log('[drop] extracted file=', file && file.name);
+            const file = extractDroppedFile(e.dataTransfer);
             if (file) uploadFile(file);
         });
     }
