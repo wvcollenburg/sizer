@@ -11,8 +11,19 @@ RAM_BUFFER_GB = 2             # 2 GB safety buffer
 USABLE_RAM_OVERHEAD = OS_RAM_GB + RAM_BUFFER_GB  # 6 GB total per node
 
 
+STORAGE_CATEGORIES = {
+    "nvme_only": "flash",
+    "ssd_only": "flash",
+    "nvme_and_ssd": "flash",
+    "hybrid": "hybrid",
+    "hybrid_nvme": "hybrid",
+    "hdd_only": "spinning",
+}
+
+
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
-                             snapshot_pct=20, years=5, target_nodes=None):
+                             snapshot_pct=20, years=5, target_nodes=None,
+                             storage_pref=None):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -25,6 +36,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         target_nodes = None
     if target_nodes is not None and target_nodes < 1:
         target_nodes = None
+
+    # Optional storage-media preference. Anything else (incl. "auto") = no filter.
+    if storage_pref not in ("flash", "hybrid", "spinning"):
+        storage_pref = None
     growth = growth_pct / 100
     snap_base = snapshot_pct / 100
 
@@ -61,12 +76,17 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             .joinedload(StorageConfigDrive.drive),
     ).filter(Model.status == "Active").all()
     candidates = []
+    matched_storage = 0
 
     for m in models:
         md = m.to_dict()
         md["name"] = m.name
-        if md["storage"]["type"] == "cloud":
+        stype = md["storage"]["type"]
+        if stype == "cloud":
             continue
+        if storage_pref and STORAGE_CATEGORIES.get(stype) != storage_pref:
+            continue
+        matched_storage += 1
 
         fits = _fit_model(md, needs, required_cores)
         candidates.extend(fits)
@@ -86,6 +106,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # cap, return no recommendations and explain why (naming the smallest
     # feasible count so the user knows how high to raise the target).
     warnings = []
+    if storage_pref and matched_storage == 0:
+        labels = {"flash": "all-flash", "hybrid": "hybrid",
+                  "spinning": "all-spinning (HDD-only)"}
+        warnings.append(
+            f"No {labels[storage_pref]} configurations are available for this "
+            f"workload. Switch the storage preference to Auto to see all options."
+        )
     if target_nodes is not None:
         within_cap = [c for c in deduped if c["node_count"] <= target_nodes]
         if not within_cap and deduped:
