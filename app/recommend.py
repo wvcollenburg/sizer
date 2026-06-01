@@ -88,20 +88,15 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     warnings = []
     if target_nodes is not None:
         within_cap = [c for c in deduped if c["node_count"] <= target_nodes]
-        if not within_cap:
-            min_feasible = min((c["node_count"] for c in deduped), default=None)
-            if min_feasible is not None:
-                warnings.append(
-                    f"No SC// configuration can fit this workload within "
-                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}. "
-                    f"The smallest feasible configuration needs at least "
-                    f"{min_feasible} nodes — raise the target node count."
-                )
-            else:
-                warnings.append(
-                    f"No SC// configuration can fit this workload within "
-                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
-                )
+        if not within_cap and deduped:
+            warnings.append(
+                _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs)
+            )
+        elif not within_cap:
+            warnings.append(
+                f"No SC// configuration can fit this workload within "
+                f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
+            )
         deduped = within_cap
 
     # Build warnings — only warn when EVERY recommendation is tight on RAM
@@ -144,7 +139,62 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "growth_factor": round(growth_factor, 3),
     }
 
-    return {"recommendations": deduped[:8], "projection": projection, "warnings": warnings}
+    top = deduped[:8]
+    for c in top:
+        c.pop("_nodes_for_cpu", None)
+        c.pop("_nodes_for_ram", None)
+        c.pop("_nodes_for_storage", None)
+
+    return {"recommendations": top, "projection": projection, "warnings": warnings}
+
+
+def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
+    """Explain why no config fits within the target node cap, naming the
+    limiting resource(s) and — when CPU is the fixable constraint — a vCPU:core
+    ratio that would make it fit."""
+    plural = "s" if target_nodes != 1 else ""
+    best = min(deduped, key=lambda c: c["node_count"])
+    mf = best["node_count"]
+
+    # A resource is "binding" for the closest-to-target config when it alone
+    # drives that config's node count.
+    binding = []
+    if best["_nodes_for_cpu"] >= mf:
+        binding.append(f"CPU cores (≥{best['_nodes_for_cpu']} nodes "
+                       f"at {vcpu_ratio:g}:1 vCPU:core)")
+    if best["_nodes_for_ram"] >= mf:
+        binding.append(f"RAM (≥{best['_nodes_for_ram']} nodes)")
+    if best["_nodes_for_storage"] >= mf:
+        binding.append(f"storage capacity (≥{best['_nodes_for_storage']} nodes)")
+
+    msg = (f"No SC// configuration fits this workload within "
+           f"{target_nodes} node{plural} (smallest feasible: {mf} nodes).")
+    if binding:
+        msg += " Limiting factor: " + "; ".join(binding) + "."
+
+    # CPU is fixable by a higher ratio only if some config already meets RAM and
+    # storage within the cap, with cores the sole resource pushing it over.
+    layout = _cluster_layout(target_nodes)
+    n1 = target_nodes - len(layout)
+    if n1 > 0:
+        fixable = [c for c in deduped
+                   if c["_nodes_for_cpu"] > target_nodes
+                   and c["_nodes_for_ram"] <= target_nodes
+                   and c["_nodes_for_storage"] <= target_nodes]
+        if fixable:
+            needed = min(needs["vcpus"] / (c["usable_cores_per_node"] * n1)
+                         for c in fixable)
+            suggested = math.ceil(needed * 4) / 4   # round up to a 0.25 step
+            if suggested <= 8:                      # within the ratio slider range
+                msg += (f" Raising the vCPU:core ratio to {suggested:g}:1 "
+                        f"would allow a fit within {target_nodes} node{plural}.")
+            else:
+                msg += (" Increase the target node count — the vCPU:core ratio "
+                        "alone cannot close the gap.")
+        else:
+            msg += " Increase the target node count to proceed."
+
+    return msg
 
 
 MAX_NODES_PER_CLUSTER = 8
@@ -354,6 +404,11 @@ def _fit_model(model, needs, required_cores):
                     "usable_storage_tb": round(usable, 2),
                 },
                 "score": round(score, 2),
+                # Per-resource minimum node counts (internal; used to explain
+                # why a target-node cap can't be met). Stripped before return.
+                "_nodes_for_cpu": needed_nodes_cpu,
+                "_nodes_for_ram": needed_nodes_ram,
+                "_nodes_for_storage": needed_nodes_storage,
             })
 
             break
