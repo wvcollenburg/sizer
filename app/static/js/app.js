@@ -470,15 +470,41 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.id === 'file-input') return; // overlay input already opens the dialog natively
             document.getElementById('file-input').click();
         });
-        area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+        // Linux/GTK browsers (Firefox, Brave) require dragenter to be prevented too,
+        // not just dragover, before they will accept a drop.
+        const allow = e => { e.preventDefault(); e.stopPropagation(); area.classList.add('drag-over'); };
+        area.addEventListener('dragenter', allow);
+        area.addEventListener('dragover', allow);
         area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
         area.addEventListener('drop', e => {
             e.preventDefault();
+            e.stopPropagation();
             area.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]);
+            const file = extractDroppedFile(e.dataTransfer);
+            if (file) uploadFile(file);
         });
     }
+
+    // Stop the browser from opening a file dropped just outside the upload area
+    // (a common Linux miss that otherwise navigates away from the page).
+    ['dragover', 'drop'].forEach(evt =>
+        window.addEventListener(evt, e => e.preventDefault()));
 });
+
+// dataTransfer.files is reliable on macOS/Windows but is sometimes empty on Linux,
+// where the dropped file arrives via dataTransfer.items instead.
+function extractDroppedFile(dt) {
+    if (dt.files && dt.files.length > 0) return dt.files[0];
+    if (dt.items) {
+        for (const item of dt.items) {
+            if (item.kind === 'file') {
+                const file = item.getAsFile();
+                if (file) return file;
+            }
+        }
+    }
+    return null;
+}
 
 function handleFileSelect(input) {
     if (input.files.length > 0) uploadFile(input.files[0]);
