@@ -1077,6 +1077,21 @@ footer {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.excl-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-muted, #666);
+    cursor: pointer;
+    user-select: none;
+}
+
+.excl-toggle input {
+    cursor: pointer;
 }
 
 .modal-body {
