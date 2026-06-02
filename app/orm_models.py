@@ -1,4 +1,5 @@
 from database import db
+from storage_only import single_cpu_options
 
 
 # ── Catalog tables (shared reference data) ───────────────────────────────────
@@ -191,6 +192,15 @@ class Model(db.Model):
             if sc.storage_type == "cloud" and sc.cloud_tiers:
                 storage["options"] = [t.strip() for t in sc.cloud_tiers.split("|")]
 
+        cpu_options = [
+            {
+                "desc": f"{link.quantity} x {link.cpu.description}",
+                "cores": link.cpu.cores * link.quantity,
+                "threads": link.cpu.threads * link.quantity,
+                "ghz": link.cpu.ghz,
+            }
+            for link in self.cpu_links
+        ]
         return {
             "status": self.status,
             "category": self.category,
@@ -202,15 +212,9 @@ class Model(db.Model):
             "min_nodes": self.min_nodes,
             "validated_only": self.validated_only,
             "notes": self.notes,
-            "cpu_options": [
-                {
-                    "desc": f"{link.quantity} x {link.cpu.description}",
-                    "cores": link.cpu.cores * link.quantity,
-                    "threads": link.cpu.threads * link.quantity,
-                    "ghz": link.cpu.ghz,
-                }
-                for link in self.cpu_links
-            ],
+            "cpu_options": cpu_options,
+            # Single-CPU variants for a storage-only node (one CPU, lowest tier).
+            "storage_only_cpu_options": single_cpu_options(cpu_options),
             "ram_options_gb": sorted([r.size_gb for r in self.ram_options]),
             "storage": storage,
             "nic_options": [
