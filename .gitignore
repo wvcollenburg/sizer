@@ -7,3 +7,4 @@ __pycache__/
 !.env.template
 *.db
 *.sqlite3
+.venv/

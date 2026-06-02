@@ -16,6 +16,9 @@ from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from recommend import generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD
 from export_pptx import generate_proposal, generate_config_slide
+from storage_only import (
+    single_cpu_options, MIN_HCI_NODES_PER_CLUSTER, STORAGE_ONLY_RAM_FLOOR_GB,
+)
 from admin_routes import admin_bp
 
 
@@ -252,10 +255,19 @@ def calculate_appliance(data, node_count):
         return raw_per_node
 
     biggest_disk = compute_biggest_disk_appliance(data, storage)
-    total_raw = raw_per_node * node_count
-    usable = (total_raw - biggest_disk) / 2 if node_count > 1 else raw_per_node
 
-    # Apply HyperCore OS overhead
+    # Optional storage-only nodes: same model/drives, virtualization disabled.
+    # They add raw capacity (and disks) to the cluster but no usable compute.
+    so_block, so_err = _appliance_storage_only(model, data, raw_per_node, node_count)
+    if so_err:
+        return so_err
+    so_count = so_block["count"] if so_block else 0
+    total_nodes = node_count + so_count
+
+    total_raw = raw_per_node * total_nodes
+    usable = (total_raw - biggest_disk) / 2 if total_nodes > 1 else raw_per_node
+
+    # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
     usable_cores = cpu["cores"] - OS_CORE_OVERHEAD
     usable_ram = ram_gb - USABLE_RAM_OVERHEAD
 
@@ -273,6 +285,8 @@ def calculate_appliance(data, node_count):
         "mode": "appliance",
         "model": model_name,
         "node_count": node_count,
+        "total_node_count": total_nodes,
+        "storage_only": so_block,
         "per_node": {
             "cpu": cpu["desc"],
             "cores": usable_cores,
@@ -300,6 +314,49 @@ def calculate_appliance(data, node_count):
         "chassis": model["chassis"],
         "status": model["status"],
     }
+
+
+def _appliance_storage_only(model, data, raw_per_node, hci_count):
+    """Build the storage-only-node block for an appliance config, or (None, None)
+    when none requested. Returns (block, error_dict). Storage-only nodes reuse
+    the model's drives (so raw_per_node is shared), take a single lowest-tier CPU
+    and a compliant RAM option, and require >=2 full HCI nodes in the cluster."""
+    so = data.get("storage_only") or {}
+    count = int(so.get("count", 0) or 0)
+    if count <= 0:
+        return None, None
+    if hci_count < MIN_HCI_NODES_PER_CLUSTER:
+        return None, {"error": (
+            f"At least {MIN_HCI_NODES_PER_CLUSTER} full HCI nodes are required "
+            f"when adding storage-only nodes (for HA and rolling updates)."
+        )}
+
+    cpu_opts = model.get("storage_only_cpu_options") or single_cpu_options(
+        model["cpu_options"])
+    if not cpu_opts:
+        return None, {"error": "No storage-only CPU option for this model."}
+    ci = int(so.get("cpu_index", 0) or 0)
+    if ci < 0 or ci >= len(cpu_opts):
+        return None, {"error": "Invalid storage-only CPU selection"}
+    cpu = cpu_opts[ci]
+
+    ram_options = model["ram_options_gb"]
+    # Certified: the compliant minimum is the model's smallest RAM option (often
+    # >16 GB). Editable upward, but only to a real model option.
+    ram_gb = so.get("ram_gb", ram_options[0] if ram_options else STORAGE_ONLY_RAM_FLOOR_GB)
+    if ram_options and ram_gb not in ram_options:
+        return None, {"error": "Invalid storage-only RAM selection"}
+
+    return {
+        "count": count,
+        "cpu": cpu["desc"],
+        "cpu_index": ci,
+        "cores": cpu["cores"],
+        "threads": cpu["threads"],
+        "ghz": cpu["ghz"],
+        "ram_gb": ram_gb,
+        "raw_storage_tb": round(raw_per_node, 2),
+    }, None
 
 
 def compute_raw_per_node_appliance(data, storage):
@@ -370,13 +427,23 @@ def calculate_validated(data, node_count):
     if disk_count == 2:
         return {"error": "Disk count must be 1 or 3+. 2 disks is not supported."}
 
+    # Optional storage-only nodes: same disks, virtualization disabled. They add
+    # capacity and disks to the cluster but no usable compute.
+    so_block, so_err = _validated_storage_only(data, disk_count=disk_count,
+                                               hci_count=node_count)
+    if so_err:
+        return so_err
+    so_count = so_block["count"] if so_block else 0
+    total_nodes = node_count + so_count
+
     # Cluster-wide hard limit (not published; surfaced only when exceeded).
-    total_cluster_disks = disk_count * node_count
+    # Storage-only nodes carry the same disks, so they count toward the cap.
+    total_cluster_disks = disk_count * total_nodes
     if total_cluster_disks > 100:
         return {
             "error": (
                 f"Cluster disk limit exceeded: {total_cluster_disks} disks "
-                f"({disk_count} per node × {node_count} nodes). The maximum is "
+                f"({disk_count} per node × {total_nodes} nodes). The maximum is "
                 f"100 disks per cluster. When more storage capacity is required, "
                 f"the recommendation is to deploy multiple clusters or use bigger disks."
             )
@@ -403,8 +470,11 @@ def calculate_validated(data, node_count):
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
-    total_raw = raw_per_node * node_count
-    usable = (total_raw - biggest_disk) / 2
+    # Storage spans all nodes (HCI + storage-only); compute spans HCI only.
+    total_raw = raw_per_node * total_nodes
+    usable = (total_raw - biggest_disk) / 2 if total_nodes > 1 else raw_per_node
+    if so_block:
+        so_block["raw_storage_tb"] = round(raw_per_node, 2)
 
     total_cores = usable_cores * node_count
     total_threads = threads * node_count
@@ -425,6 +495,8 @@ def calculate_validated(data, node_count):
     return {
         "mode": "validated",
         "node_count": node_count,
+        "total_node_count": total_nodes,
+        "storage_only": so_block,
         "storage_type": storage_type,
         "per_node": {
             "cores": usable_cores,
@@ -457,6 +529,41 @@ def calculate_validated(data, node_count):
             "internal_only": True,
         },
     }
+
+
+def _validated_storage_only(data, disk_count, hci_count):
+    """Build the storage-only-node block for a validated (software-only) config,
+    or (None, None) when none requested. Storage-only nodes carry the same disks
+    as the HCI nodes; the caller fills in raw_storage_tb. A single low CPU and
+    >=16 GB RAM are user-supplied; requires >=2 full HCI nodes."""
+    so = data.get("storage_only") or {}
+    count = int(so.get("count", 0) or 0)
+    if count <= 0:
+        return None, None
+    if hci_count < MIN_HCI_NODES_PER_CLUSTER:
+        return None, {"error": (
+            f"At least {MIN_HCI_NODES_PER_CLUSTER} full HCI nodes are required "
+            f"when adding storage-only nodes (for HA and rolling updates)."
+        )}
+
+    cores = int(so.get("cores", 1) or 1)
+    threads = int(so.get("threads", cores * 2) or cores * 2)
+    ghz = float(so.get("ghz", 2.0) or 2.0)
+    ram_gb = int(so.get("ram_gb", STORAGE_ONLY_RAM_FLOOR_GB) or STORAGE_ONLY_RAM_FLOOR_GB)
+    if ram_gb < STORAGE_ONLY_RAM_FLOOR_GB:
+        return None, {"error": (
+            f"Storage-only nodes require at least {STORAGE_ONLY_RAM_FLOOR_GB} GB RAM."
+        )}
+
+    return {
+        "count": count,
+        "cores": cores,
+        "threads": threads,
+        "ghz": ghz,
+        "ram_gb": ram_gb,
+        "disk_count": disk_count,
+        "raw_storage_tb": 0,  # filled in once raw_per_node is known
+    }, None
 
 
 app = create_app()

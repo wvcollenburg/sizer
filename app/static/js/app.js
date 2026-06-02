@@ -110,12 +110,49 @@ function loadModelDetails() {
     });
 
     buildStorageSection(currentModel.storage);
+    buildStorageOnlySection(currentModel);
 
     const minNodes = currentModel.min_nodes || 1;
     const nodeInput = document.getElementById('node-count');
     nodeInput.min = minNodes;
     if (parseInt(nodeInput.value) < minNodes) nodeInput.value = minNodes;
 
+    calculate();
+}
+
+// Populate the storage-only CPU (single-socket variants) and RAM dropdowns from
+// the selected model, and reset the toggle to off on each model change.
+function buildStorageOnlySection(model) {
+    const enable = document.getElementById('so-enable');
+    if (enable) enable.checked = false;
+    const cfg = document.getElementById('so-config');
+    if (cfg) cfg.style.display = 'none';
+
+    const cpuSelect = document.getElementById('so-cpu-select');
+    if (cpuSelect) {
+        cpuSelect.innerHTML = '';
+        (model.storage_only_cpu_options || []).forEach((cpu, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = `${cpu.desc} (${cpu.cores}C/${cpu.threads}T @ ${cpu.ghz}GHz)`;
+            cpuSelect.appendChild(opt);
+        });
+    }
+    const ramSelect = document.getElementById('so-ram-select');
+    if (ramSelect) {
+        ramSelect.innerHTML = '';
+        (model.ram_options_gb || []).forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = `${r} GB`;
+            ramSelect.appendChild(opt);
+        });
+    }
+}
+
+function toggleStorageOnly() {
+    const on = document.getElementById('so-enable').checked;
+    document.getElementById('so-config').style.display = on ? 'flex' : 'none';
     calculate();
 }
 
@@ -226,6 +263,15 @@ async function calculate() {
     if (ssdEl) payload.ssd_tb = parseFloat(ssdEl.value);
     if (nvmeEl) payload.nvme_tb = parseFloat(nvmeEl.value);
 
+    const soEnable = document.getElementById('so-enable');
+    if (soEnable && soEnable.checked) {
+        payload.storage_only = {
+            count: parseInt(document.getElementById('so-count').value) || 0,
+            cpu_index: parseInt(document.getElementById('so-cpu-select').value) || 0,
+            ram_gb: parseInt(document.getElementById('so-ram-select').value) || 0,
+        };
+    }
+
     const resp = await fetch('/api/calculate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -273,6 +319,17 @@ async function calculateValidated() {
         ram_gb: ramGb,
         disks: disks,
     };
+
+    const valSoEnable = document.getElementById('val-so-enable');
+    if (valSoEnable && valSoEnable.checked) {
+        payload.storage_only = {
+            count: parseInt(document.getElementById('val-so-count').value) || 0,
+            cores: parseInt(document.getElementById('val-so-cores').value) || 1,
+            threads: parseInt(document.getElementById('val-so-threads').value) || 2,
+            ghz: parseFloat(document.getElementById('val-so-ghz').value) || 2.0,
+            ram_gb: parseInt(document.getElementById('val-so-ram').value) || 16,
+        };
+    }
 
     const resp = await fetch('/api/calculate', {
         method: 'POST',
@@ -335,6 +392,11 @@ function populateDiskSizes(typeSelect) {
     const prev = sizeSelect.value;
     sizeSelect.innerHTML = sizes.map(s => `<option value="${s}">${s} TB</option>`).join('');
     if (sizes.map(String).includes(prev)) sizeSelect.value = prev;
+}
+
+function toggleValidatedStorageOnly() {
+    const on = document.getElementById('val-so-enable').checked;
+    document.getElementById('val-so-config').style.display = on ? 'flex' : 'none';
 }
 
 function setTierMode(mode) {
@@ -412,7 +474,10 @@ function displayResults(result) {
     const exportBtn = document.getElementById('config-export-btn');
     if (exportBtn) exportBtn.style.display = 'inline-block';
 
-    document.getElementById('result-nodes').textContent = result.node_count;
+    const so = result.storage_only;
+    document.getElementById('result-nodes').textContent = so
+        ? `${result.node_count} HCI + ${so.count} storage-only (${result.total_node_count} total)`
+        : result.node_count;
 
     const pn = result.per_node;
     const perNodeTable = document.getElementById('per-node-table');
@@ -439,6 +504,16 @@ function displayResults(result) {
         if (result.storage_type) {
             perNodeHtml += `<tr><td>Storage Type</td><td>${result.storage_type}</td></tr>`;
         }
+    }
+    if (so) {
+        const cpuRow = so.cpu ? `<tr><td>CPU</td><td>${so.cpu}</td></tr>` : '';
+        perNodeHtml += `
+            <tr class="so-divider"><td colspan="2">Storage-Only Node &times; ${so.count} (no VMs)</td></tr>
+            ${cpuRow}
+            <tr><td>Cores</td><td>${so.cores}</td></tr>
+            <tr><td>Threads</td><td>${so.threads}</td></tr>
+            <tr><td>RAM</td><td>${so.ram_gb} GB</td></tr>
+            <tr><td>RAW Storage</td><td>${so.raw_storage_tb} TB</td></tr>`;
     }
     perNodeTable.innerHTML = perNodeHtml;
 
