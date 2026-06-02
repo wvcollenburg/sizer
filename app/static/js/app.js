@@ -689,15 +689,15 @@ function renderProjectionTo(p, targetId) {
     `;
 }
 
-// Workload IOPS demand note (measured front-end IOPS amplified to backend by the
-// RF write-amplification factor). Shown when P95 and/or Average are known.
+// Workload IOPS demand note (the measured IOPS the workload needs). Shown when
+// P95 and/or Average are known.
 function iopsDemandNote(d) {
     if (!d) return '';
     const bits = [];
-    if (d.p95_backend) bits.push(`P95 ${d.p95_frontend.toLocaleString()} &rarr; ${d.p95_backend.toLocaleString()} backend`);
-    if (d.avg_backend) bits.push(`Avg ${d.avg_frontend.toLocaleString()} &rarr; ${d.avg_backend.toLocaleString()} backend`);
+    if (d.p95) bits.push(`P95 ${d.p95.toLocaleString()}`);
+    if (d.avg) bits.push(`Avg ${d.avg.toLocaleString()}`);
     if (!bits.length) return '';
-    return `<div class="proj-note">IOPS demand (write-amp ${d.write_amp}&times;): ${bits.join(' &middot; ')}</div>`;
+    return `<div class="proj-note">Workload IOPS demand: ${bits.join(' &middot; ')}</div>`;
 }
 
 function displayImportResults(data) {
@@ -843,7 +843,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             ? `<span class="rec-ratio-badge degraded" title="Normal vCPU:core ratio (full cluster). Rises to ${r.vcpu_ratio_degraded.toFixed(2)}:1 during a node failure.">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
             : `<span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>`;
         const iops = r.iops || null;
-        const iopsRow = (val) => iops ? `<tr><td>IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
+        const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
@@ -899,25 +899,25 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     `}).join('');
 }
 
-// Informational IOPS supply-vs-demand line for a recommendation card. Compares
-// cluster IOPS supply against the (write-amplified) backend demand at P95/Avg.
-// Returns '' when there is no IOPS data or no measured demand.
+// Informational line comparing the config's net available IOPS against the
+// workload's measured demand at P95/Avg. Returns '' when there is no IOPS data
+// or no measured demand.
 function buildIopsHeadroom(iops, demand) {
     if (!iops || !demand) return '';
     const parts = [];
-    const fmtMetric = (label, backend, frontend) => {
-        if (!backend || backend <= 0) return;
-        const ratio = iops.total / backend;
+    const fmtMetric = (label, value) => {
+        if (!value || value <= 0) return;
+        const ratio = iops.total / value;
         const ok = ratio >= 1;
         parts.push(
-            `<span class="${ok ? 'iops-ok' : 'iops-short'}" title="${label} demand ${frontend.toLocaleString()} IOPS &times; ${demand.write_amp} write-amp = ${backend.toLocaleString()} backend; cluster supply ${iops.total.toLocaleString()}">` +
+            `<span class="${ok ? 'iops-ok' : 'iops-short'}" title="${label} demand ${value.toLocaleString()} IOPS; net available ${iops.total.toLocaleString()}">` +
             `${label}: ${ratio.toFixed(1)}&times; ${ok ? '&#10003;' : '&#9888;'}</span>`
         );
     };
-    fmtMetric('P95', demand.p95_backend, demand.p95_frontend);
-    fmtMetric('Avg', demand.avg_backend, demand.avg_frontend);
+    fmtMetric('P95', demand.p95);
+    fmtMetric('Avg', demand.avg);
     if (!parts.length) return '';
-    return `<div class="rec-iops-headroom">IOPS headroom (supply &divide; demand @ RF write-amp ${demand.write_amp}&times;): ${parts.join(' &middot; ')}</div>`;
+    return `<div class="rec-iops-headroom">Net IOPS headroom (available &divide; demand): ${parts.join(' &middot; ')}</div>`;
 }
 
 // ==================== MANUAL INPUT MODE ====================
