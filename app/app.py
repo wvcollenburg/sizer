@@ -14,7 +14,10 @@ from orm_models import (
 from models import DISK_SIZES_TB, RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
-from recommend import generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD
+from recommend import (
+    generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD,
+    MAX_NODES_PER_CLUSTER, _cluster_layout, _cluster_usable_storage,
+)
 from export_pptx import generate_proposal, generate_config_slide
 from storage_only import (
     MIN_HCI_NODES_PER_CLUSTER, STORAGE_ONLY_RAM_FLOOR_GB,
@@ -266,8 +269,23 @@ def calculate_appliance(data, node_count):
     so_count = so_block["count"] if so_block else 0
     total_nodes = node_count + so_count
 
+    # A HyperCore cluster holds at most 8 nodes, so larger builds split into
+    # several clusters. Each cluster needs >=2 full HCI nodes (HA + rolling
+    # updates), so the HCI floor scales with the cluster count.
+    layout = _cluster_layout(total_nodes)
+    num_clusters = len(layout)
+    min_hci = MIN_HCI_NODES_PER_CLUSTER * num_clusters
+    if (so_count > 0 or num_clusters > 1) and node_count < min_hci:
+        plural = "s" if num_clusters != 1 else ""
+        return {"error": (
+            f"{num_clusters} cluster{plural} ({' + '.join(map(str, layout))} nodes, "
+            f"max {MAX_NODES_PER_CLUSTER} per cluster) require at least {min_hci} full "
+            f"HCI nodes — 2 per cluster for HA and rolling updates. You have {node_count}."
+        )}
+
     total_raw = raw_per_node * total_nodes
-    usable = (total_raw - biggest_disk) / 2 if total_nodes > 1 else raw_per_node
+    usable = (_cluster_usable_storage(raw_per_node, biggest_disk, layout)
+              if total_nodes > 1 else raw_per_node)
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
     usable_cores = cpu["cores"] - OS_CORE_OVERHEAD
@@ -278,16 +296,20 @@ def calculate_appliance(data, node_count):
     total_ghz = cpu["ghz"] * cpu["cores"] * node_count
     total_ram = usable_ram * node_count
 
-    n1_cores = usable_cores * (node_count - 1) if node_count > 1 else usable_cores
-    n1_threads = cpu["threads"] * (node_count - 1) if node_count > 1 else cpu["threads"]
-    n1_ghz = cpu["ghz"] * cpu["cores"] * (node_count - 1) if node_count > 1 else total_ghz
-    n1_ram = usable_ram * (node_count - 1) if node_count > 1 else usable_ram
+    # N-1: one HCI node offline per cluster.
+    n1_hci = max(node_count - num_clusters, 0)
+    n1_cores = usable_cores * n1_hci if node_count > 1 else usable_cores
+    n1_threads = cpu["threads"] * n1_hci if node_count > 1 else cpu["threads"]
+    n1_ghz = cpu["ghz"] * cpu["cores"] * n1_hci if node_count > 1 else total_ghz
+    n1_ram = usable_ram * n1_hci if node_count > 1 else usable_ram
 
     return {
         "mode": "appliance",
         "model": model_name,
         "node_count": node_count,
         "total_node_count": total_nodes,
+        "num_clusters": num_clusters,
+        "cluster_layout": layout,
         "storage_only": so_block,
         "per_node": {
             "cpu": cpu["desc"],
@@ -439,16 +461,30 @@ def calculate_validated(data, node_count):
     so_count = so_block["count"] if so_block else 0
     total_nodes = node_count + so_count
 
-    # Cluster-wide hard limit (not published; surfaced only when exceeded).
-    # Storage-only nodes carry the same disks, so they count toward the cap.
-    total_cluster_disks = disk_count * total_nodes
-    if total_cluster_disks > 100:
+    # A HyperCore cluster holds at most 8 nodes, so larger builds split into
+    # several clusters, each needing >=2 full HCI nodes (HA + rolling updates).
+    layout = _cluster_layout(total_nodes)
+    num_clusters = len(layout)
+    min_hci = MIN_HCI_NODES_PER_CLUSTER * num_clusters
+    if (so_count > 0 or num_clusters > 1) and node_count < min_hci:
+        plural = "s" if num_clusters != 1 else ""
+        return {"error": (
+            f"{num_clusters} cluster{plural} ({' + '.join(map(str, layout))} nodes, "
+            f"max {MAX_NODES_PER_CLUSTER} per cluster) require at least {min_hci} full "
+            f"HCI nodes — 2 per cluster for HA and rolling updates. You have {node_count}."
+        )}
+
+    # 100-disk hard limit binds on the LARGEST cluster, not the total node
+    # count. Storage-only nodes carry the same disks, so they count too.
+    largest_cluster = max(layout)
+    max_cluster_disks = disk_count * largest_cluster
+    if max_cluster_disks > 100:
         return {
             "error": (
-                f"Cluster disk limit exceeded: {total_cluster_disks} disks "
-                f"({disk_count} per node × {total_nodes} nodes). The maximum is "
-                f"100 disks per cluster. When more storage capacity is required, "
-                f"the recommendation is to deploy multiple clusters or use bigger disks."
+                f"Cluster disk limit exceeded: {max_cluster_disks} disks "
+                f"({disk_count} per node × {largest_cluster} nodes in the largest "
+                f"cluster). The maximum is 100 disks per cluster. When more storage "
+                f"capacity is required, deploy more clusters or use bigger disks."
             )
         }
 
@@ -473,9 +509,11 @@ def calculate_validated(data, node_count):
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
-    # Storage spans all nodes (HCI + storage-only); compute spans HCI only.
+    # Storage spans all nodes (HCI + storage-only), per cluster; compute spans
+    # the HCI nodes only.
     total_raw = raw_per_node * total_nodes
-    usable = (total_raw - biggest_disk) / 2 if total_nodes > 1 else raw_per_node
+    usable = (_cluster_usable_storage(raw_per_node, biggest_disk, layout)
+              if total_nodes > 1 else raw_per_node)
     if so_block:
         so_block["raw_storage_tb"] = round(raw_per_node, 2)
 
@@ -484,10 +522,12 @@ def calculate_validated(data, node_count):
     total_ghz = ghz * cores * node_count
     total_ram = usable_ram * node_count
 
-    n1_cores = usable_cores * (node_count - 1)
-    n1_threads = threads * (node_count - 1)
-    n1_ghz = ghz * cores * (node_count - 1)
-    n1_ram = usable_ram * (node_count - 1)
+    # N-1: one HCI node offline per cluster.
+    n1_hci = max(node_count - num_clusters, 0)
+    n1_cores = usable_cores * n1_hci
+    n1_threads = threads * n1_hci
+    n1_ghz = ghz * cores * n1_hci
+    n1_ram = usable_ram * n1_hci
 
     storage_type = "All-Flash"
     if is_hybrid:
@@ -499,6 +539,8 @@ def calculate_validated(data, node_count):
         "mode": "validated",
         "node_count": node_count,
         "total_node_count": total_nodes,
+        "num_clusters": num_clusters,
+        "cluster_layout": layout,
         "storage_only": so_block,
         "storage_type": storage_type,
         "per_node": {
