@@ -860,8 +860,23 @@ footer {
 }
 
 .local-storage-toggle {
-    margin-top: 0.75rem;
-    color: var(--text-muted);
+    margin-top: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.local-storage-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
 }
 
 .info-icon {
