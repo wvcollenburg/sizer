@@ -4,6 +4,7 @@ from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
     DriveTypeIops, SizingSetting,
 )
+from storage_only import single_cpu_options, MIN_HCI_NODES_PER_CLUSTER
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.
 DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
@@ -33,7 +34,7 @@ HYBRID_FLASH_MAX_PCT = 24.3  # Validated hybrid: flash tier ceiling
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
-                             sizing_mode="certified"):
+                             sizing_mode="certified", allow_storage_only=False):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -53,6 +54,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
     # Size CPU against the full cluster instead of N-1 (degraded on node failure).
     size_full_cluster = bool(size_full_cluster)
+
+    # Opt-in: let storage-bound configs use storage-only nodes (no VMs) beyond
+    # the 2-HCI-per-cluster minimum, instead of more full HCI nodes.
+    allow_storage_only = bool(allow_storage_only)
 
     # Software-only ("Validated") sizing reuses the certified Model catalog but
     # lets the engine fit FEWER disks per node than the certified (fully-populated)
@@ -127,7 +132,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
         fits = _fit_model(md, needs, required_cores, validated=validated,
                           validated_only=md.get("validated_only", False),
-                          iops_cfg=iops_cfg)
+                          iops_cfg=iops_cfg,
+                          allow_storage_only=allow_storage_only)
         candidates.extend(fits)
 
     # Ranking priority (each tier only breaks ties of the previous one):
@@ -251,11 +257,19 @@ def _bucket(over_provision):
 
 
 def _rank_key(c, needs, required_cores, iops_demand_val):
-    """Lexicographic ranking: fewest nodes, then closest CPU / IOPS / storage /
-    RAM match (least over-provisioning), then cheapest. Lower sorts first."""
+    """Lexicographic ranking: fewest total nodes, then (when storage-only is in
+    play) fewest HCI nodes so compute is concentrated on the top CPU and the
+    rest offloaded to cheap storage-only nodes, then closest CPU / IOPS /
+    storage / RAM match (least over-provisioning), then cheapest. Lower sorts
+    first."""
     full = c.get("sized_full_cluster")
     cpu_avail = c["totals"]["cores"] if full else c["n_minus_1"]["cores"]
     cpu_close = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
+    # Maximise storage-only offload: among configs with the same total node
+    # count, prefer the one with the fewest full HCI nodes (achieved by the
+    # most capable CPU). With no storage-only split this equals node_count for
+    # every candidate, so it has no effect.
+    hci_nodes = c.get("hci_node_count", c["node_count"])
 
     if iops_demand_val > 0:
         net = c["iops"]["total"]
@@ -274,6 +288,7 @@ def _rank_key(c, needs, required_cores, iops_demand_val):
 
     return (
         c["node_count"],
+        hci_nodes,
         _bucket(cpu_close),
         _bucket(iops_close) if iops_close < 1000 else 1_000_000 + round(iops_close),
         _bucket(stor_close),
@@ -385,8 +400,29 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
     return total
 
 
+def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
+               num_clusters, node_count, full_cluster):
+    """For a storage-bound config, find the fewest full HCI nodes that still
+    satisfy compute + RAM (so the rest can be storage-only). Returns
+    (hci_nodes, ram_gb). Enforces >=2 HCI per cluster and at least one compute
+    node per cluster at N-1. Falls back to (node_count, None) if no split fits
+    — caller then treats it as an all-HCI config."""
+    lo = max(MIN_HCI_NODES_PER_CLUSTER * num_clusters, num_clusters + 1)
+    for h in range(lo, node_count + 1):
+        comp = h if full_cluster else (h - num_clusters)
+        if comp <= 0:
+            continue
+        if usable_cores * comp < required_cores:
+            continue
+        ram = _pick_ram(viable_ram_options, ram_need, h, num_clusters)
+        if ram is None:
+            continue
+        return h, ram
+    return node_count, None
+
+
 def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
-               iops_cfg=None):
+               iops_cfg=None, allow_storage_only=False):
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     storage = model["storage"]
@@ -458,17 +494,38 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             layout = _cluster_layout(node_count)
             num_clusters = len(layout)
             n1_nodes = node_count - num_clusters
-            n1_usable_cores = usable_cores * n1_nodes
-            full_usable_cores = usable_cores * node_count
-            cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
+            full_usable_cores_all = usable_cores * node_count
+            n1_usable_cores_all = usable_cores * n1_nodes
+            cpu_avail_all = full_usable_cores_all if full_cluster else n1_usable_cores_all
 
-            if cpu_avail < required_cores:
+            # The all-HCI config must still meet compute (storage-only only ever
+            # reduces the compute pool, so this is the easy upper bound).
+            if cpu_avail_all < required_cores:
                 continue
 
-            ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
-                               node_count, num_clusters)
+            # Storage-only split: keep the fewest HCI nodes that satisfy compute
+            # + RAM (>=2 per cluster); the remainder become storage-only nodes.
+            # Storage capacity and IOPS still span ALL nodes.
+            so_nodes = 0
+            hci_nodes = node_count
+            ram_gb = None
+            if allow_storage_only:
+                hci_nodes, ram_gb = _hci_split(
+                    usable_cores, required_cores, viable_ram_options,
+                    needs["ram_gb"], num_clusters, node_count, full_cluster)
+                so_nodes = node_count - hci_nodes
+            if ram_gb is None:
+                hci_nodes, so_nodes = node_count, 0
+                ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
+                                   node_count, num_clusters)
             if not ram_gb:
                 continue
+
+            # Compute pool spans HCI nodes only; storage spans all nodes.
+            compute_n1_nodes = hci_nodes - num_clusters
+            n1_usable_cores = usable_cores * compute_n1_nodes
+            full_usable_cores = usable_cores * hci_nodes
+            cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
 
             stor = _pick_storage_multi(storage, needs["usable_storage_tb"],
                                        layout, validated=validated)
@@ -477,10 +534,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
 
             usable_ram_per_node = ram_gb - USABLE_RAM_OVERHEAD
 
-            total_cores = cores_per_node * node_count
-            total_threads = threads_per_node * node_count
-            total_ghz = ghz_per_node * node_count
-            total_ram = ram_gb * node_count
+            total_cores = cores_per_node * hci_nodes
+            total_threads = threads_per_node * hci_nodes
+            total_ghz = ghz_per_node * hci_nodes
+            total_ram = ram_gb * hci_nodes
 
             raw_per_node = stor["raw_per_node"]
             biggest_disk = stor["biggest_disk"]
@@ -513,7 +570,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "write_amp": round(write_amp, 3),
             }
 
-            n1_ghz = ghz_per_node * n1_nodes
+            n1_ghz = ghz_per_node * compute_n1_nodes
             # Operational ratio is measured against the sizing basis; the degraded
             # ratio is always the N-1 case (what you'd run at during a failure).
             n1_ratio = needs["vcpus"] / n1_usable_cores if n1_usable_cores > 0 else 99
@@ -521,14 +578,14 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
             cost_tier = _model_cost_tier(model["name"])
-            excess_cores = usable_cores * node_count - required_cores
+            excess_cores = usable_cores * hci_nodes - required_cores
 
             score = node_count * 20
             score += cost_tier * 6
             score += excess_cores * 0.3
 
             core_headroom = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
-            ram_headroom = (usable_ram_per_node * n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
+            ram_headroom = (usable_ram_per_node * compute_n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
             score += core_headroom * 3
@@ -542,6 +599,32 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 else:
                     score += (1.0 - ghz_ratio) * 15
 
+            # Storage-only nodes (only when the split actually moved nodes off
+            # the compute pool). Same model/drives, single lowest-tier CPU, the
+            # model's compliant minimum RAM.
+            storage_only_block = None
+            if so_nodes > 0:
+                # Validated (software-only) may derive a single CPU from any
+                # platform; Certified must use real single-CPU SKUs only (the
+                # model's own or a single-socket sibling, precomputed in
+                # storage_only_cpu_options).
+                if validated:
+                    so_cpu_opts = single_cpu_options(model["cpu_options"])
+                else:
+                    so_cpu_opts = (model.get("storage_only_cpu_options")
+                                   or model["cpu_options"])
+                so_cpu = so_cpu_opts[0] if so_cpu_opts else None
+                so_ram_gb = min(model["ram_options_gb"]) if model.get("ram_options_gb") else 16
+                storage_only_block = {
+                    "count": so_nodes,
+                    "cpu": so_cpu["desc"] if so_cpu else "",
+                    "cores": so_cpu["cores"] if so_cpu else 0,
+                    "threads": so_cpu["threads"] if so_cpu else 0,
+                    "ghz": so_cpu["ghz"] if so_cpu else 0,
+                    "ram_gb": so_ram_gb,
+                    "raw_storage_tb": round(raw_per_node, 2),
+                }
+
             results.append({
                 "model": model["name"],
                 "category": model["category"],
@@ -549,6 +632,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "chassis": model["chassis"],
                 "cost_tier": cost_tier,
                 "node_count": node_count,
+                "hci_node_count": hci_nodes,
+                "storage_only": storage_only_block,
                 "num_clusters": num_clusters,
                 "cluster_layout": layout,
                 "cpu": cpu["desc"],
@@ -567,18 +652,18 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "validated_only": validated_only,
                 "iops": iops_block,
                 "totals": {
-                    "cores": usable_cores * node_count,
+                    "cores": usable_cores * hci_nodes,
                     "threads": total_threads,
                     "total_ghz": round(total_ghz, 1),
-                    "ram_gb": round(usable_ram_per_node * node_count, 1),
+                    "ram_gb": round(usable_ram_per_node * hci_nodes, 1),
                     "raw_storage_tb": round(total_raw, 2),
                     "usable_storage_tb": round(usable, 2),
                 },
                 "n_minus_1": {
                     "cores": n1_usable_cores,
-                    "threads": threads_per_node * n1_nodes,
+                    "threads": threads_per_node * compute_n1_nodes,
                     "total_ghz": round(n1_ghz, 1),
-                    "ram_gb": round(usable_ram_per_node * n1_nodes, 1),
+                    "ram_gb": round(usable_ram_per_node * compute_n1_nodes, 1),
                     "usable_storage_tb": round(usable, 2),
                 },
                 "score": round(score, 2),

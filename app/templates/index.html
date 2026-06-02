@@ -85,6 +85,31 @@
                 </div>
 
                 <div id="storage-section" class="form-row"></div>
+
+                <div class="storage-only-block">
+                    <div class="storage-only-header">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="so-enable" onchange="toggleStorageOnly()">
+                            Add storage-only nodes
+                        </label>
+                        <span class="info-icon" tabindex="0"
+                              title="Storage-only nodes run no VMs (virtualization disabled) but still join the storage cluster, adding capacity and IOPS. Same model/drives as the HCI nodes, the lowest-tier CPU and minimal RAM. A single CPU is offered when a single-socket model exists in the family; otherwise the family's dual CPU is kept. Requires at least 2 full HCI nodes for HA and updates.">i</span>
+                    </div>
+                    <div id="so-config" class="form-row" style="display:none">
+                        <div class="form-group">
+                            <label>Storage-Only Node Count</label>
+                            <input type="number" id="so-count" value="1" min="1" max="98" onchange="calculate()">
+                        </div>
+                        <div class="form-group">
+                            <label>CPU (storage-only)</label>
+                            <select id="so-cpu-select" onchange="calculate()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>RAM (GB)</label>
+                            <select id="so-ram-select" onchange="calculate()"></select>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -204,6 +229,39 @@
                 <div id="disk-validation" class="validation-msg"></div>
             </div>
 
+            <div class="storage-only-block">
+                <div class="storage-only-header">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="val-so-enable" onchange="toggleValidatedStorageOnly()">
+                        Add storage-only nodes
+                    </label>
+                    <span class="info-icon" tabindex="0"
+                          title="Storage-only nodes run no VMs but join the storage cluster, adding capacity and IOPS. Same disks as the HCI nodes, a single CPU and at least 16 GB RAM. Requires at least 2 full HCI nodes.">i</span>
+                </div>
+                <div id="val-so-config" class="form-row" style="display:none">
+                    <div class="form-group">
+                        <label>Storage-Only Node Count</label>
+                        <input type="number" id="val-so-count" value="1" min="1" max="96">
+                    </div>
+                    <div class="form-group">
+                        <label>Cores (single CPU)</label>
+                        <input type="number" id="val-so-cores" value="8" min="1" max="64">
+                    </div>
+                    <div class="form-group">
+                        <label>Threads</label>
+                        <input type="number" id="val-so-threads" value="16" min="1" max="128">
+                    </div>
+                    <div class="form-group">
+                        <label>Base GHz</label>
+                        <input type="number" id="val-so-ghz" value="2.1" min="0.5" max="6" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>RAM (GB, min 16)</label>
+                        <input type="number" id="val-so-ram" value="32" min="16" max="2048" step="16">
+                    </div>
+                </div>
+            </div>
+
             <button class="btn btn-primary" onclick="calculateValidated()">Calculate</button>
         </section>
 
@@ -235,15 +293,14 @@
                 <div class="import-workload">
                     <h3>Workload Requirements</h3>
                     <div class="summary-grid" id="workload-summary"></div>
-                    <div id="local-storage-option"></div>
                 </div>
 
                 <div class="ratio-control">
                     <div class="ratio-header">
-                        <h3>Virtualization Ratio</h3>
+                        <h3>Sizing Options</h3>
                         <div class="ratio-current" id="ratio-current"></div>
                     </div>
-                    <div class="ratio-slider-row">
+                    <div class="ratio-slider-row compact">
                         <label>Target vCPU : Core ratio</label>
                         <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
                                oninput="updateRatioDisplay()">
@@ -260,24 +317,56 @@
                             <span>8:1 Aggressive</span>
                         </div>
                     </div>
-                    <div class="full-cluster-option">
-                        <label class="checkbox-inline">
-                            <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
-                            Size CPU for full cluster
-                        </label>
-                        <span class="info-icon" id="full-cluster-info" tabindex="0"
-                              title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
+
+                    <div class="sizing-options-grid">
+                        <div class="form-group">
+                            <label>Target Node Count</label>
+                            <input type="number" id="target-nodes" placeholder="No limit" min="3" step="1"
+                                   title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
+                                   onchange="recalcRecommendations()">
+                        </div>
+                        <div class="form-group">
+                            <label>Storage Type</label>
+                            <select id="storage-pref" onchange="recalcRecommendations()"
+                                    title="Prefer a specific storage media. Auto considers all options.">
+                                <option value="auto" selected>Auto</option>
+                                <option value="flash">All-Flash</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="spinning">All-Spinning</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Sizing Mode
+                                <span class="info-icon" tabindex="0"
+                                      title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
+                            </label>
+                            <select id="sizing-mode" onchange="recalcRecommendations()">
+                                <option value="certified" selected>Certified</option>
+                                <option value="validated">Validated (Software-Only)</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="sizing-mode-option">
-                        <label>Sizing Mode</label>
-                        <select id="sizing-mode" onchange="recalcRecommendations()"
-                                title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need.">
-                            <option value="certified" selected>Certified</option>
-                            <option value="validated">Validated (Software-Only)</option>
-                        </select>
-                        <span class="info-icon" tabindex="0"
-                              title="Validated reuses the certified models but flexes the disk count downward only (1 or 3+ disks per node, never above the certified count), respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
+
+                    <div class="sizing-toggles">
+                        <div class="toggle-item">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
+                                Size CPU for full cluster
+                            </label>
+                            <span class="info-icon" id="full-cluster-info" tabindex="0"
+                                  title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
+                        </div>
+                        <div class="toggle-item">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
+                                Allow storage-only nodes
+                            </label>
+                            <span class="info-icon" tabindex="0"
+                                  title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
+                        </div>
                     </div>
+
+                    <div id="local-storage-option"></div>
                 </div>
 
                 <div class="growth-control">
@@ -302,22 +391,6 @@
                             <label>Snapshot Overhead %</label>
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
                                    onchange="recalcRecommendations()">
-                        </div>
-                        <div class="form-group">
-                            <label>Target Node Count</label>
-                            <input type="number" id="target-nodes" placeholder="No limit" min="3" step="1"
-                                   title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
-                                   onchange="recalcRecommendations()">
-                        </div>
-                        <div class="form-group">
-                            <label>Storage Type</label>
-                            <select id="storage-pref" onchange="recalcRecommendations()"
-                                    title="Prefer a specific storage media. Auto considers all options.">
-                                <option value="auto" selected>Auto</option>
-                                <option value="flash">All-Flash</option>
-                                <option value="hybrid">Hybrid</option>
-                                <option value="spinning">All-Spinning</option>
-                            </select>
                         </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
@@ -510,6 +583,12 @@
                                 <option value="validated">Validated (Software-Only)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label class="checkbox-inline" style="margin-top:1.8rem">
+                                <input type="checkbox" id="man-allow-storage-only" onchange="recalcManualRecommendations()">
+                                Allow storage-only nodes
+                            </label>
+                        </div>
                     </div>
                     <div id="man-projection-summary" class="projection-summary"></div>
                 </div>
@@ -538,7 +617,7 @@
                 </div>
                 <div class="result-card n1">
                     <h3>N-1 (Update/Failure)</h3>
-                    <p class="n1-desc">Resources available with one node offline</p>
+                    <p class="n1-desc" id="n1-desc">Resources available with one node offline</p>
                     <table id="n1-table"></table>
                 </div>
             </div>

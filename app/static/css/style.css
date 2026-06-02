@@ -739,6 +739,33 @@ footer {
     color: var(--text-muted);
 }
 
+/* Sizing Options — consolidated controls (ratio + node/storage/mode + toggles) */
+.ratio-slider-row.compact { margin-bottom: 0.5rem; }
+.ratio-slider-row.compact .ratio-value { font-size: 0.95rem; min-width: 64px; }
+
+.sizing-options-grid {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.1rem;
+}
+.sizing-options-grid .form-group { min-width: 170px; flex: 1; }
+.sizing-options-grid label { display: flex; align-items: center; gap: 0.35rem; }
+.sizing-options-grid .info-icon { text-transform: none; }
+
+.sizing-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.6rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+.sizing-toggles .toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 /* Growth Projection Controls */
 
 .growth-control {
@@ -1285,6 +1312,28 @@ footer {
     display: inline-block;
     width: auto;
     margin-top: 0;
+}
+
+/* ── Storage-only nodes ──────────────────────────────────────────────────── */
+.storage-only-block {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px dashed var(--border, #d0d5dd);
+}
+.storage-only-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+.storage-only-header .checkbox-inline {
+    font-weight: 600;
+}
+tr.so-divider td {
+    padding-top: 0.6rem;
+    font-weight: 600;
+    color: var(--accent, #0076ce);
+    border-top: 1px dashed var(--border, #d0d5dd);
 }
 
 @media (max-width: 900px) {
