@@ -671,6 +671,7 @@ async function recalcRecommendations() {
     const storagePref = document.getElementById('storage-pref').value;
     const sizeFullCluster = document.getElementById('size-full-cluster').checked;
     const sizingMode = document.getElementById('sizing-mode').value;
+    const allowStorageOnly = document.getElementById('allow-storage-only').checked;
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -686,6 +687,7 @@ async function recalcRecommendations() {
                 storage_pref: storagePref,
                 size_full_cluster: sizeFullCluster,
                 sizing_mode: sizingMode,
+                allow_storage_only: allowStorageOnly,
             }),
         });
         const data = await resp.json();
@@ -924,6 +926,15 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const iops = r.iops || null;
         const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
+        const so = r.storage_only || null;
+        const nodesLabel = so
+            ? `${r.hci_node_count} HCI + ${so.count} storage-only`
+            : `${r.node_count} nodes`;
+        const soRows = so ? `
+                        <tr class="so-divider"><td colspan="2">Storage-Only &times; ${so.count} (no VMs)</td></tr>
+                        <tr><td>CPU</td><td>${so.cpu}</td></tr>
+                        <tr><td>RAM</td><td>${formatRam(so.ram_gb)}</td></tr>
+                        <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>` : '';
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -931,7 +942,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-model">${modelLabel}</span>
                 <span class="rec-category">${r.category}</span>
                 ${ratioBadge}
-                <span class="rec-nodes">${r.node_count} nodes</span>
+                <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
             <div class="rec-details">
@@ -944,6 +955,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>RAM</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
                         <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>
                         ${iops ? iopsRow(iops.per_node) : ''}
+                        ${soRows}
                     </table>
                 </div>
                 <div class="rec-col">
@@ -1083,6 +1095,7 @@ async function recalcManualRecommendations() {
     const growthPct = parseFloat(document.getElementById('man-growth-pct').value) || 0;
     const snapshotPct = parseFloat(document.getElementById('man-snapshot-pct').value) || 0;
     const sizingMode = document.getElementById('man-sizing-mode').value;
+    const allowStorageOnly = document.getElementById('man-allow-storage-only').checked;
 
     const resp = await fetch('/api/recommend', {
         method: 'POST',
@@ -1094,6 +1107,7 @@ async function recalcManualRecommendations() {
             growth_pct: growthPct,
             snapshot_pct: snapshotPct,
             sizing_mode: sizingMode,
+            allow_storage_only: allowStorageOnly,
         }),
     });
     const data = await resp.json();
