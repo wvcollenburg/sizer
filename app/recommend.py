@@ -21,9 +21,15 @@ STORAGE_CATEGORIES = {
 }
 
 
+MAX_CLUSTER_DISKS = 100      # Software-only hard cap on disks per cluster
+HYBRID_FLASH_MIN_PCT = 7.0   # Validated hybrid: flash tier floor (% of raw capacity)
+HYBRID_FLASH_MAX_PCT = 24.3  # Validated hybrid: flash tier ceiling
+
+
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
-                             storage_pref=None, size_full_cluster=False):
+                             storage_pref=None, size_full_cluster=False,
+                             sizing_mode="certified"):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -43,6 +49,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
     # Size CPU against the full cluster instead of N-1 (degraded on node failure).
     size_full_cluster = bool(size_full_cluster)
+
+    # Software-only ("Validated") sizing reuses the certified Model catalog but
+    # lets the engine fit FEWER disks per node than the certified (fully-populated)
+    # count — sizing storage to need instead of to the fixed appliance config.
+    validated = (sizing_mode == "validated")
     growth = growth_pct / 100
     snap_base = snapshot_pct / 100
 
@@ -88,11 +99,15 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         stype = md["storage"]["type"]
         if stype == "cloud":
             continue
+        # nvme_and_ssd is inherently a 1+1 (2-disk) node, which violates the
+        # software-only "1 or 3+ disks" rule and cannot be flexed lower.
+        if validated and stype == "nvme_and_ssd":
+            continue
         if storage_pref and STORAGE_CATEGORIES.get(stype) != storage_pref:
             continue
         matched_storage += 1
 
-        fits = _fit_model(md, needs, required_cores)
+        fits = _fit_model(md, needs, required_cores, validated=validated)
         candidates.extend(fits)
 
     candidates.sort(key=lambda c: c["score"])
@@ -129,6 +144,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                 f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
             )
         deduped = within_cap
+
+    if validated and not deduped and not warnings:
+        warnings.append(
+            "No Validated configuration fits the software-only constraints "
+            "(≤100 disks/cluster, 1-or-3+ disks per node, hybrid flash "
+            "7–24.3%). Try Certified mode or raise the target node count."
+        )
 
     # Build warnings — only warn when EVERY recommendation is tight on RAM
     max_vm_ram = needs["max_vm_ram_gb"]
@@ -281,7 +303,7 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
     return total
 
 
-def _fit_model(model, needs, required_cores):
+def _fit_model(model, needs, required_cores, validated=False):
     results = []
     storage = model["storage"]
     min_nodes = max(model.get("min_nodes", 3), 3)
@@ -365,7 +387,7 @@ def _fit_model(model, needs, required_cores):
                 continue
 
             stor = _pick_storage_multi(storage, needs["usable_storage_tb"],
-                                       layout)
+                                       layout, validated=validated)
             if not stor:
                 continue
 
@@ -434,6 +456,7 @@ def _fit_model(model, needs, required_cores):
                 "vcpu_ratio": round(rec_ratio, 2),
                 "vcpu_ratio_degraded": round(n1_ratio, 2),
                 "sized_full_cluster": full_cluster,
+                "validated": validated,
                 "totals": {
                     "cores": usable_cores * node_count,
                     "threads": total_threads,
@@ -516,72 +539,136 @@ def _pick_ram(options, total_needed_gb, node_count, num_clusters=1):
     return None
 
 
-def _pick_storage_multi(storage, usable_needed_tb, cluster_layout):
+def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=False):
     stype = storage["type"]
 
     if stype == "nvme_only":
         return _pick_uniform_drives(
             storage.get("nvme_options_tb", []),
             storage.get("drives_per_node", 1),
-            usable_needed_tb, cluster_layout, "nvme"
+            usable_needed_tb, cluster_layout, "nvme", validated
         )
     elif stype == "ssd_only":
         return _pick_uniform_drives(
             storage.get("ssd_options_tb", []),
             storage.get("drives_per_node", 4),
-            usable_needed_tb, cluster_layout, "ssd"
+            usable_needed_tb, cluster_layout, "ssd", validated
         )
     elif stype == "hdd_only":
         return _pick_uniform_drives(
             storage.get("hdd_options_tb", []),
             storage.get("drives_per_node", 4),
-            usable_needed_tb, cluster_layout, "hdd"
+            usable_needed_tb, cluster_layout, "hdd", validated
         )
     elif stype == "hybrid":
-        return _pick_hybrid(storage, usable_needed_tb, cluster_layout, flash_key="ssd")
+        return _pick_hybrid(storage, usable_needed_tb, cluster_layout, "ssd", validated)
     elif stype == "hybrid_nvme":
-        return _pick_hybrid(storage, usable_needed_tb, cluster_layout, flash_key="nvme")
+        return _pick_hybrid(storage, usable_needed_tb, cluster_layout, "nvme", validated)
     elif stype == "nvme_and_ssd":
+        # Excluded upstream in Validated mode; only reachable for Certified.
         return _pick_nvme_and_ssd(storage, usable_needed_tb, cluster_layout)
 
     return None
 
 
-def _pick_uniform_drives(size_options, drives_per_node, usable_needed, cluster_layout, drive_type):
+def _validated_disk_counts(certified_count):
+    """Valid per-node disk counts when flexing down from a fully-populated
+    certified node: 1, or 3..certified_count. Never 2, never above certified."""
+    counts = [n for n in range(3, certified_count + 1)]
+    if certified_count >= 1:
+        counts.append(1)
+    return sorted(set(counts))
+
+
+def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
+                         cluster_layout, drive_type, validated=False):
+    node_count = sum(cluster_layout)
+    # Certified: fixed count, smallest size that fits. Validated: also flex the
+    # count down (1 or 3+, never above certified), picking the closest fit.
+    counts = _validated_disk_counts(drives_per_node) if validated else [drives_per_node]
+
+    best = None
     for size in sorted(size_options):
-        raw_per_node = size * drives_per_node
-        biggest = size
-        usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)
-        if usable >= usable_needed:
-            return {
+        for count in counts:
+            if validated and count * node_count > MAX_CLUSTER_DISKS:
+                continue
+            raw_per_node = size * count
+            usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
+            if usable < usable_needed:
+                continue
+            cand = {
                 "raw_per_node": raw_per_node,
-                "biggest_disk": biggest,
-                "desc": f"{drives_per_node}x {size}TB {drive_type.upper()}",
+                "biggest_disk": size,
+                "desc": f"{count}x {size}TB {drive_type.upper()}",
                 f"{drive_type}_tb": size,
+                "_usable": usable,
+                "_disks": count,
             }
-    return None
+            if not validated:
+                return _strip_pick(cand)
+            # Closest fit: least usable; tie-break fewer disks, smaller size.
+            key = (usable, count, size)
+            if best is None or key < best[0]:
+                best = (key, cand)
+    return _strip_pick(best[1]) if best else None
 
 
-def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key):
+def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=False):
     hdd_options = sorted(storage.get("hdd_options_tb", []))
     flash_options = sorted(storage.get(f"{flash_key}_options_tb", []))
     hdd_count = storage.get("hdd_count", 3)
     flash_count = storage.get(f"{flash_key}_count", 1)
+    node_count = sum(cluster_layout)
 
+    # Certified: fixed tier counts. Validated: flex both tiers down (never above
+    # certified), keeping total disks valid (3+), the cluster cap, and the
+    # 7-24.3% flash-capacity band.
+    if validated:
+        hdd_counts = list(range(1, hdd_count + 1))
+        flash_counts = list(range(1, flash_count + 1))
+    else:
+        hdd_counts = [hdd_count]
+        flash_counts = [flash_count]
+
+    best = None
     for hdd_tb in hdd_options:
         for flash_tb in flash_options:
-            raw_per_node = (hdd_tb * hdd_count) + (flash_tb * flash_count)
-            biggest = max(hdd_tb, flash_tb)
-            usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)
-            if usable >= usable_needed:
-                return {
-                    "raw_per_node": raw_per_node,
-                    "biggest_disk": biggest,
-                    "desc": f"{hdd_count}x {hdd_tb}TB HDD + {flash_count}x {flash_tb}TB {flash_key.upper()}",
-                    "hdd_tb": hdd_tb,
-                    f"{flash_key}_tb": flash_tb,
-                }
-    return None
+            for h in hdd_counts:
+                for f in flash_counts:
+                    if validated:
+                        total = h + f
+                        if total < 3 or total * node_count > MAX_CLUSTER_DISKS:
+                            continue
+                    raw_per_node = (hdd_tb * h) + (flash_tb * f)
+                    if validated:
+                        flash_pct = (flash_tb * f / raw_per_node) * 100 if raw_per_node else 0
+                        if flash_pct < HYBRID_FLASH_MIN_PCT or flash_pct > HYBRID_FLASH_MAX_PCT:
+                            continue
+                    biggest = max(hdd_tb, flash_tb)
+                    usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)
+                    if usable < usable_needed:
+                        continue
+                    cand = {
+                        "raw_per_node": raw_per_node,
+                        "biggest_disk": biggest,
+                        "desc": f"{h}x {hdd_tb}TB HDD + {f}x {flash_tb}TB {flash_key.upper()}",
+                        "hdd_tb": hdd_tb,
+                        f"{flash_key}_tb": flash_tb,
+                        "_usable": usable,
+                        "_disks": h + f,
+                    }
+                    if not validated:
+                        return _strip_pick(cand)
+                    key = (usable, h + f, biggest)
+                    if best is None or key < best[0]:
+                        best = (key, cand)
+    return _strip_pick(best[1]) if best else None
+
+
+def _strip_pick(pick):
+    pick.pop("_usable", None)
+    pick.pop("_disks", None)
+    return pick
 
 
 def _pick_nvme_and_ssd(storage, usable_needed, cluster_layout):
