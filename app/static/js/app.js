@@ -472,6 +472,8 @@ function updateP95Display() {
     const val = parseInt(input.value) || 0;
     if (importSummary) {
         importSummary.p95_iops = val;
+        // Refresh recommendations so the IOPS demand/headroom reflects the new P95.
+        recalcRecommendations();
     }
 }
 
@@ -610,6 +612,9 @@ async function recalcRecommendations() {
             }),
         });
         const data = await resp.json();
+        // Store projection first: renderRecommendationsTo reads lastProjection
+        // for the IOPS demand/headroom line.
+        if (data.projection) lastProjection['import'] = data.projection;
         if (data.recommendations) {
             lastRecommendations['import'] = data.recommendations;
             lastSummary['import'] = importSummary;
@@ -617,7 +622,6 @@ async function recalcRecommendations() {
             updateFullClusterInfo(sizeFullCluster, data.recommendations);
         }
         if (data.projection) {
-            lastProjection['import'] = data.projection;
             renderProjectionTo(data.projection, 'projection-summary');
         }
     } catch (e) {
@@ -681,7 +685,19 @@ function renderProjectionTo(p, targetId) {
             Growth: ${p.growth_factor}x over ${p.years}yr &mdash;
             Snapshot overhead at year ${p.years}: ${p.snapshot_pct_at_target}%
         </div>
+        ${iopsDemandNote(p.iops_demand)}
     `;
+}
+
+// Workload IOPS demand note (measured front-end IOPS amplified to backend by the
+// RF write-amplification factor). Shown when P95 and/or Average are known.
+function iopsDemandNote(d) {
+    if (!d) return '';
+    const bits = [];
+    if (d.p95_backend) bits.push(`P95 ${d.p95_frontend.toLocaleString()} &rarr; ${d.p95_backend.toLocaleString()} backend`);
+    if (d.avg_backend) bits.push(`Avg ${d.avg_frontend.toLocaleString()} &rarr; ${d.avg_backend.toLocaleString()} backend`);
+    if (!bits.length) return '';
+    return `<div class="proj-note">IOPS demand (write-amp ${d.write_amp}&times;): ${bits.join(' &middot; ')}</div>`;
 }
 
 function displayImportResults(data) {
@@ -804,6 +820,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     }
 
     const targetRatio = parseFloat(document.getElementById(sliderId).value);
+    const demand = (lastProjection[mode] || {}).iops_demand || null;
 
     let warningsHtml = '';
     if (warnings && warnings.length > 0) {
@@ -825,6 +842,9 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const ratioBadge = r.sized_full_cluster
             ? `<span class="rec-ratio-badge degraded" title="Normal vCPU:core ratio (full cluster). Rises to ${r.vcpu_ratio_degraded.toFixed(2)}:1 during a node failure.">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
             : `<span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>`;
+        const iops = r.iops || null;
+        const iopsRow = (val) => iops ? `<tr><td>IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
+        const iopsHeadroom = buildIopsHeadroom(iops, demand);
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -844,6 +864,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>Threads</td><td>${r.threads_per_node}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
                         <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>
+                        ${iops ? iopsRow(iops.per_node) : ''}
                     </table>
                 </div>
                 <div class="rec-col">
@@ -854,6 +875,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>GHz</td><td>${r.totals.total_ghz}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(r.totals.ram_gb)}</td></tr>
                         <tr><td>Usable Storage</td><td class="usable">${r.totals.usable_storage_tb} TB</td></tr>
+                        ${iops ? iopsRow(iops.total) : ''}
                     </table>
                 </div>
                 <div class="rec-col">
@@ -864,15 +886,38 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>GHz</td><td>${r.n_minus_1.total_ghz}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(r.n_minus_1.ram_gb)}</td></tr>
                         <tr><td>Usable Storage</td><td class="usable">${r.n_minus_1.usable_storage_tb} TB</td></tr>
+                        ${iops ? iopsRow(iops.n_minus_1) : ''}
                     </table>
                 </div>
             </div>
+            ${iopsHeadroom}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
             </div>
         </div>
     `}).join('');
+}
+
+// Informational IOPS supply-vs-demand line for a recommendation card. Compares
+// cluster IOPS supply against the (write-amplified) backend demand at P95/Avg.
+// Returns '' when there is no IOPS data or no measured demand.
+function buildIopsHeadroom(iops, demand) {
+    if (!iops || !demand) return '';
+    const parts = [];
+    const fmtMetric = (label, backend, frontend) => {
+        if (!backend || backend <= 0) return;
+        const ratio = iops.total / backend;
+        const ok = ratio >= 1;
+        parts.push(
+            `<span class="${ok ? 'iops-ok' : 'iops-short'}" title="${label} demand ${frontend.toLocaleString()} IOPS &times; ${demand.write_amp} write-amp = ${backend.toLocaleString()} backend; cluster supply ${iops.total.toLocaleString()}">` +
+            `${label}: ${ratio.toFixed(1)}&times; ${ok ? '&#10003;' : '&#9888;'}</span>`
+        );
+    };
+    fmtMetric('P95', demand.p95_backend, demand.p95_frontend);
+    fmtMetric('Avg', demand.avg_backend, demand.avg_frontend);
+    if (!parts.length) return '';
+    return `<div class="rec-iops-headroom">IOPS headroom (supply &divide; demand @ RF write-amp ${demand.write_amp}&times;): ${parts.join(' &middot; ')}</div>`;
 }
 
 // ==================== MANUAL INPUT MODE ====================
@@ -973,13 +1018,13 @@ async function recalcManualRecommendations() {
         }),
     });
     const data = await resp.json();
+    if (data.projection) lastProjection['manual'] = data.projection;
     if (data.recommendations) {
         lastRecommendations['manual'] = data.recommendations;
         lastSummary['manual'] = manualSummary;
         renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual', data.warnings);
     }
     if (data.projection) {
-        lastProjection['manual'] = data.projection;
         renderProjectionTo(data.projection, 'man-projection-summary');
     }
 }

@@ -26,7 +26,7 @@ def generate_proposal(summary, recommendation, projection):
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
-    _slide_proposal(prs, recommendation)
+    _slide_proposal(prs, recommendation, projection)
     _slide_projection(prs, summary, recommendation, projection)
 
     buf = io.BytesIO()
@@ -355,7 +355,7 @@ def _slide_workload(prs, s):
 
 # ── Slide 3: Proposed Configuration ──────────────────────────────────────────
 
-def _slide_proposal(prs, r):
+def _slide_proposal(prs, r, projection=None):
     slide = _add_slide(prs)
 
     num_cl = r.get("num_clusters", 1)
@@ -372,6 +372,8 @@ def _slide_proposal(prs, r):
     _add_title(slide, f"Proposed: {model_label}",
                f"{r['node_count']} nodes  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}")
 
+    iops = r.get("iops") or {}
+
     node_rows = [
         ["Per Node", ""],
         ["CPU", r["cpu"]],
@@ -380,6 +382,8 @@ def _slide_proposal(prs, r):
         ["RAM", _fmt_ram(r["ram_per_node_gb"])],
         ["Storage", r["storage_config"]["desc"]],
     ]
+    if iops:
+        node_rows.append(["IOPS", f"{iops['per_node']:,}"])
     _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
 
     t = r["totals"]
@@ -392,6 +396,8 @@ def _slide_proposal(prs, r):
         ["Raw Storage", f"{t['raw_storage_tb']} TB"],
         ["Usable Storage", f"{t['usable_storage_tb']} TB"],
     ]
+    if iops:
+        total_rows.append(["IOPS", f"{iops['total']:,}"])
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
     n = r["n_minus_1"]
@@ -404,11 +410,23 @@ def _slide_proposal(prs, r):
         ["RAM", _fmt_ram(n["ram_gb"])],
         ["Usable Storage", f"{n['usable_storage_tb']} TB"],
     ]
+    if iops:
+        n1_rows.append(["IOPS", f"{iops['n_minus_1']:,}"])
     _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     _add_card(slide, 0.6, 5.4, 3.5, 0.9,
               "vCPU : Core Ratio at N-1",
               f"{r['vcpu_ratio']:.2f} : 1", accent=True)
+
+    # IOPS supply-vs-demand headroom (informational), when demand is known.
+    demand = (projection or {}).get("iops_demand") or {}
+    if iops and (demand.get("p95_backend") or demand.get("avg_backend")):
+        metric = "P95" if demand.get("p95_backend") else "Avg"
+        backend = demand.get("p95_backend") or demand.get("avg_backend")
+        ratio = iops["total"] / backend if backend else 0
+        _add_card(slide, 4.3, 5.4, 4.0, 0.9,
+                  f"IOPS Headroom vs {metric} (write-amp {demand['write_amp']}x)",
+                  f"{ratio:.1f}x  ({iops['total']:,} supply / {backend:,} demand)")
 
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────

@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 from database import db
 from orm_models import (
     Model, RamOption, StorageConfig,
-    CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops,
+    CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops, SizingSetting,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 
@@ -235,6 +235,67 @@ def update_drive_iops():
     db.session.commit()
     return jsonify({"message": "Drive IOPS updated",
                     "drive_iops": [r.to_dict() for r in DriveTypeIops.query.all()]})
+
+
+# ── Cluster-level IOPS sizing config (configurable) ──────────────────────────
+
+def _sizing_config_dict():
+    return {s.key: s.value for s in SizingSetting.query.all()}
+
+
+@admin_bp.route("/api/sizing-config")
+def get_sizing_config():
+    return jsonify(_sizing_config_dict())
+
+
+@admin_bp.route("/api/sizing-config", methods=["PUT"])
+def update_sizing_config():
+    data = request.json or {}
+    # (key, parser/validator) — each returns the stored float or raises ValueError.
+    def frac(v):
+        f = float(v)
+        if not 0 <= f <= 1:
+            raise ValueError
+        return f
+
+    def derate(v):
+        f = float(v)
+        if not 0 <= f < 0.9:
+            raise ValueError
+        return f
+
+    def rf(v):
+        f = int(v)
+        if f < 1:
+            raise ValueError
+        return float(f)
+
+    validators = {
+        "iops_derating_pct": (derate, "Derating must be between 0 and 0.9"),
+        "iops_replication_factor": (rf, "Replication factor must be a whole number ≥ 1"),
+        "iops_read_fraction": (frac, "Read fraction must be between 0 and 1"),
+    }
+
+    updates = {}
+    for key, (parse, msg) in validators.items():
+        if key not in data:
+            continue
+        try:
+            updates[key] = parse(data[key])
+        except (TypeError, ValueError):
+            return jsonify({"error": msg}), 400
+
+    if not updates:
+        return jsonify({"error": "No valid sizing settings provided"}), 400
+
+    for key, value in updates.items():
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            db.session.add(SizingSetting(key=key, value=value))
+    db.session.commit()
+    return jsonify({"message": "Sizing config updated", "sizing_config": _sizing_config_dict()})
 
 
 # ── List all models ──────────────────────────────────────────────────────────
