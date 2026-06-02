@@ -337,9 +337,9 @@ def _slide_workload(prs, s):
 
     y2 = 2.9
     storage = [
-        ("Provisioned Storage", f"{s.get('total_vm_provisioned_storage_tb', 0)} TB", False),
-        ("Datastore Used", f"{s.get('datastore_used_tb', 0)} TB", True),
-        ("Datastore Total", f"{s.get('datastore_total_tb', 0)} TB", False),
+        ("Provisioned Storage", f"{s.get('total_vm_provisioned_storage_tb', 0)} TiB", False),
+        ("Datastore Used", f"{s.get('datastore_used_tb', 0)} TiB", True),
+        ("Datastore Total", f"{s.get('datastore_total_tb', 0)} TiB", False),
     ]
     for i, (label, val, accent) in enumerate(storage):
         _add_card(slide, 0.6 + i * 4.0, y2, 3.7, 1.0, label, val, accent)

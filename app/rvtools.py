@@ -221,6 +221,11 @@ def _build_summary(data):
 
         "datastore_total_tb": round(ds_total_gib / 1024, 2),
         "datastore_used_tb": round(ds_used_gib / 1024, 2),
+        # RVTools lists each datastore once (no per-host duplication, no local
+        # split), so there is no separate local storage to offer.
+        "local_total_tb": 0,
+        "local_used_tb": 0,
+        "local_used_gb": 0,
 
         "peak_cpu_pct": round(peak_cpu_pct, 1),
         "avg_cpu_pct": round(avg_cpu_pct, 1),

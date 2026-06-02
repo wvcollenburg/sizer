@@ -87,19 +87,33 @@ def _parse_host_perf(wb):
 
 def _parse_datastores(wb):
     stores = []
-    seen = set()
+    seen_cluster = set()
     for r in _sheet_rows(wb, "Host Devices"):
         dtype = str(r.get("Device Type", "")).strip()
-        name = str(r.get("Device Name", "")).strip()
-        if dtype != "Cluster" or name in seen:
+        if dtype not in ("Cluster", "Local"):
             continue
-        seen.add(name)
+        cap = _float(r.get("Capacity (GiB)", 0))
+        used = _float(r.get("Used Capacity (GiB)", 0))
+        free = _float(r.get("Free Capacity (GiB)", 0))
+        vmc = _int(r.get("VM Count", 0))
+        if dtype == "Cluster":
+            # A shared datastore is listed once per host that mounts it, each
+            # under a host-local name ("Disk 2" on one host == "Disk 7" on
+            # another). Deduping on the device name therefore never fires and
+            # the datastore is counted once per host. Dedup on a host-independent
+            # signature instead so each LUN counts once (matches the LO
+            # dashboard's capacity figures exactly).
+            sig = (round(cap), round(used), round(free), vmc)
+            if sig in seen_cluster:
+                continue
+            seen_cluster.add(sig)
         stores.append({
-            "name": name,
-            "capacity_gib": _float(r.get("Capacity (GiB)", 0)),
-            "used_gib": _float(r.get("Used Capacity (GiB)", 0)),
-            "free_gib": _float(r.get("Free Capacity (GiB)", 0)),
-            "vm_count": _int(r.get("VM Count", 0)),
+            "name": str(r.get("Device Name", "")).strip(),
+            "type": "local" if dtype == "Local" else "cluster",
+            "capacity_gib": cap,
+            "used_gib": used,
+            "free_gib": free,
+            "vm_count": vmc,
         })
     return stores
 
@@ -204,8 +218,13 @@ def _build_summary(data):
     total_vm_disk_prov_gb = sum(v["vdisk_size_gb"] for v in active_vms)
     total_vm_disk_used_gb = sum(v["vdisk_used_gb"] for v in active_vms)
 
-    ds_total_gib = sum(d["capacity_gib"] for d in datastores)
-    ds_used_gib = sum(d["used_gib"] for d in datastores)
+    # Cluster (shared) storage is the default sizing basis; local (per-host)
+    # storage is added only when the user opts in (it holds ISOs/templates that
+    # land on the cluster under HyperCore).
+    cluster_total_gib = sum(d["capacity_gib"] for d in datastores if d.get("type") != "local")
+    cluster_used_gib = sum(d["used_gib"] for d in datastores if d.get("type") != "local")
+    local_total_gib = sum(d["capacity_gib"] for d in datastores if d.get("type") == "local")
+    local_used_gib = sum(d["used_gib"] for d in datastores if d.get("type") == "local")
 
     peak_cpu_pct = max((p["peak_cpu_pct"] for p in perfs), default=0)
     avg_cpu_pct = sum(p["avg_cpu_pct"] for p in perfs) / len(perfs) if perfs else 0
@@ -243,8 +262,11 @@ def _build_summary(data):
         "total_vm_provisioned_storage_tb": round(total_vm_disk_prov_gb / 1024, 2),
         "total_vm_used_storage_tb": round(total_vm_disk_used_gb / 1024, 2),
 
-        "datastore_total_tb": round(ds_total_gib / 1024, 2),
-        "datastore_used_tb": round(ds_used_gib / 1024, 2),
+        "datastore_total_tb": round(cluster_total_gib / 1024, 2),
+        "datastore_used_tb": round(cluster_used_gib / 1024, 2),
+        "local_total_tb": round(local_total_gib / 1024, 2),
+        "local_used_tb": round(local_used_gib / 1024, 2),
+        "local_used_gb": round(local_used_gib),
 
         "peak_cpu_pct": round(peak_cpu_pct, 1),
         "avg_cpu_pct": round(avg_cpu_pct, 1),
