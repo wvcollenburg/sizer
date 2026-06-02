@@ -219,6 +219,22 @@ hr {
 
 .field-hint { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.73rem; }
 
+.iops-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+}
+.iops-card-header { margin-bottom: 10px; }
+.iops-card-header h3 { margin: 0 0 2px; font-size: 0.95rem; }
+.iops-inputs { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.iops-inputs .form-group { margin: 0; }
+.iops-inputs input { width: 120px; }
+.iops-status { font-size: 0.8rem; font-weight: 600; }
+.iops-status.ok { color: var(--green, #2e7d32); }
+.iops-status.err { color: var(--red, #c62828); }
+
 .cell-list {
     font-size: 0.78rem;
     color: var(--text-muted);

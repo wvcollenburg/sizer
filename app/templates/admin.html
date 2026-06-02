@@ -157,6 +157,28 @@
 
         <!-- ═══════════════════ DRIVE CATALOG TAB ═══════════════════ -->
         <div class="tab-content" id="tab-drives">
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3>IOPS per Drive Type</h3>
+                    <span class="field-hint">Per-drive IOPS used by IOPS sizing. Editable &mdash; defaults from product (HDD 150, SSD 20,000, NVMe 75,000).</span>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label>HDD</label>
+                        <input type="number" id="iops-hdd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>SSD</label>
+                        <input type="number" id="iops-ssd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>NVMe</label>
+                        <input type="number" id="iops-nvme" min="0" step="1">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
+                    <span id="iops-status" class="iops-status"></span>
+                </div>
+            </div>
             <div class="toolbar">
                 <div class="toolbar-left">
                     <button class="btn btn-primary" onclick="openAddCatalogItem('drive')">
