@@ -2,6 +2,7 @@ let allModels = [];
 let cpuCatalog = [];
 let nicCatalog = [];
 let driveCatalog = [];
+let driveIops = [];
 
 let selectedCpus = [];
 let selectedNics = [];
@@ -46,18 +47,55 @@ async function loadModels() {
 }
 
 async function loadCatalogs() {
-    const [cpuResp, nicResp, driveResp] = await Promise.all([
+    const [cpuResp, nicResp, driveResp, iopsResp] = await Promise.all([
         fetch('/admin/api/cpus'),
         fetch('/admin/api/nics'),
         fetch('/admin/api/drives'),
+        fetch('/admin/api/drive-iops'),
     ]);
     cpuCatalog = await cpuResp.json();
     nicCatalog = await nicResp.json();
     driveCatalog = await driveResp.json();
+    driveIops = await iopsResp.json();
 
     renderCpuCatalog();
     renderNicCatalog();
     renderDriveCatalog();
+    renderDriveIops();
+}
+
+const IOPS_INPUTS = {HDD: 'iops-hdd', SSD: 'iops-ssd', NVMe: 'iops-nvme'};
+
+function renderDriveIops() {
+    const byType = Object.fromEntries((driveIops || []).map(r => [r.drive_type, r.iops]));
+    for (const [type, id] of Object.entries(IOPS_INPUTS)) {
+        const el = document.getElementById(id);
+        if (el && byType[type] != null) el.value = byType[type];
+    }
+}
+
+async function saveDriveIops() {
+    const status = document.getElementById('iops-status');
+    const payload = {};
+    for (const [type, id] of Object.entries(IOPS_INPUTS)) {
+        payload[type] = parseInt(document.getElementById(id).value, 10);
+    }
+    try {
+        const resp = await fetch('/admin/api/drive-iops', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Save failed');
+        driveIops = data.drive_iops || driveIops;
+        status.textContent = 'Saved';
+        status.className = 'iops-status ok';
+    } catch (e) {
+        status.textContent = e.message;
+        status.className = 'iops-status err';
+    }
+    setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
 }
 
 // ── Model Table ────────────────────────────────────────────────────────────

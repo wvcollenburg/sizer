@@ -8,8 +8,11 @@ from orm_models import (
     Model, RamOption, StorageConfig,
     CpuCatalog, NicCatalog, DriveCatalog,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
-    ValidatedNic, Switch,
+    ValidatedNic, Switch, DriveTypeIops,
 )
+
+# Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
+DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}
 from models import APPLIANCE_MODELS, VALIDATED_NICS, SWITCHING
 
 _cpu_cache = {}
@@ -73,6 +76,14 @@ def _migrate_schema():
     ]
     for sql in stmts:
         db.session.execute(text(sql))
+    db.session.commit()
+
+    # Back-fill per-drive-type IOPS defaults (insert-if-missing, never overwrite
+    # admin edits). create_all() makes the table; this seeds its rows on existing
+    # databases too.
+    for dtype, iops in DRIVE_TYPE_IOPS_DEFAULTS.items():
+        if not DriveTypeIops.query.filter_by(drive_type=dtype).first():
+            db.session.add(DriveTypeIops(drive_type=dtype, iops=iops))
     db.session.commit()
 
 

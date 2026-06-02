@@ -9,9 +9,11 @@ from sqlalchemy.orm import joinedload
 from database import db
 from orm_models import (
     Model, RamOption, StorageConfig,
-    CpuCatalog, NicCatalog, DriveCatalog,
+    CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
+
+DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
 
 _QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
 
@@ -191,6 +193,48 @@ def delete_drive(drive_id):
     db.session.delete(drive)
     db.session.commit()
     return jsonify({"message": "Drive deleted"})
+
+
+# ── Per-drive-type IOPS (configurable) ───────────────────────────────────────
+
+@admin_bp.route("/api/drive-iops")
+def list_drive_iops():
+    rows = {r.drive_type: r for r in DriveTypeIops.query.all()}
+    # Return in a stable, known order regardless of insertion order.
+    return jsonify([rows[t].to_dict() for t in DRIVE_IOPS_TYPES if t in rows])
+
+
+@admin_bp.route("/api/drive-iops", methods=["PUT"])
+def update_drive_iops():
+    data = request.json or {}
+    # Accept either {"HDD": n, ...} or [{"drive_type": "HDD", "iops": n}, ...].
+    if isinstance(data, list):
+        data = {d.get("drive_type"): d.get("iops") for d in data}
+
+    updates = {}
+    for dtype in DRIVE_IOPS_TYPES:
+        if dtype not in data:
+            continue
+        try:
+            val = int(data[dtype])
+        except (TypeError, ValueError):
+            return jsonify({"error": f"{dtype} IOPS must be a whole number"}), 400
+        if val < 0:
+            return jsonify({"error": f"{dtype} IOPS cannot be negative"}), 400
+        updates[dtype] = val
+
+    if not updates:
+        return jsonify({"error": "No valid IOPS values provided"}), 400
+
+    for dtype, val in updates.items():
+        row = DriveTypeIops.query.filter_by(drive_type=dtype).first()
+        if row:
+            row.iops = val
+        else:
+            db.session.add(DriveTypeIops(drive_type=dtype, iops=val))
+    db.session.commit()
+    return jsonify({"message": "Drive IOPS updated",
+                    "drive_iops": [r.to_dict() for r in DriveTypeIops.query.all()]})
 
 
 # ── List all models ──────────────────────────────────────────────────────────

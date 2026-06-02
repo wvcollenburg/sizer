@@ -49,6 +49,19 @@ class DriveCatalog(db.Model):
     )
 
 
+class DriveTypeIops(db.Model):
+    """Configurable per-drive-type IOPS used by IOPS sizing. One row per type
+    (HDD/SSD/NVMe). Admin-editable; seeded with product defaults."""
+    __tablename__ = "drive_type_iops"
+
+    id = db.Column(db.Integer, primary_key=True)
+    drive_type = db.Column(db.String(10), nullable=False, unique=True)
+    iops = db.Column(db.Integer, nullable=False)
+
+    def to_dict(self):
+        return {"drive_type": self.drive_type, "iops": self.iops}
+
+
 # ── Junction tables (many-to-many) ──────────────────────────────────────────
 
 class ModelCpuOption(db.Model):
