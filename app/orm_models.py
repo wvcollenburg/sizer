@@ -62,6 +62,19 @@ class DriveTypeIops(db.Model):
         return {"drive_type": self.drive_type, "iops": self.iops}
 
 
+class SizingSetting(db.Model):
+    """Configurable cluster-level sizing constants (key/value). Used for the
+    IOPS adjustments: SCRIBE derating, replication factor, read fraction."""
+    __tablename__ = "sizing_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), nullable=False, unique=True)
+    value = db.Column(db.Float, nullable=False)
+
+    def to_dict(self):
+        return {"key": self.key, "value": self.value}
+
+
 # ── Junction tables (many-to-many) ──────────────────────────────────────────
 
 class ModelCpuOption(db.Model):

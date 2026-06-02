@@ -2,7 +2,11 @@ import math
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
+    DriveTypeIops, SizingSetting,
 )
+
+# Map internal storage drive-type tokens to the catalog/IOPS type keys.
+DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
 
 # HyperCore OS overhead per node
 OS_CORE_OVERHEAD = 1          # 1 core reserved for HyperCore OS
@@ -82,6 +86,15 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
 
+    # IOPS sizing inputs (admin-configurable). per-type IOPS + cluster adjustments.
+    iops_map = {r.drive_type: r.iops for r in DriveTypeIops.query.all()}
+    sizing = {s.key: s.value for s in SizingSetting.query.all()}
+    derating_pct = sizing.get("iops_derating_pct", 0.35)
+    rf = sizing.get("iops_replication_factor", 2)
+    read_frac = sizing.get("iops_read_fraction", 0.70)
+    write_amp = read_frac + (1 - read_frac) * rf
+    iops_cfg = {"map": iops_map, "derating_pct": derating_pct, "write_amp": write_amp}
+
     model_q = Model.query.options(
         joinedload(Model.cpu_links).joinedload(ModelCpuOption.cpu),
         joinedload(Model.nic_links).joinedload(ModelNicOption.nic),
@@ -113,10 +126,20 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         matched_storage += 1
 
         fits = _fit_model(md, needs, required_cores, validated=validated,
-                          validated_only=md.get("validated_only", False))
+                          validated_only=md.get("validated_only", False),
+                          iops_cfg=iops_cfg)
         candidates.extend(fits)
 
-    candidates.sort(key=lambda c: c["score"])
+    # Ranking priority (each tier only breaks ties of the previous one):
+    #   1) fewest nodes  2) closest CPU match  3) closest IOPS match
+    #   4) closest storage match  5) closest RAM match  6) cheapest.
+    # "Closest" = least over-provisioning above the requirement. Closeness is
+    # bucketed (5% steps) so near-equal fits fall through to the next tier
+    # instead of a hair's-width difference dominating.
+    p95_iops = summary.get("p95_iops", 0) or 0
+    avg_iops = summary.get("total_avg_iops", 0) or 0
+    iops_demand_val = p95_iops if p95_iops > 0 else avg_iops
+    candidates.sort(key=lambda c: _rank_key(c, needs, required_cores, iops_demand_val))
 
     seen = set()
     deduped = []
@@ -198,6 +221,16 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "growth_factor": round(growth_factor, 3),
     }
 
+    # Workload IOPS demand (the measured front-end figures — what the workload
+    # asks for). Compared against each config's net available IOPS. Metrics with
+    # no measured value are omitted.
+    iops_demand = {}
+    if p95_iops > 0:
+        iops_demand["p95"] = round(p95_iops)
+    if avg_iops > 0:
+        iops_demand["avg"] = round(avg_iops)
+    projection["iops_demand"] = iops_demand
+
     top = deduped[:8]
     for c in top:
         c.pop("_nodes_for_cpu", None)
@@ -205,6 +238,49 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         c.pop("_nodes_for_storage", None)
 
     return {"recommendations": top, "projection": projection, "warnings": warnings}
+
+
+RANK_BUCKET = 0.05   # 5% closeness buckets for the ranking tiers
+
+
+def _bucket(over_provision):
+    """Quantise an over-provisioning fraction so near-equal fits tie and fall
+    through to the next ranking tier. Negative (shouldn't happen for met
+    requirements) clamps to 0."""
+    return round(max(0.0, over_provision) / RANK_BUCKET)
+
+
+def _rank_key(c, needs, required_cores, iops_demand_val):
+    """Lexicographic ranking: fewest nodes, then closest CPU / IOPS / storage /
+    RAM match (least over-provisioning), then cheapest. Lower sorts first."""
+    full = c.get("sized_full_cluster")
+    cpu_avail = c["totals"]["cores"] if full else c["n_minus_1"]["cores"]
+    cpu_close = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
+
+    if iops_demand_val > 0:
+        net = c["iops"]["total"]
+        if net >= iops_demand_val:
+            iops_close = (net - iops_demand_val) / iops_demand_val
+        else:
+            # Configs that don't meet demand rank after all that do.
+            iops_close = 1000 + (iops_demand_val - net) / iops_demand_val
+    else:
+        iops_close = 0
+
+    need_stor = needs["usable_storage_tb"]
+    stor_close = (c["totals"]["usable_storage_tb"] - need_stor) / need_stor if need_stor > 0 else 0
+    need_ram = needs["ram_gb"]
+    ram_close = (c["n_minus_1"]["ram_gb"] - need_ram) / need_ram if need_ram > 0 else 0
+
+    return (
+        c["node_count"],
+        _bucket(cpu_close),
+        _bucket(iops_close) if iops_close < 1000 else 1_000_000 + round(iops_close),
+        _bucket(stor_close),
+        _bucket(ram_close),
+        c["cost_tier"],
+        c["totals"]["cores"],   # final deterministic tiebreak
+    )
 
 
 def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
@@ -309,8 +385,10 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
     return total
 
 
-def _fit_model(model, needs, required_cores, validated=False, validated_only=False):
+def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
+               iops_cfg=None):
     results = []
+    iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     storage = model["storage"]
     min_nodes = max(model.get("min_nodes", 3), 3)
 
@@ -412,6 +490,29 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if usable < needs["usable_storage_tb"]:
                 continue
 
+            # Per-node IOPS: raw drive IOPS → derate for cluster overhead → divide
+            # by RF write-amplification to get the NET IOPS available to workloads
+            # (the only figure surfaced in the UI). The raw/derated/write-amp
+            # detail is retained for the PPTX export only.
+            write_amp = iops_cfg.get("write_amp", 1.0) or 1.0
+            iops_raw_per_node = sum(
+                cnt * iops_cfg["map"].get(dtype, 0)
+                for dtype, cnt in stor.get("drive_counts", {}).items()
+            )
+            iops_derated_per_node = iops_raw_per_node * (1 - iops_cfg["derating_pct"])
+            iops_net_per_node = round(iops_derated_per_node / write_amp)
+            iops_block = {
+                # Headline: net IOPS available to workloads.
+                "per_node": iops_net_per_node,
+                "total": iops_net_per_node * node_count,
+                "n_minus_1": iops_net_per_node * n1_nodes,
+                # Derivation detail (PPTX export only):
+                "raw_per_node": round(iops_raw_per_node),
+                "derated_per_node": round(iops_derated_per_node),
+                "derating_pct": round(iops_cfg["derating_pct"] * 100, 1),
+                "write_amp": round(write_amp, 3),
+            }
+
             n1_ghz = ghz_per_node * n1_nodes
             # Operational ratio is measured against the sizing basis; the degraded
             # ratio is always the N-1 case (what you'd run at during a failure).
@@ -464,6 +565,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "sized_full_cluster": full_cluster,
                 "validated": validated,
                 "validated_only": validated_only,
+                "iops": iops_block,
                 "totals": {
                     "cores": usable_cores * node_count,
                     "threads": total_threads,
@@ -610,6 +712,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
                 "biggest_disk": size,
                 "desc": f"{count}x {size}TB {drive_type.upper()}",
                 f"{drive_type}_tb": size,
+                "drive_counts": {DRIVE_TYPE_KEY[drive_type]: count},
                 "_usable": usable,
                 "_disks": count,
             }
@@ -664,6 +767,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                         "desc": f"{h}x {hdd_tb}TB HDD + {f}x {flash_tb}TB {flash_key.upper()}",
                         "hdd_tb": hdd_tb,
                         f"{flash_key}_tb": flash_tb,
+                        "drive_counts": {"HDD": h, DRIVE_TYPE_KEY[flash_key]: f},
                         "_usable": usable,
                         "_disks": h + f,
                     }
@@ -694,5 +798,6 @@ def _pick_nvme_and_ssd(storage, usable_needed, cluster_layout):
                     "desc": f"1x {nvme}TB NVMe + 1x {ssd}TB SSD",
                     "nvme_tb": nvme,
                     "ssd_tb": ssd,
+                    "drive_counts": {"NVMe": 1, "SSD": 1},
                 }
     return None
