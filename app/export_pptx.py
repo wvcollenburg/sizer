@@ -43,13 +43,16 @@ def generate_config_slide(result):
     slide = _add_slide(prs)
     mode = result.get("mode", "appliance")
     node_count = result["node_count"]
+    so = result.get("storage_only")
+    nodes_label = (f"{node_count} HCI + {so['count']} storage-only"
+                   if so else f"{node_count} nodes")
     pn = result["per_node"]
     cl = result["cluster_total"]
     n1 = result["n_minus_1"]
 
     if mode == "appliance":
         title = f"Configuration: {result.get('model', '')}"
-        subtitle_parts = [f"{node_count} nodes"]
+        subtitle_parts = [nodes_label]
         if result.get("form_factor"):
             subtitle_parts.append(result["form_factor"])
         if result.get("chassis"):
@@ -69,7 +72,7 @@ def generate_config_slide(result):
         title = "Configuration: Software Only (Validated)"
         storage_type = result.get("storage_type", "")
         _add_title(slide, title,
-                   f"{node_count} nodes  —  {storage_type}  —  {pn.get('disk_count', 0)} drives per node")
+                   f"{nodes_label}  —  {storage_type}  —  {pn.get('disk_count', 0)} drives per node")
 
         node_rows = [
             ["Per Node", ""],
@@ -103,6 +106,9 @@ def generate_config_slide(result):
         ["Usable Storage", f"{n1['usable_storage_tb']} TB"],
     ]
     _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
+
+    if so:
+        _add_storage_only_note(slide, so, 4.7)
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -265,6 +271,44 @@ def _fmt_ram(gb):
     return f"{gb} GB"
 
 
+def _storage_only_desc(so):
+    """One-line CPU/RAM descriptor for a storage-only-node block. Handles both
+    the appliance/recommendation shape (has 'cpu') and the validated shape
+    (cores/threads/ghz)."""
+    cpu = so.get("cpu")
+    if not cpu:
+        cpu = f"{so.get('cores', 0)} cores @ {so.get('ghz', 0)}GHz"
+    # The block's CPU desc carries a "1 x" prefix (each storage-only node is
+    # single-socket); drop it so it doesn't read "2 × 1 x ..." after the count.
+    for prefix in ("1 x ", "1 × "):
+        if cpu.startswith(prefix):
+            cpu = cpu[len(prefix):]
+            break
+    return cpu
+
+
+def _add_storage_only_note(slide, so, top):
+    """Render the storage-only-node summary line. ``so`` is the storage_only
+    block; ``top`` is the vertical position in inches."""
+    box = slide.shapes.add_textbox(Inches(0.6), Inches(top), Inches(12), Inches(0.6))
+    tf = box.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    run = p.add_run()
+    run.text = "Storage-only nodes: "
+    run.font.size = Pt(11)
+    run.font.bold = True
+    run.font.color.rgb = SC_BLUE
+    run2 = p.add_run()
+    run2.text = (
+        f"{so['count']} × {_storage_only_desc(so)}, {_fmt_ram(so['ram_gb'])} RAM, "
+        f"{so['raw_storage_tb']} TB raw each — virtualization disabled "
+        f"(storage + IOPS only, no VMs)."
+    )
+    run2.font.size = Pt(11)
+    run2.font.color.rgb = CHARCOAL
+
+
 def _fmt_num(n):
     if isinstance(n, float):
         return f"{n:,.1f}"
@@ -369,13 +413,16 @@ def _slide_proposal(prs, r, projection=None):
         model_label = f"Validated – based off {r['model']}"
     else:
         model_label = r["model"]
+    so = r.get("storage_only")
+    nodes_label = (f"{r.get('hci_node_count', r['node_count'])} HCI + "
+                   f"{so['count']} storage-only" if so else f"{r['node_count']} nodes")
     _add_title(slide, f"Proposed: {model_label}",
-               f"{r['node_count']} nodes  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}")
+               f"{nodes_label}  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}")
 
     iops = r.get("iops") or {}
 
     node_rows = [
-        ["Per Node", ""],
+        ["Per HCI Node" if so else "Per Node", ""],
         ["CPU", r["cpu"]],
         ["Cores", str(r["cores_per_node"])],
         ["Threads", str(r["threads_per_node"])],
@@ -413,6 +460,9 @@ def _slide_proposal(prs, r, projection=None):
     if iops:
         n1_rows.append(["Net IOPS", f"{iops['n_minus_1']:,}"])
     _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
+
+    if so:
+        _add_storage_only_note(slide, so, 4.5)
 
     _add_card(slide, 0.6, 5.4, 3.5, 0.9,
               "vCPU : Core Ratio at N-1",
