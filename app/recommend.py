@@ -582,7 +582,9 @@ def _validated_disk_counts(certified_count):
 
 def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
                          cluster_layout, drive_type, validated=False):
-    node_count = sum(cluster_layout)
+    # The 100-disk cap is per CLUSTER, so it binds on the largest cluster in the
+    # layout — not the total node count across clusters.
+    max_cluster_nodes = max(cluster_layout)
     # Certified: fixed count, smallest size that fits. Validated: also flex the
     # count down (1 or 3+, never above certified), picking the closest fit.
     counts = _validated_disk_counts(drives_per_node) if validated else [drives_per_node]
@@ -590,7 +592,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
     best = None
     for size in sorted(size_options):
         for count in counts:
-            if validated and count * node_count > MAX_CLUSTER_DISKS:
+            if validated and count * max_cluster_nodes > MAX_CLUSTER_DISKS:
                 continue
             raw_per_node = size * count
             usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
@@ -618,7 +620,8 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
     flash_options = sorted(storage.get(f"{flash_key}_options_tb", []))
     hdd_count = storage.get("hdd_count", 3)
     flash_count = storage.get(f"{flash_key}_count", 1)
-    node_count = sum(cluster_layout)
+    # Per-cluster disk cap binds on the largest cluster, not the total.
+    max_cluster_nodes = max(cluster_layout)
 
     # Certified: fixed tier counts. Validated: flex both tiers down (never above
     # certified), keeping total disks valid (3+), the cluster cap, and the
@@ -637,7 +640,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                 for f in flash_counts:
                     if validated:
                         total = h + f
-                        if total < 3 or total * node_count > MAX_CLUSTER_DISKS:
+                        if total < 3 or total * max_cluster_nodes > MAX_CLUSTER_DISKS:
                             continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
                     if validated:
