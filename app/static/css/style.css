@@ -859,6 +859,26 @@ footer {
     cursor: pointer;
 }
 
+.local-storage-toggle {
+    margin-top: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.local-storage-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 .info-icon {
     display: inline-flex;
     align-items: center;
@@ -990,6 +1010,15 @@ footer {
     justify-content: space-between;
     align-items: center;
 }
+
+.rec-iops-headroom {
+    padding: 0.4rem 1.2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+.rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
+.rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
 
 .btn-export {
     background: var(--accent);

@@ -26,7 +26,7 @@ def generate_proposal(summary, recommendation, projection):
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
-    _slide_proposal(prs, recommendation)
+    _slide_proposal(prs, recommendation, projection)
     _slide_projection(prs, summary, recommendation, projection)
 
     buf = io.BytesIO()
@@ -337,9 +337,9 @@ def _slide_workload(prs, s):
 
     y2 = 2.9
     storage = [
-        ("Provisioned Storage", f"{s.get('total_vm_provisioned_storage_tb', 0)} TB", False),
-        ("Datastore Used", f"{s.get('datastore_used_tb', 0)} TB", True),
-        ("Datastore Total", f"{s.get('datastore_total_tb', 0)} TB", False),
+        ("Provisioned Storage", f"{s.get('total_vm_provisioned_storage_tb', 0)} TiB", False),
+        ("Datastore Used", f"{s.get('datastore_used_tb', 0)} TiB", True),
+        ("Datastore Total", f"{s.get('datastore_total_tb', 0)} TiB", False),
     ]
     for i, (label, val, accent) in enumerate(storage):
         _add_card(slide, 0.6 + i * 4.0, y2, 3.7, 1.0, label, val, accent)
@@ -355,7 +355,7 @@ def _slide_workload(prs, s):
 
 # ── Slide 3: Proposed Configuration ──────────────────────────────────────────
 
-def _slide_proposal(prs, r):
+def _slide_proposal(prs, r, projection=None):
     slide = _add_slide(prs)
 
     num_cl = r.get("num_clusters", 1)
@@ -372,6 +372,8 @@ def _slide_proposal(prs, r):
     _add_title(slide, f"Proposed: {model_label}",
                f"{r['node_count']} nodes  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}")
 
+    iops = r.get("iops") or {}
+
     node_rows = [
         ["Per Node", ""],
         ["CPU", r["cpu"]],
@@ -380,6 +382,8 @@ def _slide_proposal(prs, r):
         ["RAM", _fmt_ram(r["ram_per_node_gb"])],
         ["Storage", r["storage_config"]["desc"]],
     ]
+    if iops:
+        node_rows.append(["Net IOPS", f"{iops['per_node']:,}"])
     _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
 
     t = r["totals"]
@@ -392,6 +396,8 @@ def _slide_proposal(prs, r):
         ["Raw Storage", f"{t['raw_storage_tb']} TB"],
         ["Usable Storage", f"{t['usable_storage_tb']} TB"],
     ]
+    if iops:
+        total_rows.append(["Net IOPS", f"{iops['total']:,}"])
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
     n = r["n_minus_1"]
@@ -404,11 +410,37 @@ def _slide_proposal(prs, r):
         ["RAM", _fmt_ram(n["ram_gb"])],
         ["Usable Storage", f"{n['usable_storage_tb']} TB"],
     ]
+    if iops:
+        n1_rows.append(["Net IOPS", f"{iops['n_minus_1']:,}"])
     _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     _add_card(slide, 0.6, 5.4, 3.5, 0.9,
               "vCPU : Core Ratio at N-1",
               f"{r['vcpu_ratio']:.2f} : 1", accent=True)
+
+    # Net IOPS headroom vs the workload's measured demand (informational).
+    demand = (projection or {}).get("iops_demand") or {}
+    if iops and (demand.get("p95") or demand.get("avg")):
+        metric = "P95" if demand.get("p95") else "Avg"
+        value = demand.get("p95") or demand.get("avg")
+        ratio = iops["total"] / value if value else 0
+        _add_card(slide, 4.3, 5.4, 4.0, 0.9,
+                  f"Net IOPS Headroom vs {metric}",
+                  f"{ratio:.1f}x  ({iops['total']:,} net / {value:,} demand)")
+
+    # Derivation footnote — the PPTX is the one place we show how net IOPS is
+    # reached (raw drive IOPS, SCRIBE derating, RF write-amplification).
+    if iops and iops.get("raw_per_node"):
+        note = (f"Net IOPS = raw {iops['raw_per_node']:,}/node "
+                f"− {iops['derating_pct']:.0f}% derating "
+                f"= {iops['derated_per_node']:,} ÷ {iops['write_amp']}× RF write-amp "
+                f"= {iops['per_node']:,}/node, × {r['node_count']} nodes.")
+        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(12), Inches(0.5))
+        p = box.text_frame.paragraphs[0]
+        run = p.add_run()
+        run.text = note
+        run.font.size = Pt(9)
+        run.font.color.rgb = MID_GRAY
 
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────
