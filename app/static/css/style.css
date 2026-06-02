@@ -991,6 +991,15 @@ footer {
     align-items: center;
 }
 
+.rec-iops-headroom {
+    padding: 0.4rem 1.2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+.rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
+.rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
+
 .btn-export {
     background: var(--accent);
     color: #fff;

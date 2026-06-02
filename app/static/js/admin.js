@@ -3,6 +3,7 @@ let cpuCatalog = [];
 let nicCatalog = [];
 let driveCatalog = [];
 let driveIops = [];
+let sizingConfig = {};
 
 let selectedCpus = [];
 let selectedNics = [];
@@ -47,16 +48,18 @@ async function loadModels() {
 }
 
 async function loadCatalogs() {
-    const [cpuResp, nicResp, driveResp, iopsResp] = await Promise.all([
+    const [cpuResp, nicResp, driveResp, iopsResp, sizingResp] = await Promise.all([
         fetch('/admin/api/cpus'),
         fetch('/admin/api/nics'),
         fetch('/admin/api/drives'),
         fetch('/admin/api/drive-iops'),
+        fetch('/admin/api/sizing-config'),
     ]);
     cpuCatalog = await cpuResp.json();
     nicCatalog = await nicResp.json();
     driveCatalog = await driveResp.json();
     driveIops = await iopsResp.json();
+    sizingConfig = await sizingResp.json();
 
     renderCpuCatalog();
     renderNicCatalog();
@@ -72,23 +75,34 @@ function renderDriveIops() {
         const el = document.getElementById(id);
         if (el && byType[type] != null) el.value = byType[type];
     }
+    // Cluster adjustments: stored as fractions; shown as whole-number percents.
+    const c = sizingConfig || {};
+    if (c.iops_derating_pct != null) document.getElementById('iops-derating').value = Math.round(c.iops_derating_pct * 100);
+    if (c.iops_replication_factor != null) document.getElementById('iops-rf').value = c.iops_replication_factor;
+    if (c.iops_read_fraction != null) document.getElementById('iops-read').value = Math.round(c.iops_read_fraction * 100);
 }
 
 async function saveDriveIops() {
     const status = document.getElementById('iops-status');
-    const payload = {};
+    const iopsPayload = {};
     for (const [type, id] of Object.entries(IOPS_INPUTS)) {
-        payload[type] = parseInt(document.getElementById(id).value, 10);
+        iopsPayload[type] = parseInt(document.getElementById(id).value, 10);
     }
+    const sizingPayload = {
+        iops_derating_pct: (parseFloat(document.getElementById('iops-derating').value) || 0) / 100,
+        iops_replication_factor: parseInt(document.getElementById('iops-rf').value, 10),
+        iops_read_fraction: (parseFloat(document.getElementById('iops-read').value) || 0) / 100,
+    };
     try {
-        const resp = await fetch('/admin/api/drive-iops', {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload),
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'Save failed');
-        driveIops = data.drive_iops || driveIops;
+        const [r1, r2] = await Promise.all([
+            fetch('/admin/api/drive-iops', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(iopsPayload)}),
+            fetch('/admin/api/sizing-config', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(sizingPayload)}),
+        ]);
+        const d1 = await r1.json(), d2 = await r2.json();
+        if (!r1.ok) throw new Error(d1.error || 'Save failed');
+        if (!r2.ok) throw new Error(d2.error || 'Save failed');
+        driveIops = d1.drive_iops || driveIops;
+        sizingConfig = d2.sizing_config || sizingConfig;
         status.textContent = 'Saved';
         status.className = 'iops-status ok';
     } catch (e) {

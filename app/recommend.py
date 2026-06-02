@@ -2,7 +2,11 @@ import math
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
+    DriveTypeIops, SizingSetting,
 )
+
+# Map internal storage drive-type tokens to the catalog/IOPS type keys.
+DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
 
 # HyperCore OS overhead per node
 OS_CORE_OVERHEAD = 1          # 1 core reserved for HyperCore OS
@@ -82,6 +86,15 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
 
+    # IOPS sizing inputs (admin-configurable). per-type IOPS + cluster adjustments.
+    iops_map = {r.drive_type: r.iops for r in DriveTypeIops.query.all()}
+    sizing = {s.key: s.value for s in SizingSetting.query.all()}
+    derating_pct = sizing.get("iops_derating_pct", 0.35)
+    rf = sizing.get("iops_replication_factor", 2)
+    read_frac = sizing.get("iops_read_fraction", 0.70)
+    write_amp = read_frac + (1 - read_frac) * rf
+    iops_cfg = {"map": iops_map, "derating_pct": derating_pct, "write_amp": write_amp}
+
     model_q = Model.query.options(
         joinedload(Model.cpu_links).joinedload(ModelCpuOption.cpu),
         joinedload(Model.nic_links).joinedload(ModelNicOption.nic),
@@ -113,7 +126,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         matched_storage += 1
 
         fits = _fit_model(md, needs, required_cores, validated=validated,
-                          validated_only=md.get("validated_only", False))
+                          validated_only=md.get("validated_only", False),
+                          iops_cfg=iops_cfg)
         candidates.extend(fits)
 
     candidates.sort(key=lambda c: c["score"])
@@ -197,6 +211,20 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "snapshot_pct_at_target": round(snap_at_target * 100, 1),
         "growth_factor": round(growth_factor, 3),
     }
+
+    # Workload IOPS demand (backend, after RF write amplification). Informational:
+    # the front-end/PPTX compare each config's supply against these. Metrics with
+    # no measured value are omitted.
+    iops_demand = {"write_amp": round(write_amp, 3)}
+    p95_iops = summary.get("p95_iops", 0) or 0
+    avg_iops = summary.get("total_avg_iops", 0) or 0
+    if p95_iops > 0:
+        iops_demand["p95_frontend"] = round(p95_iops)
+        iops_demand["p95_backend"] = round(p95_iops * write_amp)
+    if avg_iops > 0:
+        iops_demand["avg_frontend"] = round(avg_iops)
+        iops_demand["avg_backend"] = round(avg_iops * write_amp)
+    projection["iops_demand"] = iops_demand
 
     top = deduped[:8]
     for c in top:
@@ -309,8 +337,10 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
     return total
 
 
-def _fit_model(model, needs, required_cores, validated=False, validated_only=False):
+def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
+               iops_cfg=None):
     results = []
+    iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     storage = model["storage"]
     min_nodes = max(model.get("min_nodes", 3), 3)
 
@@ -412,6 +442,22 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if usable < needs["usable_storage_tb"]:
                 continue
 
+            # Per-node IOPS = Σ(drive_count × per-type IOPS); derate for cluster
+            # overhead. Total/N-1 scale by node count, like cores/RAM.
+            iops_raw_per_node = sum(
+                cnt * iops_cfg["map"].get(dtype, 0)
+                for dtype, cnt in stor.get("drive_counts", {}).items()
+            )
+            iops_per_node = round(iops_raw_per_node * (1 - iops_cfg["derating_pct"]))
+            iops_block = {
+                "per_node_raw": round(iops_raw_per_node),
+                "per_node": iops_per_node,
+                "total": iops_per_node * node_count,
+                "n_minus_1": iops_per_node * n1_nodes,
+                "derating_pct": round(iops_cfg["derating_pct"] * 100, 1),
+                "write_amp": round(iops_cfg["write_amp"], 3),
+            }
+
             n1_ghz = ghz_per_node * n1_nodes
             # Operational ratio is measured against the sizing basis; the degraded
             # ratio is always the N-1 case (what you'd run at during a failure).
@@ -464,6 +510,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "sized_full_cluster": full_cluster,
                 "validated": validated,
                 "validated_only": validated_only,
+                "iops": iops_block,
                 "totals": {
                     "cores": usable_cores * node_count,
                     "threads": total_threads,
@@ -610,6 +657,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
                 "biggest_disk": size,
                 "desc": f"{count}x {size}TB {drive_type.upper()}",
                 f"{drive_type}_tb": size,
+                "drive_counts": {DRIVE_TYPE_KEY[drive_type]: count},
                 "_usable": usable,
                 "_disks": count,
             }
@@ -664,6 +712,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                         "desc": f"{h}x {hdd_tb}TB HDD + {f}x {flash_tb}TB {flash_key.upper()}",
                         "hdd_tb": hdd_tb,
                         f"{flash_key}_tb": flash_tb,
+                        "drive_counts": {"HDD": h, DRIVE_TYPE_KEY[flash_key]: f},
                         "_usable": usable,
                         "_disks": h + f,
                     }
@@ -694,5 +743,6 @@ def _pick_nvme_and_ssd(storage, usable_needed, cluster_layout):
                     "desc": f"1x {nvme}TB NVMe + 1x {ssd}TB SSD",
                     "nvme_tb": nvme,
                     "ssd_tb": ssd,
+                    "drive_counts": {"NVMe": 1, "SSD": 1},
                 }
     return None

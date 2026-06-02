@@ -8,11 +8,18 @@ from orm_models import (
     Model, RamOption, StorageConfig,
     CpuCatalog, NicCatalog, DriveCatalog,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
-    ValidatedNic, Switch, DriveTypeIops,
+    ValidatedNic, Switch, DriveTypeIops, SizingSetting,
 )
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}
+
+# Cluster-level IOPS sizing defaults (admin-editable thereafter).
+SIZING_SETTING_DEFAULTS = {
+    "iops_derating_pct": 0.35,      # SCRIBE derating
+    "iops_replication_factor": 2,   # RF2
+    "iops_read_fraction": 0.70,     # 70/30 read/write
+}
 from models import APPLIANCE_MODELS, VALIDATED_NICS, SWITCHING
 
 _cpu_cache = {}
@@ -84,6 +91,9 @@ def _migrate_schema():
     for dtype, iops in DRIVE_TYPE_IOPS_DEFAULTS.items():
         if not DriveTypeIops.query.filter_by(drive_type=dtype).first():
             db.session.add(DriveTypeIops(drive_type=dtype, iops=iops))
+    for key, value in SIZING_SETTING_DEFAULTS.items():
+        if not SizingSetting.query.filter_by(key=key).first():
+            db.session.add(SizingSetting(key=key, value=value))
     db.session.commit()
 
 
