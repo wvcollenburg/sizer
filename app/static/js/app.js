@@ -8,6 +8,7 @@ let lastConfigResult = null;
 
 let importVms = [];
 let originalImportSummary = null;
+let includeLocalStorage = false;   // include per-host local datastores in sizing
 let vmExclusions = { compute: new Set(), storage: new Set() };
 let vmSortField = 'name';
 let vmSortAsc = true;
@@ -549,6 +550,7 @@ async function uploadFile(file) {
         importSummary = data.summary;
         originalImportSummary = JSON.parse(JSON.stringify(data.summary));
         importVms = data.vms || [];
+        includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
         updateExclusionCountBadge();
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
@@ -675,10 +677,10 @@ function renderProjectionTo(p, targetId) {
             </div>
             <div class="proj-card">
                 <div class="proj-label">Current Storage</div>
-                <div class="proj-base">${p.base_storage_tb} TB</div>
+                <div class="proj-base">${p.base_storage_tb} TiB</div>
                 <div class="proj-arrow">&#8594;</div>
                 <div class="proj-label">Year ${p.years} + Snapshots</div>
-                <div class="proj-projected">${p.projected_storage_tb} TB</div>
+                <div class="proj-projected">${p.projected_storage_tb} TiB</div>
             </div>
         </div>
         <div class="proj-note">
@@ -762,7 +764,7 @@ function displayImportResults(data) {
         <div class="summary-card">
             <div class="summary-label">P95 IOPS (from LO Dashboard)</div>
             <div class="summary-value">
-                <input type="number" id="p95-iops" value="0" min="0" step="1"
+                <input type="number" id="p95-iops" value="${s.p95_iops || 0}" min="0" step="1"
                        class="inline-input" placeholder="0 = unknown"
                        onchange="updateP95Display()">
             </div>
@@ -784,17 +786,19 @@ function displayImportResults(data) {
         </div>
         <div class="summary-card">
             <div class="summary-label">Provisioned Storage</div>
-            <div class="summary-value">${s.total_vm_provisioned_storage_tb} TB</div>
+            <div class="summary-value">${s.total_vm_provisioned_storage_tb} TiB</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Datastore Used</div>
-            <div class="summary-value accent">${s.datastore_used_tb} TB</div>
+            <div class="summary-value accent">${s.datastore_used_tb} TiB</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Datastore Total</div>
-            <div class="summary-value">${s.datastore_total_tb} TB</div>
+            <div class="summary-value">${s.datastore_total_tb} TiB</div>
         </div>
     `;
+
+    renderLocalStorageOption(s);
 
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
@@ -1298,9 +1302,10 @@ function updateExclusionCountBadge() {
     el.innerHTML = total > 0 ? `<span class="exclusion-active">${total}</span>` : '';
 }
 
-function applyVmExclusions() {
-    if (!originalImportSummary) return;
-
+// Rebuild the working summary from the pristine import: apply VM exclusions,
+// then add per-host local storage when opted in. Used by both the Exclude-VMs
+// flow and the include-local toggle so the two compose.
+function computeAdjustedImportSummary() {
     const adjusted = JSON.parse(JSON.stringify(originalImportSummary));
 
     let exclVcpus = 0, exclProvRam = 0, exclUsedRam = 0;
@@ -1353,9 +1358,46 @@ function applyVmExclusions() {
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
 
-    importSummary = adjusted;
+    // Per-host local storage (ISOs/templates etc.) — added to the cluster basis
+    // only when the user opts in via the checkbox.
+    if (includeLocalStorage) {
+        adjusted.datastore_used_tb = Math.round((adjusted.datastore_used_tb + (originalImportSummary.local_used_tb || 0)) * 100) / 100;
+        adjusted.datastore_total_tb = Math.round(((adjusted.datastore_total_tb || 0) + (originalImportSummary.local_total_tb || 0)) * 100) / 100;
+    }
+
+    return adjusted;
+}
+
+function applyVmExclusions() {
+    if (!originalImportSummary) return;
+    importSummary = computeAdjustedImportSummary();
     updateExclusionCountBadge();
-    displayImportResults({ summary: adjusted, recommendations: [], projection: lastProjection['import'] });
+    displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
     recalcRecommendations();
     closeVmExclusionModal();
+}
+
+// Off-by-default toggle to fold per-host local storage into the sizing basis.
+function toggleLocalStorage() {
+    const cb = document.getElementById('include-local-cb');
+    includeLocalStorage = cb ? cb.checked : false;
+    if (!originalImportSummary) return;
+    importSummary = computeAdjustedImportSummary();
+    displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
+    recalcRecommendations();
+}
+
+// Render the "include local storage" checkbox (hidden when there is none, e.g.
+// RVTools imports). Reflects current toggle state across re-renders.
+function renderLocalStorageOption(s) {
+    const el = document.getElementById('local-storage-option');
+    if (!el) return;
+    const localGb = s.local_used_gb || 0;
+    if (localGb <= 0) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+        <label class="checkbox-inline local-storage-toggle">
+            <input type="checkbox" id="include-local-cb" ${includeLocalStorage ? 'checked' : ''}
+                   onchange="toggleLocalStorage()">
+            Include ${localGb.toLocaleString()} GB found on local storage
+        </label>`;
 }

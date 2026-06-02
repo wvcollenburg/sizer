@@ -859,6 +859,11 @@ footer {
     cursor: pointer;
 }
 
+.local-storage-toggle {
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+}
+
 .info-icon {
     display: inline-flex;
     align-items: center;
