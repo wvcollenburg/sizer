@@ -475,9 +475,21 @@ function displayResults(result) {
     if (exportBtn) exportBtn.style.display = 'inline-block';
 
     const so = result.storage_only;
-    document.getElementById('result-nodes').textContent = so
+    const numClusters = result.num_clusters || 1;
+    let nodesText = so
         ? `${result.node_count} HCI + ${so.count} storage-only (${result.total_node_count} total)`
-        : result.node_count;
+        : `${result.total_node_count || result.node_count}`;
+    if (numClusters > 1 && result.cluster_layout) {
+        nodesText += `, ${numClusters} clusters: ${result.cluster_layout.join(' + ')}`;
+    }
+    document.getElementById('result-nodes').textContent = nodesText;
+
+    const n1Desc = document.getElementById('n1-desc');
+    if (n1Desc) {
+        n1Desc.textContent = numClusters > 1
+            ? 'Resources available with one node per cluster offline'
+            : 'Resources available with one node offline';
+    }
 
     const pn = result.per_node;
     const perNodeTable = document.getElementById('per-node-table');

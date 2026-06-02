@@ -44,8 +44,15 @@ def generate_config_slide(result):
     mode = result.get("mode", "appliance")
     node_count = result["node_count"]
     so = result.get("storage_only")
-    nodes_label = (f"{node_count} HCI + {so['count']} storage-only"
-                   if so else f"{node_count} nodes")
+    if so:
+        nodes_label = (f"{node_count} HCI + {so['count']} storage-only "
+                       f"({result.get('total_node_count', node_count)} total)")
+    else:
+        nodes_label = f"{node_count} nodes"
+    num_cl = result.get("num_clusters", 1)
+    if num_cl > 1:
+        layout = result.get("cluster_layout", [])
+        nodes_label += f"  —  {num_cl} clusters ({' + '.join(map(str, layout))})"
     pn = result["per_node"]
     cl = result["cluster_total"]
     n1 = result["n_minus_1"]
