@@ -86,7 +86,7 @@ function renderModelTable() {
         const storType = m.storage?.type || '-';
 
         tr.innerHTML = `
-            <td><strong>${esc(m.name)}</strong></td>
+            <td><strong>${esc(m.name)}</strong>${m.validated_only ? ' <span class="badge badge-validated" title="Validated-only: no certified equivalent">Validated-only</span>' : ''}</td>
             <td><span class="badge ${badgeClass}">${m.status}</span></td>
             <td>${esc(m.category)}</td>
             <td>${esc(m.form_factor || '-')}</td>
@@ -423,6 +423,7 @@ function openAddModel() {
     document.getElementById('edit-psu').value = '';
     document.getElementById('edit-ram-slots').value = '0';
     document.getElementById('edit-min-nodes').value = '1';
+    document.getElementById('edit-validated-only').checked = false;
     document.getElementById('edit-notes').value = '';
 
     selectedCpus = [];
@@ -461,6 +462,7 @@ async function openEditModel(id) {
     document.getElementById('edit-psu').value = m.psu || '';
     document.getElementById('edit-ram-slots').value = m.ram_slots || 0;
     document.getElementById('edit-min-nodes').value = m.min_nodes || 1;
+    document.getElementById('edit-validated-only').checked = !!m.validated_only;
     document.getElementById('edit-notes').value = m.notes || '';
 
     selectedCpus = (m.cpu_options || []).map(c => {
@@ -784,6 +786,7 @@ async function saveModel() {
         psu: document.getElementById('edit-psu').value.trim() || null,
         ram_slots: parseInt(document.getElementById('edit-ram-slots').value) || 0,
         min_nodes: parseInt(document.getElementById('edit-min-nodes').value) || 1,
+        validated_only: document.getElementById('edit-validated-only').checked,
         notes: document.getElementById('edit-notes').value.trim() || null,
         cpu_options: cpuOptions,
         ram_options_gb: ramOptions,

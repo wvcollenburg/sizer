@@ -1,6 +1,7 @@
 """Seed the database with appliance model data from models.py."""
 import re
 import sys
+from sqlalchemy import text
 from app import create_app
 from database import db
 from orm_models import (
@@ -62,10 +63,24 @@ def _get_or_create_drive(drive_type, size_tb):
     return drive
 
 
+def _migrate_schema():
+    """Idempotent lightweight migrations for already-seeded databases.
+    create_all() only adds missing tables, never new columns, so additive
+    column changes are applied here. Safe to run on every boot."""
+    stmts = [
+        "ALTER TABLE models ADD COLUMN IF NOT EXISTS "
+        "validated_only BOOLEAN NOT NULL DEFAULT false",
+    ]
+    for sql in stmts:
+        db.session.execute(text(sql))
+    db.session.commit()
+
+
 def seed_all():
     app = create_app()
     with app.app_context():
         db.create_all()
+        _migrate_schema()
 
         if Model.query.first():
             print("Database already seeded. Use --force to re-seed.")

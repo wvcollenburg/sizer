@@ -59,6 +59,9 @@ def create_app():
                 query = query.filter(Model.status == "Active")
             elif status_filter == "all_current":
                 query = query.filter(Model.status.in_(["Active", "EOL"]))
+            # Validated-only platforms have no certified equivalent, so they
+            # don't belong in the certified appliance picker.
+            query = query.filter(Model.validated_only == False)  # noqa: E712
 
             models = {}
             for m in query.order_by(Model.category, Model.name).all():

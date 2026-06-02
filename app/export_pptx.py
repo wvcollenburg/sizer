@@ -363,7 +363,12 @@ def _slide_proposal(prs, r):
     layout_str = " + ".join(str(x) for x in layout)
     cluster_desc = f"{num_cl} cluster{'s' if num_cl > 1 else ''} ({layout_str})" if num_cl > 1 else "1 cluster"
 
-    model_label = f"Validated – based off {r['model']}" if r.get("validated") else r["model"]
+    if r.get("validated_only"):
+        model_label = r["model"]
+    elif r.get("validated"):
+        model_label = f"Validated – based off {r['model']}"
+    else:
+        model_label = r["model"]
     _add_title(slide, f"Proposed: {model_label}",
                f"{r['node_count']} nodes  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}")
 
