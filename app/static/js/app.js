@@ -819,7 +819,9 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const n1Label = r.num_clusters > 1
             ? `N-1 per Cluster (${r.num_clusters} spares)`
             : 'N-1 Available';
-        const modelLabel = r.validated ? `Validated &ndash; based off ${r.model}` : r.model;
+        const modelLabel = r.validated_only
+            ? r.model
+            : (r.validated ? `Validated &ndash; based off ${r.model}` : r.model);
         const ratioBadge = r.sized_full_cluster
             ? `<span class="rec-ratio-badge degraded" title="Normal vCPU:core ratio (full cluster). Rises to ${r.vcpu_ratio_degraded.toFixed(2)}:1 during a node failure.">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
             : `<span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>`;

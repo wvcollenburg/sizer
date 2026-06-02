@@ -215,6 +215,9 @@ hr {
 .badge-active { background: #d4edda; color: var(--green); }
 .badge-eol { background: #fff3cd; color: #856404; }
 .badge-eos { background: #f8d7da; color: var(--red); }
+.badge-validated { background: #cce5ff; color: #004085; margin-left: 6px; }
+
+.field-hint { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.73rem; }
 
 .cell-list {
     font-size: 0.78rem;

@@ -82,14 +82,19 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
 
-    models = Model.query.options(
+    model_q = Model.query.options(
         joinedload(Model.cpu_links).joinedload(ModelCpuOption.cpu),
         joinedload(Model.nic_links).joinedload(ModelNicOption.nic),
         joinedload(Model.ram_options),
         joinedload(Model.storage_config)
             .joinedload(StorageConfig.drive_links)
             .joinedload(StorageConfigDrive.drive),
-    ).filter(Model.status == "Active").all()
+    ).filter(Model.status == "Active")
+    # Validated-only models have no certified equivalent: exclude them from
+    # Certified recommendations; include them only in Validated mode.
+    if not validated:
+        model_q = model_q.filter(Model.validated_only == False)  # noqa: E712
+    models = model_q.all()
     candidates = []
     matched_storage = 0
 
@@ -107,7 +112,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             continue
         matched_storage += 1
 
-        fits = _fit_model(md, needs, required_cores, validated=validated)
+        fits = _fit_model(md, needs, required_cores, validated=validated,
+                          validated_only=md.get("validated_only", False))
         candidates.extend(fits)
 
     candidates.sort(key=lambda c: c["score"])
@@ -303,7 +309,7 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
     return total
 
 
-def _fit_model(model, needs, required_cores, validated=False):
+def _fit_model(model, needs, required_cores, validated=False, validated_only=False):
     results = []
     storage = model["storage"]
     min_nodes = max(model.get("min_nodes", 3), 3)
@@ -457,6 +463,7 @@ def _fit_model(model, needs, required_cores, validated=False):
                 "vcpu_ratio_degraded": round(n1_ratio, 2),
                 "sized_full_cluster": full_cluster,
                 "validated": validated,
+                "validated_only": validated_only,
                 "totals": {
                     "cores": usable_cores * node_count,
                     "threads": total_threads,
