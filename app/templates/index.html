@@ -93,7 +93,7 @@
                             Add storage-only nodes
                         </label>
                         <span class="info-icon" tabindex="0"
-                              title="Storage-only nodes run no VMs (virtualization disabled) but still join the storage cluster, adding capacity and IOPS. Same model/drives as the HCI nodes, a single lowest-tier CPU and minimal RAM. Requires at least 2 full HCI nodes for HA and updates.">i</span>
+                              title="Storage-only nodes run no VMs (virtualization disabled) but still join the storage cluster, adding capacity and IOPS. Same model/drives as the HCI nodes, the lowest-tier CPU and minimal RAM. A single CPU is offered when a single-socket model exists in the family; otherwise the family's dual CPU is kept. Requires at least 2 full HCI nodes for HA and updates.">i</span>
                     </div>
                     <div id="so-config" class="form-row" style="display:none">
                         <div class="form-group">
@@ -101,7 +101,7 @@
                             <input type="number" id="so-count" value="1" min="1" max="98" onchange="calculate()">
                         </div>
                         <div class="form-group">
-                            <label>CPU (single, storage-only)</label>
+                            <label>CPU (storage-only)</label>
                             <select id="so-cpu-select" onchange="calculate()"></select>
                         </div>
                         <div class="form-group">

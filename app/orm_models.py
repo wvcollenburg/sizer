@@ -1,5 +1,17 @@
 from database import db
-from storage_only import single_cpu_options
+from storage_only import certified_single_cpu_options, sibling_single_socket_name
+
+
+def _cpu_options_from_links(cpu_links):
+    return [
+        {
+            "desc": f"{link.quantity} x {link.cpu.description}",
+            "cores": link.cpu.cores * link.quantity,
+            "threads": link.cpu.threads * link.quantity,
+            "ghz": link.cpu.ghz,
+        }
+        for link in cpu_links
+    ]
 
 
 # ── Catalog tables (shared reference data) ───────────────────────────────────
@@ -192,15 +204,21 @@ class Model(db.Model):
             if sc.storage_type == "cloud" and sc.cloud_tiers:
                 storage["options"] = [t.strip() for t in sc.cloud_tiers.split("|")]
 
-        cpu_options = [
-            {
-                "desc": f"{link.quantity} x {link.cpu.description}",
-                "cores": link.cpu.cores * link.quantity,
-                "threads": link.cpu.threads * link.quantity,
-                "ghz": link.cpu.ghz,
-            }
-            for link in self.cpu_links
-        ]
+        cpu_options = _cpu_options_from_links(self.cpu_links)
+
+        # Certified storage-only CPUs: real single-CPU SKUs only — the model's
+        # own options if single-socket, else a single-socket sibling's (the
+        # "D"-less name) when it exists in the catalog. Dual-only families with
+        # no single sibling keep the dual CPU (never fabricated).
+        sibling_cpus = None
+        if not cpu_options or cpu_options[0]["desc"].lstrip().startswith("2 x"):
+            sib_name = sibling_single_socket_name(self.name)
+            if sib_name:
+                sib = Model.query.filter_by(name=sib_name).first()
+                if sib is not None:
+                    sibling_cpus = _cpu_options_from_links(sib.cpu_links)
+        storage_only_cpus = certified_single_cpu_options(cpu_options, sibling_cpus)
+
         return {
             "status": self.status,
             "category": self.category,
@@ -213,8 +231,8 @@ class Model(db.Model):
             "validated_only": self.validated_only,
             "notes": self.notes,
             "cpu_options": cpu_options,
-            # Single-CPU variants for a storage-only node (one CPU, lowest tier).
-            "storage_only_cpu_options": single_cpu_options(cpu_options),
+            # Certified storage-only CPU choices (real SKUs only — see above).
+            "storage_only_cpu_options": storage_only_cpus,
             "ram_options_gb": sorted([r.size_gb for r in self.ram_options]),
             "storage": storage,
             "nic_options": [

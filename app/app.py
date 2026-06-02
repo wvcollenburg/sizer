@@ -17,7 +17,7 @@ from rvtools import parse_rvtools
 from recommend import generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD
 from export_pptx import generate_proposal, generate_config_slide
 from storage_only import (
-    single_cpu_options, MIN_HCI_NODES_PER_CLUSTER, STORAGE_ONLY_RAM_FLOOR_GB,
+    MIN_HCI_NODES_PER_CLUSTER, STORAGE_ONLY_RAM_FLOOR_GB,
 )
 from admin_routes import admin_bp
 
@@ -333,8 +333,9 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
             f"when adding storage-only nodes (for HA and rolling updates)."
         )}
 
-    cpu_opts = model.get("storage_only_cpu_options") or single_cpu_options(
-        model["cpu_options"])
+    # Certified: real single-CPU SKUs only (sibling model) — falls back to the
+    # model's own CPUs (dual when no single sibling exists). Never fabricated.
+    cpu_opts = model.get("storage_only_cpu_options") or model["cpu_options"]
     if not cpu_opts:
         return None, {"error": "No storage-only CPU option for this model."}
     ci = int(so.get("cpu_index", 0) or 0)

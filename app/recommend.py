@@ -595,8 +595,15 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             # model's compliant minimum RAM.
             storage_only_block = None
             if so_nodes > 0:
-                so_cpu_opts = (model.get("storage_only_cpu_options")
-                               or single_cpu_options(model["cpu_options"]))
+                # Validated (software-only) may derive a single CPU from any
+                # platform; Certified must use real single-CPU SKUs only (the
+                # model's own or a single-socket sibling, precomputed in
+                # storage_only_cpu_options).
+                if validated:
+                    so_cpu_opts = single_cpu_options(model["cpu_options"])
+                else:
+                    so_cpu_opts = (model.get("storage_only_cpu_options")
+                                   or model["cpu_options"])
                 so_cpu = so_cpu_opts[0] if so_cpu_opts else None
                 so_ram_gb = min(model["ram_options_gb"]) if model.get("ram_options_gb") else 16
                 storage_only_block = {
