@@ -257,11 +257,19 @@ def _bucket(over_provision):
 
 
 def _rank_key(c, needs, required_cores, iops_demand_val):
-    """Lexicographic ranking: fewest nodes, then closest CPU / IOPS / storage /
-    RAM match (least over-provisioning), then cheapest. Lower sorts first."""
+    """Lexicographic ranking: fewest total nodes, then (when storage-only is in
+    play) fewest HCI nodes so compute is concentrated on the top CPU and the
+    rest offloaded to cheap storage-only nodes, then closest CPU / IOPS /
+    storage / RAM match (least over-provisioning), then cheapest. Lower sorts
+    first."""
     full = c.get("sized_full_cluster")
     cpu_avail = c["totals"]["cores"] if full else c["n_minus_1"]["cores"]
     cpu_close = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
+    # Maximise storage-only offload: among configs with the same total node
+    # count, prefer the one with the fewest full HCI nodes (achieved by the
+    # most capable CPU). With no storage-only split this equals node_count for
+    # every candidate, so it has no effect.
+    hci_nodes = c.get("hci_node_count", c["node_count"])
 
     if iops_demand_val > 0:
         net = c["iops"]["total"]
@@ -280,6 +288,7 @@ def _rank_key(c, needs, required_cores, iops_demand_val):
 
     return (
         c["node_count"],
+        hci_nodes,
         _bucket(cpu_close),
         _bucket(iops_close) if iops_close < 1000 else 1_000_000 + round(iops_close),
         _bucket(stor_close),
