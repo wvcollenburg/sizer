@@ -1273,9 +1273,12 @@ function vmVal(vm, idx, field) {
 function renderVmTable() {
     const sorted = importVms.map((vm, i) => ({ ...vm, _idx: i }));
     sorted.sort((a, b) => {
-        let va = a[vmSortField], vb = b[vmSortField];
-        if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
-        if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+        // Sort on the effective (possibly edited) values so order matches the
+        // displayed Model / Cores / RAM.
+        let va = vmVal(a, a._idx, vmSortField), vb = vmVal(b, b._idx, vmSortField);
+        if (vmSortField === 'model') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+        else if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+        else if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
         if (va < vb) return vmSortAsc ? -1 : 1;
         if (va > vb) return vmSortAsc ? 1 : -1;
         return 0;
