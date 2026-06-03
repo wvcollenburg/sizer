@@ -4,9 +4,10 @@ import re
 import tempfile
 import os
 
-from flask import Blueprint, render_template, jsonify, request, send_file
+from flask import Blueprint, render_template, jsonify, request, send_file, redirect
 from sqlalchemy.orm import joinedload
 from database import db
+from auth import current_user
 from orm_models import (
     Model, RamOption, StorageConfig,
     CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops, SizingSetting,
@@ -25,6 +26,23 @@ def _parse_quantity(desc):
     return 1, desc
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+@admin_bp.before_request
+def require_super_admin():
+    """The entire models/catalog area is super-admin-only. Browser visits to a
+    page are redirected to the main app (which hosts the login modal); API calls
+    get a JSON 403."""
+    user = current_user()
+    if user is not None and user.is_super_admin:
+        return None
+    wants_json = (
+        request.path.startswith("/admin/api/")
+        or "application/json" in (request.headers.get("Accept") or "")
+    )
+    if wants_json:
+        return jsonify({"error": "Super admin access required"}), 403
+    return redirect("/?admin=1")
 
 
 def _model_query():

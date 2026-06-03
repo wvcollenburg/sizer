@@ -25,6 +25,9 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'users') loadAdminUsers();
+    else if (tab === 'tenants') loadAdminTenants();
+    else if (tab === 'sizings') loadAdminSizings();
 }
 
 // ── Load Data ──────────────────────────────────────────────────────────────
@@ -859,4 +862,197 @@ async function saveModel() {
     } catch (e) {
         alert('Save failed: ' + e.message);
     }
+}
+
+
+// ==================== SUPER-ADMIN: USERS / TENANTS / SIZINGS ====================
+// These tabs drive the /api/admin/users and /api/admin/super endpoints. The whole
+// /admin area is already super-admin-gated server-side.
+
+function adminEsc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function adminDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
+}
+
+function setStatus(id, msg, isError) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.textContent = msg;
+    el.className = 'admin-status ' + (isError ? 'status-err' : 'status-ok');
+    el.style.display = 'block';
+}
+
+async function adminApi(url, opts) {
+    const resp = await fetch(url, opts);
+    let data = null;
+    try { data = await resp.json(); } catch (e) {}
+    return { ok: resp.ok, status: resp.status, data };
+}
+
+// ── Tenants ──────────────────────────────────────────────────────────────────
+
+let tenantCache = [];
+
+async function loadAdminTenants() {
+    const { ok, data } = await adminApi('/api/admin/super/tenants');
+    if (!ok) { setStatus('tenants-status', 'Could not load tenants.', true); return; }
+    tenantCache = data;
+    // Keep the user-tab tenant filter in sync.
+    const filter = document.getElementById('users-tenant-filter');
+    if (filter) {
+        const cur = filter.value;
+        filter.innerHTML = '<option value="">All tenants</option>'
+            + data.map(t => `<option value="${t.id}">${adminEsc(t.domain)}</option>`).join('');
+        filter.value = cur;
+    }
+    const body = document.getElementById('admin-tenants-tbody');
+    body.innerHTML = data.map(t => `
+        <tr>
+            <td>${adminEsc(t.domain)}</td>
+            <td>${t.is_scale ? 'Yes' : ''}</td>
+            <td>${t.user_count}</td>
+            <td>${t.is_blocked ? '<span class="badge-blocked">Blocked</span>' : 'Active'}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm ${t.is_blocked ? 'btn-secondary' : 'btn-danger'}"
+                        onclick="toggleBlockTenant(${t.id}, ${t.is_blocked ? 'false' : 'true'})">
+                    ${t.is_blocked ? 'Unblock' : 'Block'}
+                </button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="5">No tenants yet.</td></tr>`;
+}
+
+async function toggleBlockTenant(id, block) {
+    if (block && !confirm('Block this domain? All its users will be unable to sign in.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/tenants/${id}/block`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: block }),
+    });
+    if (!ok) { setStatus('tenants-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('tenants-status', data.message, false);
+    loadAdminTenants();
+}
+
+// ── Users ────────────────────────────────────────────────────────────────────
+
+async function loadAdminUsers() {
+    if (!tenantCache.length) await loadAdminTenants();
+    const includeDisabled = document.getElementById('users-include-disabled').checked;
+    const tenant = document.getElementById('users-tenant-filter').value;
+    const params = new URLSearchParams();
+    if (includeDisabled) params.set('include_disabled', 'true');
+    if (tenant) params.set('tenant', tenant);
+    const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
+    const body = document.getElementById('admin-users-tbody');
+    if (!ok) { body.innerHTML = ''; setStatus('admin-status', 'Could not load users.', true); return; }
+    body.innerHTML = data.map(u => {
+        const actions = [];
+        if (u.role !== 'super_admin') {
+            if (u.is_disabled) {
+                actions.push(`<button class="btn btn-sm btn-secondary" onclick="restoreUser(${u.id})">Restore</button>`);
+                actions.push(`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Delete</button>`);
+            } else {
+                if (u.role !== 'tenant_admin') {
+                    actions.push(`<button class="btn btn-sm btn-secondary" onclick="makeTenantAdmin(${u.tenant_id || 0}, ${u.id}, '${adminEsc(u.tenant_domain)}')">Make admin</button>`);
+                }
+                actions.push(`<button class="btn btn-sm btn-danger" onclick="disableAdminUser(${u.id})">Disable</button>`);
+            }
+        }
+        return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
+            <td>${adminEsc(u.email)}</td>
+            <td>${adminEsc(u.tenant_domain)}</td>
+            <td>${adminEsc(u.role)}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
+            <td>${u.is_disabled ? 'Disabled' : 'Active'}</td>
+            <td>${adminDate(u.last_login_at)}</td>
+            <td class="col-actions">${actions.join(' ')}</td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="6">No users.</td></tr>`;
+}
+
+// The super-user listing doesn't carry tenant_id; resolve it via domain when
+// promoting. We look the tenant up by domain from the cache.
+async function makeTenantAdmin(tenantId, userId, domain) {
+    if (!tenantId) {
+        const t = tenantCache.find(t => t.domain === domain);
+        tenantId = t ? t.id : 0;
+    }
+    if (!tenantId) { setStatus('admin-status', 'Could not resolve tenant.', true); return; }
+    if (!confirm('Make this user the tenant admin? The current admin will be demoted.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/tenants/${tenantId}/admin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+    });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'Tenant admin reassigned.', false);
+    loadAdminUsers();
+}
+
+async function disableAdminUser(id) {
+    if (!confirm('Disable this user?')) return;
+    const { ok, data } = await adminApi(`/api/admin/users/${id}/disable`, { method: 'POST' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User disabled.', false);
+    loadAdminUsers();
+}
+
+async function restoreUser(id) {
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/restore`, { method: 'POST' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User restored.', false);
+    loadAdminUsers();
+}
+
+async function deleteUser(id) {
+    if (!confirm('Permanently delete this disabled user? This cannot be undone.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}`, { method: 'DELETE' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User deleted.', false);
+    loadAdminUsers();
+}
+
+// ── Saved sizings ─────────────────────────────────────────────────────────────
+
+async function loadAdminSizings() {
+    const includeDeleted = document.getElementById('sizings-include-deleted').checked;
+    const params = new URLSearchParams();
+    if (includeDeleted) params.set('include_deleted', 'true');
+    const { ok, data } = await adminApi('/api/admin/super/configs?' + params.toString());
+    const body = document.getElementById('admin-sizings-tbody');
+    if (!ok) { body.innerHTML = ''; setStatus('sizings-status-admin', 'Could not load sizings.', true); return; }
+    body.innerHTML = data.map(c => `
+        <tr class="${c.is_deleted ? 'row-disabled' : ''}">
+            <td>${adminEsc(c.name)}</td>
+            <td>${adminEsc(c.owner_email || '')}</td>
+            <td>${adminEsc(c.tenant_domain || '')}</td>
+            <td><code>${adminEsc(c.code)}</code></td>
+            <td>${c.is_deleted ? 'Deleted' : 'Active'}</td>
+            <td>${adminDate(c.updated_at)}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-danger" onclick="purgeSizing(${c.id})">Purge</button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="7">No sizings.</td></tr>`;
+}
+
+async function purgeSizing(id) {
+    if (!confirm('Permanently delete this configuration? This cannot be undone.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/configs/${id}/purge`, { method: 'DELETE' });
+    if (!ok) { setStatus('sizings-status-admin', (data && data.error) || 'Failed.', true); return; }
+    setStatus('sizings-status-admin', 'Configuration purged.', false);
+    loadAdminSizings();
+}
+
+async function runPurge() {
+    if (!confirm('Run the 90-day retention purge now?')) return;
+    const { ok, data } = await adminApi('/api/admin/super/purge-run', { method: 'POST' });
+    if (!ok) { setStatus('sizings-status-admin', 'Purge failed.', true); return; }
+    setStatus('sizings-status-admin',
+        `Purged ${data.configs_purged} config(s) and ${data.users_purged} user(s).`, false);
+    loadAdminSizings();
 }

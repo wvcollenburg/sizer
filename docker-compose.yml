@@ -26,6 +26,9 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://sizer:sizer@db:5432/sizer
+      # SECRET_KEY, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD come from .env (see
+      # .env.template). SECRET_KEY must be set so logins persist across the two
+      # gunicorn workers.
     restart: unless-stopped
 
 volumes:

@@ -23,6 +23,10 @@
             <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
             <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
             <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
+            <span class="tab-spacer"></span>
+            <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
+            <button class="tab" data-tab="tenants" onclick="switchTab('tenants')">Tenants</button>
+            <button class="tab" data-tab="sizings" onclick="switchTab('sizings')">Saved Sizings</button>
         </div>
 
         <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
@@ -228,6 +232,78 @@
                         </tr>
                     </thead>
                     <tbody id="drive-catalog-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ USERS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-users">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="users-include-disabled" onchange="loadAdminUsers()">
+                        Show disabled
+                    </label>
+                </div>
+                <div class="toolbar-right">
+                    <select id="users-tenant-filter" onchange="loadAdminUsers()">
+                        <option value="">All tenants</option>
+                    </select>
+                </div>
+            </div>
+            <div id="admin-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th><th>Domain</th><th>Role</th><th>Status</th>
+                            <th>Last login</th><th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ TENANTS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-tenants">
+            <div id="tenants-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Domain</th><th>Scale</th><th>Members</th><th>Status</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-tenants-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ SAVED SIZINGS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-sizings">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="sizings-include-deleted" onchange="loadAdminSizings()">
+                        Show deleted (within 90-day retention)
+                    </label>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-secondary" onclick="runPurge()">Run retention purge</button>
+                </div>
+            </div>
+            <div id="sizings-status-admin" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th><th>Owner</th><th>Domain</th><th>Code</th>
+                            <th>Status</th><th>Updated</th><th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-sizings-tbody"></tbody>
                 </table>
             </div>
         </div>

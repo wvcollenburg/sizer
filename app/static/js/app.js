@@ -1571,3 +1571,167 @@ function renderLocalStorageOption(s) {
             Include ${localGb.toLocaleString()} GB found on local storage
         </label>`;
 }
+
+
+// ==================== SAVE / RESTORE FULL WORKING STATE ====================
+// Captures the entire sizing screen so a signed-in user can reload it later.
+// Exposed on window for auth.js (a separate script) to drive.
+
+const SNAPSHOT_VERSION = 1;
+
+const SNAP_FIELDS = {
+    appliance: ['status-filter', 'model-select', 'node-count', 'cpu-select',
+        'ram-select', 'nic-select', 'stor-hdd', 'stor-ssd', 'stor-nvme',
+        'stor-cloud', 'so-enable', 'so-count', 'so-cpu-select', 'so-ram-select'],
+    validated: ['val-node-count', 'val-cores', 'val-threads', 'val-ghz', 'val-ram',
+        'val-nic', 'st-type', 'st-size', 'st-qty', 'dt-cap-type', 'dt-cap-size',
+        'dt-cap-qty', 'dt-fast-type', 'dt-fast-size', 'dt-fast-qty', 'val-so-enable',
+        'val-so-count', 'val-so-cores', 'val-so-threads', 'val-so-ghz', 'val-so-ram'],
+    import: ['ratio-slider', 'growth-years', 'growth-pct', 'snapshot-pct',
+        'target-nodes', 'storage-pref', 'sizing-mode', 'size-full-cluster',
+        'allow-storage-only', 'p95-iops'],
+    manual: ['man-platform', 'man-cluster', 'man-hosts', 'man-cores', 'man-threads',
+        'man-ghz', 'man-host-ram', 'man-peak-cpu', 'man-avg-cpu', 'man-peak-mem',
+        'man-avg-mem', 'man-avg-iops', 'man-peak-iops', 'man-p95-iops', 'man-nic-speed',
+        'man-total-vms', 'man-active-vms', 'man-vcpus', 'man-prov-ram', 'man-used-ram',
+        'man-prov-storage', 'man-ds-used', 'man-ds-total', 'man-ratio-slider',
+        'man-growth-years', 'man-growth-pct', 'man-snapshot-pct', 'man-sizing-mode',
+        'man-allow-storage-only'],
+};
+
+function _snapById(id) { return document.getElementById(id); }
+
+function _readField(id) {
+    const el = _snapById(id);
+    if (!el) return undefined;
+    return el.type === 'checkbox' ? el.checked : el.value;
+}
+
+function _writeField(id, v) {
+    const el = _snapById(id);
+    if (!el || v === undefined) return;
+    if (el.type === 'checkbox') el.checked = v;
+    else el.value = v;
+}
+
+function _captureFields(mode) {
+    const out = {};
+    (SNAP_FIELDS[mode] || []).forEach(id => {
+        const v = _readField(id);
+        if (v !== undefined) out[id] = v;
+    });
+    return out;
+}
+
+// Build a complete, restorable snapshot of the current screen.
+function captureSizingState() {
+    const snap = { version: SNAPSHOT_VERSION, mode: currentMode, fields: _captureFields(currentMode) };
+
+    if (currentMode === 'validated') {
+        const tier = document.querySelector('input[name="disk-tier-mode"]:checked');
+        snap.tierMode = tier ? tier.value : 'single';
+    }
+
+    if (currentMode === 'import') {
+        if (!originalImportSummary) return null;  // nothing imported yet
+        snap.import = {
+            originalImportSummary,
+            importSummary,
+            importVms,
+            vmConfig,
+            exclCompute: [...vmExclusions.compute],
+            exclStorage: [...vmExclusions.storage],
+            includeLocalStorage,
+            lastProjection: lastProjection['import'] || null,
+        };
+    }
+
+    if (currentMode === 'manual') {
+        if (!manualSummary) return null;
+        snap.manual = { manualSummary };
+    }
+
+    return snap;
+}
+
+// Does the current screen hold something worth saving?
+function hasSizingToSave() {
+    if (currentMode === 'import') return !!originalImportSummary;
+    if (currentMode === 'manual') return !!manualSummary;
+    return !!lastConfigResult;  // appliance / validated
+}
+
+async function restoreSizingState(snap) {
+    if (!snap || !snap.mode) return;
+    switchMode(snap.mode);
+    const f = snap.fields || {};
+
+    if (snap.mode === 'appliance') {
+        _writeField('status-filter', f['status-filter']);
+        await loadModels();
+        _writeField('model-select', f['model-select']);
+        if (f['model-select']) {
+            loadModelDetails();  // builds storage + storage-only sections, calls calculate()
+            ['cpu-select', 'ram-select', 'nic-select', 'node-count', 'stor-hdd',
+             'stor-ssd', 'stor-nvme', 'stor-cloud', 'so-enable', 'so-count',
+             'so-cpu-select', 'so-ram-select'].forEach(id => _writeField(id, f[id]));
+            const soCfg = _snapById('so-config');
+            if (soCfg) soCfg.style.display = _snapById('so-enable').checked ? 'flex' : 'none';
+            calculate();
+        }
+        return;
+    }
+
+    if (snap.mode === 'validated') {
+        (SNAP_FIELDS.validated).forEach(id => _writeField(id, f[id]));
+        const tier = snap.tierMode || 'single';
+        const radio = document.querySelector(`input[name="disk-tier-mode"][value="${tier}"]`);
+        if (radio) radio.checked = true;
+        setTierMode(tier);
+        // Type selects drive their size dropdowns; repopulate then re-apply sizes.
+        [['st-type', 'st-size'], ['dt-cap-type', 'dt-cap-size'], ['dt-fast-type', 'dt-fast-size']]
+            .forEach(([t, sz]) => {
+                const tsel = _snapById(t);
+                if (tsel) { populateDiskSizes(tsel); _writeField(sz, f[sz]); }
+            });
+        const soCfg = _snapById('val-so-config');
+        if (soCfg) soCfg.style.display = _snapById('val-so-enable').checked ? 'flex' : 'none';
+        calculateValidated();
+        return;
+    }
+
+    if (snap.mode === 'import') {
+        const im = snap.import || {};
+        originalImportSummary = im.originalImportSummary;
+        importVms = im.importVms || [];
+        vmConfig = im.vmConfig || {};
+        vmExclusions = { compute: new Set(im.exclCompute || []), storage: new Set(im.exclStorage || []) };
+        includeLocalStorage = !!im.includeLocalStorage;
+        lastProjection['import'] = im.lastProjection || null;
+        importSummary = computeAdjustedImportSummary();
+        updateExclusionCountBadge();
+        showUploadStatus('Restored a saved sizing.', false);
+        // Re-render the env/workload cards from the adjusted summary, then re-apply
+        // the saved options and recompute recommendations.
+        displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
+        (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
+        updateRatioDisplay();
+        recalcRecommendations();
+        return;
+    }
+
+    if (snap.mode === 'manual') {
+        (SNAP_FIELDS.manual).forEach(id => _writeField(id, f[id]));
+        calculateManual();  // rebuilds manualSummary + results, then recalcs
+        // Re-apply saved ratio/growth (calculateManual reset the ratio to derived).
+        ['man-ratio-slider', 'man-growth-years', 'man-growth-pct', 'man-snapshot-pct',
+         'man-sizing-mode', 'man-allow-storage-only'].forEach(id => _writeField(id, f[id]));
+        updateManualRatioDisplay();
+        recalcManualRecommendations();
+        return;
+    }
+}
+
+window.captureSizingState = captureSizingState;
+window.restoreSizingState = restoreSizingState;
+window.hasSizingToSave = hasSizingToSave;

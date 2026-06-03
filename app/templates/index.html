@@ -11,6 +11,9 @@
         <div class="header-content">
             <h1>SC// Infrastructure Sizer</h1>
             <span class="version">v9.8</span>
+            <div class="account-bar" id="account-bar">
+                <!-- populated by auth.js -->
+            </div>
         </div>
     </header>
 
@@ -688,6 +691,99 @@
         </div>
     </div>
 
+    <!-- Auth modal (sign in / sign up) -->
+    <div class="modal-overlay" id="auth-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="auth-modal-title">Sign in</h2>
+                <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="auth-tab-login" onclick="setAuthTab('login')">Sign in</button>
+                    <button class="auth-tab" id="auth-tab-signup" onclick="setAuthTab('signup')">Sign up</button>
+                </div>
+                <form id="auth-form" onsubmit="submitAuth(event)">
+                    <div class="form-group">
+                        <label>Work email</label>
+                        <input type="email" id="auth-email" autocomplete="email" required
+                               placeholder="you@yourcompany.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="auth-password" autocomplete="current-password"
+                               required minlength="8" placeholder="At least 8 characters">
+                    </div>
+                    <p class="auth-hint" id="auth-signup-hint" style="display:none">
+                        Sign up with your organisation's email domain. The first person from a
+                        domain becomes its admin. Public email providers (gmail, outlook, etc.)
+                        are not allowed.
+                    </p>
+                    <div class="auth-error" id="auth-error" style="display:none"></div>
+                    <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Sign in</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Sizings modal -->
+    <div class="modal-overlay" id="sizings-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>My Sizings</h2>
+                <button class="modal-close" onclick="closeSizingsModal()">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <button class="btn btn-primary btn-sm" onclick="saveCurrentSizing()">Save current sizing…</button>
+                <div class="modal-actions" id="sizings-code-box">
+                    <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code">
+                    <button class="btn btn-sm" onclick="retrieveByCode()">Retrieve</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="sizings-status" id="sizings-status" style="display:none"></div>
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="sizings-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Owner</th>
+                                <th>Code</th>
+                                <th>Source</th>
+                                <th>Updated</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="sizings-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organization (tenant admin) modal -->
+    <div class="modal-overlay" id="org-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Organization</h2>
+                <button class="modal-close" onclick="closeOrgModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="rec-desc" id="org-desc"></p>
+                <div class="sizings-status" id="org-status" style="display:none"></div>
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="org-table">
+                        <thead>
+                            <tr><th>Email</th><th>Role</th><th>Last login</th><th></th></tr>
+                        </thead>
+                        <tbody id="org-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/auth.js"></script>
 </body>
 </html>
