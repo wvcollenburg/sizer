@@ -143,17 +143,37 @@ async function doLogout() {
 
 // ── My Sizings ───────────────────────────────────────────────────────────────
 
+let sizingsCache = [];
+let sizingsTab = 'mine';
+
+// Which sources belong to each tab. "Mine" = configs I own plus any I pulled in
+// by code; "Organization" = configs shared within my tenant (or, for scale
+// users, other scale users' configs).
+const SIZINGS_TAB_SOURCES = {
+    mine: ['owned', 'linked'],
+    org: ['tenant', 'scale'],
+};
+
 function openSizingsModal() {
     if (!currentAccount) { openAuthModal(); return; }
-    // The code box (and thus the toolbar) is only useful to scale users, who can
-    // retrieve any config cross-tenant by its 12-digit code.
+    // The code box is only useful to scale users (cross-tenant retrieval). The
+    // search box is always shown.
     document.getElementById('sizings-code-box').style.display =
         currentAccount.is_scale ? 'flex' : 'none';
-    document.getElementById('sizings-toolbar').style.display =
-        currentAccount.is_scale ? 'flex' : 'none';
+    document.getElementById('sizings-search').value = '';
+    setSizingsTab('mine');
     document.getElementById('sizings-modal').style.display = 'flex';
     loadSizingsList();
 }
+
+function setSizingsTab(tab) {
+    sizingsTab = tab;
+    document.getElementById('sizings-tab-mine').classList.toggle('active', tab === 'mine');
+    document.getElementById('sizings-tab-org').classList.toggle('active', tab === 'org');
+    renderSizings();
+}
+
+function filterSizings() { renderSizings(); }
 
 function closeSizingsModal() {
     document.getElementById('sizings-modal').style.display = 'none';
@@ -169,14 +189,47 @@ function sizingsStatus(msg, isError) {
 
 async function loadSizingsList() {
     const { ok, data } = await apiJson('/api/configs/');
-    const body = document.getElementById('sizings-table-body');
-    if (!ok) { body.innerHTML = ''; sizingsStatus('Could not load sizings.', true); return; }
-    if (!data.length) {
-        body.innerHTML = `<tr><td colspan="6" class="no-recs">No saved sizings yet.</td></tr>`;
+    if (!ok) {
+        sizingsCache = [];
+        document.getElementById('sizings-table-body').innerHTML = '';
+        sizingsStatus('Could not load sizings.', true);
         return;
     }
+    sizingsCache = data;
+    renderSizings();
+}
+
+// Render the active tab, filtered by the name/code search. The search only ever
+// sees the loaded list (which is already scoped to what the user may view), so
+// it can't surface names or codes outside the user's organisation.
+function renderSizings() {
+    const body = document.getElementById('sizings-table-body');
+    const sources = SIZINGS_TAB_SOURCES[sizingsTab] || [];
+    const term = (document.getElementById('sizings-search').value || '').trim().toLowerCase();
+
+    // Tab counts (independent of the search filter).
+    const mineCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.mine.includes(c.source)).length;
+    const orgCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.org.includes(c.source)).length;
+    document.getElementById('sizings-tab-mine').textContent = `My Sizings (${mineCount})`;
+    document.getElementById('sizings-tab-org').textContent = `My Organization (${orgCount})`;
+
+    let rows = sizingsCache.filter(c => sources.includes(c.source));
+    if (term) {
+        rows = rows.filter(c =>
+            (c.name || '').toLowerCase().includes(term) ||
+            (c.code || '').toLowerCase().includes(term));
+    }
+
+    if (!rows.length) {
+        const msg = term ? 'No sizings match your search.'
+            : (sizingsTab === 'mine' ? 'You have not saved any sizings yet.'
+                                     : 'No sizings shared in your organisation yet.');
+        body.innerHTML = `<tr><td colspan="6" class="no-recs">${msg}</td></tr>`;
+        return;
+    }
+
     const sourceLabel = { owned: 'Mine', tenant: 'Team', scale: 'Scale', linked: 'By code' };
-    body.innerHTML = data.map(c => {
+    body.innerHTML = rows.map(c => {
         const del = c.can_delete
             ? `<button class="btn btn-sm btn-muted" onclick="deleteSizing(${c.id}, '${esc(c.source)}')">${c.source === 'linked' ? 'Remove' : 'Delete'}</button>`
             : '';

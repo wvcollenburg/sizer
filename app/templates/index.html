@@ -734,10 +734,16 @@
                 <button class="modal-close" onclick="closeSizingsModal()">&times;</button>
             </div>
             <div class="modal-toolbar" id="sizings-toolbar">
+                <input type="text" id="sizings-search" class="vm-search"
+                       placeholder="Search by name or code…" oninput="filterSizings()">
                 <div class="modal-actions" id="sizings-code-box">
                     <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code">
                     <button class="btn btn-sm" onclick="retrieveByCode()">Retrieve</button>
                 </div>
+            </div>
+            <div class="sizings-tabs">
+                <button class="sizings-tab active" id="sizings-tab-mine" onclick="setSizingsTab('mine')">My Sizings</button>
+                <button class="sizings-tab" id="sizings-tab-org" onclick="setSizingsTab('org')">My Organization</button>
             </div>
             <div class="modal-body">
                 <div class="sizings-status" id="sizings-status" style="display:none"></div>

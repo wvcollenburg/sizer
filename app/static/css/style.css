@@ -1519,6 +1519,28 @@ tr.so-divider td {
     margin-bottom: 0.2rem;
 }
 .info-code { font-size: 1rem; letter-spacing: 1px; }
+
+/* My Sizings tabs */
+.sizings-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+.sizings-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 0.6rem 0.95rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+.sizings-tab:hover { color: var(--text); }
+.sizings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
