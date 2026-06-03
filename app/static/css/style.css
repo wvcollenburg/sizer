@@ -451,6 +451,41 @@ footer {
     font-size: 0.8rem;
 }
 
+/* Always-visible "work in progress" disclaimer pinned to the viewport bottom. */
+.dev-disclaimer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    padding: 0.55rem 1rem;
+    background: #fff3cd;
+    border-top: 1px solid #e0c068;
+    color: #6b5616;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    text-align: center;
+}
+.dev-disclaimer-tag {
+    display: inline-block;
+    margin-right: 0.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    background: #e0a800;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: 1px;
+}
+/* Keep page content clear of the fixed bar. */
+body { padding-bottom: 64px; }
+@media (max-width: 600px) {
+    .dev-disclaimer { font-size: 0.72rem; }
+    body { padding-bottom: 96px; }
+}
+
 /* ==================== IMPORT MODE ==================== */
 
 .import-upload { margin-bottom: 1.5rem; }
