@@ -1421,10 +1421,14 @@ tr.so-divider td {
     color: #cdd6e0;
     font-size: 0.85rem;
 }
-/* Every account-bar button is the same size and centred. */
+/* Every account-bar button is the same size and centred. The Admin entry is an
+   <a>, so pin line-height/box-sizing/height to match the <button>s exactly. */
 .account-bar .btn,
 .account-bar a.btn {
     min-width: 96px;
+    height: 32px;
+    box-sizing: border-box;
+    line-height: 1;
     justify-content: center;
     text-align: center;
     text-decoration: none;
