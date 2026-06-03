@@ -214,7 +214,7 @@ async function saveCurrentSizing() {
         fail('Run a sizing first — there is nothing to save yet.');
         return;
     }
-    const name = (prompt('Name this sizing:') || '').trim();
+    const name = await promptSizingName();
     if (!name) return;
 
     const { ok, data } = await apiJson('/api/configs/', {
@@ -253,6 +253,37 @@ async function deleteSizing(id, source) {
     if (!ok) { sizingsStatus((data && data.error) || 'Could not delete.', true); return; }
     sizingsStatus(data.message || 'Done.', false);
     loadSizingsList();
+}
+
+// ── Name-sizing modal (replaces the native prompt) ───────────────────────────
+
+let _nameResolver = null;
+
+// Returns a Promise that resolves to the entered name, or null if cancelled.
+function promptSizingName() {
+    return new Promise(resolve => {
+        _nameResolver = resolve;
+        const input = document.getElementById('name-sizing-input');
+        input.value = '';
+        document.getElementById('name-sizing-modal').style.display = 'flex';
+        input.focus();
+    });
+}
+
+function _resolveName(value) {
+    document.getElementById('name-sizing-modal').style.display = 'none';
+    const r = _nameResolver;
+    _nameResolver = null;
+    if (r) r(value);
+}
+
+function closeNameModal() { _resolveName(null); }
+
+function submitNameSizing(event) {
+    event.preventDefault();
+    const name = (document.getElementById('name-sizing-input').value || '').trim();
+    if (!name) return;
+    _resolveName(name);
 }
 
 // ── Organization (tenant admin) ──────────────────────────────────────────────

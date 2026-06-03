@@ -1487,6 +1487,16 @@ tr.so-divider td {
     line-height: 1.45;
 }
 .auth-submit { width: 100%; margin-top: 0.25rem; padding: 0.65rem; }
+
+/* Right-aligned Cancel / Save row for small form modals. */
+.modal-btn-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+}
+#name-sizing-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+#name-sizing-form .form-group { margin-bottom: 0; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;

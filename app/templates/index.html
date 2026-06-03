@@ -782,6 +782,29 @@
         </div>
     </div>
 
+    <!-- Name sizing modal -->
+    <div class="modal-overlay" id="name-sizing-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Name this sizing</h2>
+                <button class="modal-close" onclick="closeNameModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="name-sizing-form" onsubmit="submitNameSizing(event)">
+                    <div class="form-group">
+                        <label>Sizing name</label>
+                        <input type="text" id="name-sizing-input" maxlength="200"
+                               placeholder="e.g. Acme production cluster" autocomplete="off" required>
+                    </div>
+                    <div class="modal-btn-row">
+                        <button type="button" class="btn btn-muted" onclick="closeNameModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
     <script src="/static/js/auth.js"></script>
 </body>
