@@ -40,7 +40,10 @@ function renderAccountBar() {
     const tag = u.role === 'super_admin' ? 'Super admin'
         : u.role === 'tenant_admin' ? 'Admin'
         : u.is_scale ? 'Scale' : '';
-    const buttons = [`<button class="btn btn-sm" onclick="openSizingsModal()">My Sizings</button>`];
+    const buttons = [
+        `<button class="btn btn-sm btn-account" onclick="saveCurrentSizing()">Save sizing</button>`,
+        `<button class="btn btn-sm" onclick="openSizingsModal()">My Sizings</button>`,
+    ];
     if (u.role === 'tenant_admin') {
         buttons.push(`<button class="btn btn-sm" onclick="openOrgModal()">Organization</button>`);
     }
@@ -129,8 +132,11 @@ async function doLogout() {
 
 function openSizingsModal() {
     if (!currentAccount) { openAuthModal(); return; }
-    // The code box is only useful to scale users (cross-tenant retrieval).
+    // The code box (and thus the toolbar) is only useful to scale users, who can
+    // retrieve any config cross-tenant by its 12-digit code.
     document.getElementById('sizings-code-box').style.display =
+        currentAccount.is_scale ? 'flex' : 'none';
+    document.getElementById('sizings-toolbar').style.display =
         currentAccount.is_scale ? 'flex' : 'none';
     document.getElementById('sizings-modal').style.display = 'flex';
     loadSizingsList();
@@ -178,14 +184,21 @@ function fmtDate(iso) {
     return isNaN(d) ? '' : d.toLocaleString();
 }
 
+// Invoked from the header button (modal closed) or — historically — the modal.
+// Reports via the modal status line when it's open, otherwise via alert.
 async function saveCurrentSizing() {
+    if (!currentAccount) { openAuthModal(); return; }
+    const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
+    const fail = (msg) => modalOpen ? sizingsStatus(msg, true) : alert(msg);
+    const ok_ = (msg) => modalOpen ? sizingsStatus(msg, false) : alert(msg);
+
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
-        sizingsStatus('Run a sizing first — there is nothing to save yet.', true);
+        fail('Run a sizing first — there is nothing to save yet.');
         return;
     }
     const snap = window.captureSizingState();
     if (!snap) {
-        sizingsStatus('Run a sizing first — there is nothing to save yet.', true);
+        fail('Run a sizing first — there is nothing to save yet.');
         return;
     }
     const name = (prompt('Name this sizing:') || '').trim();
@@ -196,9 +209,9 @@ async function saveCurrentSizing() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, payload: snap }),
     });
-    if (!ok) { sizingsStatus((data && data.error) || 'Could not save.', true); return; }
-    sizingsStatus(`Saved "${data.name}". Share code: ${data.code}`, false);
-    loadSizingsList();
+    if (!ok) { fail((data && data.error) || 'Could not save.'); return; }
+    ok_(`Saved "${data.name}".\nShare code: ${data.code}`);
+    if (modalOpen) loadSizingsList();
 }
 
 async function loadSizing(id) {
