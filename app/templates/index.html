@@ -805,6 +805,29 @@
         </div>
     </div>
 
+    <!-- Info / confirmation modal (save result, errors) -->
+    <div class="modal-overlay" id="info-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="info-modal-title">Notice</h2>
+                <button class="modal-close" onclick="closeInfoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="info-modal-msg" class="info-modal-msg"></p>
+                <div class="info-code-row" id="info-modal-code-row" style="display:none">
+                    <div>
+                        <div class="info-code-label">Share code</div>
+                        <code class="sizing-code info-code" id="info-modal-code"></code>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="info-copy-btn" onclick="copyInfoCode()">Copy</button>
+                </div>
+                <div class="modal-btn-row">
+                    <button type="button" class="btn btn-primary" onclick="closeInfoModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
     <script src="/static/js/auth.js"></script>
 </body>

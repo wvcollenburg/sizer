@@ -197,21 +197,19 @@ function fmtDate(iso) {
     return isNaN(d) ? '' : d.toLocaleString();
 }
 
-// Invoked from the header button (modal closed) or — historically — the modal.
-// Reports via the modal status line when it's open, otherwise via alert.
+// Invoked from the header button or the My Sizings modal. All feedback goes
+// through the in-app info modal (no native alerts).
 async function saveCurrentSizing() {
     if (!currentAccount) { openAuthModal(); return; }
     const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
-    const fail = (msg) => modalOpen ? sizingsStatus(msg, true) : alert(msg);
-    const ok_ = (msg) => modalOpen ? sizingsStatus(msg, false) : alert(msg);
 
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
-        fail('Run a sizing first — there is nothing to save yet.');
+        showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
         return;
     }
     const snap = window.captureSizingState();
     if (!snap) {
-        fail('Run a sizing first — there is nothing to save yet.');
+        showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
         return;
     }
     const name = await promptSizingName();
@@ -222,8 +220,11 @@ async function saveCurrentSizing() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, payload: snap }),
     });
-    if (!ok) { fail((data && data.error) || 'Could not save.'); return; }
-    ok_(`Saved "${data.name}".\nShare code: ${data.code}`);
+    if (!ok) {
+        showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
+        return;
+    }
+    showInfoModal('Sizing saved', `Saved "${data.name}".`, data.code);
     if (modalOpen) loadSizingsList();
 }
 
@@ -284,6 +285,44 @@ function submitNameSizing(event) {
     const name = (document.getElementById('name-sizing-input').value || '').trim();
     if (!name) return;
     _resolveName(name);
+}
+
+// ── Info / confirmation modal (replaces native alert) ────────────────────────
+
+function showInfoModal(title, message, code) {
+    document.getElementById('info-modal-title').textContent = title;
+    document.getElementById('info-modal-msg').textContent = message;
+    const row = document.getElementById('info-modal-code-row');
+    if (code) {
+        document.getElementById('info-modal-code').textContent = code;
+        const btn = document.getElementById('info-copy-btn');
+        btn.textContent = 'Copy';
+        row.style.display = 'flex';
+    } else {
+        row.style.display = 'none';
+    }
+    document.getElementById('info-modal').style.display = 'flex';
+}
+
+function closeInfoModal() {
+    document.getElementById('info-modal').style.display = 'none';
+}
+
+function copyInfoCode() {
+    const code = document.getElementById('info-modal-code').textContent;
+    const btn = document.getElementById('info-copy-btn');
+    const done = () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done, () => {});
+    } else {
+        // Fallback for non-secure contexts (plain http).
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        document.body.removeChild(ta);
+    }
 }
 
 // ── Organization (tenant admin) ──────────────────────────────────────────────

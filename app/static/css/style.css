@@ -1497,6 +1497,28 @@ tr.so-divider td {
 }
 #name-sizing-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
 #name-sizing-form .form-group { margin-bottom: 0; }
+
+/* Info / confirmation modal */
+#info-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+.info-modal-msg { font-size: 0.92rem; line-height: 1.5; margin: 0; }
+.info-code-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.75rem 0.9rem;
+    background: var(--surface2);
+    border-radius: var(--radius);
+}
+.info-code-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+.info-code { font-size: 1rem; letter-spacing: 1px; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
