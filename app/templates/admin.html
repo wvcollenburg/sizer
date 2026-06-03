@@ -27,6 +27,8 @@
             <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
             <button class="tab" data-tab="tenants" onclick="switchTab('tenants')">Tenants</button>
             <button class="tab" data-tab="sizings" onclick="switchTab('sizings')">Saved Sizings</button>
+            <button class="tab" data-tab="email" onclick="switchTab('email')">Email</button>
+            <button class="tab" data-tab="audit" onclick="switchTab('audit')">Audit Log</button>
         </div>
 
         <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
@@ -304,6 +306,68 @@
                         </tr>
                     </thead>
                     <tbody id="admin-sizings-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ EMAIL / SMTP TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-email">
+            <div id="email-status" class="admin-status" style="display:none"></div>
+            <div class="email-settings-card">
+                <p class="import-info">
+                    Configure an SMTP server to enable email verification on signup. When
+                    no server is set, or the toggle below is off, signup works without
+                    verification (current behaviour).
+                </p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>SMTP Host</label>
+                        <input type="text" id="smtp-host" placeholder="smtp.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="text" id="smtp-port" placeholder="587">
+                    </div>
+                    <div class="form-group">
+                        <label>From address</label>
+                        <input type="text" id="smtp-from" placeholder="no-reply@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Username (optional)</label>
+                        <input type="text" id="smtp-username" placeholder="apikey / user">
+                    </div>
+                    <div class="form-group">
+                        <label>Password <span id="smtp-pass-set" class="muted"></span></label>
+                        <input type="password" id="smtp-password" placeholder="leave blank to keep" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <label class="checkbox-inline"><input type="checkbox" id="smtp-use-tls"> Use STARTTLS</label>
+                    </div>
+                </div>
+                <label class="checkbox-inline" style="margin-top:0.75rem">
+                    <input type="checkbox" id="verify-email-enabled"> Require email verification on signup
+                </label>
+                <div class="toolbar" style="margin-top:1rem;padding:0">
+                    <div class="toolbar-left">
+                        <button class="btn btn-primary" onclick="saveEmailSettings()">Save settings</button>
+                        <button class="btn btn-secondary" onclick="sendTestEmail()">Send test email</button>
+                    </div>
+                    <div class="toolbar-right">
+                        <span id="email-active-state" class="muted"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ AUDIT LOG TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-audit">
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+                    </thead>
+                    <tbody id="admin-audit-tbody"></tbody>
                 </table>
             </div>
         </div>

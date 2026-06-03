@@ -28,6 +28,8 @@ function switchTab(tab) {
     if (tab === 'users') loadAdminUsers();
     else if (tab === 'tenants') loadAdminTenants();
     else if (tab === 'sizings') loadAdminSizings();
+    else if (tab === 'email') loadEmailSettings();
+    else if (tab === 'audit') loadAuditLog();
 }
 
 // ── Load Data ──────────────────────────────────────────────────────────────
@@ -1055,4 +1057,68 @@ async function runPurge() {
     setStatus('sizings-status-admin',
         `Purged ${data.configs_purged} config(s) and ${data.users_purged} user(s).`, false);
     loadAdminSizings();
+}
+
+
+// ==================== SUPER-ADMIN: EMAIL / SMTP + AUDIT LOG ====================
+
+async function loadEmailSettings() {
+    const { ok, data } = await adminApi('/api/admin/super/email-settings');
+    if (!ok) { setStatus('email-status', 'Could not load email settings.', true); return; }
+    document.getElementById('smtp-host').value = data.smtp_host || '';
+    document.getElementById('smtp-port').value = data.smtp_port || '587';
+    document.getElementById('smtp-from').value = data.smtp_from || '';
+    document.getElementById('smtp-username').value = data.smtp_username || '';
+    document.getElementById('smtp-password').value = '';
+    document.getElementById('smtp-pass-set').textContent = data.smtp_password_set ? '(a password is set)' : '(none set)';
+    document.getElementById('smtp-use-tls').checked = !!data.smtp_use_tls;
+    document.getElementById('verify-email-enabled').checked = !!data.verify_email_enabled;
+    document.getElementById('email-active-state').textContent =
+        data.verification_active ? 'Email verification is ACTIVE'
+        : data.configured ? 'SMTP configured, verification OFF'
+        : 'SMTP not configured';
+}
+
+async function saveEmailSettings() {
+    const payload = {
+        smtp_host: document.getElementById('smtp-host').value.trim(),
+        smtp_port: document.getElementById('smtp-port').value.trim(),
+        smtp_from: document.getElementById('smtp-from').value.trim(),
+        smtp_username: document.getElementById('smtp-username').value.trim(),
+        smtp_use_tls: document.getElementById('smtp-use-tls').checked,
+        verify_email_enabled: document.getElementById('verify-email-enabled').checked,
+    };
+    const pw = document.getElementById('smtp-password').value;
+    if (pw) payload.smtp_password = pw;
+    const { ok, data } = await adminApi('/api/admin/super/email-settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!ok) { setStatus('email-status', (data && data.error) || 'Save failed.', true); return; }
+    setStatus('email-status', 'Email settings saved.', false);
+    loadEmailSettings();
+}
+
+async function sendTestEmail() {
+    const to = prompt('Send a test email to which address?');
+    if (!to) return;
+    setStatus('email-status', 'Sending…', false);
+    const { ok, data } = await adminApi('/api/admin/super/email-settings/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to }),
+    });
+    setStatus('email-status', (data && (data.message || data.error)) || (ok ? 'Sent.' : 'Failed.'), !ok);
+}
+
+async function loadAuditLog() {
+    const { ok, data } = await adminApi('/api/admin/super/audit');
+    const body = document.getElementById('admin-audit-tbody');
+    if (!ok) { body.innerHTML = ''; return; }
+    body.innerHTML = data.map(e => `
+        <tr>
+            <td>${adminDate(e.created_at)}</td>
+            <td>${adminEsc(e.actor_email || '')}</td>
+            <td><code>${adminEsc(e.action)}</code></td>
+            <td>${adminEsc(e.detail || '')}</td>
+        </tr>`).join('') || `<tr><td colspan="4">No audit entries yet.</td></tr>`;
 }

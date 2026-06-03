@@ -76,6 +76,16 @@ class User(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
     last_login_at = db.Column(db.DateTime(timezone=True))
 
+    # Email verification (only enforced when SMTP is configured + enabled).
+    # Defaults to True so accounts that predate verification stay usable.
+    is_verified = db.Column(db.Boolean, nullable=False, default=True)
+    verification_token = db.Column(db.String(64), index=True)
+    verification_sent_at = db.Column(db.DateTime(timezone=True))
+
+    # Brute-force lockout.
+    failed_login_count = db.Column(db.Integer, nullable=False, default=0)
+    locked_until = db.Column(db.DateTime(timezone=True))
+
     tenant = db.relationship(
         "Tenant", back_populates="users", foreign_keys=[tenant_id],
     )
@@ -109,6 +119,7 @@ class User(db.Model):
             "is_scale": self.is_scale,
             "tenant_domain": self.domain,
             "is_disabled": self.is_disabled,
+            "is_verified": self.is_verified,
             "disabled_at": _iso(self.disabled_at),
             "created_at": _iso(self.created_at),
             "last_login_at": _iso(self.last_login_at),
@@ -190,6 +201,43 @@ class ScaleConfigLink(db.Model):
     __table_args__ = (
         db.UniqueConstraint("user_id", "configuration_id", name="uq_scale_link"),
     )
+
+
+class AppSetting(db.Model):
+    """String key/value app config (e.g. SMTP settings, verification toggle).
+    Distinct from orm_models.SizingSetting, which stores numeric sizing knobs."""
+    __tablename__ = "app_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(60), nullable=False, unique=True, index=True)
+    value = db.Column(db.Text)
+
+    def to_dict(self):
+        return {"key": self.key, "value": self.value}
+
+
+class AdminAuditLog(db.Model):
+    """Append-only record of privileged admin actions (disable/restore/delete
+    user, block domain, reassign admin, purge). actor_email is snapshotted so the
+    log survives the actor being deleted."""
+    __tablename__ = "admin_audit_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    actor_email = db.Column(db.String(255))
+    action = db.Column(db.String(60), nullable=False)
+    detail = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "actor_email": self.actor_email,
+            "action": self.action,
+            "detail": self.detail,
+            "created_at": _iso(self.created_at),
+        }
 
 
 def _iso(dt):

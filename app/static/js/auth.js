@@ -5,13 +5,24 @@
 
 let currentAccount = null;   // the logged-in user object, or null when anonymous
 let authTab = 'login';
+// The sizing currently loaded into the screen (if any), so "Save" can offer to
+// update it in place. {id, name, canUpdate} — canUpdate only when we own it.
+let loadedConfig = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     refreshAccount();
+    const params = new URLSearchParams(location.search);
     // If a non-super-admin was bounced from /admin, nudge them to sign in.
-    if (new URLSearchParams(location.search).get('admin') === '1') {
+    if (params.get('admin') === '1') {
         openAuthModal();
         showAuthError('Sign in with a super-admin account to manage models.');
+    }
+    // Result of clicking an email-verification link.
+    const v = params.get('verify');
+    if (v === 'ok') {
+        showInfoModal('Email verified', 'Your email is verified — you can now sign in.');
+    } else if (v === 'invalid') {
+        showInfoModal('Link expired', 'That verification link is invalid or has already been used.');
     }
 });
 
@@ -109,11 +120,14 @@ function showAuthError(msg) {
 }
 function hideAuthError() {
     document.getElementById('auth-error').style.display = 'none';
+    const resend = document.getElementById('auth-resend');
+    if (resend) resend.style.display = 'none';
 }
 
 async function submitAuth(event) {
     event.preventDefault();
     hideAuthError();
+    document.getElementById('auth-resend').style.display = 'none';
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const url = authTab === 'login' ? '/api/auth/login' : '/api/auth/signup';
@@ -125,14 +139,46 @@ async function submitAuth(event) {
     });
     if (!ok) {
         showAuthError((data && data.error) || 'Something went wrong. Try again.');
+        // Offer a resend link when the account exists but isn't verified.
+        if (data && data.needs_verification) {
+            document.getElementById('auth-resend').style.display = 'block';
+        }
         return;
     }
+
+    // Signup may require email verification before the account is usable.
+    if (data && data.pending_verification) {
+        closeAuthModal();
+        const note = data.email_sent === false
+            ? ' (We could not send the email — please contact your administrator.)'
+            : '';
+        showInfoModal('Check your email',
+            `We sent a verification link to ${data.email}. Open it to activate your `
+            + `account, then sign in.${note}`);
+        return;
+    }
+
     currentAccount = data.user;
     renderAccountBar();
     closeAuthModal();
     if (authTab === 'signup' && data.is_tenant_admin) {
-        alert('Account created. You are the admin for your organisation.');
+        showInfoModal('Account created', 'You are the admin for your organisation.');
     }
+}
+
+async function resendVerification(event) {
+    if (event) event.preventDefault();
+    const email = document.getElementById('auth-email').value.trim();
+    if (!email) { showAuthError('Enter your email first.'); return; }
+    await apiJson('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+    document.getElementById('auth-resend').style.display = 'none';
+    closeAuthModal();
+    showInfoModal('Verification email',
+        'If that account exists and needs verification, an email is on its way.');
 }
 
 async function doLogout() {
@@ -265,6 +311,29 @@ async function saveCurrentSizing() {
         showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
         return;
     }
+    // If a sizing we own is loaded, offer to update it in place.
+    let action = 'new';
+    if (loadedConfig && loadedConfig.canUpdate) {
+        action = await askSaveChoice(loadedConfig.name);
+        if (!action) return;
+    }
+
+    if (action === 'update') {
+        const { ok, data } = await apiJson('/api/configs/' + loadedConfig.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: snap }),
+        });
+        if (!ok) {
+            showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
+            return;
+        }
+        loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+        showInfoModal('Sizing updated', `Updated "${data.name}".`, data.code);
+        if (modalOpen) loadSizingsList();
+        return;
+    }
+
     const name = await promptSizingName();
     if (!name) return;
 
@@ -277,15 +346,40 @@ async function saveCurrentSizing() {
         showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
         return;
     }
+    loadedConfig = { id: data.id, name: data.name, canUpdate: true };
     showInfoModal('Sizing saved', `Saved "${data.name}".`, data.code);
     if (modalOpen) loadSizingsList();
 }
+
+// ── Save-choice modal (update loaded sizing vs save as new) ───────────────────
+
+let _saveChoiceResolver = null;
+
+function askSaveChoice(name) {
+    return new Promise(resolve => {
+        _saveChoiceResolver = resolve;
+        document.getElementById('save-choice-msg').textContent =
+            `You loaded "${name}". Update it, or save a copy as a new sizing?`;
+        document.getElementById('save-choice-modal').style.display = 'flex';
+    });
+}
+
+function _resolveSaveChoice(value) {
+    document.getElementById('save-choice-modal').style.display = 'none';
+    const r = _saveChoiceResolver;
+    _saveChoiceResolver = null;
+    if (r) r(value);
+}
+
+function closeSaveChoice() { _resolveSaveChoice(null); }
+function chooseSave(which) { _resolveSaveChoice(which); }
 
 async function loadSizing(id) {
     const { ok, data } = await apiJson('/api/configs/' + id);
     if (!ok) { sizingsStatus((data && data.error) || 'Could not load.', true); return; }
     closeSizingsModal();
     await window.restoreSizingState(data.payload);
+    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
 
 async function retrieveByCode() {
@@ -298,6 +392,7 @@ async function retrieveByCode() {
     loadSizingsList();
     closeSizingsModal();
     await window.restoreSizingState(data.payload);
+    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
 
 async function deleteSizing(id, source) {

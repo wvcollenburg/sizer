@@ -8,17 +8,19 @@ Tenancy = email domain. Roles: user / tenant_admin / super_admin. Scale users
 (``@scalecomputing.com``) get cross-tenant config retrieval by code.
 """
 import os
+import smtplib
 import secrets
-from datetime import timedelta
+from datetime import timedelta, timezone
+from email.message import EmailMessage
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, jsonify, request, session, g, redirect
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database import db
 from auth_models import (
-    Tenant, User, Configuration, ScaleConfigLink,
+    Tenant, User, Configuration, ScaleConfigLink, AppSetting, AdminAuditLog,
     ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
 )
 from email_domains import normalize_email, domain_of, is_public_domain
@@ -32,6 +34,103 @@ RETENTION_DAYS = 90
 MAX_PAYLOAD_BYTES = 4 * 1024 * 1024
 PURGE_MIN_INTERVAL_HOURS = 24
 LAST_PURGE_KEY = "auth_last_purge_at"
+
+# Brute-force lockout: after this many consecutive failures, lock the account
+# for the cooldown window. A successful login resets the counter.
+LOCKOUT_THRESHOLD = 5
+LOCKOUT_MINUTES = 15
+
+# String settings keys (auth_models.AppSetting).
+SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_username", "smtp_password",
+             "smtp_from", "smtp_use_tls", "verify_email_enabled"]
+
+
+# ── app settings (string key/value) ──────────────────────────────────────────
+
+def get_setting(key, default=None):
+    row = AppSetting.query.filter_by(key=key).first()
+    return row.value if row and row.value is not None else default
+
+
+def set_setting(key, value):
+    row = AppSetting.query.filter_by(key=key).first()
+    if row is None:
+        row = AppSetting(key=key, value=value)
+        db.session.add(row)
+    else:
+        row.value = value
+
+
+def _setting_bool(key):
+    return (get_setting(key, "false") or "false").strip().lower() in ("true", "1", "yes")
+
+
+def smtp_configured():
+    """SMTP is usable when at least a host and a from-address are set."""
+    return bool(get_setting("smtp_host") and get_setting("smtp_from"))
+
+
+def verification_active():
+    """Email verification is enforced only when SMTP is configured AND the admin
+    has turned the toggle on."""
+    return smtp_configured() and _setting_bool("verify_email_enabled")
+
+
+# ── email ────────────────────────────────────────────────────────────────────
+
+def send_email(to_addr, subject, body):
+    """Send a plain-text email via the configured SMTP server. Raises on failure."""
+    msg = EmailMessage()
+    msg["From"] = get_setting("smtp_from")
+    msg["To"] = to_addr
+    msg["Subject"] = subject
+    msg.set_content(body)
+
+    host = get_setting("smtp_host")
+    port = int(get_setting("smtp_port", "587") or "587")
+    username = get_setting("smtp_username")
+    password = get_setting("smtp_password")
+    use_tls = _setting_bool("smtp_use_tls")
+
+    with smtplib.SMTP(host, port, timeout=15) as server:
+        if use_tls:
+            server.starttls()
+        if username:
+            server.login(username, password or "")
+        server.send_message(msg)
+
+
+def send_verification_email(user, base_url):
+    """Issue a fresh token and email a verification link. Returns True on success."""
+    token = secrets.token_urlsafe(32)[:64]
+    user.verification_token = token
+    user.verification_sent_at = _utcnow()
+    db.session.commit()
+    link = "{}api/auth/verify/{}".format(base_url, token)
+    try:
+        send_email(
+            user.email, "Verify your SC// Sizer account",
+            "Welcome to the SC// Infrastructure Sizer.\n\n"
+            "Please confirm your email address by opening this link:\n\n"
+            "{}\n\n"
+            "If you did not create this account, you can ignore this email.".format(link),
+        )
+        return True
+    except Exception:  # noqa: BLE001 — caller decides how to surface failures
+        return False
+
+
+# ── audit log ────────────────────────────────────────────────────────────────
+
+def audit(action, detail):
+    """Record a privileged action by the current user. Does not commit — the
+    caller's commit persists it alongside the change being logged."""
+    actor = current_user()
+    db.session.add(AdminAuditLog(
+        actor_id=actor.id if actor else None,
+        actor_email=actor.email if actor else None,
+        action=action, detail=detail,
+    ))
 
 
 # ── current_user resolution ──────────────────────────────────────────────────
@@ -60,6 +159,15 @@ def load_current_user():
 
 def current_user():
     return getattr(g, "current_user", None)
+
+
+def _aware(dt):
+    """Coerce a possibly-naive datetime (e.g. read back from SQLite) to aware
+    UTC so it can be compared with _utcnow(). On Postgres TIMESTAMPTZ values are
+    already aware and pass through unchanged."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 # ── decorators ───────────────────────────────────────────────────────────────
@@ -145,13 +253,44 @@ def purge_expired():
         User.role != ROLE_SUPER_ADMIN,
     ).all()
     for u in stale_users:
-        # Detach the user's links (their own configs are independent rows).
-        ScaleConfigLink.query.filter_by(user_id=u.id).delete(
-            synchronize_session=False)
-        db.session.delete(u)
+        _delete_user_cascade(u)
 
     db.session.commit()
-    return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users)}
+
+    tenants_removed = _cleanup_empty_tenants()
+    db.session.commit()
+    return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users),
+            "tenants_removed": tenants_removed}
+
+
+def _delete_user_cascade(user):
+    """Hard-delete a user and everything that references them: their owned
+    configurations (and inbound scale links to those), plus their own scale
+    links. Required because configurations.owner_id is NOT NULL — leaving them
+    would violate the foreign key."""
+    owned = Configuration.query.filter_by(owner_id=user.id).all()
+    owned_ids = [c.id for c in owned]
+    if owned_ids:
+        ScaleConfigLink.query.filter(
+            ScaleConfigLink.configuration_id.in_(owned_ids)
+        ).delete(synchronize_session=False)
+    for c in owned:
+        db.session.delete(c)
+    ScaleConfigLink.query.filter_by(user_id=user.id).delete(
+        synchronize_session=False)
+    db.session.delete(user)
+
+
+def _cleanup_empty_tenants():
+    """Remove tenants that have no remaining users. Blocked domains are kept so a
+    block can't be escaped by deleting all its accounts (a fresh signup would
+    otherwise recreate the domain unblocked)."""
+    removed = 0
+    for t in Tenant.query.filter_by(is_blocked=False).all():
+        if not t.users and not Configuration.query.filter_by(tenant_id=t.id).first():
+            db.session.delete(t)
+            removed += 1
+    return removed
 
 
 def maybe_purge():
@@ -230,14 +369,25 @@ def signup():
     is_first_admin = not tenant.active_admins()
     role = ROLE_TENANT_ADMIN if is_first_admin else ROLE_USER
 
+    needs_verification = verification_active()
     user = User(
         email=email,
         password_hash=generate_password_hash(password, method=PWHASH_METHOD),
         tenant_id=tenant.id,
         role=role,
+        is_verified=not needs_verification,
     )
     db.session.add(user)
     db.session.commit()
+
+    if needs_verification:
+        sent = send_verification_email(user, request.url_root)
+        # Do not log them in until verified.
+        return jsonify({
+            "pending_verification": True,
+            "email": user.email,
+            "email_sent": sent,
+        }), 201
 
     session["user_id"] = user.id
     g.current_user = user
@@ -254,13 +404,36 @@ def login():
     password = data.get("password") or ""
 
     user = User.query.filter_by(email=email).first()
+
+    # Lockout check first — applies even on correct passwords during cooldown.
+    locked_until = _aware(user.locked_until) if user else None
+    if locked_until and _utcnow() < locked_until:
+        mins = max(1, int((locked_until - _utcnow()).total_seconds() // 60) + 1)
+        return jsonify({"error": (
+            "Too many failed attempts. Try again in about {} minute(s).".format(mins)
+        )}), 429
+
     if not user or not check_password_hash(user.password_hash, password):
+        if user:
+            user.failed_login_count = (user.failed_login_count or 0) + 1
+            if user.failed_login_count >= LOCKOUT_THRESHOLD:
+                user.locked_until = _utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
+                user.failed_login_count = 0
+            db.session.commit()
         return jsonify({"error": "Invalid email or password"}), 401
+
     if user.is_disabled:
         return jsonify({"error": "This account has been disabled"}), 403
     if user.tenant and user.tenant.is_blocked:
         return jsonify({"error": "This domain has been blocked. Contact support."}), 403
+    if verification_active() and not user.is_verified:
+        return jsonify({
+            "error": "Please verify your email address before signing in.",
+            "needs_verification": True,
+        }), 403
 
+    user.failed_login_count = 0
+    user.locked_until = None
     user.last_login_at = _utcnow()
     db.session.commit()
     session["user_id"] = user.id
@@ -279,6 +452,29 @@ def logout():
     session.pop("user_id", None)
     g.current_user = None
     return jsonify({"message": "Logged out"})
+
+
+@auth_bp.route("/verify/<token>")
+def verify_email(token):
+    user = User.query.filter_by(verification_token=(token or "").strip()).first()
+    if user is None:
+        return redirect("/?verify=invalid")
+    user.is_verified = True
+    user.verification_token = None
+    db.session.commit()
+    return redirect("/?verify=ok")
+
+
+@auth_bp.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    # Always returns a generic success so it can't be used to probe for accounts.
+    email = normalize_email((request.json or {}).get("email"))
+    if email and verification_active():
+        user = User.query.filter_by(email=email).first()
+        if user and not user.is_verified and not user.is_disabled:
+            send_verification_email(user, request.url_root)
+    return jsonify({"message":
+                    "If that account exists and needs verification, an email is on its way."})
 
 
 # ── configurations blueprint ─────────────────────────────────────────────────
@@ -527,6 +723,7 @@ def disable_user(user_id):
     target.is_disabled = True
     target.disabled_at = _utcnow()
     target.disabled_by_user_id = actor.id
+    audit("disable_user", "{} ({})".format(target.email, target.domain))
     db.session.commit()
     return jsonify({"message": "User disabled"})
 
@@ -555,6 +752,7 @@ def restore_user(user_id):
     target.is_disabled = False
     target.disabled_at = None
     target.disabled_by_user_id = None
+    audit("restore_user", "{} ({})".format(target.email, target.domain))
     db.session.commit()
     return jsonify({"message": "User restored", "user": target.to_dict()})
 
@@ -567,9 +765,11 @@ def hard_delete_user(user_id):
         return jsonify({"error": "Disable the user before deleting"}), 400
     if target.is_super_admin:
         return jsonify({"error": "Cannot delete a super admin"}), 403
-    ScaleConfigLink.query.filter_by(user_id=target.id).delete(
-        synchronize_session=False)
-    db.session.delete(target)
+    email, domain = target.email, target.domain
+    _delete_user_cascade(target)
+    audit("delete_user", "{} ({})".format(email, domain))
+    db.session.commit()
+    _cleanup_empty_tenants()
     db.session.commit()
     return jsonify({"message": "User permanently deleted"})
 
@@ -596,6 +796,7 @@ def reassign_tenant_admin(tenant_id):
     for u in tenant.active_admins():
         u.role = ROLE_USER
     new_admin.role = ROLE_TENANT_ADMIN
+    audit("reassign_tenant_admin", "{} -> {}".format(tenant.domain, new_admin.email))
     db.session.commit()
     return jsonify({"message": "Tenant admin reassigned", "user": new_admin.to_dict()})
 
@@ -609,6 +810,7 @@ def block_tenant(tenant_id):
     tenant.is_blocked = blocked
     tenant.blocked_at = _utcnow() if blocked else None
     tenant.blocked_by_user_id = actor.id if blocked else None
+    audit("block_domain" if blocked else "unblock_domain", tenant.domain)
     db.session.commit()
     return jsonify({"message": "Domain blocked" if blocked else "Domain unblocked",
                     "tenant": tenant.to_dict()})
@@ -633,6 +835,7 @@ def super_list_configs():
 @super_admin_required
 def purge_config(config_id):
     config = Configuration.query.get_or_404(config_id)
+    audit("purge_config", "{} (code {})".format(config.name, config.code))
     ScaleConfigLink.query.filter_by(configuration_id=config.id).delete(
         synchronize_session=False)
     db.session.delete(config)
@@ -643,7 +846,77 @@ def purge_config(config_id):
 @super_bp.route("/purge-run", methods=["POST"])
 @super_admin_required
 def run_purge():
-    return jsonify(purge_expired())
+    result = purge_expired()
+    audit("purge_run", "configs={configs_purged} users={users_purged} "
+          "tenants={tenants_removed}".format(**result))
+    db.session.commit()
+    return jsonify(result)
+
+
+# ── Email / SMTP settings ─────────────────────────────────────────────────────
+
+@super_bp.route("/email-settings", methods=["GET"])
+@super_admin_required
+def get_email_settings():
+    # Never return the stored password — only whether one is set.
+    return jsonify({
+        "smtp_host": get_setting("smtp_host", ""),
+        "smtp_port": get_setting("smtp_port", "587"),
+        "smtp_username": get_setting("smtp_username", ""),
+        "smtp_password_set": bool(get_setting("smtp_password")),
+        "smtp_from": get_setting("smtp_from", ""),
+        "smtp_use_tls": _setting_bool("smtp_use_tls"),
+        "verify_email_enabled": _setting_bool("verify_email_enabled"),
+        "configured": smtp_configured(),
+        "verification_active": verification_active(),
+    })
+
+
+@super_bp.route("/email-settings", methods=["PUT"])
+@super_admin_required
+def update_email_settings():
+    data = request.json or {}
+    for key in ["smtp_host", "smtp_port", "smtp_username", "smtp_from"]:
+        if key in data:
+            set_setting(key, str(data[key]).strip())
+    for key in ["smtp_use_tls", "verify_email_enabled"]:
+        if key in data:
+            set_setting(key, "true" if data[key] else "false")
+    # Only overwrite the password when a non-empty new value is supplied.
+    if data.get("smtp_password"):
+        set_setting("smtp_password", str(data["smtp_password"]))
+    if data.get("clear_password"):
+        set_setting("smtp_password", "")
+    audit("update_email_settings", "verify={}".format(
+        "true" if (data.get("verify_email_enabled")) else "false"))
+    db.session.commit()
+    return get_email_settings()
+
+
+@super_bp.route("/email-settings/test", methods=["POST"])
+@super_admin_required
+def test_email_settings():
+    to = normalize_email((request.json or {}).get("to")) or current_user().email
+    if not smtp_configured():
+        return jsonify({"error": "Set an SMTP host and from-address first."}), 400
+    try:
+        send_email(to, "SC// Sizer test email",
+                   "This is a test message from the SC// Infrastructure Sizer. "
+                   "If you received it, SMTP is configured correctly.")
+        return jsonify({"message": "Test email sent to {}.".format(to)})
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": "Send failed: {}".format(e)}), 502
+
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+
+@super_bp.route("/audit", methods=["GET"])
+@super_admin_required
+def get_audit_log():
+    limit = min(request.args.get("limit", 200, type=int), 1000)
+    rows = AdminAuditLog.query.order_by(
+        AdminAuditLog.created_at.desc()).limit(limit).all()
+    return jsonify([r.to_dict() for r in rows])
 
 
 def register_auth(app):

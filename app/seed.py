@@ -12,7 +12,7 @@ from orm_models import (
     ValidatedNic, Switch, DriveTypeIops, SizingSetting,
 )
 # Imported so db.create_all() discovers the auth/multitenancy tables.
-from auth_models import Tenant, User, ROLE_SUPER_ADMIN
+from auth_models import Tenant, User, AppSetting, AdminAuditLog, ROLE_SUPER_ADMIN
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}
@@ -83,6 +83,17 @@ def _migrate_schema():
     stmts = [
         "ALTER TABLE models ADD COLUMN IF NOT EXISTS "
         "validated_only BOOLEAN NOT NULL DEFAULT false",
+        # Auth columns added after the users table first shipped — additive so
+        # existing test/prod databases pick them up on boot.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "is_verified BOOLEAN NOT NULL DEFAULT true",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "verification_sent_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "failed_login_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "locked_until TIMESTAMP WITH TIME ZONE",
     ]
     for sql in stmts:
         db.session.execute(text(sql))
