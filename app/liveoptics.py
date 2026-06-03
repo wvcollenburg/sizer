@@ -3,19 +3,31 @@ from openpyxl import load_workbook
 
 def parse_liveoptics(file_path):
     wb = load_workbook(file_path, read_only=True, data_only=True)
-    result = {
-        "project": _parse_details(wb),
-        "hosts": _parse_hosts(wb),
-        "host_performance": _parse_host_perf(wb),
-        "datastores": _parse_datastores(wb),
-        "vms": _parse_vms(wb),
-        "vm_performance": _parse_vm_perf(wb),
-        "host_disks": _parse_host_disks(wb),
-        "host_nics": _parse_host_nics(wb),
-    }
+    # Live Optics ships two unrelated workbook shapes under the same brand:
+    #   * the VMware/vSphere collector ("ESX Hosts" + "VMs" + perf sheets), and
+    #   * the GENERAL server collector (a single "Servers" sheet, one row per
+    #     OS instance) used for Hyper-V and physical/mixed estates.
+    # The GENERAL export has no host/guest split and folds performance into the
+    # inventory row, so it gets its own parser. Both paths return the same dict
+    # shape so everything downstream (summary, recommend, UI) is format-blind.
+    if "Servers" in wb.sheetnames:
+        result = _parse_general(wb)
+    else:
+        result = {
+            "project": _parse_details(wb),
+            "hosts": _parse_hosts(wb),
+            "host_performance": _parse_host_perf(wb),
+            "datastores": _parse_datastores(wb),
+            "vms": _parse_vms(wb),
+            "vm_performance": _parse_vm_perf(wb),
+            "host_disks": _parse_host_disks(wb),
+            "host_nics": _parse_host_nics(wb),
+        }
     wb.close()
 
     result["summary"] = _build_summary(result)
+    if result.get("scan_type") == "general":
+        _finalize_general_summary(result)
     return result
 
 
@@ -39,6 +51,158 @@ def _parse_details(wb):
         if row and row[0] and row[1]:
             info[str(row[0]).strip()] = row[1]
     return info
+
+
+def _parse_general(wb):
+    """Parse the GENERAL (Hyper-V / physical / mixed) Live Optics export.
+
+    The GENERAL collector emits one "Servers" row per OS instance with no
+    hypervisor host/guest split and performance folded into the same row. For
+    sizing a consolidation onto HyperCore, every server *is* a workload, so each
+    one becomes both:
+      * a VM (the demand we pack onto the new cluster), and
+      * a host (the current-estate footprint shown in the summary, and the basis
+        for the GHz/core figures the recommender sizes against).
+    With no overcommit data the natural vCPU:core ratio is 1:1 (the user can
+    lower it in the UI). All server-local storage must land on the new shared
+    pool, so it's recorded as cluster (primary) capacity, not local.
+    """
+    hosts, vms, perfs, datastores, disks = [], [], [], [], []
+
+    # Per-server disk totals, used as a fallback when a Servers row omits its
+    # roll-up capacity (some collectors leave it blank and only fill Server Disks).
+    disk_totals = {}
+    for r in _sheet_rows(wb, "Server Disks"):
+        host = str(r.get("Server Name", "")).strip()
+        agg = disk_totals.setdefault(host, {"cap": 0.0, "used": 0.0, "free": 0.0})
+        agg["cap"] += _float(r.get("Capacity (GiB)", 0))
+        agg["used"] += _float(r.get("Used Capacity (GiB)", 0))
+        agg["free"] += _float(r.get("Free Capacity (GiB)", 0))
+
+    for r in _sheet_rows(wb, "Servers"):
+        name = str(r.get("Server Name", "")).strip()
+        cores = _int(r.get("CPU Cores", 0))
+        sockets = _int(r.get("CPU Sockets", 0))
+        clock = _float(r.get("CPU Clock Speed (GHz)", 0))
+        net_ghz = _float(r.get("Net Clock Speed (GHz)", 0))
+        mem_kib = _float(r.get("Memory (KiB)", 0))
+        peak_mem_kib = _float(r.get("Peak Memory Usage (KiB)", 0))
+        mem_gb = round(mem_kib / 1048576, 2)
+        peak_mem_gb = round(peak_mem_kib / 1048576, 2)
+        local_cap = _float(r.get("Local Capacity (GiB)", 0))
+        used_cap = _float(r.get("Used Capacity (GiB)", 0))
+        free_cap = _float(r.get("Free Capacity (GiB)", 0))
+        if local_cap == 0 and used_cap == 0:
+            agg = disk_totals.get(name)
+            if agg:
+                local_cap, used_cap, free_cap = agg["cap"], agg["used"], agg["free"]
+        os_name = r.get("OS", "")
+
+        hosts.append({
+            "name": name,
+            "cluster": "",
+            "manufacturer": r.get("Manufacturer", ""),
+            "model": r.get("Model", ""),
+            "cpu_sockets": sockets,
+            "cpu_cores": cores,
+            # No SMT/thread count in this export; cores is the only honest value.
+            "cpu_threads": cores,
+            "cpu_desc": r.get("CPU Description", ""),
+            "cpu_ghz": clock,
+            "net_ghz": net_ghz,
+            "memory_kib": mem_kib,
+            "memory_gb": round(mem_kib / 1048576, 1),
+            "local_capacity_gib": local_cap,
+            "vm_count": 1,
+            "nic_count": 0,
+        })
+
+        vms.append({
+            "name": name,
+            "powered_on": True,        # only running/measured servers are collected
+            "is_template": False,
+            "os": os_name,
+            "model": f"{r.get('Manufacturer', '')} {r.get('Model', '')}".strip(),
+            "vcpus": cores,            # physical cores -> vCPU demand, 1:1
+            "provisioned_memory_gb": mem_gb,
+            "used_memory_gb": peak_mem_gb,
+            "consumed_memory_gb": peak_mem_gb,
+            "disk_capacity_gb": local_cap,
+            "disk_used_gb": used_cap,
+            "vdisk_size_gb": local_cap,
+            "vdisk_used_gb": used_cap,
+            "datastore": "",
+            "host": name,
+            "cluster": "",
+        })
+
+        peak_cpu_pct = _float(r.get("Peak CPU Percentage", 0))
+        perfs.append({
+            "host": name,
+            "peak_cpu_pct": peak_cpu_pct,
+            "peak_cpu_ghz": round(peak_cpu_pct / 100 * net_ghz, 2),
+            # GENERAL export reports only peak CPU/memory, no averages.
+            "avg_cpu_pct": 0,
+            "avg_cpu_ghz": 0,
+            "peak_mem_pct": round(peak_mem_kib / mem_kib * 100, 1) if mem_kib else 0,
+            "peak_mem_mib": round(peak_mem_kib / 1024, 1),
+            "avg_mem_pct": 0,
+            "avg_mem_mib": 0,
+            "peak_iops": _float(r.get("Peak IOPS", 0)),
+            "avg_iops": _float(r.get("Average IOPS", 0)),
+            "p95_iops": _float(r.get("95% IOPS", 0)),
+            "peak_throughput_mbs": _float(r.get("Peak Throughput MB/s", 0)),
+            "avg_throughput_mbs": _float(r.get("Avg. Throughput MB/s", 0)),
+        })
+
+        # Server-local storage must all move to the new shared pool, so it's the
+        # primary ("cluster") sizing basis rather than excludable local capacity.
+        datastores.append({
+            "name": name,
+            "type": "cluster",
+            "capacity_gib": local_cap,
+            "used_gib": used_cap,
+            "free_gib": free_cap,
+            "vm_count": 1,
+        })
+
+    for r in _sheet_rows(wb, "Server Disks"):
+        disks.append({
+            "host": str(r.get("Server Name", "")).strip(),
+            "disk_name": r.get("Device Name", ""),
+            "capacity_mib": _float(r.get("Capacity (GiB)", 0)) * 1024,
+            "model": r.get("Model", ""),
+            "vendor": r.get("Vendor", ""),
+            "is_ssd": False,
+        })
+
+    return {
+        "project": _parse_details(wb),
+        "scan_type": "general",
+        "hosts": hosts,
+        "host_performance": perfs,
+        "datastores": datastores,
+        "vms": vms,
+        "vm_performance": [],
+        "host_disks": disks,
+        "host_nics": [],
+    }
+
+
+def _finalize_general_summary(result):
+    """Adjust summary fields that don't fit a mixed server estate."""
+    summary = result["summary"]
+    n = summary.get("host_count", 0)
+    summary["current_platform"] = f"Mixed estate ({n} servers)"
+    # hosts and VMs are the same physical boxes here, so the host-count tile is
+    # redundant with the VM count; make the redundancy explicit and honest.
+    summary["scan_type"] = "general"
+    # A server-level scan exposes no overcommit, so the measured vCPU:core ratio
+    # is a meaningless 1:1. Fall back to the standard 3:1 consolidation default
+    # and flag it as assumed so the UI labels it as such (and doesn't recompute
+    # it back to 1:1 when VMs are excluded).
+    summary["vcpu_per_core_ratio"] = 3.0
+    summary["vcpu_ratio_assumed"] = True
 
 
 def _parse_hosts(wb):
@@ -79,6 +243,7 @@ def _parse_host_perf(wb):
             "avg_mem_mib": _float(r.get("Average Memory (MiB)", 0)),
             "peak_iops": _float(r.get("Peak IOPS", 0)),
             "avg_iops": _float(r.get("Average IOPS", 0)),
+            "p95_iops": _float(r.get("95% IOPS", 0)),
             "peak_throughput_mbs": _float(r.get("Peak Throughput MB/s", 0)),
             "avg_throughput_mbs": _float(r.get("Avg Throughput MB/s", 0)),
         })
@@ -234,6 +399,7 @@ def _build_summary(data):
     avg_mem_pct = sum(p["avg_mem_pct"] for p in perfs) / len(perfs) if perfs else 0
     total_peak_iops = sum(p["peak_iops"] for p in perfs)
     total_avg_iops = sum(p["avg_iops"] for p in perfs)
+    total_p95_iops = sum(p.get("p95_iops", 0) for p in perfs)
 
     nic_speeds = set()
     for n in data.get("host_nics", []):
@@ -276,6 +442,7 @@ def _build_summary(data):
         "avg_mem_pct": round(avg_mem_pct, 1),
         "total_peak_iops": round(total_peak_iops),
         "total_avg_iops": round(total_avg_iops),
+        "p95_iops": round(total_p95_iops),
 
         "nic_speed_mbps": max(nic_speeds) if nic_speeds else 0,
 

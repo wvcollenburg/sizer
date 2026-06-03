@@ -10,6 +10,10 @@ let importVms = [];
 let originalImportSummary = null;
 let includeLocalStorage = false;   // include per-host local datastores in sizing
 let vmExclusions = { compute: new Set(), storage: new Set() };
+// Per-VM edits keyed by index: { [idx]: { model?, vcpus?, provisioned_memory_gb? } }.
+// Lets the user right-size individual workloads (e.g. underused physical servers)
+// without mutating the pristine import, which the summary is recomputed from.
+let vmConfig = {};
 let vmSortField = 'name';
 let vmSortAsc = true;
 
@@ -639,13 +643,17 @@ async function uploadFile(file) {
         importVms = data.vms || [];
         includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
+        vmConfig = {};
         updateExclusionCountBadge();
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
         document.getElementById('storage-pref').value = 'auto';
         document.getElementById('size-full-cluster').checked = false;
         updateFullClusterInfo(false, null);
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
-        showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}`, false);
+        const scanNote = data.summary && data.summary.scan_type === 'general'
+            ? ' — server-level scan: each server sized 1:1 (no overcommit/NIC data; peak metrics only)'
+            : '';
+        showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}${scanNote}`, false);
         displayImportResults(data);
     } catch (e) {
         showUploadStatus('Upload failed: ' + e.message, true);
@@ -803,11 +811,19 @@ function displayImportResults(data) {
     const markerPct = ((currentRatio - 1) / 7) * 100;
     const marker = document.getElementById('ratio-bar-marker');
     marker.style.left = Math.min(markerPct, 100) + '%';
-    marker.title = `Current environment: ${currentRatio.toFixed(2)}:1`;
 
-    document.getElementById('ratio-current').innerHTML =
-        `Current environment: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
-        `(${s.total_vcpus} vCPUs / ${s.total_host_cores} cores)`;
+    if (s.vcpu_ratio_assumed) {
+        // Server-level scan: no overcommit was measured, so this is a default.
+        marker.title = `Assumed default: ${currentRatio.toFixed(2)}:1`;
+        document.getElementById('ratio-current').innerHTML =
+            `Assumed default: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
+            `(no overcommit data in this server-level scan)`;
+    } else {
+        marker.title = `Current environment: ${currentRatio.toFixed(2)}:1`;
+        document.getElementById('ratio-current').innerHTML =
+            `Current environment: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
+            `(${s.total_vcpus} vCPUs / ${s.total_host_cores} cores)`;
+    }
 
     document.getElementById('env-summary').innerHTML = `
         <div class="summary-card">
@@ -1247,6 +1263,13 @@ function closeVmExclusionModal() {
     document.getElementById('vm-exclusion-modal').style.display = 'none';
 }
 
+// Effective (possibly user-edited) value for a VM field, falling back to the
+// pristine imported value when there is no override.
+function vmVal(vm, idx, field) {
+    const ov = vmConfig[idx];
+    return (ov && ov[field] !== undefined) ? ov[field] : vm[field];
+}
+
 function renderVmTable() {
     const sorted = importVms.map((vm, i) => ({ ...vm, _idx: i }));
     sorted.sort((a, b) => {
@@ -1265,14 +1288,19 @@ function renderVmTable() {
         const excluded = vmExclusions.compute.has(vm._idx) || vmExclusions.storage.has(vm._idx);
         const powerClass = vm.powered_on ? 'vm-power-on' : 'vm-power-off';
         const powerLabel = vm.powered_on ? 'On' : 'Off';
-        const rowClass = excluded ? 'vm-excluded' : '';
+        const edited = vmConfig[vm._idx] && Object.keys(vmConfig[vm._idx]).length > 0;
+        const rowClass = [excluded ? 'vm-excluded' : '', edited ? 'vm-edited' : ''].filter(Boolean).join(' ');
+        const model = vmVal(vm, vm._idx, 'model') || '';
+        const cores = vmVal(vm, vm._idx, 'vcpus');
+        const ram = vmVal(vm, vm._idx, 'provisioned_memory_gb');
         return `<tr class="${rowClass}" data-idx="${vm._idx}">
             <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
             <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
             <td class="vm-col-name" title="${vm.name}">${vm.name}</td>
+            <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${model.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
             <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
-            <td class="vm-col-num">${vm.vcpus}</td>
-            <td class="vm-col-num">${vm.provisioned_memory_gb.toFixed(1)}</td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" onchange="setVmConfig(${vm._idx},'vcpus',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" onchange="setVmConfig(${vm._idx},'provisioned_memory_gb',this.value)"></td>
             <td class="vm-col-num">${vm.vdisk_used_gb.toFixed(1)}</td>
             <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
         </tr>`;
@@ -1309,8 +1337,9 @@ function filterVmTable() {
     const q = document.getElementById('vm-search').value.toLowerCase();
     document.querySelectorAll('#vm-table-body tr').forEach(row => {
         const name = row.children[2].textContent.toLowerCase();
-        const os = row.children[7].textContent.toLowerCase();
-        row.classList.toggle('vm-hidden', q && !name.includes(q) && !os.includes(q));
+        const model = (row.children[3].querySelector('input')?.value || '').toLowerCase();
+        const os = row.children[8].textContent.toLowerCase();
+        row.classList.toggle('vm-hidden', q && !name.includes(q) && !os.includes(q) && !model.includes(q));
     });
 }
 
@@ -1325,6 +1354,38 @@ function toggleVmExclusion(idx, type, checked) {
         const excluded = vmExclusions.compute.has(idx) || vmExclusions.storage.has(idx);
         row.classList.toggle('vm-excluded', excluded);
     }
+    updateVmExclusionSummary();
+}
+
+// Stage a per-VM edit (model / cores / RAM). Overrides that match the original
+// imported value are dropped so the "edited" state stays accurate.
+function setVmConfig(idx, field, value) {
+    const vm = importVms[idx];
+    let v;
+    if (field === 'vcpus') {
+        v = Math.max(1, Math.round(parseFloat(value) || 0));
+    } else if (field === 'provisioned_memory_gb') {
+        v = Math.max(0, Math.round((parseFloat(value) || 0) * 10) / 10);
+    } else {
+        v = (value || '').trim();
+    }
+    const orig = field === 'model' ? (vm.model || '') : vm[field];
+    if (!vmConfig[idx]) vmConfig[idx] = {};
+    if (v === orig) {
+        delete vmConfig[idx][field];
+        if (Object.keys(vmConfig[idx]).length === 0) delete vmConfig[idx];
+    } else {
+        vmConfig[idx][field] = v;
+    }
+    const row = document.querySelector(`#vm-table-body tr[data-idx="${idx}"]`);
+    if (row) row.classList.toggle('vm-edited', !!vmConfig[idx]);
+    updateVmExclusionSummary();
+}
+
+function resetVmConfig() {
+    vmConfig = {};
+    renderVmTable();
+    filterVmTable();
     updateVmExclusionSummary();
 }
 
@@ -1362,8 +1423,6 @@ function clearAllVmExclusions() {
 }
 
 function updateVmExclusionSummary() {
-    const allExcluded = new Set([...vmExclusions.compute, ...vmExclusions.storage]);
-
     let compVcpus = 0, compRam = 0, compActive = 0;
     vmExclusions.compute.forEach(i => {
         const vm = importVms[i];
@@ -1379,27 +1438,35 @@ function updateVmExclusionSummary() {
         storGb += importVms[i].vdisk_used_gb;
     });
 
+    const editedCount = Object.keys(vmConfig).length;
+
     const el = document.getElementById('vm-exclusion-summary');
-    if (allExcluded.size === 0) {
-        el.textContent = 'No VMs excluded';
+    const parts = [];
+    if (vmExclusions.compute.size > 0) {
+        let label = `Compute: ${vmExclusions.compute.size} excluded`;
+        if (compActive > 0) label += ` (-${compVcpus} cores, -${compRam.toFixed(1)} GB RAM)`;
+        if (compActive < vmExclusions.compute.size) label += ` (${vmExclusions.compute.size - compActive} already off)`;
+        parts.push(label);
+    }
+    if (vmExclusions.storage.size > 0) {
+        parts.push(`Storage: ${vmExclusions.storage.size} excluded (-${(storGb / 1024).toFixed(2)} TB)`);
+    }
+    if (editedCount > 0) {
+        parts.push(`${editedCount} VM(s) edited`);
+    }
+    if (parts.length === 0) {
+        el.textContent = 'No changes';
     } else {
-        const parts = [];
-        if (vmExclusions.compute.size > 0) {
-            let label = `Compute: ${vmExclusions.compute.size} VMs`;
-            if (compActive > 0) label += ` (-${compVcpus} vCPUs, -${compRam.toFixed(1)} GB RAM)`;
-            if (compActive < vmExclusions.compute.size) label += ` (${vmExclusions.compute.size - compActive} already off)`;
-            parts.push(label);
-        }
-        if (vmExclusions.storage.size > 0) {
-            parts.push(`Storage: ${vmExclusions.storage.size} VMs (-${(storGb / 1024).toFixed(2)} TB)`);
-        }
-        el.innerHTML = `<strong>${allExcluded.size} VM(s) excluded</strong> &mdash; ${parts.join(' | ')}`;
+        el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
     }
 }
 
 function updateExclusionCountBadge() {
     const el = document.getElementById('vm-exclusion-count');
-    const total = new Set([...vmExclusions.compute, ...vmExclusions.storage]).size;
+    const total = new Set([
+        ...vmExclusions.compute, ...vmExclusions.storage,
+        ...Object.keys(vmConfig).map(Number),
+    ]).size;
     el.innerHTML = total > 0 ? `<span class="exclusion-active">${total}</span>` : '';
 }
 
@@ -1409,35 +1476,34 @@ function updateExclusionCountBadge() {
 function computeAdjustedImportSummary() {
     const adjusted = JSON.parse(JSON.stringify(originalImportSummary));
 
-    let exclVcpus = 0, exclProvRam = 0, exclUsedRam = 0;
-    let exclActiveCount = 0;
-    vmExclusions.compute.forEach(i => {
-        const vm = importVms[i];
-        if (vm.powered_on && !vm.is_template) {
-            exclVcpus += vm.vcpus;
-            exclProvRam += vm.provisioned_memory_gb;
-            exclUsedRam += vm.consumed_memory_gb;
-            exclActiveCount++;
-        }
+    // Recompute compute/RAM totals straight from the (possibly user-edited) VM
+    // list rather than subtracting from the original, so per-VM Cores/RAM edits
+    // flow through. With no edits or exclusions this reproduces the import totals.
+    let sumVcpus = 0, sumProvRam = 0, sumUsedRam = 0, activeIncluded = 0;
+    let maxVmRam = 0, maxVmCores = 0;
+    importVms.forEach((vm, i) => {
+        if (!vm.powered_on || vm.is_template || vmExclusions.compute.has(i)) return;
+        const cores = vmVal(vm, i, 'vcpus');
+        const ram = vmVal(vm, i, 'provisioned_memory_gb');
+        sumVcpus += cores;
+        sumProvRam += ram;
+        sumUsedRam += vm.consumed_memory_gb;
+        activeIncluded++;
+        if (ram > maxVmRam) maxVmRam = ram;
+        if (cores > maxVmCores) maxVmCores = cores;
     });
 
-    adjusted.total_vcpus = originalImportSummary.total_vcpus - exclVcpus;
-    adjusted.total_vm_provisioned_memory_gb = Math.round((originalImportSummary.total_vm_provisioned_memory_gb - exclProvRam) * 10) / 10;
-    adjusted.total_vm_used_memory_gb = Math.round((originalImportSummary.total_vm_used_memory_gb - exclUsedRam) * 10) / 10;
-    adjusted.active_vms = originalImportSummary.active_vms - exclActiveCount;
+    adjusted.total_vcpus = sumVcpus;
+    adjusted.total_vm_provisioned_memory_gb = Math.round(sumProvRam * 10) / 10;
+    adjusted.total_vm_used_memory_gb = Math.round(sumUsedRam * 10) / 10;
+    adjusted.active_vms = activeIncluded;
 
-    if (adjusted.total_host_cores > 0) {
+    // Server-level scans have no real overcommit (hosts == VMs), so keep the
+    // assumed 3:1 default instead of recomputing a meaningless 1:1.
+    if (!adjusted.vcpu_ratio_assumed && adjusted.total_host_cores > 0) {
         adjusted.vcpu_per_core_ratio = Math.round((adjusted.total_vcpus / adjusted.total_host_cores) * 100) / 100;
     }
 
-    // Recalculate max VM sizes from remaining active VMs
-    let maxVmRam = 0, maxVmCores = 0;
-    importVms.forEach((vm, i) => {
-        if (vm.powered_on && !vm.is_template && !vmExclusions.compute.has(i)) {
-            if (vm.provisioned_memory_gb > maxVmRam) maxVmRam = vm.provisioned_memory_gb;
-            if (vm.vcpus > maxVmCores) maxVmCores = vm.vcpus;
-        }
-    });
     adjusted.max_vm_ram_gb = maxVmRam;
     adjusted.max_vm_cores = maxVmCores;
 
