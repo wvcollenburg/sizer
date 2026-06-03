@@ -289,7 +289,12 @@ configs_bp = Blueprint("configs", __name__, url_prefix="/api/configs")
 def _visible_configs(user):
     """Return (Configuration, source) pairs the user may see in listings."""
     if user.is_super_admin:
-        rows = Configuration.query.order_by(Configuration.updated_at.desc()).all()
+        # The My Sizings list is the working list, not the audit view — hide
+        # soft-deleted configs here. They remain visible (and purgeable) in the
+        # admin portal's "show deleted" view.
+        rows = Configuration.query.filter(
+            Configuration.is_deleted.is_(False)
+        ).order_by(Configuration.updated_at.desc()).all()
         return [(c, "owned" if c.owner_id == user.id else "tenant") for c in rows]
 
     pairs = []
