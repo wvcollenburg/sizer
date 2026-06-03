@@ -838,10 +838,14 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                         if total < 3 or total * max_cluster_nodes > MAX_CLUSTER_DISKS:
                             continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
-                    if validated:
-                        flash_pct = (flash_tb * f / raw_per_node) * 100 if raw_per_node else 0
-                        if flash_pct < HYBRID_FLASH_MIN_PCT or flash_pct > HYBRID_FLASH_MAX_PCT:
-                            continue
+                    # The 7-24.3% flash-capacity band is a hybrid architecture
+                    # requirement, not a validated-only one: a fixed certified
+                    # tier-count paired with a freely-chosen drive size can still
+                    # land out of band (e.g. small HDD + large NVMe -> 56% flash),
+                    # so enforce it on every hybrid pick.
+                    flash_pct = (flash_tb * f / raw_per_node) * 100 if raw_per_node else 0
+                    if flash_pct < HYBRID_FLASH_MIN_PCT or flash_pct > HYBRID_FLASH_MAX_PCT:
+                        continue
                     biggest = max(hdd_tb, flash_tb)
                     usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)
                     if usable < usable_needed:
