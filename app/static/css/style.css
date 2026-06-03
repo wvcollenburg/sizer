@@ -1406,24 +1406,46 @@ tr.so-divider td {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+}
+.account-actions,
+.account-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.account-sep {
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 300;
 }
 .account-email {
-    color: var(--text-muted);
+    color: #cdd6e0;
     font-size: 0.85rem;
-    margin-right: 0.25rem;
 }
-.account-tag {
-    background: var(--accent);
+/* Every account-bar button is the same size and centred. */
+.account-bar .btn,
+.account-bar a.btn {
+    min-width: 96px;
+    justify-content: center;
+    text-align: center;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-account { background: var(--accent); color: #fff; }
+
+.account-badge {
     color: #fff;
-    padding: 1px 7px;
+    padding: 2px 9px;
     border-radius: 10px;
     font-size: 0.68rem;
     font-weight: 700;
-    margin-left: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
 }
-.btn-account { background: var(--accent); color: #fff; }
-.account-bar a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.account-badge.super { background: #7d3cc9; }   /* purple — super admin */
+.account-badge.scale { background: #0076CE; }   /* blue — scale user */
+.account-badge.user  { background: #2a9d54; }   /* green — everyone else */
 
 .modal-sm { max-width: 420px; }
 

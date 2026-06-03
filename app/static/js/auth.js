@@ -37,23 +37,36 @@ function renderAccountBar() {
         return;
     }
     const u = currentAccount;
-    const tag = u.role === 'super_admin' ? 'Super admin'
-        : u.role === 'tenant_admin' ? 'Admin'
-        : u.is_scale ? 'Scale' : '';
-    const buttons = [
+    const badge = accountBadge(u);
+
+    // Left group: actions. Right group: identity (email · badge · sign out).
+    const actions = [
         `<button class="btn btn-sm btn-account" onclick="saveCurrentSizing()">Save sizing</button>`,
         `<button class="btn btn-sm" onclick="openSizingsModal()">My Sizings</button>`,
     ];
     if (u.role === 'tenant_admin') {
-        buttons.push(`<button class="btn btn-sm" onclick="openOrgModal()">Organization</button>`);
+        actions.push(`<button class="btn btn-sm" onclick="openOrgModal()">Organization</button>`);
     }
     if (u.role === 'super_admin') {
-        buttons.push(`<a class="btn btn-sm" href="/admin/">Admin</a>`);
+        actions.push(`<a class="btn btn-sm" href="/admin/">Admin</a>`);
     }
-    buttons.push(`<button class="btn btn-sm btn-muted" onclick="doLogout()">Sign out</button>`);
+
     bar.innerHTML =
-        `<span class="account-email">${esc(u.email)}${tag ? ` <span class="account-tag">${tag}</span>` : ''}</span>`
-        + buttons.join('');
+        `<div class="account-actions">${actions.join('')}</div>`
+        + `<span class="account-sep">|</span>`
+        + `<div class="account-identity">`
+        +   `<span class="account-email">${esc(u.email)}</span>`
+        +   `<span class="account-badge ${badge.cls}">${badge.label}</span>`
+        +   `<button class="btn btn-sm btn-muted" onclick="doLogout()">Sign out</button>`
+        + `</div>`;
+}
+
+// Badge label + colour class: purple super admin, blue scale user, green others.
+function accountBadge(u) {
+    if (u.role === 'super_admin') return { label: 'Super admin', cls: 'super' };
+    if (u.is_scale) return { label: 'Scale', cls: 'scale' };
+    if (u.role === 'tenant_admin') return { label: 'Admin', cls: 'user' };
+    return { label: 'User', cls: 'user' };
 }
 
 function esc(s) {
