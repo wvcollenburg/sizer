@@ -598,3 +598,11 @@ body { padding-bottom: 64px; }
     font-size: 0.85rem;
     box-sizing: border-box;
 }
+
+.role-select {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    background: var(--surface);
+}

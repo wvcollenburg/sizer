@@ -1551,6 +1551,9 @@ tr.so-divider td {
 .auth-resend { font-size: 0.82rem; margin: 0.25rem 0 0.5rem; }
 .auth-resend a { color: var(--accent); text-decoration: none; }
 .auth-resend a:hover { text-decoration: underline; }
+.auth-links { text-align: center; margin-top: 0.75rem; font-size: 0.82rem; }
+.auth-links a { color: var(--text-muted); text-decoration: none; }
+.auth-links a:hover { color: var(--accent); text-decoration: underline; }
 .sizings-status.upload-ok { background: rgba(40, 167, 69, 0.12); color: #4dd07a; }
 .sizings-status.upload-error { background: rgba(220, 53, 69, 0.12); color: #ff6b7a; }
 

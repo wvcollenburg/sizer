@@ -94,6 +94,9 @@ def _migrate_schema():
         "failed_login_count INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "locked_until TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "reset_sent_at TIMESTAMP WITH TIME ZONE",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

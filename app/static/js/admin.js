@@ -954,28 +954,63 @@ async function loadAdminUsers() {
     const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
     const body = document.getElementById('admin-users-tbody');
     if (!ok) { body.innerHTML = ''; setStatus('admin-status', 'Could not load users.', true); return; }
+    const roleOpts = (sel) =>
+        `<option value="user"${sel === 'user' ? ' selected' : ''}>User</option>`
+        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>Tenant admin</option>`
+        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>Super admin</option>`;
+
     body.innerHTML = data.map(u => {
         const actions = [];
-        if (u.role !== 'super_admin') {
-            if (u.is_disabled) {
-                actions.push(`<button class="btn btn-sm btn-secondary" onclick="restoreUser(${u.id})">Restore</button>`);
-                actions.push(`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Delete</button>`);
-            } else {
-                if (u.role !== 'tenant_admin') {
-                    actions.push(`<button class="btn btn-sm btn-secondary" onclick="makeTenantAdmin(${u.tenant_id || 0}, ${u.id}, '${adminEsc(u.tenant_domain)}')">Make admin</button>`);
-                }
+        if (!u.is_disabled) {
+            actions.push(`<button class="btn btn-sm btn-secondary" onclick="resetUserPassword(${u.id}, '${adminEsc(u.email)}')">Reset password</button>`);
+            if (u.role !== 'super_admin') {
                 actions.push(`<button class="btn btn-sm btn-danger" onclick="disableAdminUser(${u.id})">Disable</button>`);
             }
+        } else {
+            actions.push(`<button class="btn btn-sm btn-secondary" onclick="restoreUser(${u.id})">Restore</button>`);
+            actions.push(`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Delete</button>`);
         }
+        // Role is editable inline for active users; disabled users must be
+        // restored before their role can change (server enforces this too).
+        const roleCell = u.is_disabled
+            ? adminEsc(u.role)
+            : `<select class="role-select" onchange="changeUserRole(${u.id}, this.value, '${adminEsc(u.role)}')">${roleOpts(u.role)}</select>`;
         return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
             <td>${adminEsc(u.email)}</td>
             <td>${adminEsc(u.tenant_domain)}</td>
-            <td>${adminEsc(u.role)}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
+            <td>${roleCell}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
             <td>${u.is_disabled ? 'Disabled' : 'Active'}</td>
             <td>${adminDate(u.last_login_at)}</td>
             <td class="col-actions">${actions.join(' ')}</td>
         </tr>`;
     }).join('') || `<tr><td colspan="6">No users.</td></tr>`;
+}
+
+async function changeUserRole(id, role, prevRole) {
+    if (role === prevRole) return;
+    const label = { user: 'User', tenant_admin: 'Tenant admin', super_admin: 'Super admin' }[role] || role;
+    if (!confirm(`Change this user's role to "${label}"?`)) { loadAdminUsers(); return; }
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/role`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+    });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); loadAdminUsers(); return; }
+    setStatus('admin-status', 'Role updated.', false);
+    loadAdminUsers();
+}
+
+async function resetUserPassword(id, email) {
+    const pw = prompt(
+        `Reset password for ${email}.\n\nEnter a new password (min 8 chars), `
+        + `or leave blank to email them a reset link (requires SMTP):`);
+    if (pw === null) return;  // cancelled
+    const body = pw.trim() ? { password: pw.trim() } : {};
+    if (!pw.trim() && !confirm('Email this user a password-reset link?')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    setStatus('admin-status', (data && (data.message || data.error)) || (ok ? 'Done.' : 'Failed.'), !ok);
 }
 
 // The super-user listing doesn't carry tenant_id; resolve it via domain when

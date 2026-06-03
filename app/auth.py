@@ -40,6 +40,9 @@ LAST_PURGE_KEY = "auth_last_purge_at"
 LOCKOUT_THRESHOLD = 5
 LOCKOUT_MINUTES = 15
 
+# Password-reset link validity.
+RESET_TOKEN_TTL_HOURS = 2
+
 # String settings keys (auth_models.AppSetting).
 SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_username", "smtp_password",
              "smtp_from", "smtp_use_tls", "verify_email_enabled"]
@@ -117,6 +120,26 @@ def send_verification_email(user, base_url):
         )
         return True
     except Exception:  # noqa: BLE001 — caller decides how to surface failures
+        return False
+
+
+def send_reset_email(user, base_url):
+    """Issue a fresh reset token and email a reset link. Returns True on success."""
+    token = secrets.token_urlsafe(32)[:64]
+    user.reset_token = token
+    user.reset_sent_at = _utcnow()
+    db.session.commit()
+    link = "{}?reset={}".format(base_url, token)
+    try:
+        send_email(
+            user.email, "Reset your SC// Sizer password",
+            "A password reset was requested for your SC// Infrastructure Sizer "
+            "account.\n\nOpen this link to choose a new password (valid for {} "
+            "hours):\n\n{}\n\nIf you did not request this, you can ignore this "
+            "email — your password will not change.".format(RESET_TOKEN_TTL_HOURS, link),
+        )
+        return True
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -477,6 +500,45 @@ def resend_verification():
                     "If that account exists and needs verification, an email is on its way."})
 
 
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    # Generic response regardless of outcome — never reveal whether an account
+    # exists. Only does anything when SMTP is configured.
+    email = normalize_email((request.json or {}).get("email"))
+    generic = jsonify({"message":
+                       "If that account exists, a password reset email has been sent."})
+    if not email or not smtp_configured():
+        return generic
+    user = User.query.filter_by(email=email).first()
+    if user and not user.is_disabled and not (user.tenant and user.tenant.is_blocked):
+        send_reset_email(user, request.url_root)
+    return generic
+
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.json or {}
+    token = (data.get("token") or "").strip()
+    password = data.get("password") or ""
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+
+    user = User.query.filter_by(reset_token=token).first() if token else None
+    if user is None:
+        return jsonify({"error": "This reset link is invalid or has already been used."}), 400
+    sent = _aware(user.reset_sent_at)
+    if not sent or (_utcnow() - sent) > timedelta(hours=RESET_TOKEN_TTL_HOURS):
+        return jsonify({"error": "This reset link has expired. Request a new one."}), 400
+
+    user.password_hash = generate_password_hash(password, method=PWHASH_METHOD)
+    user.reset_token = None
+    user.reset_sent_at = None
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.session.commit()
+    return jsonify({"message": "Your password has been reset. You can now sign in."})
+
+
 # ── configurations blueprint ─────────────────────────────────────────────────
 
 configs_bp = Blueprint("configs", __name__, url_prefix="/api/configs")
@@ -772,6 +834,60 @@ def hard_delete_user(user_id):
     _cleanup_empty_tenants()
     db.session.commit()
     return jsonify({"message": "User permanently deleted"})
+
+
+def _active_super_admin_count():
+    return User.query.filter_by(role=ROLE_SUPER_ADMIN, is_disabled=False).count()
+
+
+@super_bp.route("/users/<int:user_id>/role", methods=["POST"])
+@super_admin_required
+def change_user_role(user_id):
+    target = User.query.get_or_404(user_id)
+    new_role = (request.json or {}).get("role")
+    if new_role not in (ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN):
+        return jsonify({"error": "Invalid role"}), 400
+    if target.is_disabled:
+        return jsonify({"error": "Restore the user before changing their role"}), 400
+    # Never strip the last active super admin (would lock everyone out of admin).
+    if (target.is_super_admin and new_role != ROLE_SUPER_ADMIN
+            and _active_super_admin_count() <= 1):
+        return jsonify({"error": "Cannot demote the last super admin"}), 400
+
+    old_role = target.role
+    target.role = new_role
+    audit("change_role", "{}: {} -> {}".format(target.email, old_role, new_role))
+    db.session.commit()
+    return jsonify({"message": "Role updated", "user": target.to_dict()})
+
+
+@super_bp.route("/users/<int:user_id>/reset-password", methods=["POST"])
+@super_admin_required
+def super_reset_password(user_id):
+    target = User.query.get_or_404(user_id)
+    password = (request.json or {}).get("password") or ""
+
+    # With a password supplied, set it directly. Without one, email a reset link
+    # (requires SMTP) so the user chooses their own.
+    if password:
+        if len(password) < 8:
+            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        target.password_hash = generate_password_hash(password, method=PWHASH_METHOD)
+        target.failed_login_count = 0
+        target.locked_until = None
+        target.reset_token = None
+        audit("reset_password", "{} (set directly)".format(target.email))
+        db.session.commit()
+        return jsonify({"message": "Password reset for {}.".format(target.email)})
+
+    if not smtp_configured():
+        return jsonify({"error":
+                        "Provide a new password, or configure SMTP to email a reset link."}), 400
+    sent = send_reset_email(target, request.url_root)
+    audit("reset_password_email", target.email)
+    db.session.commit()
+    return jsonify({"message": ("Reset link sent to {}.".format(target.email) if sent
+                                else "Could not send the reset email — check SMTP settings.")})
 
 
 @super_bp.route("/tenants", methods=["GET"])

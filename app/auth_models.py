@@ -82,6 +82,10 @@ class User(db.Model):
     verification_token = db.Column(db.String(64), index=True)
     verification_sent_at = db.Column(db.DateTime(timezone=True))
 
+    # Self-service password reset (SMTP-gated).
+    reset_token = db.Column(db.String(64), index=True)
+    reset_sent_at = db.Column(db.DateTime(timezone=True))
+
     # Brute-force lockout.
     failed_login_count = db.Column(db.Integer, nullable=False, default=0)
     locked_until = db.Column(db.DateTime(timezone=True))

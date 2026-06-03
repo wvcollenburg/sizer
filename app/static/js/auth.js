@@ -24,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (v === 'invalid') {
         showInfoModal('Link expired', 'That verification link is invalid or has already been used.');
     }
+    // Password-reset link.
+    const resetToken = params.get('reset');
+    if (resetToken) openResetModal(resetToken);
 });
 
 async function apiJson(url, opts) {
@@ -164,6 +167,61 @@ async function submitAuth(event) {
     if (authTab === 'signup' && data.is_tenant_admin) {
         showInfoModal('Account created', 'You are the admin for your organisation.');
     }
+}
+
+async function forgotPassword(event) {
+    if (event) event.preventDefault();
+    const email = document.getElementById('auth-email').value.trim();
+    if (!email) { showAuthError('Enter your email above first, then click "Forgot password?"'); return; }
+    await apiJson('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+    closeAuthModal();
+    showInfoModal('Check your email',
+        'If that account exists, a password reset email is on its way. The link is '
+        + 'valid for a short time.');
+}
+
+// ── Reset password (from an emailed ?reset=<token> link) ─────────────────────
+
+let _resetToken = null;
+
+function openResetModal(token) {
+    _resetToken = token;
+    document.getElementById('reset-password').value = '';
+    document.getElementById('reset-error').style.display = 'none';
+    document.getElementById('reset-modal').style.display = 'flex';
+    document.getElementById('reset-password').focus();
+}
+
+function closeResetModal() {
+    document.getElementById('reset-modal').style.display = 'none';
+    // Drop the token from the URL so a refresh doesn't reopen the modal.
+    if (location.search.includes('reset=')) {
+        history.replaceState(null, '', location.pathname);
+    }
+}
+
+async function submitReset(event) {
+    event.preventDefault();
+    const err = document.getElementById('reset-error');
+    err.style.display = 'none';
+    const password = document.getElementById('reset-password').value;
+    const { ok, data } = await apiJson('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: _resetToken, password }),
+    });
+    if (!ok) {
+        err.textContent = (data && data.error) || 'Could not reset password.';
+        err.style.display = 'block';
+        return;
+    }
+    closeResetModal();
+    showInfoModal('Password reset', (data && data.message) || 'You can now sign in.');
+    openAuthModal();
 }
 
 async function resendVerification(event) {
