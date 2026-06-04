@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Sizer Admin</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
 </head>
 <body>
     <header>
@@ -319,6 +319,12 @@
                     no server is set, or the toggle below is off, signup works without
                     verification (current behaviour).
                 </p>
+                <p class="import-info" style="color:#8a6d3b">
+                    <strong>Tip:</strong> the <em>From address</em> must usually be on the same
+                    domain you authenticate with (the username's domain). Sending from an
+                    unrelated domain (e.g. a personal alias) makes most providers and Gmail
+                    drop the message for SPF/DMARC failures even though the relay "accepts" it.
+                </p>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>SMTP Host</label>
@@ -595,6 +601,6 @@
         decisions taken based on its output. Always validate results before relying on them.
     </div>
 
-    <script src="/static/js/admin.js"></script>
+    <script src="{{ asset('js/admin.js') }}"></script>
 </body>
 </html>

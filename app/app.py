@@ -52,6 +52,19 @@ def create_app():
     register_auth(app)
     app.register_blueprint(admin_bp)
 
+    # Cache-bust static assets by file mtime so a rebuild always serves fresh
+    # JS/CSS (no more stale-cache surprises during iteration).
+    @app.context_processor
+    def _asset_helper():
+        def asset(path):
+            full = os.path.join(app.static_folder, path)
+            try:
+                v = int(os.path.getmtime(full))
+            except OSError:
+                v = 0
+            return f"/static/{path}?v={v}"
+        return {"asset": asset}
+
     @app.route("/")
     def index():
         return render_template("index.html")
