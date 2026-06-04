@@ -256,7 +256,7 @@ def require_login():
         return None
     if request.blueprint == "auth":
         return None
-    if request.path == "/":
+    if request.path in ("/", "/privacy"):
         return None
     if current_user() is not None:
         return None
@@ -555,6 +555,8 @@ def signup():
     pw_error = validate_password(password)
     if pw_error:
         return jsonify({"error": pw_error}), 400
+    if not data.get("accept_privacy"):
+        return jsonify({"error": "You must accept the privacy policy to sign up."}), 400
 
     domain = domain_of(email)
     if is_public_domain(domain):
@@ -584,6 +586,7 @@ def signup():
         tenant_id=tenant.id,
         role=role,
         is_verified=not needs_verification,
+        privacy_accepted_at=_utcnow(),
     )
     db.session.add(user)
     db.session.commit()

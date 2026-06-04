@@ -102,6 +102,8 @@ def _migrate_schema():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "reset_sent_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "privacy_accepted_at TIMESTAMP WITH TIME ZONE",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

@@ -631,7 +631,8 @@
     </main>
 
     <footer>
-        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)</p>
+        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)
+           &nbsp;&middot;&nbsp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
     </footer>
 
     <div class="dev-disclaimer" role="note">
@@ -732,6 +733,13 @@
                         domain becomes its admin. Public email providers (gmail, outlook, etc.)
                         are not allowed.
                     </p>
+                    <div class="auth-consent" id="auth-consent-row" style="display:none">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="auth-accept-privacy">
+                            I have read and accept the
+                            <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+                        </label>
+                    </div>
                     <div class="auth-error" id="auth-error" style="display:none"></div>
                     <div class="auth-resend" id="auth-resend" style="display:none">
                         <a href="#" onclick="resendVerification(event)">Resend verification email</a>

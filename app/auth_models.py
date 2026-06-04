@@ -86,6 +86,9 @@ class User(db.Model):
     reset_token = db.Column(db.String(64), index=True)
     reset_sent_at = db.Column(db.DateTime(timezone=True))
 
+    # GDPR: timestamp the user accepted the privacy policy at signup (proof of consent).
+    privacy_accepted_at = db.Column(db.DateTime(timezone=True))
+
     # Brute-force lockout.
     failed_login_count = db.Column(db.Integer, nullable=False, default=0)
     locked_until = db.Column(db.DateTime(timezone=True))
@@ -127,6 +130,7 @@ class User(db.Model):
             "disabled_at": _iso(self.disabled_at),
             "created_at": _iso(self.created_at),
             "last_login_at": _iso(self.last_login_at),
+            "privacy_accepted_at": _iso(self.privacy_accepted_at),
         }
 
 

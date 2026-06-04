@@ -186,10 +186,12 @@ function setAuthTab(tab) {
     document.getElementById('auth-signup-hint').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-password').setAttribute(
         'autocomplete', signup ? 'new-password' : 'current-password');
-    // Confirm field + live rules checklist only on signup.
+    // Confirm field, rules checklist, and privacy consent only on signup.
     document.getElementById('auth-confirm-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-pw-rules').style.display = signup ? 'block' : 'none';
+    document.getElementById('auth-consent-row').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-confirm').value = '';
+    document.getElementById('auth-accept-privacy').checked = false;
     if (signup) updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
     hideAuthError();
 }
@@ -222,14 +224,20 @@ async function submitAuth(event) {
             showAuthError('Please meet all the password requirements.');
             return;
         }
+        if (!document.getElementById('auth-accept-privacy').checked) {
+            showAuthError('Please accept the privacy policy to create an account.');
+            return;
+        }
     }
 
     const url = authTab === 'login' ? '/api/auth/login' : '/api/auth/signup';
+    const body = { email, password };
+    if (authTab === 'signup') body.accept_privacy = true;
 
     const { ok, data } = await apiJson(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(body),
     });
     if (!ok) {
         showAuthError((data && data.error) || 'Something went wrong. Try again.');
