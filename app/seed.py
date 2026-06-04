@@ -1,5 +1,8 @@
 """Seed the database with appliance model data from models.py."""
 import os
+# Seeding imports the app factory; don't spin up the background scheduler in this
+# one-off process (the web server, a separate process, runs it).
+os.environ["ENABLE_SCHEDULER"] = "0"
 import re
 import sys
 from sqlalchemy import text
@@ -12,7 +15,9 @@ from orm_models import (
     ValidatedNic, Switch, DriveTypeIops, SizingSetting,
 )
 # Imported so db.create_all() discovers the auth/multitenancy tables.
-from auth_models import Tenant, User, AppSetting, AdminAuditLog, ROLE_SUPER_ADMIN
+from auth_models import (
+    Tenant, User, AppSetting, AdminAuditLog, PiiErasure, ROLE_SUPER_ADMIN,
+)
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}

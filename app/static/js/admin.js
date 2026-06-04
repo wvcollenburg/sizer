@@ -26,6 +26,7 @@ function switchTab(tab) {
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
     if (tab === 'users') loadAdminUsers();
+    else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
     else if (tab === 'sizings') loadAdminSizings();
     else if (tab === 'email') loadEmailSettings();
@@ -947,9 +948,11 @@ async function toggleBlockTenant(id, block) {
 async function loadAdminUsers() {
     if (!tenantCache.length) await loadAdminTenants();
     const includeDisabled = document.getElementById('users-include-disabled').checked;
+    const unverifiedOnly = document.getElementById('users-unverified-only').checked;
     const tenant = document.getElementById('users-tenant-filter').value;
     const params = new URLSearchParams();
     if (includeDisabled) params.set('include_disabled', 'true');
+    if (unverifiedOnly) params.set('unverified', 'true');
     if (tenant) params.set('tenant', tenant);
     const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
     const body = document.getElementById('admin-users-tbody');
@@ -975,11 +978,14 @@ async function loadAdminUsers() {
         const roleCell = u.is_disabled
             ? adminEsc(u.role)
             : `<select class="role-select" onchange="changeUserRole(${u.id}, this.value, '${adminEsc(u.role)}')">${roleOpts(u.role)}</select>`;
+        const statusCell = u.is_disabled ? 'Disabled'
+            : (u.is_verified ? 'Active'
+               : '<span class="badge-unverified">Unactivated</span>');
         return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
             <td>${adminEsc(u.email)}</td>
             <td>${adminEsc(u.tenant_domain)}</td>
             <td>${roleCell}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
-            <td>${u.is_disabled ? 'Disabled' : 'Active'}</td>
+            <td>${statusCell}</td>
             <td>${adminDate(u.last_login_at)}</td>
             <td class="col-actions">${actions.join(' ')}</td>
         </tr>`;
@@ -1156,4 +1162,74 @@ async function loadAuditLog() {
             <td><code>${adminEsc(e.action)}</code></td>
             <td>${adminEsc(e.detail || '')}</td>
         </tr>`).join('') || `<tr><td colspan="4">No audit entries yet.</td></tr>`;
+}
+
+
+// ==================== SUPER-ADMIN: INACTIVE (1yr+) USERS ====================
+
+async function loadStaleUsers() {
+    const { ok, data } = await adminApi('/api/admin/super/users/stale');
+    const body = document.getElementById('stale-users-tbody');
+    document.getElementById('stale-select-all').checked = false;
+    if (!ok) { body.innerHTML = ''; setStatus('stale-status', 'Could not load.', true); return; }
+
+    // Populate the per-domain selector from the result.
+    const domains = [...new Set(data.map(u => u.tenant_domain).filter(Boolean))].sort();
+    const sel = document.getElementById('stale-domain-select');
+    sel.innerHTML = '<option value="">Select all from domain…</option>'
+        + domains.map(d => `<option value="${adminEsc(d)}">${adminEsc(d)} (${data.filter(u => u.tenant_domain === d).length})</option>`).join('');
+
+    body.innerHTML = data.map(u => `
+        <tr>
+            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${adminEsc(u.tenant_domain)}" onclick="updateStaleCount()"></td>
+            <td>${adminEsc(u.email)}</td>
+            <td>${adminEsc(u.tenant_domain)}</td>
+            <td>${adminEsc(u.role)}</td>
+            <td>${u.last_login_at ? adminDate(u.last_login_at) : '<span class="muted">never</span>'}</td>
+            <td>${adminDate(u.created_at)}</td>
+        </tr>`).join('') || `<tr><td colspan="6">No users inactive for a year.</td></tr>`;
+    updateStaleCount();
+}
+
+function staleChecks() {
+    return Array.from(document.querySelectorAll('.stale-check'));
+}
+
+function updateStaleCount() {
+    const all = staleChecks();
+    const checked = all.filter(c => c.checked);
+    document.getElementById('stale-selected-count').textContent =
+        checked.length ? `${checked.length} selected` : '';
+    const head = document.getElementById('stale-select-all');
+    head.checked = all.length > 0 && checked.length === all.length;
+    head.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function toggleSelectAllStale(cb) {
+    staleChecks().forEach(c => { c.checked = cb.checked; });
+    updateStaleCount();
+}
+
+// Additively check every row of the chosen domain (so several domains can be
+// built up), then reset the selector.
+function selectStaleByDomain() {
+    const sel = document.getElementById('stale-domain-select');
+    const domain = sel.value;
+    if (!domain) return;
+    staleChecks().forEach(c => { if (c.dataset.domain === domain) c.checked = true; });
+    sel.value = '';
+    updateStaleCount();
+}
+
+async function purgeSelectedStale() {
+    const ids = staleChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
+    if (!ids.length) { setStatus('stale-status', 'Select at least one user first.', true); return; }
+    if (!confirm(`Permanently delete ${ids.length} user(s) and all of their saved sizings? This cannot be undone.`)) return;
+    const { ok, data } = await adminApi('/api/admin/super/users/purge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+    });
+    if (!ok) { setStatus('stale-status', (data && data.error) || 'Purge failed.', true); return; }
+    setStatus('stale-status', `Purged ${data.purged} user(s)${data.skipped ? `, skipped ${data.skipped}` : ''}.`, false);
+    loadStaleUsers();
 }

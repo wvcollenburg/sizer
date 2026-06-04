@@ -712,8 +712,21 @@
                     <div class="form-group">
                         <label>Password</label>
                         <input type="password" id="auth-password" autocomplete="current-password"
-                               required minlength="8" placeholder="At least 8 characters">
+                               required placeholder="Your password" oninput="onAuthPwInput()">
                     </div>
+                    <div class="form-group" id="auth-confirm-group" style="display:none">
+                        <label>Confirm password</label>
+                        <input type="password" id="auth-confirm" autocomplete="new-password"
+                               placeholder="Re-enter your password" oninput="onAuthPwInput()">
+                    </div>
+                    <ul class="pw-rules" id="auth-pw-rules" style="display:none">
+                        <li data-rule="len">At least 10 characters</li>
+                        <li data-rule="upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit">A number (0–9)</li>
+                        <li data-rule="special">A special character</li>
+                        <li data-rule="match">Passwords match</li>
+                    </ul>
                     <p class="auth-hint" id="auth-signup-hint" style="display:none">
                         Sign up with your organisation's email domain. The first person from a
                         domain becomes its admin. Public email providers (gmail, outlook, etc.)
@@ -828,9 +841,24 @@
                 <form id="reset-form" onsubmit="submitReset(event)">
                     <div class="form-group">
                         <label>New password</label>
-                        <input type="password" id="reset-password" minlength="8" required
-                               autocomplete="new-password" placeholder="At least 8 characters">
+                        <input type="password" id="reset-password" required
+                               autocomplete="new-password" placeholder="Your new password"
+                               oninput="onResetPwInput()">
                     </div>
+                    <div class="form-group">
+                        <label>Confirm new password</label>
+                        <input type="password" id="reset-confirm" required
+                               autocomplete="new-password" placeholder="Re-enter your new password"
+                               oninput="onResetPwInput()">
+                    </div>
+                    <ul class="pw-rules" id="reset-pw-rules">
+                        <li data-rule="len">At least 10 characters</li>
+                        <li data-rule="upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit">A number (0–9)</li>
+                        <li data-rule="special">A special character</li>
+                        <li data-rule="match">Passwords match</li>
+                    </ul>
                     <div class="auth-error" id="reset-error" style="display:none"></div>
                     <div class="modal-btn-row">
                         <button type="button" class="btn btn-muted" onclick="closeResetModal()">Cancel</button>

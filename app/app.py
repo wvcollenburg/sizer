@@ -4,7 +4,7 @@ import tempfile
 
 from flask import Flask, render_template, jsonify, request, send_file
 from database import db, init_db
-from auth import register_auth
+from auth import register_auth, start_scheduler
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, RamOption, StorageConfig,
@@ -51,6 +51,11 @@ def create_app():
     init_db(app)
     register_auth(app)
     app.register_blueprint(admin_bp)
+
+    # Daily retention/GDPR-anonymization scheduler. Disabled (ENABLE_SCHEDULER=0)
+    # for one-off processes like seeding/CLI; on by default for the web server.
+    if os.environ.get("ENABLE_SCHEDULER", "1") != "0":
+        start_scheduler(app)
 
     # Cache-bust static assets by file mtime so a rebuild always serves fresh
     # JS/CSS (no more stale-cache surprises during iteration).

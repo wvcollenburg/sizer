@@ -606,3 +606,5 @@ body { padding-bottom: 64px; }
     font-size: 0.8rem;
     background: var(--surface);
 }
+
+.badge-unverified { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }

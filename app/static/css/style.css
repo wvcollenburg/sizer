@@ -1555,6 +1555,32 @@ body.auth-required footer { display: none; }
 .auth-resend { font-size: 0.82rem; margin: 0.25rem 0 0.5rem; }
 .auth-resend a { color: var(--accent); text-decoration: none; }
 .auth-resend a:hover { text-decoration: underline; }
+/* Live password-rules checklist (signup + reset). */
+.pw-rules {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+.pw-rules li {
+    position: relative;
+    padding: 2px 0 2px 1.5rem;
+    color: var(--text-muted);
+    transition: color 0.15s;
+}
+.pw-rules li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #c4ccd6;
+    font-weight: 700;
+}
+.pw-rules li.met { color: #2a9d54; }
+.pw-rules li.met::before { color: #2a9d54; }
+
 .auth-links { text-align: center; margin-top: 0.75rem; font-size: 0.82rem; }
 .auth-links a { color: var(--text-muted); text-decoration: none; }
 .auth-links a:hover { color: var(--accent); text-decoration: underline; }

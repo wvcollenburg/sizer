@@ -109,6 +109,53 @@ function esc(s) {
         .replace(/"/g, '&quot;');
 }
 
+// ── password policy (mirrors backend validate_password) ──────────────────────
+
+function passwordChecks(pw) {
+    return {
+        len: pw.length >= 10,
+        upper: /[A-Z]/.test(pw),
+        lower: /[a-z]/.test(pw),
+        digit: /[0-9]/.test(pw),
+        special: /[^A-Za-z0-9]/.test(pw),
+    };
+}
+
+// Update the green-check list for a password + confirm pair.
+function updatePwRules(pwId, confirmId, listId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    const pw = document.getElementById(pwId).value;
+    const confirm = confirmId ? document.getElementById(confirmId).value : null;
+    const c = passwordChecks(pw);
+    list.querySelectorAll('[data-rule]').forEach(li => {
+        const rule = li.dataset.rule;
+        const met = rule === 'match'
+            ? (confirm !== null && pw.length > 0 && pw === confirm)
+            : !!c[rule];
+        li.classList.toggle('met', met);
+    });
+}
+
+// True when the password satisfies every rule (and matches confirm, if given).
+function pwAllValid(pwId, confirmId) {
+    const pw = document.getElementById(pwId).value;
+    const c = passwordChecks(pw);
+    const rulesOk = c.len && c.upper && c.lower && c.digit && c.special;
+    if (confirmId) {
+        const confirm = document.getElementById(confirmId).value;
+        return rulesOk && pw.length > 0 && pw === confirm;
+    }
+    return rulesOk;
+}
+
+function onAuthPwInput() {
+    if (authTab === 'signup') updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
+}
+function onResetPwInput() {
+    updatePwRules('reset-password', 'reset-confirm', 'reset-pw-rules');
+}
+
 // ── auth modal ───────────────────────────────────────────────────────────────
 
 function openAuthModal() {
@@ -131,13 +178,19 @@ function closeAuthModal() {
 
 function setAuthTab(tab) {
     authTab = tab;
-    document.getElementById('auth-tab-login').classList.toggle('active', tab === 'login');
-    document.getElementById('auth-tab-signup').classList.toggle('active', tab === 'signup');
-    document.getElementById('auth-modal-title').textContent = tab === 'login' ? 'Sign in' : 'Sign up';
-    document.getElementById('auth-submit').textContent = tab === 'login' ? 'Sign in' : 'Create account';
-    document.getElementById('auth-signup-hint').style.display = tab === 'signup' ? 'block' : 'none';
+    const signup = tab === 'signup';
+    document.getElementById('auth-tab-login').classList.toggle('active', !signup);
+    document.getElementById('auth-tab-signup').classList.toggle('active', signup);
+    document.getElementById('auth-modal-title').textContent = signup ? 'Sign up' : 'Sign in';
+    document.getElementById('auth-submit').textContent = signup ? 'Create account' : 'Sign in';
+    document.getElementById('auth-signup-hint').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-password').setAttribute(
-        'autocomplete', tab === 'login' ? 'current-password' : 'new-password');
+        'autocomplete', signup ? 'new-password' : 'current-password');
+    // Confirm field + live rules checklist only on signup.
+    document.getElementById('auth-confirm-group').style.display = signup ? 'block' : 'none';
+    document.getElementById('auth-pw-rules').style.display = signup ? 'block' : 'none';
+    document.getElementById('auth-confirm').value = '';
+    if (signup) updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
     hideAuthError();
 }
 
@@ -158,6 +211,19 @@ async function submitAuth(event) {
     document.getElementById('auth-resend').style.display = 'none';
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
+
+    // Enforce the password policy + match on signup before hitting the server.
+    if (authTab === 'signup') {
+        if (password !== document.getElementById('auth-confirm').value) {
+            showAuthError('Passwords do not match.');
+            return;
+        }
+        if (!pwAllValid('auth-password', 'auth-confirm')) {
+            showAuthError('Please meet all the password requirements.');
+            return;
+        }
+    }
+
     const url = authTab === 'login' ? '/api/auth/login' : '/api/auth/signup';
 
     const { ok, data } = await apiJson(url, {
@@ -218,7 +284,9 @@ let _resetToken = null;
 function openResetModal(token) {
     _resetToken = token;
     document.getElementById('reset-password').value = '';
+    document.getElementById('reset-confirm').value = '';
     document.getElementById('reset-error').style.display = 'none';
+    updatePwRules('reset-password', 'reset-confirm', 'reset-pw-rules');
     document.getElementById('reset-modal').style.display = 'flex';
     document.getElementById('reset-password').focus();
 }
@@ -236,6 +304,16 @@ async function submitReset(event) {
     const err = document.getElementById('reset-error');
     err.style.display = 'none';
     const password = document.getElementById('reset-password').value;
+    if (password !== document.getElementById('reset-confirm').value) {
+        err.textContent = 'Passwords do not match.';
+        err.style.display = 'block';
+        return;
+    }
+    if (!pwAllValid('reset-password', 'reset-confirm')) {
+        err.textContent = 'Please meet all the password requirements.';
+        err.style.display = 'block';
+        return;
+    }
     const { ok, data } = await apiJson('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

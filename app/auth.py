@@ -8,6 +8,9 @@ Tenancy = email domain. Roles: user / tenant_admin / super_admin. Scale users
 (``@scalecomputing.com``) get cross-tenant config retrieval by code.
 """
 import os
+import re
+import time
+import threading
 import smtplib
 import secrets
 from datetime import timedelta, timezone
@@ -15,25 +18,53 @@ from email.message import EmailMessage
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session, g, redirect
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database import db
 from auth_models import (
     Tenant, User, Configuration, ScaleConfigLink, AppSetting, AdminAuditLog,
-    ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
+    PiiErasure, ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
 )
 from email_domains import normalize_email, domain_of, is_public_domain
 
 # pbkdf2 is available everywhere; werkzeug's default (scrypt) needs OpenSSL
 # support that some Python builds lack.
 PWHASH_METHOD = "pbkdf2:sha256"
+
+# Password policy. "Special" = any non-alphanumeric character (matches the
+# frontend's /[^A-Za-z0-9]/ so client and server agree).
+PASSWORD_MIN_LENGTH = 10
+
+
+def validate_password(pw):
+    """Return an error message if the password fails policy, else None."""
+    pw = pw or ""
+    if len(pw) < PASSWORD_MIN_LENGTH:
+        return "Password must be at least {} characters".format(PASSWORD_MIN_LENGTH)
+    if not re.search(r"[A-Z]", pw):
+        return "Password must contain an uppercase letter"
+    if not re.search(r"[a-z]", pw):
+        return "Password must contain a lowercase letter"
+    if not re.search(r"[0-9]", pw):
+        return "Password must contain a number"
+    if not re.search(r"[^A-Za-z0-9]", pw):
+        return "Password must contain a special character"
+    return None
 RETENTION_DAYS = 90
 # Opaque client snapshot — capped to prevent abuse. Generous because an import
 # snapshot carries the full per-VM list for large environments.
 MAX_PAYLOAD_BYTES = 4 * 1024 * 1024
 PURGE_MIN_INTERVAL_HOURS = 24
 LAST_PURGE_KEY = "auth_last_purge_at"
+
+# Daily maintenance scheduler (retention purge + GDPR PII anonymization). Runs
+# at most once per calendar day, regardless of traffic, so date-bound erasure
+# happens on the due date even with no logins.
+DAILY_RUN_KEY = "last_daily_maintenance"
+DAILY_ADVISORY_LOCK = 91238
+_scheduler_started = False
 
 # Brute-force lockout: after this many consecutive failures, lock the account
 # for the cooldown window. A successful login resets the counter.
@@ -42,6 +73,15 @@ LOCKOUT_MINUTES = 15
 
 # Password-reset link validity.
 RESET_TOKEN_TTL_HOURS = 2
+
+# A user is "inactive" once it's been this long since their last successful login
+# (or since signup, if they never logged in).
+STALE_DAYS = 365
+
+# GDPR: how long after a user is deleted before their PII is scrubbed from the
+# audit log, and the placeholder it's replaced with.
+PII_RETENTION_DAYS = 365
+ANON_LABEL = "[anonymized]"
 
 # String settings keys (auth_models.AppSetting).
 SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_username", "smtp_password",
@@ -162,10 +202,13 @@ def send_reset_email(user, base_url):
 
 # ── audit log ────────────────────────────────────────────────────────────────
 
-def audit(action, detail):
-    """Record a privileged action by the current user. Does not commit — the
+def audit(action, detail, actor=None):
+    """Record an action in the audit log. ``actor`` defaults to the current user;
+    pass it explicitly for self-service events (signup/activation) where the
+    subject is the actor and there is no logged-in user. Does not commit — the
     caller's commit persists it alongside the change being logged."""
-    actor = current_user()
+    if actor is None:
+        actor = current_user()
     db.session.add(AdminAuditLog(
         actor_id=actor.id if actor else None,
         actor_email=actor.email if actor else None,
@@ -320,15 +363,41 @@ def purge_expired():
 
     tenants_removed = _cleanup_empty_tenants()
     db.session.commit()
+    pii_anonymized = anonymize_expired_pii()
     return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users),
-            "tenants_removed": tenants_removed}
+            "tenants_removed": tenants_removed, "pii_anonymized": pii_anonymized}
+
+
+def anonymize_expired_pii():
+    """GDPR: scrub deleted users' PII from the audit log PII_RETENTION_DAYS after
+    deletion. Replaces the email in both ``actor_email`` and ``detail`` with an
+    anonymized placeholder, then drops the erasure marker. The action history is
+    preserved — only the personal identifier is removed."""
+    cutoff = _utcnow() - timedelta(days=PII_RETENTION_DAYS)
+    due = PiiErasure.query.filter(PiiErasure.deleted_at < cutoff).all()
+    for rec in due:
+        email = rec.email
+        AdminAuditLog.query.filter(AdminAuditLog.actor_email == email).update(
+            {"actor_email": ANON_LABEL}, synchronize_session=False)
+        # detail may embed the email as a substring; autoescape protects against
+        # an email's own LIKE metacharacters (e.g. an underscore).
+        for row in AdminAuditLog.query.filter(
+                AdminAuditLog.detail.contains(email, autoescape=True)).all():
+            if row.detail:
+                row.detail = row.detail.replace(email, ANON_LABEL)
+        db.session.delete(rec)
+    db.session.commit()
+    return len(due)
 
 
 def _delete_user_cascade(user):
-    """Hard-delete a user and everything that references them: their owned
-    configurations (and inbound scale links to those), plus their own scale
-    links. Required because configurations.owner_id is NOT NULL — leaving them
-    would violate the foreign key."""
+    """Hard-delete a user and everything that references them. Owned
+    configurations (owner_id is NOT NULL) and scale links are removed; audit/
+    actor back-references are NULLed so the audit trail survives the delete
+    without violating foreign keys. A GDPR erasure marker is recorded so the
+    user's PII is scrubbed from the audit log after PII_RETENTION_DAYS."""
+    email = user.email
+
     owned = Configuration.query.filter_by(owner_id=user.id).all()
     owned_ids = [c.id for c in owned]
     if owned_ids:
@@ -339,6 +408,20 @@ def _delete_user_cascade(user):
         db.session.delete(c)
     ScaleConfigLink.query.filter_by(user_id=user.id).delete(
         synchronize_session=False)
+
+    # Break inbound references (all nullable) so the hard delete is FK-safe while
+    # keeping history. The audit row's actor_email is retained until the GDPR
+    # scrub; only the link to the (now-deleted) user id is dropped.
+    AdminAuditLog.query.filter_by(actor_id=user.id).update(
+        {"actor_id": None}, synchronize_session=False)
+    User.query.filter_by(disabled_by_user_id=user.id).update(
+        {"disabled_by_user_id": None}, synchronize_session=False)
+    Tenant.query.filter_by(blocked_by_user_id=user.id).update(
+        {"blocked_by_user_id": None}, synchronize_session=False)
+    Configuration.query.filter_by(deleted_by_user_id=user.id).update(
+        {"deleted_by_user_id": None}, synchronize_session=False)
+
+    db.session.add(PiiErasure(email=email))
     db.session.delete(user)
 
 
@@ -387,6 +470,69 @@ def maybe_purge():
             db.session.commit()
 
 
+def run_daily_maintenance(app):
+    """Run the retention/anonymization sweep at most once per calendar day.
+    Coordinated across gunicorn workers by a Postgres advisory lock plus a date
+    stamp, so exactly one worker runs it per day. Idempotent and safe to call
+    often; it no-ops until the date rolls over."""
+    with app.app_context():
+        today = _utcnow().date().isoformat()
+        if get_setting(DAILY_RUN_KEY) == today:
+            return None
+
+        is_pg = db.engine.url.get_backend_name() == "postgresql"
+        if is_pg:
+            got = db.session.execute(
+                db.text("SELECT pg_try_advisory_lock(:k)"), {"k": DAILY_ADVISORY_LOCK}
+            ).scalar()
+            if not got:
+                return None
+        try:
+            # Re-check under the lock — another worker may have just run it.
+            if get_setting(DAILY_RUN_KEY) == today:
+                return None
+            set_setting(DAILY_RUN_KEY, today)
+            db.session.commit()
+            result = purge_expired()
+            app.logger.info("Daily maintenance ran: %s", result)
+            return result
+        finally:
+            if is_pg:
+                db.session.execute(
+                    db.text("SELECT pg_advisory_unlock(:k)"), {"k": DAILY_ADVISORY_LOCK})
+                db.session.commit()
+
+
+def start_scheduler(app):
+    """Start the once-per-day maintenance loop in a daemon thread. Ticks
+    frequently but the day-stamp gate means real work happens once per calendar
+    day; the first tick after boot catches up anything past-due (e.g. if the
+    container was down on the due date). Safe with sync gunicorn workers (one
+    thread per worker, all gated). Do not use with `--preload`."""
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+    interval = int(os.environ.get("MAINTENANCE_INTERVAL_SECONDS", "3600") or "3600")
+
+    def loop():
+        # Small initial delay so boot/seed settles before the first sweep.
+        time.sleep(15)
+        while True:
+            try:
+                run_daily_maintenance(app)
+            except Exception as e:  # noqa: BLE001 — never let the loop die
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                app.logger.warning("Daily maintenance failed: %s", e)
+            time.sleep(interval)
+
+    threading.Thread(target=loop, daemon=True, name="daily-maintenance").start()
+    app.logger.info("Daily maintenance scheduler started (every %ss).", interval)
+
+
 # ── auth blueprint ───────────────────────────────────────────────────────────
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -406,8 +552,9 @@ def signup():
 
     if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
         return jsonify({"error": "A valid email address is required"}), 400
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    pw_error = validate_password(password)
+    if pw_error:
+        return jsonify({"error": pw_error}), 400
 
     domain = domain_of(email)
     if is_public_domain(domain):
@@ -439,6 +586,10 @@ def signup():
         is_verified=not needs_verification,
     )
     db.session.add(user)
+    db.session.commit()
+    audit("signup", "{} as {}{}".format(
+        user.email, role, " (pending verification)" if needs_verification else ""),
+        actor=user)
     db.session.commit()
 
     if needs_verification:
@@ -522,6 +673,7 @@ def verify_email(token):
         return redirect("/?verify=invalid")
     user.is_verified = True
     user.verification_token = None
+    audit("activate", user.email, actor=user)
     db.session.commit()
     return redirect("/?verify=ok")
 
@@ -550,6 +702,9 @@ def forgot_password():
     user = User.query.filter_by(email=email).first()
     if user and not user.is_disabled and not (user.tenant and user.tenant.is_blocked):
         send_reset_email(user, request.url_root)
+        audit("forgot_password", "{} requested a reset link".format(user.email),
+              actor=user)
+        db.session.commit()
     return generic
 
 
@@ -558,8 +713,9 @@ def reset_password():
     data = request.json or {}
     token = (data.get("token") or "").strip()
     password = data.get("password") or ""
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    pw_error = validate_password(password)
+    if pw_error:
+        return jsonify({"error": pw_error}), 400
 
     user = User.query.filter_by(reset_token=token).first() if token else None
     if user is None:
@@ -573,6 +729,7 @@ def reset_password():
     user.reset_sent_at = None
     user.failed_login_count = 0
     user.locked_until = None
+    audit("password_changed", "{} via reset link".format(user.email), actor=user)
     db.session.commit()
     return jsonify({"message": "Your password has been reset. You can now sign in."})
 
@@ -842,6 +999,8 @@ def super_list_users():
         q = q.filter_by(tenant_id=tenant_id)
     if request.args.get("include_disabled") != "true":
         q = q.filter_by(is_disabled=False)
+    if request.args.get("unverified") == "true":
+        q = q.filter_by(is_verified=False)
     return jsonify([u.to_dict() for u in q.order_by(User.email).all()])
 
 
@@ -908,8 +1067,9 @@ def super_reset_password(user_id):
     # With a password supplied, set it directly. Without one, email a reset link
     # (requires SMTP) so the user chooses their own.
     if password:
-        if len(password) < 8:
-            return jsonify({"error": "Password must be at least 8 characters"}), 400
+        pw_error = validate_password(password)
+        if pw_error:
+            return jsonify({"error": pw_error}), 400
         target.password_hash = generate_password_hash(password, method=PWHASH_METHOD)
         target.failed_login_count = 0
         target.locked_until = None
@@ -926,6 +1086,45 @@ def super_reset_password(user_id):
     db.session.commit()
     return jsonify({"message": ("Reset link sent to {}.".format(target.email) if sent
                                 else "Could not send the reset email — check SMTP settings.")})
+
+
+@super_bp.route("/users/stale", methods=["GET"])
+@super_admin_required
+def stale_users():
+    """Active, non-super-admin users who haven't logged in for STALE_DAYS — or
+    who never logged in and signed up that long ago."""
+    cutoff = _utcnow() - timedelta(days=STALE_DAYS)
+    q = User.query.filter(
+        User.role != ROLE_SUPER_ADMIN,
+        User.is_disabled.is_(False),
+        or_(
+            and_(User.last_login_at.isnot(None), User.last_login_at < cutoff),
+            and_(User.last_login_at.is_(None), User.created_at < cutoff),
+        ),
+    ).order_by(User.tenant_id, User.email)
+    return jsonify([u.to_dict() for u in q.all()])
+
+
+@super_bp.route("/users/purge", methods=["POST"])
+@super_admin_required
+def purge_users():
+    """Bulk hard-delete users by id (used by the inactive-users tab). Skips super
+    admins and the acting user. Cascades each user's configs/links."""
+    ids = (request.json or {}).get("ids") or []
+    actor = current_user()
+    purged = skipped = 0
+    for uid in ids:
+        u = User.query.get(uid)
+        if u is None or u.is_super_admin or (actor and u.id == actor.id):
+            skipped += 1
+            continue
+        audit("purge_user", "{} ({})".format(u.email, u.domain))
+        _delete_user_cascade(u)
+        purged += 1
+    db.session.commit()
+    _cleanup_empty_tenants()
+    db.session.commit()
+    return jsonify({"purged": purged, "skipped": skipped})
 
 
 @super_bp.route("/tenants", methods=["GET"])

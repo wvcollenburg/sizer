@@ -244,5 +244,17 @@ class AdminAuditLog(db.Model):
         }
 
 
+class PiiErasure(db.Model):
+    """GDPR marker: a deleted user's email is retained here only so the audit log
+    can be scrubbed of their PII exactly one retention period after deletion.
+    The marker (and the matching audit-log PII) are erased once processed."""
+    __tablename__ = "pii_erasure"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    deleted_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, index=True)
+
+
 def _iso(dt):
     return dt.isoformat() if dt else None

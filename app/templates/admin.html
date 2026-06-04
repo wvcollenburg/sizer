@@ -25,6 +25,7 @@
             <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
             <span class="tab-spacer"></span>
             <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
+            <button class="tab" data-tab="stale" onclick="switchTab('stale')">Inactive 1yr+</button>
             <button class="tab" data-tab="tenants" onclick="switchTab('tenants')">Tenants</button>
             <button class="tab" data-tab="sizings" onclick="switchTab('sizings')">Saved Sizings</button>
             <button class="tab" data-tab="email" onclick="switchTab('email')">Email</button>
@@ -246,6 +247,10 @@
                         <input type="checkbox" id="users-include-disabled" onchange="loadAdminUsers()">
                         Show disabled
                     </label>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="users-unverified-only" onchange="loadAdminUsers()">
+                        Unactivated only
+                    </label>
                 </div>
                 <div class="toolbar-right">
                     <select id="users-tenant-filter" onchange="loadAdminUsers()">
@@ -263,6 +268,34 @@
                         </tr>
                     </thead>
                     <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ INACTIVE USERS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-stale">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <select id="stale-domain-select" onchange="selectStaleByDomain()">
+                        <option value="">Select all from domain…</option>
+                    </select>
+                    <button class="btn btn-danger" onclick="purgeSelectedStale()">Purge selected</button>
+                    <span id="stale-selected-count" class="muted"></span>
+                </div>
+                <div class="toolbar-right">
+                    <span class="muted">No successful login in 1 year (or never, and signed up over a year ago).</span>
+                </div>
+            </div>
+            <div id="stale-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px"><input type="checkbox" id="stale-select-all" onclick="toggleSelectAllStale(this)"></th>
+                            <th>Email</th><th>Domain</th><th>Role</th><th>Last login</th><th>Signed up</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stale-users-tbody"></tbody>
                 </table>
             </div>
         </div>
