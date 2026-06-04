@@ -37,6 +37,7 @@ function switchMode(mode) {
 async function loadModels() {
     const status = document.getElementById('status-filter').value;
     const resp = await fetch(`/api/models?mode=appliance&status=${status}`);
+    if (!resp.ok) return;  // not signed in yet — the login gate will prompt
     modelsCache = await resp.json();
 
     const select = document.getElementById('model-select');
@@ -447,6 +448,7 @@ function collectValidatedDisks() {
 
 async function loadValidatedNics() {
     const resp = await fetch('/api/models?mode=validated');
+    if (!resp.ok) return;  // not signed in yet
     const data = await resp.json();
     const select = document.getElementById('val-nic');
     select.innerHTML = '';
@@ -1735,3 +1737,10 @@ async function restoreSizingState(snap) {
 window.captureSizingState = captureSizingState;
 window.restoreSizingState = restoreSizingState;
 window.hasSizingToSave = hasSizingToSave;
+
+// (Re)load catalog data after sign-in, since the initial page-load fetches are
+// rejected (401) while anonymous under the mandatory-login gate.
+window.initSizer = function () {
+    loadModels();
+    loadValidatedNics();
+};

@@ -5,6 +5,10 @@
 
 let currentAccount = null;   // the logged-in user object, or null when anonymous
 let authTab = 'login';
+// Product requirement: an account is required for ALL functionality. When
+// anonymous, the UI is locked behind a non-dismissable login modal and the
+// backend rejects every non-auth request.
+const LOGIN_REQUIRED = true;
 // The sizing currently loaded into the screen (if any), so "Save" can offer to
 // update it in place. {id, name, canUpdate} — canUpdate only when we own it.
 let loadedConfig = null;
@@ -40,6 +44,21 @@ async function refreshAccount() {
     const { data } = await apiJson('/api/auth/me');
     currentAccount = (data && data.user) || null;
     renderAccountBar();
+    updateGate();
+}
+
+// Lock the app behind the login modal while anonymous; reveal it once signed in.
+function updateGate() {
+    if (LOGIN_REQUIRED && !currentAccount) {
+        document.body.classList.add('auth-required');
+        // If the user arrived via a password-reset link, let that modal take the
+        // foreground instead of the login modal.
+        if (!new URLSearchParams(location.search).get('reset')) {
+            openAuthModal();
+        }
+    } else {
+        document.body.classList.remove('auth-required');
+    }
 }
 
 function renderAccountBar() {
@@ -96,11 +115,16 @@ function openAuthModal() {
     document.getElementById('auth-email').value = '';
     document.getElementById('auth-password').value = '';
     hideAuthError();
+    // When login is mandatory and nobody is signed in, the modal can't be closed.
+    const mandatory = LOGIN_REQUIRED && !currentAccount;
+    const x = document.querySelector('#auth-modal .modal-close');
+    if (x) x.style.display = mandatory ? 'none' : '';
     document.getElementById('auth-modal').style.display = 'flex';
     document.getElementById('auth-email').focus();
 }
 
 function closeAuthModal() {
+    if (LOGIN_REQUIRED && !currentAccount) return;  // can't dismiss while locked
     document.getElementById('auth-modal').style.display = 'none';
 }
 
@@ -163,7 +187,9 @@ async function submitAuth(event) {
 
     currentAccount = data.user;
     renderAccountBar();
+    updateGate();
     closeAuthModal();
+    if (window.initSizer) window.initSizer();  // load catalog data now that we're in
     if (authTab === 'signup' && data.is_tenant_admin) {
         showInfoModal('Account created', 'You are the admin for your organisation.');
     }
@@ -243,6 +269,7 @@ async function doLogout() {
     await apiJson('/api/auth/logout', { method: 'POST' });
     currentAccount = null;
     renderAccountBar();
+    updateGate();  // re-lock the UI
 }
 
 // ── My Sizings ───────────────────────────────────────────────────────────────

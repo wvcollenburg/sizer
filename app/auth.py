@@ -184,6 +184,27 @@ def current_user():
     return getattr(g, "current_user", None)
 
 
+# Endpoints reachable without an account: the auth API, the app shell (so the
+# login UI can load), and static assets. Everything else requires login.
+def require_login():
+    """Global gate: an account is required for all operations. Runs after
+    load_current_user. API calls get a 401; page requests are sent to the shell
+    (which shows the mandatory login modal)."""
+    if request.method == "OPTIONS":
+        return None
+    if request.endpoint == "static":
+        return None
+    if request.blueprint == "auth":
+        return None
+    if request.path == "/":
+        return None
+    if current_user() is not None:
+        return None
+    if "/api/" in request.path:
+        return jsonify({"error": "Authentication required"}), 401
+    return redirect("/")
+
+
 def _aware(dt):
     """Coerce a possibly-naive datetime (e.g. read back from SQLite) to aware
     UTC so it can be compared with _utcnow(). On Postgres TIMESTAMPTZ values are
@@ -1038,6 +1059,7 @@ def get_audit_log():
 def register_auth(app):
     """Wire the resolver + all auth blueprints into the app."""
     app.before_request(load_current_user)
+    app.before_request(require_login)  # mandatory login — runs after the resolver
     app.register_blueprint(auth_bp)
     app.register_blueprint(configs_bp)
     app.register_blueprint(admin_users_bp)

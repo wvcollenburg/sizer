@@ -1401,6 +1401,10 @@ tr.so-divider td {
 }
 
 /* ==================== ACCOUNT / AUTH ==================== */
+/* Mandatory login: hide all app functionality until signed in. The login and
+   reset modals are top-level overlays, so they remain visible. */
+body.auth-required main { display: none; }
+body.auth-required footer { display: none; }
 .account-bar {
     margin-left: auto;
     display: flex;
