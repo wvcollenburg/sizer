@@ -8,8 +8,6 @@ Tenancy = email domain. Roles: user / tenant_admin / super_admin. Scale users
 (``@scalecomputing.com``) get cross-tenant config retrieval by code.
 """
 import os
-import io
-import contextlib
 import smtplib
 import secrets
 from datetime import timedelta, timezone
@@ -83,11 +81,9 @@ def verification_active():
 
 # ── email ────────────────────────────────────────────────────────────────────
 
-def _smtp_send(msg, capture=False):
-    """Open a connection to the configured SMTP server and send ``msg``. Raises
-    on failure. When ``capture`` is set, returns the full SMTP debug transcript
-    (the server's responses, incl. the final 250 queue id) so callers can show
-    exactly what the server said — handed-off does not mean delivered."""
+def _smtp_send(msg):
+    """Open a connection to the configured SMTP server and send ``msg``.
+    Raises on failure."""
     host = get_setting("smtp_host")
     port = int(get_setting("smtp_port", "587") or "587")
     username = get_setting("smtp_username")
@@ -96,23 +92,17 @@ def _smtp_send(msg, capture=False):
     # Port 465 is implicit TLS (SMTPS); 587/25 use optional STARTTLS.
     use_ssl = port == 465
 
-    transcript = io.StringIO()
-    cm = contextlib.redirect_stderr(transcript) if capture else contextlib.nullcontext()
-    with cm:
-        cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
-        with cls(host, port, timeout=20) as server:
-            if capture:
-                server.set_debuglevel(1)
+    cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with cls(host, port, timeout=20) as server:
+        server.ehlo()
+        if use_tls and not use_ssl:
+            server.starttls()
             server.ehlo()
-            if use_tls and not use_ssl:
-                server.starttls()
-                server.ehlo()
-            if username:
-                server.login(username, password or "")
-            refused = server.send_message(msg)
+        if username:
+            server.login(username, password or "")
+        refused = server.send_message(msg)
     if refused:
         raise smtplib.SMTPRecipientsRefused(refused)
-    return transcript.getvalue() if capture else ""
 
 
 def _build_message(to_addr, subject, body):
@@ -1068,19 +1058,14 @@ def test_email_settings():
         "This is a test message from the SC// Infrastructure Sizer. "
         "If you received it, SMTP is configured correctly.")
     try:
-        transcript = _smtp_send(msg, capture=True)
-        # "Accepted by the server" is the most we can prove — show the transcript
-        # (the server's responses) so the admin can see the queue id / any notice.
+        _smtp_send(msg)
         return jsonify({
-            "message": "The SMTP server accepted the message for {}. If it does not "
-                       "arrive, check spam and the server's own logs — see the "
-                       "transcript below.".format(to),
-            "from": msg["From"],
-            "transcript": transcript,
+            "message": "The SMTP server accepted the message for {} (from {}). "
+                       "If it does not arrive, check spam — the From address must "
+                       "be authorised by your mail provider.".format(to, msg["From"]),
         })
     except Exception as e:  # noqa: BLE001
-        return jsonify({"error": "Send failed: {}".format(e),
-                        "from": msg["From"]}), 502
+        return jsonify({"error": "Send failed: {}".format(e)}), 502
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────

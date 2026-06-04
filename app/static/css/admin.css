@@ -606,18 +606,3 @@ body { padding-bottom: 64px; }
     font-size: 0.8rem;
     background: var(--surface);
 }
-
-.email-transcript {
-    margin-top: 0.9rem;
-    padding: 0.75rem 0.9rem;
-    background: #0d1b2a;
-    color: #cfe3f5;
-    border-radius: var(--radius);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 320px;
-    overflow: auto;
-}
