@@ -65,8 +65,9 @@ function renderAccountBar() {
     const bar = document.getElementById('account-bar');
     if (!bar) return;
     if (!currentAccount) {
-        bar.innerHTML =
-            `<button class="btn btn-sm btn-account" onclick="openAuthModal()">Sign in / Sign up</button>`;
+        // Login is mandatory, so the (non-dismissable) login modal is always
+        // shown while signed out — no header button needed.
+        bar.innerHTML = '';
         return;
     }
     const u = currentAccount;
