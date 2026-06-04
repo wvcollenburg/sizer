@@ -1138,11 +1138,19 @@ async function sendTestEmail() {
     const to = prompt('Send a test email to which address?');
     if (!to) return;
     setStatus('email-status', 'Sending…', false);
+    const pre = document.getElementById('email-transcript');
+    pre.style.display = 'none'; pre.textContent = '';
     const { ok, data } = await adminApi('/api/admin/super/email-settings/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to }),
     });
-    setStatus('email-status', (data && (data.message || data.error)) || (ok ? 'Sent.' : 'Failed.'), !ok);
+    let msg = (data && (data.message || data.error)) || (ok ? 'Sent.' : 'Failed.');
+    if (data && data.from) msg += `  (From: ${data.from})`;
+    setStatus('email-status', msg, !ok);
+    if (data && data.transcript) {
+        pre.textContent = data.transcript;
+        pre.style.display = 'block';
+    }
 }
 
 async function loadAuditLog() {

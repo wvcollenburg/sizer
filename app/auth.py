@@ -8,6 +8,8 @@ Tenancy = email domain. Roles: user / tenant_admin / super_admin. Scale users
 (``@scalecomputing.com``) get cross-tenant config retrieval by code.
 """
 import os
+import io
+import contextlib
 import smtplib
 import secrets
 from datetime import timedelta, timezone
@@ -81,26 +83,51 @@ def verification_active():
 
 # ── email ────────────────────────────────────────────────────────────────────
 
-def send_email(to_addr, subject, body):
-    """Send a plain-text email via the configured SMTP server. Raises on failure."""
-    msg = EmailMessage()
-    msg["From"] = get_setting("smtp_from")
-    msg["To"] = to_addr
-    msg["Subject"] = subject
-    msg.set_content(body)
-
+def _smtp_send(msg, capture=False):
+    """Open a connection to the configured SMTP server and send ``msg``. Raises
+    on failure. When ``capture`` is set, returns the full SMTP debug transcript
+    (the server's responses, incl. the final 250 queue id) so callers can show
+    exactly what the server said — handed-off does not mean delivered."""
     host = get_setting("smtp_host")
     port = int(get_setting("smtp_port", "587") or "587")
     username = get_setting("smtp_username")
     password = get_setting("smtp_password")
     use_tls = _setting_bool("smtp_use_tls")
+    # Port 465 is implicit TLS (SMTPS); 587/25 use optional STARTTLS.
+    use_ssl = port == 465
 
-    with smtplib.SMTP(host, port, timeout=15) as server:
-        if use_tls:
-            server.starttls()
-        if username:
-            server.login(username, password or "")
-        server.send_message(msg)
+    transcript = io.StringIO()
+    cm = contextlib.redirect_stderr(transcript) if capture else contextlib.nullcontext()
+    with cm:
+        cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+        with cls(host, port, timeout=20) as server:
+            if capture:
+                server.set_debuglevel(1)
+            server.ehlo()
+            if use_tls and not use_ssl:
+                server.starttls()
+                server.ehlo()
+            if username:
+                server.login(username, password or "")
+            refused = server.send_message(msg)
+    if refused:
+        raise smtplib.SMTPRecipientsRefused(refused)
+    return transcript.getvalue() if capture else ""
+
+
+def _build_message(to_addr, subject, body):
+    msg = EmailMessage()
+    sender = get_setting("smtp_from") or get_setting("smtp_username")
+    msg["From"] = sender
+    msg["To"] = to_addr
+    msg["Subject"] = subject
+    msg.set_content(body)
+    return msg
+
+
+def send_email(to_addr, subject, body):
+    """Send a plain-text email via the configured SMTP server. Raises on failure."""
+    _smtp_send(_build_message(to_addr, subject, body))
 
 
 def send_verification_email(user, base_url):
@@ -1036,13 +1063,24 @@ def test_email_settings():
     to = normalize_email((request.json or {}).get("to")) or current_user().email
     if not smtp_configured():
         return jsonify({"error": "Set an SMTP host and from-address first."}), 400
+    msg = _build_message(
+        to, "SC// Sizer test email",
+        "This is a test message from the SC// Infrastructure Sizer. "
+        "If you received it, SMTP is configured correctly.")
     try:
-        send_email(to, "SC// Sizer test email",
-                   "This is a test message from the SC// Infrastructure Sizer. "
-                   "If you received it, SMTP is configured correctly.")
-        return jsonify({"message": "Test email sent to {}.".format(to)})
+        transcript = _smtp_send(msg, capture=True)
+        # "Accepted by the server" is the most we can prove — show the transcript
+        # (the server's responses) so the admin can see the queue id / any notice.
+        return jsonify({
+            "message": "The SMTP server accepted the message for {}. If it does not "
+                       "arrive, check spam and the server's own logs — see the "
+                       "transcript below.".format(to),
+            "from": msg["From"],
+            "transcript": transcript,
+        })
     except Exception as e:  # noqa: BLE001
-        return jsonify({"error": "Send failed: {}".format(e)}), 502
+        return jsonify({"error": "Send failed: {}".format(e),
+                        "from": msg["From"]}), 502
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────
