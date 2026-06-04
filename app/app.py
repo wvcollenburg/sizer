@@ -1,9 +1,10 @@
 import os
+import secrets
 import tempfile
-from functools import wraps
 
-from flask import Flask, render_template, jsonify, request, send_file, Response
+from flask import Flask, render_template, jsonify, request, send_file
 from database import db, init_db
+from auth import register_auth, start_scheduler
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, RamOption, StorageConfig,
@@ -27,25 +28,55 @@ from admin_routes import admin_bp
 
 def create_app():
     app = Flask(__name__)
+
+    # Signed-cookie sessions. SECRET_KEY must be set in production (and shared
+    # across gunicorn workers, since each validates the same cookie signature).
+    # Fall back to an ephemeral key for dev with a loud warning — sessions then
+    # won't survive a restart or span multiple workers.
+    secret = os.environ.get("SECRET_KEY")
+    if not secret:
+        secret = secrets.token_hex(32)
+        app.logger.warning(
+            "SECRET_KEY not set — generated an ephemeral key. Logins will not "
+            "persist across restarts or gunicorn workers. Set SECRET_KEY in prod."
+        )
+    app.config["SECRET_KEY"] = secret
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # Only require HTTPS for the cookie when explicitly told we're behind TLS.
+    app.config["SESSION_COOKIE_SECURE"] = (
+        os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    )
+
     init_db(app)
+    register_auth(app)
     app.register_blueprint(admin_bp)
 
-    auth_user = os.environ.get("BASIC_AUTH_USER")
-    auth_pass = os.environ.get("BASIC_AUTH_PASS")
+    # Daily retention/GDPR-anonymization scheduler. Disabled (ENABLE_SCHEDULER=0)
+    # for one-off processes like seeding/CLI; on by default for the web server.
+    if os.environ.get("ENABLE_SCHEDULER", "1") != "0":
+        start_scheduler(app)
 
-    if auth_user and auth_pass:
-        @app.before_request
-        def require_basic_auth():
-            auth = request.authorization
-            if not auth or auth.username != auth_user or auth.password != auth_pass:
-                return Response(
-                    "Authentication required.", 401,
-                    {"WWW-Authenticate": 'Basic realm="SC// Sizer"'},
-                )
+    # Cache-bust static assets by file mtime so a rebuild always serves fresh
+    # JS/CSS (no more stale-cache surprises during iteration).
+    @app.context_processor
+    def _asset_helper():
+        def asset(path):
+            full = os.path.join(app.static_folder, path)
+            try:
+                v = int(os.path.getmtime(full))
+            except OSError:
+                v = 0
+            return f"/static/{path}?v={v}"
+        return {"asset": asset}
 
     @app.route("/")
     def index():
         return render_template("index.html")
+
+    @app.route("/privacy")
+    def privacy():
+        return render_template("privacy.html")
 
     @app.route("/api/models")
     def get_models():

@@ -1,4 +1,8 @@
 """Seed the database with appliance model data from models.py."""
+import os
+# Seeding imports the app factory; don't spin up the background scheduler in this
+# one-off process (the web server, a separate process, runs it).
+os.environ["ENABLE_SCHEDULER"] = "0"
 import re
 import sys
 from sqlalchemy import text
@@ -9,6 +13,10 @@ from orm_models import (
     CpuCatalog, NicCatalog, DriveCatalog,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
     ValidatedNic, Switch, DriveTypeIops, SizingSetting,
+)
+# Imported so db.create_all() discovers the auth/multitenancy tables.
+from auth_models import (
+    Tenant, User, AppSetting, AdminAuditLog, PiiErasure, ROLE_SUPER_ADMIN,
 )
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
@@ -80,6 +88,22 @@ def _migrate_schema():
     stmts = [
         "ALTER TABLE models ADD COLUMN IF NOT EXISTS "
         "validated_only BOOLEAN NOT NULL DEFAULT false",
+        # Auth columns added after the users table first shipped — additive so
+        # existing test/prod databases pick them up on boot.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "is_verified BOOLEAN NOT NULL DEFAULT true",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "verification_sent_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "failed_login_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "locked_until TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "reset_sent_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "privacy_accepted_at TIMESTAMP WITH TIME ZONE",
     ]
     for sql in stmts:
         db.session.execute(text(sql))
@@ -95,6 +119,53 @@ def _migrate_schema():
         if not SizingSetting.query.filter_by(key=key).first():
             db.session.add(SizingSetting(key=key, value=value))
     db.session.commit()
+
+    _bootstrap_super_admin()
+    _purge_on_boot()
+
+
+def _bootstrap_super_admin():
+    """Create the super admin from env if absent. Seeded out-of-band, so the
+    public-domain ban does not apply. Insert-if-missing — never overwrites an
+    existing account's password on boot (avoids surprise lockouts)."""
+    from werkzeug.security import generate_password_hash
+    from email_domains import normalize_email, domain_of
+    from auth import PWHASH_METHOD
+
+    email = normalize_email(os.environ.get("SUPER_ADMIN_EMAIL"))
+    password = os.environ.get("SUPER_ADMIN_PASSWORD")
+    if not email or not password:
+        return
+    if User.query.filter_by(email=email).first():
+        return
+
+    domain = domain_of(email)
+    tenant = Tenant.query.filter_by(domain=domain).first()
+    if tenant is None:
+        tenant = Tenant(domain=domain, is_scale=Tenant.domain_is_scale(domain))
+        db.session.add(tenant)
+        db.session.flush()
+    db.session.add(User(
+        email=email,
+        password_hash=generate_password_hash(password, method=PWHASH_METHOD),
+        tenant_id=tenant.id,
+        role=ROLE_SUPER_ADMIN,
+    ))
+    db.session.commit()
+    print(f"  Bootstrapped super admin: {email}")
+
+
+def _purge_on_boot():
+    """Best-effort retention purge at startup (soft-deleted configs / disabled
+    users past 90 days). Never fatal to boot."""
+    try:
+        from auth import purge_expired
+        result = purge_expired()
+        if result.get("configs_purged") or result.get("users_purged"):
+            print(f"  Purged expired: {result}")
+    except Exception as e:  # noqa: BLE001
+        db.session.rollback()
+        print(f"  Purge skipped: {e}")
 
 
 def seed_all():

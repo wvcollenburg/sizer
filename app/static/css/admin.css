@@ -537,3 +537,74 @@ body { padding-bottom: 64px; }
     .dev-disclaimer { font-size: 0.72rem; }
     body { padding-bottom: 96px; }
 }
+
+/* ── Super-admin tabs: users / tenants / saved sizings ─────────────────────── */
+.tab-spacer { flex: 1; }
+
+.btn-sm {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+}
+
+.checkbox-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.admin-status {
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+}
+.admin-status.status-ok { background: #d4edda; color: var(--green); }
+.admin-status.status-err { background: #f8d7da; color: var(--red); }
+
+.badge-blocked { background: #f8d7da; color: var(--red); padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }
+.badge-scale { background: #cce5ff; color: #004085; padding: 1px 6px; border-radius: 8px; font-size: 0.68rem; font-weight: 700; }
+.row-disabled { opacity: 0.55; }
+
+/* ── Email / SMTP settings ─────────────────────────────────────────────────── */
+.email-settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    max-width: 760px;
+}
+.email-settings-card .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 1rem;
+    margin-top: 0.5rem;
+}
+.email-settings-card .form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+.email-settings-card input[type="text"],
+.email-settings-card input[type="password"] {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+
+.role-select {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    background: var(--surface);
+}
+
+.badge-unverified { background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }

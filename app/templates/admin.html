@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Sizer Admin</title>
-    <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
 </head>
 <body>
     <header>
@@ -23,6 +23,13 @@
             <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
             <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
             <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
+            <span class="tab-spacer"></span>
+            <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
+            <button class="tab" data-tab="stale" onclick="switchTab('stale')">Inactive 1yr+</button>
+            <button class="tab" data-tab="tenants" onclick="switchTab('tenants')">Tenants</button>
+            <button class="tab" data-tab="sizings" onclick="switchTab('sizings')">Saved Sizings</button>
+            <button class="tab" data-tab="email" onclick="switchTab('email')">Email</button>
+            <button class="tab" data-tab="audit" onclick="switchTab('audit')">Audit Log</button>
         </div>
 
         <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
@@ -228,6 +235,178 @@
                         </tr>
                     </thead>
                     <tbody id="drive-catalog-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ USERS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-users">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="users-include-disabled" onchange="loadAdminUsers()">
+                        Show disabled
+                    </label>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="users-unverified-only" onchange="loadAdminUsers()">
+                        Unactivated only
+                    </label>
+                </div>
+                <div class="toolbar-right">
+                    <select id="users-tenant-filter" onchange="loadAdminUsers()">
+                        <option value="">All tenants</option>
+                    </select>
+                </div>
+            </div>
+            <div id="admin-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th><th>Domain</th><th>Role</th><th>Status</th>
+                            <th>Last login</th><th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ INACTIVE USERS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-stale">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <select id="stale-domain-select" onchange="selectStaleByDomain()">
+                        <option value="">Select all from domain…</option>
+                    </select>
+                    <button class="btn btn-danger" onclick="purgeSelectedStale()">Purge selected</button>
+                    <span id="stale-selected-count" class="muted"></span>
+                </div>
+                <div class="toolbar-right">
+                    <span class="muted">No successful login in 1 year (or never, and signed up over a year ago).</span>
+                </div>
+            </div>
+            <div id="stale-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px"><input type="checkbox" id="stale-select-all" onclick="toggleSelectAllStale(this)"></th>
+                            <th>Email</th><th>Domain</th><th>Role</th><th>Last login</th><th>Signed up</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stale-users-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ TENANTS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-tenants">
+            <div id="tenants-status" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Domain</th><th>Scale</th><th>Members</th><th>Status</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-tenants-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ SAVED SIZINGS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-sizings">
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="sizings-include-deleted" onchange="loadAdminSizings()">
+                        Show deleted (within 90-day retention)
+                    </label>
+                </div>
+                <div class="toolbar-right">
+                    <button class="btn btn-secondary" onclick="runPurge()">Run retention purge</button>
+                </div>
+            </div>
+            <div id="sizings-status-admin" class="admin-status" style="display:none"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th><th>Owner</th><th>Domain</th><th>Code</th>
+                            <th>Status</th><th>Updated</th><th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-sizings-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ EMAIL / SMTP TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-email">
+            <div id="email-status" class="admin-status" style="display:none"></div>
+            <div class="email-settings-card">
+                <p class="import-info">
+                    Configure an SMTP server to enable email verification on signup. When
+                    no server is set, or the toggle below is off, signup works without
+                    verification (current behaviour).
+                </p>
+                <p class="import-info" style="color:#8a6d3b">
+                    <strong>Tip:</strong> the <em>From address</em> must usually be on the same
+                    domain you authenticate with (the username's domain). Sending from an
+                    unrelated domain (e.g. a personal alias) makes most providers and Gmail
+                    drop the message for SPF/DMARC failures even though the relay "accepts" it.
+                </p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>SMTP Host</label>
+                        <input type="text" id="smtp-host" placeholder="smtp.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="text" id="smtp-port" placeholder="587">
+                    </div>
+                    <div class="form-group">
+                        <label>From address</label>
+                        <input type="text" id="smtp-from" placeholder="no-reply@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Username (optional)</label>
+                        <input type="text" id="smtp-username" placeholder="apikey / user">
+                    </div>
+                    <div class="form-group">
+                        <label>Password <span id="smtp-pass-set" class="muted"></span></label>
+                        <input type="password" id="smtp-password" placeholder="leave blank to keep" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <label class="checkbox-inline"><input type="checkbox" id="smtp-use-tls"> Use STARTTLS</label>
+                    </div>
+                </div>
+                <label class="checkbox-inline" style="margin-top:0.75rem">
+                    <input type="checkbox" id="verify-email-enabled"> Require email verification on signup
+                </label>
+                <div class="toolbar" style="margin-top:1rem;padding:0">
+                    <div class="toolbar-left">
+                        <button class="btn btn-primary" onclick="saveEmailSettings()">Save settings</button>
+                        <button class="btn btn-secondary" onclick="sendTestEmail()">Send test email</button>
+                    </div>
+                    <div class="toolbar-right">
+                        <span id="email-active-state" class="muted"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ AUDIT LOG TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-audit">
+            <div class="catalog-table-wrap">
+                <table class="model-table">
+                    <thead>
+                        <tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+                    </thead>
+                    <tbody id="admin-audit-tbody"></tbody>
                 </table>
             </div>
         </div>
@@ -454,6 +633,6 @@
         decisions taken based on its output. Always validate results before relying on them.
     </div>
 
-    <script src="/static/js/admin.js"></script>
+    <script src="{{ asset('js/admin.js') }}"></script>
 </body>
 </html>

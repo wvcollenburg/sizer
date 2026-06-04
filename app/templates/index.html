@@ -4,13 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Infrastructure Sizer</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 <body>
     <header>
         <div class="header-content">
             <h1>SC// Infrastructure Sizer</h1>
             <span class="version">v9.8</span>
+            <div class="account-bar" id="account-bar">
+                <!-- populated by auth.js -->
+            </div>
         </div>
     </header>
 
@@ -628,7 +631,8 @@
     </main>
 
     <footer>
-        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)</p>
+        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)
+           &nbsp;&middot;&nbsp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
     </footer>
 
     <div class="dev-disclaimer" role="note">
@@ -688,6 +692,233 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <!-- Auth modal (sign in / sign up) -->
+    <div class="modal-overlay" id="auth-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="auth-modal-title">Sign in</h2>
+                <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="auth-tab-login" onclick="setAuthTab('login')">Sign in</button>
+                    <button class="auth-tab" id="auth-tab-signup" onclick="setAuthTab('signup')">Sign up</button>
+                </div>
+                <form id="auth-form" onsubmit="submitAuth(event)">
+                    <div class="form-group">
+                        <label>Work email</label>
+                        <input type="email" id="auth-email" autocomplete="email" required
+                               placeholder="you@yourcompany.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="auth-password" autocomplete="current-password"
+                               required placeholder="Your password" oninput="onAuthPwInput()">
+                    </div>
+                    <div class="form-group" id="auth-confirm-group" style="display:none">
+                        <label>Confirm password</label>
+                        <input type="password" id="auth-confirm" autocomplete="new-password"
+                               placeholder="Re-enter your password" oninput="onAuthPwInput()">
+                    </div>
+                    <ul class="pw-rules" id="auth-pw-rules" style="display:none">
+                        <li data-rule="len">At least 10 characters</li>
+                        <li data-rule="upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit">A number (0–9)</li>
+                        <li data-rule="special">A special character</li>
+                        <li data-rule="match">Passwords match</li>
+                    </ul>
+                    <p class="auth-hint" id="auth-signup-hint" style="display:none">
+                        Sign up with your organisation's email domain. The first person from a
+                        domain becomes its admin. Public email providers (gmail, outlook, etc.)
+                        are not allowed.
+                    </p>
+                    <div class="auth-consent" id="auth-consent-row" style="display:none">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="auth-accept-privacy">
+                            I have read and accept the
+                            <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+                        </label>
+                    </div>
+                    <div class="auth-error" id="auth-error" style="display:none"></div>
+                    <div class="auth-resend" id="auth-resend" style="display:none">
+                        <a href="#" onclick="resendVerification(event)">Resend verification email</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Sign in</button>
+                    <div class="auth-links" id="auth-forgot-row">
+                        <a href="#" onclick="forgotPassword(event)">Forgot password?</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Sizings modal -->
+    <div class="modal-overlay" id="sizings-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>My Sizings</h2>
+                <button class="modal-close" onclick="closeSizingsModal()">&times;</button>
+            </div>
+            <div class="modal-toolbar" id="sizings-toolbar">
+                <input type="text" id="sizings-search" class="vm-search"
+                       placeholder="Search by name or code…" oninput="filterSizings()">
+                <div class="modal-actions" id="sizings-code-box">
+                    <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code">
+                    <button class="btn btn-sm" onclick="retrieveByCode()">Retrieve</button>
+                </div>
+            </div>
+            <div class="sizings-tabs">
+                <button class="sizings-tab active" id="sizings-tab-mine" onclick="setSizingsTab('mine')">My Sizings</button>
+                <button class="sizings-tab" id="sizings-tab-org" onclick="setSizingsTab('org')">My Organization</button>
+            </div>
+            <div class="modal-body">
+                <div class="sizings-status" id="sizings-status" style="display:none"></div>
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="sizings-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Owner</th>
+                                <th>Code</th>
+                                <th>Source</th>
+                                <th>Updated</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="sizings-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organization (tenant admin) modal -->
+    <div class="modal-overlay" id="org-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Organization</h2>
+                <button class="modal-close" onclick="closeOrgModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="rec-desc" id="org-desc"></p>
+                <div class="sizings-status" id="org-status" style="display:none"></div>
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="org-table">
+                        <thead>
+                            <tr><th>Email</th><th>Role</th><th>Last login</th><th></th></tr>
+                        </thead>
+                        <tbody id="org-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Name sizing modal -->
+    <div class="modal-overlay" id="name-sizing-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Name this sizing</h2>
+                <button class="modal-close" onclick="closeNameModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="name-sizing-form" onsubmit="submitNameSizing(event)">
+                    <div class="form-group">
+                        <label>Sizing name</label>
+                        <input type="text" id="name-sizing-input" maxlength="200"
+                               placeholder="e.g. Acme production cluster" autocomplete="off" required>
+                    </div>
+                    <div class="modal-btn-row">
+                        <button type="button" class="btn btn-muted" onclick="closeNameModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset password modal (opened from an emailed ?reset= link) -->
+    <div class="modal-overlay" id="reset-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Set a new password</h2>
+                <button class="modal-close" onclick="closeResetModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="reset-form" onsubmit="submitReset(event)">
+                    <div class="form-group">
+                        <label>New password</label>
+                        <input type="password" id="reset-password" required
+                               autocomplete="new-password" placeholder="Your new password"
+                               oninput="onResetPwInput()">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm new password</label>
+                        <input type="password" id="reset-confirm" required
+                               autocomplete="new-password" placeholder="Re-enter your new password"
+                               oninput="onResetPwInput()">
+                    </div>
+                    <ul class="pw-rules" id="reset-pw-rules">
+                        <li data-rule="len">At least 10 characters</li>
+                        <li data-rule="upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit">A number (0–9)</li>
+                        <li data-rule="special">A special character</li>
+                        <li data-rule="match">Passwords match</li>
+                    </ul>
+                    <div class="auth-error" id="reset-error" style="display:none"></div>
+                    <div class="modal-btn-row">
+                        <button type="button" class="btn btn-muted" onclick="closeResetModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Set password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save choice modal (update loaded sizing vs save as new) -->
+    <div class="modal-overlay" id="save-choice-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Save sizing</h2>
+                <button class="modal-close" onclick="closeSaveChoice()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="info-modal-msg" id="save-choice-msg"></p>
+                <div class="modal-btn-row">
+                    <button type="button" class="btn btn-muted" onclick="closeSaveChoice()">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="chooseSave('new')">Save as new</button>
+                    <button type="button" class="btn btn-primary" onclick="chooseSave('update')">Update</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info / confirmation modal (save result, errors) -->
+    <div class="modal-overlay" id="info-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="info-modal-title">Notice</h2>
+                <button class="modal-close" onclick="closeInfoModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="info-modal-msg" class="info-modal-msg"></p>
+                <div class="info-code-row" id="info-modal-code-row" style="display:none">
+                    <div>
+                        <div class="info-code-label">Share code</div>
+                        <code class="sizing-code info-code" id="info-modal-code"></code>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="info-copy-btn" onclick="copyInfoCode()">Copy</button>
+                </div>
+                <div class="modal-btn-row">
+                    <button type="button" class="btn btn-primary" onclick="closeInfoModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ asset('js/app.js') }}"></script>
+    <script src="{{ asset('js/auth.js') }}"></script>
 </body>
 </html>

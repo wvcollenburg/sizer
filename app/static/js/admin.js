@@ -25,6 +25,12 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'users') loadAdminUsers();
+    else if (tab === 'stale') loadStaleUsers();
+    else if (tab === 'tenants') loadAdminTenants();
+    else if (tab === 'sizings') loadAdminSizings();
+    else if (tab === 'email') loadEmailSettings();
+    else if (tab === 'audit') loadAuditLog();
 }
 
 // ── Load Data ──────────────────────────────────────────────────────────────
@@ -859,4 +865,371 @@ async function saveModel() {
     } catch (e) {
         alert('Save failed: ' + e.message);
     }
+}
+
+
+// ==================== SUPER-ADMIN: USERS / TENANTS / SIZINGS ====================
+// These tabs drive the /api/admin/users and /api/admin/super endpoints. The whole
+// /admin area is already super-admin-gated server-side.
+
+function adminEsc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function adminDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString();
+}
+
+function setStatus(id, msg, isError) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.textContent = msg;
+    el.className = 'admin-status ' + (isError ? 'status-err' : 'status-ok');
+    el.style.display = 'block';
+}
+
+async function adminApi(url, opts) {
+    const resp = await fetch(url, opts);
+    let data = null;
+    try { data = await resp.json(); } catch (e) {}
+    return { ok: resp.ok, status: resp.status, data };
+}
+
+// ── Tenants ──────────────────────────────────────────────────────────────────
+
+let tenantCache = [];
+
+async function loadAdminTenants() {
+    const { ok, data } = await adminApi('/api/admin/super/tenants');
+    if (!ok) { setStatus('tenants-status', 'Could not load tenants.', true); return; }
+    tenantCache = data;
+    // Keep the user-tab tenant filter in sync.
+    const filter = document.getElementById('users-tenant-filter');
+    if (filter) {
+        const cur = filter.value;
+        filter.innerHTML = '<option value="">All tenants</option>'
+            + data.map(t => `<option value="${t.id}">${adminEsc(t.domain)}</option>`).join('');
+        filter.value = cur;
+    }
+    const body = document.getElementById('admin-tenants-tbody');
+    body.innerHTML = data.map(t => `
+        <tr>
+            <td>${adminEsc(t.domain)}</td>
+            <td>${t.is_scale ? 'Yes' : ''}</td>
+            <td>${t.user_count}</td>
+            <td>${t.is_blocked ? '<span class="badge-blocked">Blocked</span>' : 'Active'}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm ${t.is_blocked ? 'btn-secondary' : 'btn-danger'}"
+                        onclick="toggleBlockTenant(${t.id}, ${t.is_blocked ? 'false' : 'true'})">
+                    ${t.is_blocked ? 'Unblock' : 'Block'}
+                </button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="5">No tenants yet.</td></tr>`;
+}
+
+async function toggleBlockTenant(id, block) {
+    if (block && !confirm('Block this domain? All its users will be unable to sign in.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/tenants/${id}/block`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: block }),
+    });
+    if (!ok) { setStatus('tenants-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('tenants-status', data.message, false);
+    loadAdminTenants();
+}
+
+// ── Users ────────────────────────────────────────────────────────────────────
+
+async function loadAdminUsers() {
+    if (!tenantCache.length) await loadAdminTenants();
+    const includeDisabled = document.getElementById('users-include-disabled').checked;
+    const unverifiedOnly = document.getElementById('users-unverified-only').checked;
+    const tenant = document.getElementById('users-tenant-filter').value;
+    const params = new URLSearchParams();
+    if (includeDisabled) params.set('include_disabled', 'true');
+    if (unverifiedOnly) params.set('unverified', 'true');
+    if (tenant) params.set('tenant', tenant);
+    const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
+    const body = document.getElementById('admin-users-tbody');
+    if (!ok) { body.innerHTML = ''; setStatus('admin-status', 'Could not load users.', true); return; }
+    const roleOpts = (sel) =>
+        `<option value="user"${sel === 'user' ? ' selected' : ''}>User</option>`
+        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>Tenant admin</option>`
+        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>Super admin</option>`;
+
+    body.innerHTML = data.map(u => {
+        const actions = [];
+        if (!u.is_disabled) {
+            actions.push(`<button class="btn btn-sm btn-secondary" onclick="resetUserPassword(${u.id}, '${adminEsc(u.email)}')">Reset password</button>`);
+            if (u.role !== 'super_admin') {
+                actions.push(`<button class="btn btn-sm btn-danger" onclick="disableAdminUser(${u.id})">Disable</button>`);
+            }
+        } else {
+            actions.push(`<button class="btn btn-sm btn-secondary" onclick="restoreUser(${u.id})">Restore</button>`);
+            actions.push(`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Delete</button>`);
+        }
+        // Role is editable inline for active users; disabled users must be
+        // restored before their role can change (server enforces this too).
+        const roleCell = u.is_disabled
+            ? adminEsc(u.role)
+            : `<select class="role-select" onchange="changeUserRole(${u.id}, this.value, '${adminEsc(u.role)}')">${roleOpts(u.role)}</select>`;
+        const statusCell = u.is_disabled ? 'Disabled'
+            : (u.is_verified ? 'Active'
+               : '<span class="badge-unverified">Unactivated</span>');
+        return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
+            <td>${adminEsc(u.email)}</td>
+            <td>${adminEsc(u.tenant_domain)}</td>
+            <td>${roleCell}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
+            <td>${statusCell}</td>
+            <td>${adminDate(u.last_login_at)}</td>
+            <td class="col-actions">${actions.join(' ')}</td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="6">No users.</td></tr>`;
+}
+
+async function changeUserRole(id, role, prevRole) {
+    if (role === prevRole) return;
+    const label = { user: 'User', tenant_admin: 'Tenant admin', super_admin: 'Super admin' }[role] || role;
+    if (!confirm(`Change this user's role to "${label}"?`)) { loadAdminUsers(); return; }
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/role`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+    });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); loadAdminUsers(); return; }
+    setStatus('admin-status', 'Role updated.', false);
+    loadAdminUsers();
+}
+
+async function resetUserPassword(id, email) {
+    const pw = prompt(
+        `Reset password for ${email}.\n\nEnter a new password (min 8 chars), `
+        + `or leave blank to email them a reset link (requires SMTP):`);
+    if (pw === null) return;  // cancelled
+    const body = pw.trim() ? { password: pw.trim() } : {};
+    if (!pw.trim() && !confirm('Email this user a password-reset link?')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    setStatus('admin-status', (data && (data.message || data.error)) || (ok ? 'Done.' : 'Failed.'), !ok);
+}
+
+// The super-user listing doesn't carry tenant_id; resolve it via domain when
+// promoting. We look the tenant up by domain from the cache.
+async function makeTenantAdmin(tenantId, userId, domain) {
+    if (!tenantId) {
+        const t = tenantCache.find(t => t.domain === domain);
+        tenantId = t ? t.id : 0;
+    }
+    if (!tenantId) { setStatus('admin-status', 'Could not resolve tenant.', true); return; }
+    if (!confirm('Make this user the tenant admin? The current admin will be demoted.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/tenants/${tenantId}/admin`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+    });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'Tenant admin reassigned.', false);
+    loadAdminUsers();
+}
+
+async function disableAdminUser(id) {
+    if (!confirm('Disable this user?')) return;
+    const { ok, data } = await adminApi(`/api/admin/users/${id}/disable`, { method: 'POST' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User disabled.', false);
+    loadAdminUsers();
+}
+
+async function restoreUser(id) {
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}/restore`, { method: 'POST' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User restored.', false);
+    loadAdminUsers();
+}
+
+async function deleteUser(id) {
+    if (!confirm('Permanently delete this disabled user? This cannot be undone.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/users/${id}`, { method: 'DELETE' });
+    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
+    setStatus('admin-status', 'User deleted.', false);
+    loadAdminUsers();
+}
+
+// ── Saved sizings ─────────────────────────────────────────────────────────────
+
+async function loadAdminSizings() {
+    const includeDeleted = document.getElementById('sizings-include-deleted').checked;
+    const params = new URLSearchParams();
+    if (includeDeleted) params.set('include_deleted', 'true');
+    const { ok, data } = await adminApi('/api/admin/super/configs?' + params.toString());
+    const body = document.getElementById('admin-sizings-tbody');
+    if (!ok) { body.innerHTML = ''; setStatus('sizings-status-admin', 'Could not load sizings.', true); return; }
+    body.innerHTML = data.map(c => `
+        <tr class="${c.is_deleted ? 'row-disabled' : ''}">
+            <td>${adminEsc(c.name)}</td>
+            <td>${adminEsc(c.owner_email || '')}</td>
+            <td>${adminEsc(c.tenant_domain || '')}</td>
+            <td><code>${adminEsc(c.code)}</code></td>
+            <td>${c.is_deleted ? 'Deleted' : 'Active'}</td>
+            <td>${adminDate(c.updated_at)}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-danger" onclick="purgeSizing(${c.id})">Purge</button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="7">No sizings.</td></tr>`;
+}
+
+async function purgeSizing(id) {
+    if (!confirm('Permanently delete this configuration? This cannot be undone.')) return;
+    const { ok, data } = await adminApi(`/api/admin/super/configs/${id}/purge`, { method: 'DELETE' });
+    if (!ok) { setStatus('sizings-status-admin', (data && data.error) || 'Failed.', true); return; }
+    setStatus('sizings-status-admin', 'Configuration purged.', false);
+    loadAdminSizings();
+}
+
+async function runPurge() {
+    if (!confirm('Run the 90-day retention purge now?')) return;
+    const { ok, data } = await adminApi('/api/admin/super/purge-run', { method: 'POST' });
+    if (!ok) { setStatus('sizings-status-admin', 'Purge failed.', true); return; }
+    setStatus('sizings-status-admin',
+        `Purged ${data.configs_purged} config(s) and ${data.users_purged} user(s).`, false);
+    loadAdminSizings();
+}
+
+
+// ==================== SUPER-ADMIN: EMAIL / SMTP + AUDIT LOG ====================
+
+async function loadEmailSettings() {
+    const { ok, data } = await adminApi('/api/admin/super/email-settings');
+    if (!ok) { setStatus('email-status', 'Could not load email settings.', true); return; }
+    document.getElementById('smtp-host').value = data.smtp_host || '';
+    document.getElementById('smtp-port').value = data.smtp_port || '587';
+    document.getElementById('smtp-from').value = data.smtp_from || '';
+    document.getElementById('smtp-username').value = data.smtp_username || '';
+    document.getElementById('smtp-password').value = '';
+    document.getElementById('smtp-pass-set').textContent = data.smtp_password_set ? '(a password is set)' : '(none set)';
+    document.getElementById('smtp-use-tls').checked = !!data.smtp_use_tls;
+    document.getElementById('verify-email-enabled').checked = !!data.verify_email_enabled;
+    document.getElementById('email-active-state').textContent =
+        data.verification_active ? 'Email verification is ACTIVE'
+        : data.configured ? 'SMTP configured, verification OFF'
+        : 'SMTP not configured';
+}
+
+async function saveEmailSettings() {
+    const payload = {
+        smtp_host: document.getElementById('smtp-host').value.trim(),
+        smtp_port: document.getElementById('smtp-port').value.trim(),
+        smtp_from: document.getElementById('smtp-from').value.trim(),
+        smtp_username: document.getElementById('smtp-username').value.trim(),
+        smtp_use_tls: document.getElementById('smtp-use-tls').checked,
+        verify_email_enabled: document.getElementById('verify-email-enabled').checked,
+    };
+    const pw = document.getElementById('smtp-password').value;
+    if (pw) payload.smtp_password = pw;
+    const { ok, data } = await adminApi('/api/admin/super/email-settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!ok) { setStatus('email-status', (data && data.error) || 'Save failed.', true); return; }
+    setStatus('email-status', 'Email settings saved.', false);
+    loadEmailSettings();
+}
+
+async function sendTestEmail() {
+    const to = prompt('Send a test email to which address?');
+    if (!to) return;
+    setStatus('email-status', 'Sending…', false);
+    const { ok, data } = await adminApi('/api/admin/super/email-settings/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to }),
+    });
+    setStatus('email-status', (data && (data.message || data.error)) || (ok ? 'Sent.' : 'Failed.'), !ok);
+}
+
+async function loadAuditLog() {
+    const { ok, data } = await adminApi('/api/admin/super/audit');
+    const body = document.getElementById('admin-audit-tbody');
+    if (!ok) { body.innerHTML = ''; return; }
+    body.innerHTML = data.map(e => `
+        <tr>
+            <td>${adminDate(e.created_at)}</td>
+            <td>${adminEsc(e.actor_email || '')}</td>
+            <td><code>${adminEsc(e.action)}</code></td>
+            <td>${adminEsc(e.detail || '')}</td>
+        </tr>`).join('') || `<tr><td colspan="4">No audit entries yet.</td></tr>`;
+}
+
+
+// ==================== SUPER-ADMIN: INACTIVE (1yr+) USERS ====================
+
+async function loadStaleUsers() {
+    const { ok, data } = await adminApi('/api/admin/super/users/stale');
+    const body = document.getElementById('stale-users-tbody');
+    document.getElementById('stale-select-all').checked = false;
+    if (!ok) { body.innerHTML = ''; setStatus('stale-status', 'Could not load.', true); return; }
+
+    // Populate the per-domain selector from the result.
+    const domains = [...new Set(data.map(u => u.tenant_domain).filter(Boolean))].sort();
+    const sel = document.getElementById('stale-domain-select');
+    sel.innerHTML = '<option value="">Select all from domain…</option>'
+        + domains.map(d => `<option value="${adminEsc(d)}">${adminEsc(d)} (${data.filter(u => u.tenant_domain === d).length})</option>`).join('');
+
+    body.innerHTML = data.map(u => `
+        <tr>
+            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${adminEsc(u.tenant_domain)}" onclick="updateStaleCount()"></td>
+            <td>${adminEsc(u.email)}</td>
+            <td>${adminEsc(u.tenant_domain)}</td>
+            <td>${adminEsc(u.role)}</td>
+            <td>${u.last_login_at ? adminDate(u.last_login_at) : '<span class="muted">never</span>'}</td>
+            <td>${adminDate(u.created_at)}</td>
+        </tr>`).join('') || `<tr><td colspan="6">No users inactive for a year.</td></tr>`;
+    updateStaleCount();
+}
+
+function staleChecks() {
+    return Array.from(document.querySelectorAll('.stale-check'));
+}
+
+function updateStaleCount() {
+    const all = staleChecks();
+    const checked = all.filter(c => c.checked);
+    document.getElementById('stale-selected-count').textContent =
+        checked.length ? `${checked.length} selected` : '';
+    const head = document.getElementById('stale-select-all');
+    head.checked = all.length > 0 && checked.length === all.length;
+    head.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function toggleSelectAllStale(cb) {
+    staleChecks().forEach(c => { c.checked = cb.checked; });
+    updateStaleCount();
+}
+
+// Additively check every row of the chosen domain (so several domains can be
+// built up), then reset the selector.
+function selectStaleByDomain() {
+    const sel = document.getElementById('stale-domain-select');
+    const domain = sel.value;
+    if (!domain) return;
+    staleChecks().forEach(c => { if (c.dataset.domain === domain) c.checked = true; });
+    sel.value = '';
+    updateStaleCount();
+}
+
+async function purgeSelectedStale() {
+    const ids = staleChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
+    if (!ids.length) { setStatus('stale-status', 'Select at least one user first.', true); return; }
+    if (!confirm(`Permanently delete ${ids.length} user(s) and all of their saved sizings? This cannot be undone.`)) return;
+    const { ok, data } = await adminApi('/api/admin/super/users/purge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+    });
+    if (!ok) { setStatus('stale-status', (data && data.error) || 'Purge failed.', true); return; }
+    setStatus('stale-status', `Purged ${data.purged} user(s)${data.skipped ? `, skipped ${data.skipped}` : ''}.`, false);
+    loadStaleUsers();
 }
