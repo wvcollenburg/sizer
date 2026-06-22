@@ -13,8 +13,10 @@ from orm_models import (
     CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops, SizingSetting,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
+from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
+_TUNABLE_BY_KEY = {d["key"]: d for d in TUNABLE_DEFS}
 
 _QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
 
@@ -314,6 +316,88 @@ def update_sizing_config():
             db.session.add(SizingSetting(key=key, value=value))
     db.session.commit()
     return jsonify({"message": "Sizing config updated", "sizing_config": _sizing_config_dict()})
+
+
+# ── Scoring / sizing / topology tunables ─────────────────────────────────────
+# Reuses the SizingSetting key/value table; the field set + grouping is driven
+# by tunables.TUNABLE_DEFS so the admin page renders itself from metadata.
+
+def _tunable_values():
+    """Current tunable values: defaults overlaid with any saved overrides,
+    coerced to each tunable's declared type (ints stay ints)."""
+    saved = {s.key: s.value for s in SizingSetting.query.all()}
+    out = {}
+    for d in TUNABLE_DEFS:
+        key = d["key"]
+        val = saved.get(key, d["default"])
+        out[key] = int(round(val)) if d["type"] == "int" else float(val)
+    return out
+
+
+def _coerce_tunable(d, value):
+    """Validate+coerce one incoming tunable value against its metadata.
+    Returns the stored value or raises ValueError with a user message."""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{d['label']} must be a number")
+    if d["type"] == "int":
+        num = int(round(num))
+    lo, hi = d.get("min"), d.get("max")
+    if lo is not None and num < lo:
+        raise ValueError(f"{d['label']} must be ≥ {lo}")
+    if hi is not None and num > hi:
+        raise ValueError(f"{d['label']} must be ≤ {hi}")
+    return num
+
+
+@admin_bp.route("/api/tunables")
+def get_tunables():
+    return jsonify({"defs": TUNABLE_DEFS, "values": _tunable_values()})
+
+
+@admin_bp.route("/api/tunables", methods=["PUT"])
+def update_tunables():
+    data = request.json or {}
+    updates = {}
+    for key, raw in data.items():
+        d = _TUNABLE_BY_KEY.get(key)
+        if d is None:
+            continue  # ignore unknown keys
+        try:
+            updates[key] = _coerce_tunable(d, raw)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    # Cross-field sanity: hybrid flash floor must not exceed its ceiling.
+    lo = updates.get("hybrid_flash_min_pct", _tunable_values()["hybrid_flash_min_pct"])
+    hi = updates.get("hybrid_flash_max_pct", _tunable_values()["hybrid_flash_max_pct"])
+    if lo > hi:
+        return jsonify({"error": "Hybrid flash floor must not exceed the ceiling"}), 400
+
+    if not updates:
+        return jsonify({"error": "No valid tunables provided"}), 400
+
+    for key, value in updates.items():
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            db.session.add(SizingSetting(key=key, value=value))
+    db.session.commit()
+    return jsonify({"message": "Tunables updated", "values": _tunable_values()})
+
+
+@admin_bp.route("/api/tunables/reset", methods=["POST"])
+def reset_tunables():
+    for key, value in TUNABLE_DEFAULTS.items():
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            db.session.add(SizingSetting(key=key, value=value))
+    db.session.commit()
+    return jsonify({"message": "Tunables reset to defaults", "values": _tunable_values()})
 
 
 # ── List all models ──────────────────────────────────────────────────────────

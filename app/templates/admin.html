@@ -23,6 +23,7 @@
             <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
             <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
             <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
+            <button class="tab" data-tab="tuning" onclick="switchTab('tuning')">Tuning</button>
             <span class="tab-spacer"></span>
             <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
             <button class="tab" data-tab="stale" onclick="switchTab('stale')">Inactive 1yr+</button>
@@ -165,47 +166,6 @@
 
         <!-- ═══════════════════ DRIVE CATALOG TAB ═══════════════════ -->
         <div class="tab-content" id="tab-drives">
-            <div class="iops-card">
-                <div class="iops-card-header">
-                    <h3>IOPS per Drive Type</h3>
-                </div>
-                <div class="iops-inputs">
-                    <div class="form-group">
-                        <label>HDD</label>
-                        <input type="number" id="iops-hdd" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label>SSD</label>
-                        <input type="number" id="iops-ssd" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label>NVMe</label>
-                        <input type="number" id="iops-nvme" min="0" step="1">
-                    </div>
-                </div>
-                <div class="iops-card-header" style="margin-top:14px">
-                    <h3>Cluster Adjustments</h3>
-                </div>
-                <div class="iops-inputs">
-                    <div class="form-group">
-                        <label>Derating %</label>
-                        <input type="number" id="iops-derating" min="0" max="89" step="1"
-                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
-                    </div>
-                    <div class="form-group">
-                        <label>Replication Factor</label>
-                        <input type="number" id="iops-rf" min="1" step="1"
-                               title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
-                    </div>
-                    <div class="form-group">
-                        <label>Read %</label>
-                        <input type="number" id="iops-read" min="0" max="100" step="1"
-                               title="Read share of the workload (write share = 100 − read).">
-                    </div>
-                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
-                    <span id="iops-status" class="iops-status"></span>
-                </div>
-            </div>
             <div class="toolbar">
                 <div class="toolbar-left">
                     <button class="btn btn-primary" onclick="openAddCatalogItem('drive')">
@@ -237,6 +197,66 @@
                     </thead>
                     <tbody id="drive-catalog-tbody"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ TUNING TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-tuning">
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3>IOPS per Drive Type</h3>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label>HDD</label>
+                        <input type="number" id="iops-hdd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>SSD</label>
+                        <input type="number" id="iops-ssd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>NVMe</label>
+                        <input type="number" id="iops-nvme" min="0" step="1">
+                    </div>
+                </div>
+                <div class="iops-card-header" style="margin-top:14px">
+                    <h3>Cluster IOPS Adjustments</h3>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label>Derating %</label>
+                        <input type="number" id="iops-derating" min="0" max="89" step="1"
+                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
+                    </div>
+                    <div class="form-group">
+                        <label>Replication Factor</label>
+                        <input type="number" id="iops-rf" min="1" step="1"
+                               title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
+                    </div>
+                    <div class="form-group">
+                        <label>Read %</label>
+                        <input type="number" id="iops-read" min="0" max="100" step="1"
+                               title="Read share of the workload (write share = 100 − read).">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
+                    <span id="iops-status" class="iops-status"></span>
+                </div>
+            </div>
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3>Sizing &amp; Scoring Tunables</h3>
+                    <p class="muted" style="margin:4px 0 0">
+                        Weights and limits used by the recommendation engine. Changes apply to
+                        new sizings immediately. Hover a label for what it does.
+                    </p>
+                </div>
+                <div id="tunables-groups"></div>
+                <div class="iops-inputs" style="margin-top:14px">
+                    <button class="btn btn-primary" onclick="saveTunables()">Save Tunables</button>
+                    <button class="btn btn-secondary" onclick="resetTunables()">Reset to defaults</button>
+                    <span id="tunables-status" class="iops-status"></span>
+                </div>
             </div>
         </div>
 

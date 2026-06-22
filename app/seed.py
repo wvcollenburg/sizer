@@ -28,6 +28,10 @@ SIZING_SETTING_DEFAULTS = {
     "iops_replication_factor": 2,   # RF2
     "iops_read_fraction": 0.70,     # 70/30 read/write
 }
+# Scoring/sizing/topology tunables also live in the SizingSetting table so they
+# show up on the admin Tuning page; defaults come from tunables.DEFAULTS.
+from tunables import DEFAULTS as TUNABLE_DEFAULTS
+SIZING_SETTING_DEFAULTS.update(TUNABLE_DEFAULTS)
 from models import (
     APPLIANCE_MODELS, VALIDATED_NICS, SWITCHING,
     MODEL_COSTS, DEFAULT_MODEL_COST,

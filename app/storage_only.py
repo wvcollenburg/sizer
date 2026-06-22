@@ -17,8 +17,9 @@ Rules (in addition to the normal cluster rules):
 """
 import re
 
-MIN_HCI_NODES_PER_CLUSTER = 2
-STORAGE_ONLY_RAM_FLOOR_GB = 16
+# The "min HCI nodes per cluster" and "storage-only RAM floor" limits are now
+# admin-tunable and live in tunables.T (min_hci_nodes_per_cluster /
+# storage_only_ram_floor_gb). The helpers below don't reference them directly.
 
 _QTY_RE = re.compile(r"^\s*(\d+)\s*x\s+", re.IGNORECASE)
 

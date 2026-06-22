@@ -4,17 +4,16 @@ from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
     DriveTypeIops, SizingSetting,
 )
-from storage_only import single_cpu_options, MIN_HCI_NODES_PER_CLUSTER
+from storage_only import single_cpu_options
+from tunables import T, refresh_from_db
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.
 DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
 
-# HyperCore OS overhead per node
-OS_CORE_OVERHEAD = 1          # 1 core reserved for HyperCore OS
-OS_RAM_GB = 4                 # 4 GB RAM for HyperCore OS
-RAM_BUFFER_GB = 2             # 2 GB safety buffer
-USABLE_RAM_OVERHEAD = OS_RAM_GB + RAM_BUFFER_GB  # 6 GB total per node
-
+# Sizing/scoring constants (OS overheads, scoring weights, topology limits) are
+# admin-tunable and live in tunables.T — read as T.<name> so admin edits take
+# effect without a restart. refresh_from_db() (called at the top of
+# generate_recommendations) loads the live values for the request.
 
 STORAGE_CATEGORIES = {
     "nvme_only": "flash",
@@ -26,16 +25,13 @@ STORAGE_CATEGORIES = {
 }
 
 
-MAX_CLUSTER_DISKS = 100      # Software-only hard cap on disks per cluster
-HYBRID_FLASH_MIN_PCT = 7.0   # Validated hybrid: flash tier floor (% of raw capacity)
-HYBRID_FLASH_MAX_PCT = 24.3  # Validated hybrid: flash tier ceiling
-
-
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
                              sizing_mode="certified", allow_storage_only=False,
                              target_model=None, include_eol_eos=False):
+    # Load the current admin-tuned weights/overheads/limits for this request.
+    refresh_from_db()
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -273,41 +269,21 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     return {"recommendations": top, "projection": projection, "warnings": warnings}
 
 
-# ── Right-sizing score weights ───────────────────────────────────────────────
+# ── Right-sizing score ───────────────────────────────────────────────────────
 # Candidates are ranked by a single scalar score (lower = better) computed per
 # candidate in _fit_model, instead of a lexicographic tuple. A scalar lets a
 # large saving in cost or wasted capacity outweigh a small increase in node
 # count (and vice-versa) — which a lexicographic ordering, where node count
-# alone decides, can never do. All terms are in the same arbitrary "points" so
-# they can be summed; tune the weights here to shift the balance.
+# alone decides, can never do.
 #
-#   fleet cost  = node_count × (per-model cost_tier + NODE_OVERHEAD)
-#   core cost   = total physical HCI cores × W_CORE_LICENSE  (per-core licensing)
+#   fleet cost  = node_count × (per-model cost_tier + T.node_overhead)
+#   core cost   = total physical HCI cores × T.w_core_license  (per-core licensing)
 #   waste       = Σ capped per-dimension over-provisioning (CPU / RAM / storage)
 #   ghz penalty = added only when raw cluster GHz drops below the source
-NODE_OVERHEAD = 12.0      # fixed per-node cost (switch ports, rack U, power,
-                          # ops) added to each node's appliance cost — the
-                          # counterweight that stops the score from fragmenting
-                          # a workload into many tiny, cheap nodes. Works against
-                          # W_CORE_LICENSE: raise it if minimising cores starts
-                          # spreading the workload over too many small nodes.
-W_COST = 1.0              # weight on total fleet cost
-W_CORE_LICENSE = 1.5      # weight on total PHYSICAL cores across the HCI
-                          # (VM-running) nodes. Core-based licensing — SC
-                          # HyperCore plus per-core guest licensing (Windows
-                          # Datacenter, SQL Server, Oracle) — scales with
-                          # physical cores, not with appliances or node count,
-                          # so it gets its own linear term. Uncapped: licensing
-                          # has no diminishing return. Raise it to make fewer
-                          # total cores matter more; set to 0 to disable.
-W_WASTE = 50.0            # weight on aggregate wasted capacity
-W_CPU = 1.0               # per-dimension waste weights
-W_RAM = 1.0
-W_STOR = 1.0
-WASTE_CAP = 1.0           # cap each dimension's over-provisioning at +100%, so
-                          # one wildly-oversized axis (e.g. a hybrid node's
-                          # 80 TB for a 4 TB need) can't swamp the score.
-W_GHZ_SHORTFALL = 40.0    # penalty per 100% GHz shortfall vs the source cluster
+#
+# All weights (T.w_cost, T.node_overhead, T.w_core_license, T.w_waste, T.w_cpu,
+# T.w_ram, T.w_stor, T.waste_cap, T.w_ghz_shortfall) are admin-tunable — see
+# tunables.py and the super-admin Tuning page.
 
 
 def _rank_key(c, needs, required_cores, iops_demand_val):
@@ -384,18 +360,11 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     return msg
 
 
-MAX_NODES_PER_CLUSTER = 8
-
-# Fallback cost weight if a model row somehow has no cost_tier (mirrors
-# models.DEFAULT_MODEL_COST). Cost is now a per-model database setting
-# (models.cost_tier), seeded from models.MODEL_COSTS and admin-tunable.
-DEFAULT_COST_TIER = 5
-
-
 def _cluster_layout(total_nodes):
-    if total_nodes <= MAX_NODES_PER_CLUSTER:
+    max_per = T.max_nodes_per_cluster
+    if total_nodes <= max_per:
         return [total_nodes]
-    num_clusters = math.ceil(total_nodes / MAX_NODES_PER_CLUSTER)
+    num_clusters = math.ceil(total_nodes / max_per)
     base = total_nodes // num_clusters
     remainder = total_nodes % num_clusters
     return [base + 1] * remainder + [base] * (num_clusters - remainder)
@@ -415,7 +384,7 @@ def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
     (hci_nodes, ram_gb). Enforces >=2 HCI per cluster and at least one compute
     node per cluster at N-1. Falls back to (node_count, None) if no split fits
     — caller then treats it as an all-HCI config."""
-    lo = max(MIN_HCI_NODES_PER_CLUSTER * num_clusters, num_clusters + 1)
+    lo = max(T.min_hci_nodes_per_cluster * num_clusters, num_clusters + 1)
     for h in range(lo, node_count + 1):
         comp = h if full_cluster else (h - num_clusters)
         if comp <= 0:
@@ -454,7 +423,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     viable_ram_options = model["ram_options_gb"]
     if max_vm_ram > 0:
         viable_ram_options = [r for r in viable_ram_options
-                              if (r - USABLE_RAM_OVERHEAD) >= max_vm_ram]
+                              if (r - T.usable_ram_overhead) >= max_vm_ram]
     if not viable_ram_options:
         return results
 
@@ -465,7 +434,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1_nodes = n - len(layout)
-            if (max_ram - USABLE_RAM_OVERHEAD) * n1_nodes >= needs["ram_gb"]:
+            if (max_ram - T.usable_ram_overhead) * n1_nodes >= needs["ram_gb"]:
                 needed_nodes_ram = n
                 break
 
@@ -479,7 +448,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         cores_per_node = cpu["cores"]
         threads_per_node = cpu["threads"]
         ghz_per_node = cpu["ghz"] * cores_per_node
-        usable_cores = cores_per_node - OS_CORE_OVERHEAD
+        usable_cores = cores_per_node - T.os_core_overhead
 
         if cores_per_node == 0 or usable_cores <= 0:
             continue
@@ -553,7 +522,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if not stor:
                 continue
 
-            usable_ram_per_node = ram_gb - USABLE_RAM_OVERHEAD
+            usable_ram_per_node = ram_gb - T.usable_ram_overhead
 
             total_cores = cores_per_node * hci_nodes
             total_threads = threads_per_node * hci_nodes
@@ -598,7 +567,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             full_ratio = needs["vcpus"] / full_usable_cores if full_usable_cores > 0 else 99
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
-            cost_tier = model.get("cost_tier") or DEFAULT_COST_TIER
+            cost_tier = model.get("cost_tier") or T.default_cost_tier
 
             # Per-dimension over-provisioning (fraction bought above the
             # requirement), measured on the same basis the fit was gated on
@@ -613,25 +582,25 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             # single wildly-oversized axis can't dominate) traded off against
             # total fleet cost, so the ranker can prefer a slightly larger but
             # much tighter / cheaper cluster instead of always minimising nodes.
-            waste = (W_CPU * min(max(0.0, core_headroom), WASTE_CAP)
-                     + W_RAM * min(max(0.0, ram_headroom), WASTE_CAP)
-                     + W_STOR * min(max(0.0, stor_headroom), WASTE_CAP))
-            fleet_cost = node_count * (cost_tier + NODE_OVERHEAD)
+            waste = (T.w_cpu * min(max(0.0, core_headroom), T.waste_cap)
+                     + T.w_ram * min(max(0.0, ram_headroom), T.waste_cap)
+                     + T.w_stor * min(max(0.0, stor_headroom), T.waste_cap))
+            fleet_cost = node_count * (cost_tier + T.node_overhead)
             # Per-core licensing cost: linear in the total PHYSICAL cores of the
             # HCI (VM-running) nodes — total_cores = cores_per_node × hci_nodes,
             # the physical (not usable) count, which is what core-based licences
             # bill on. Storage-only nodes run no VMs and are excluded. This makes
             # a config with fewer total cores rank ahead of a fewer-node config
             # that packs in more cores.
-            core_cost = W_CORE_LICENSE * total_cores
-            score = W_COST * fleet_cost + core_cost + W_WASTE * waste
+            core_cost = T.w_core_license * total_cores
+            score = T.w_cost * fleet_cost + core_cost + T.w_waste * waste
 
             # Don't let a high vCPU:core ratio quietly under-power the cluster:
             # penalise raw GHz that falls below the source cluster's total.
             if needs["current_total_ghz"] > 0:
                 ghz_ratio = n1_ghz / needs["current_total_ghz"]
                 if ghz_ratio < 1.0:
-                    score += (1.0 - ghz_ratio) * W_GHZ_SHORTFALL
+                    score += (1.0 - ghz_ratio) * T.w_ghz_shortfall
 
             # Storage-only nodes (only when the split actually moved nodes off
             # the compute pool). Same model/drives, single lowest-tier CPU, the
@@ -791,7 +760,7 @@ def _max_raw_per_node(storage):
 def _pick_ram(options, total_needed_gb, node_count, num_clusters=1):
     n1_nodes = node_count - num_clusters
     for r in sorted(options):
-        if (r - USABLE_RAM_OVERHEAD) * n1_nodes >= total_needed_gb:
+        if (r - T.usable_ram_overhead) * n1_nodes >= total_needed_gb:
             return r
     return None
 
@@ -849,7 +818,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
     best = None
     for size in sorted(size_options):
         for count in counts:
-            if validated and count * max_cluster_nodes > MAX_CLUSTER_DISKS:
+            if validated and count * max_cluster_nodes > T.max_cluster_disks:
                 continue
             raw_per_node = size * count
             usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
@@ -898,7 +867,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                 for f in flash_counts:
                     if validated:
                         total = h + f
-                        if total < 3 or total * max_cluster_nodes > MAX_CLUSTER_DISKS:
+                        if total < 3 or total * max_cluster_nodes > T.max_cluster_disks:
                             continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
                     # The 7-24.3% flash-capacity band is a hybrid architecture
@@ -907,7 +876,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                     # land out of band (e.g. small HDD + large NVMe -> 56% flash),
                     # so enforce it on every hybrid pick.
                     flash_pct = (flash_tb * f / raw_per_node) * 100 if raw_per_node else 0
-                    if flash_pct < HYBRID_FLASH_MIN_PCT or flash_pct > HYBRID_FLASH_MAX_PCT:
+                    if flash_pct < T.hybrid_flash_min_pct or flash_pct > T.hybrid_flash_max_pct:
                         continue
                     biggest = max(hdd_tb, flash_tb)
                     usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)

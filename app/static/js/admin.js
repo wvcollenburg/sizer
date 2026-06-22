@@ -25,7 +25,8 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
-    if (tab === 'users') loadAdminUsers();
+    if (tab === 'tuning') loadTunables();
+    else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
     else if (tab === 'sizings') loadAdminSizings();
@@ -118,6 +119,91 @@ async function saveDriveIops() {
     setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
 }
 
+// ── Tuning (sizing & scoring tunables) ───────────────────────────────────────
+
+let tunableDefs = [];
+
+async function loadTunables() {
+    // The Tuning tab hosts both the IOPS card and the scoring/sizing tunables.
+    const [tunResp, iopsResp, sizingResp] = await Promise.all([
+        fetch('/admin/api/tunables'),
+        fetch('/admin/api/drive-iops'),
+        fetch('/admin/api/sizing-config'),
+    ]);
+    const data = await tunResp.json();
+    driveIops = await iopsResp.json();
+    sizingConfig = await sizingResp.json();
+    tunableDefs = data.defs || [];
+    renderTunables(data.values || {});
+    renderDriveIops();
+}
+
+function renderTunables(values) {
+    const container = document.getElementById('tunables-groups');
+    // Preserve group order as defined in the metadata.
+    const groups = [];
+    const byGroup = {};
+    for (const d of tunableDefs) {
+        if (!byGroup[d.group]) { byGroup[d.group] = []; groups.push(d.group); }
+        byGroup[d.group].push(d);
+    }
+    container.innerHTML = groups.map(g => `
+        <div class="iops-card-header" style="margin-top:14px"><h3>${esc(g)}</h3></div>
+        <div class="iops-inputs">
+            ${byGroup[g].map(d => `
+                <div class="form-group">
+                    <label title="${esc(d.help || '')}">${esc(d.label)}</label>
+                    <input type="number" id="tun-${d.key}"
+                           ${d.min != null ? `min="${d.min}"` : ''}
+                           ${d.max != null ? `max="${d.max}"` : ''}
+                           step="${d.step != null ? d.step : (d.type === 'int' ? 1 : 'any')}"
+                           value="${values[d.key]}"
+                           title="${esc(d.help || '')}">
+                </div>`).join('')}
+        </div>`).join('');
+}
+
+async function saveTunables() {
+    const status = document.getElementById('tunables-status');
+    const payload = {};
+    for (const d of tunableDefs) {
+        const el = document.getElementById('tun-' + d.key);
+        if (el && el.value !== '') payload[d.key] = parseFloat(el.value);
+    }
+    try {
+        const r = await fetch('/admin/api/tunables', {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Save failed');
+        renderTunables(d.values || {});
+        status.textContent = 'Saved';
+        status.className = 'iops-status ok';
+    } catch (e) {
+        status.textContent = e.message;
+        status.className = 'iops-status err';
+    }
+    setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
+}
+
+async function resetTunables() {
+    if (!confirm('Reset all sizing & scoring tunables to their defaults?')) return;
+    const status = document.getElementById('tunables-status');
+    try {
+        const r = await fetch('/admin/api/tunables/reset', {method: 'POST'});
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Reset failed');
+        renderTunables(d.values || {});
+        status.textContent = 'Reset to defaults';
+        status.className = 'iops-status ok';
+    } catch (e) {
+        status.textContent = e.message;
+        status.className = 'iops-status err';
+    }
+    setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
+}
+
 // ── Model Table ────────────────────────────────────────────────────────────
 
 function renderModelTable() {
@@ -132,7 +218,7 @@ function renderModelTable() {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted)">No models found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted)">No models found</td></tr>';
         return;
     }
 

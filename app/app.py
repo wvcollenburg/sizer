@@ -16,13 +16,10 @@ from models import DISK_SIZES_TB, RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from recommend import (
-    generate_recommendations, OS_CORE_OVERHEAD, USABLE_RAM_OVERHEAD,
-    MAX_NODES_PER_CLUSTER, _cluster_layout, _cluster_usable_storage,
+    generate_recommendations, _cluster_layout, _cluster_usable_storage,
 )
+from tunables import T, refresh_from_db
 from export_pptx import generate_proposal, generate_config_slide
-from storage_only import (
-    MIN_HCI_NODES_PER_CLUSTER, STORAGE_ONLY_RAM_FLOOR_GB,
-)
 from admin_routes import admin_bp
 
 
@@ -138,6 +135,8 @@ def create_app():
 
     @app.route("/api/calculate", methods=["POST"])
     def calculate():
+        # Load the current admin-tuned overheads/limits for this request.
+        refresh_from_db()
         data = request.json
         mode = data.get("mode", "appliance")
         node_count = data.get("node_count", 3)
@@ -309,12 +308,12 @@ def calculate_appliance(data, node_count):
     # updates), so the HCI floor scales with the cluster count.
     layout = _cluster_layout(total_nodes)
     num_clusters = len(layout)
-    min_hci = MIN_HCI_NODES_PER_CLUSTER * num_clusters
+    min_hci = T.min_hci_nodes_per_cluster * num_clusters
     if (so_count > 0 or num_clusters > 1) and node_count < min_hci:
         plural = "s" if num_clusters != 1 else ""
         return {"error": (
             f"{num_clusters} cluster{plural} ({' + '.join(map(str, layout))} nodes, "
-            f"max {MAX_NODES_PER_CLUSTER} per cluster) require at least {min_hci} full "
+            f"max {T.max_nodes_per_cluster} per cluster) require at least {min_hci} full "
             f"HCI nodes — 2 per cluster for HA and rolling updates. You have {node_count}."
         )}
 
@@ -323,8 +322,8 @@ def calculate_appliance(data, node_count):
               if total_nodes > 1 else raw_per_node)
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
-    usable_cores = cpu["cores"] - OS_CORE_OVERHEAD
-    usable_ram = ram_gb - USABLE_RAM_OVERHEAD
+    usable_cores = cpu["cores"] - T.os_core_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead
 
     total_cores = usable_cores * node_count
     total_threads = cpu["threads"] * node_count
@@ -384,9 +383,9 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     count = int(so.get("count", 0) or 0)
     if count <= 0:
         return None, None
-    if hci_count < MIN_HCI_NODES_PER_CLUSTER:
+    if hci_count < T.min_hci_nodes_per_cluster:
         return None, {"error": (
-            f"At least {MIN_HCI_NODES_PER_CLUSTER} full HCI nodes are required "
+            f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
             f"when adding storage-only nodes (for HA and rolling updates)."
         )}
 
@@ -403,7 +402,7 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     ram_options = model["ram_options_gb"]
     # Certified: the compliant minimum is the model's smallest RAM option (often
     # >16 GB). Editable upward, but only to a real model option.
-    ram_gb = so.get("ram_gb", ram_options[0] if ram_options else STORAGE_ONLY_RAM_FLOOR_GB)
+    ram_gb = so.get("ram_gb", ram_options[0] if ram_options else T.storage_only_ram_floor_gb)
     if ram_options and ram_gb not in ram_options:
         return None, {"error": "Invalid storage-only RAM selection"}
 
@@ -500,12 +499,12 @@ def calculate_validated(data, node_count):
     # several clusters, each needing >=2 full HCI nodes (HA + rolling updates).
     layout = _cluster_layout(total_nodes)
     num_clusters = len(layout)
-    min_hci = MIN_HCI_NODES_PER_CLUSTER * num_clusters
+    min_hci = T.min_hci_nodes_per_cluster * num_clusters
     if (so_count > 0 or num_clusters > 1) and node_count < min_hci:
         plural = "s" if num_clusters != 1 else ""
         return {"error": (
             f"{num_clusters} cluster{plural} ({' + '.join(map(str, layout))} nodes, "
-            f"max {MAX_NODES_PER_CLUSTER} per cluster) require at least {min_hci} full "
+            f"max {T.max_nodes_per_cluster} per cluster) require at least {min_hci} full "
             f"HCI nodes — 2 per cluster for HA and rolling updates. You have {node_count}."
         )}
 
@@ -539,8 +538,8 @@ def calculate_validated(data, node_count):
                 }
 
     # Apply HyperCore OS overhead
-    usable_cores = cores - OS_CORE_OVERHEAD
-    usable_ram = ram_gb - USABLE_RAM_OVERHEAD
+    usable_cores = cores - T.os_core_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
@@ -620,19 +619,19 @@ def _validated_storage_only(data, disk_count, hci_count):
     count = int(so.get("count", 0) or 0)
     if count <= 0:
         return None, None
-    if hci_count < MIN_HCI_NODES_PER_CLUSTER:
+    if hci_count < T.min_hci_nodes_per_cluster:
         return None, {"error": (
-            f"At least {MIN_HCI_NODES_PER_CLUSTER} full HCI nodes are required "
+            f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
             f"when adding storage-only nodes (for HA and rolling updates)."
         )}
 
     cores = int(so.get("cores", 1) or 1)
     threads = int(so.get("threads", cores * 2) or cores * 2)
     ghz = float(so.get("ghz", 2.0) or 2.0)
-    ram_gb = int(so.get("ram_gb", STORAGE_ONLY_RAM_FLOOR_GB) or STORAGE_ONLY_RAM_FLOOR_GB)
-    if ram_gb < STORAGE_ONLY_RAM_FLOOR_GB:
+    ram_gb = int(so.get("ram_gb", T.storage_only_ram_floor_gb) or T.storage_only_ram_floor_gb)
+    if ram_gb < T.storage_only_ram_floor_gb:
         return None, {"error": (
-            f"Storage-only nodes require at least {STORAGE_ONLY_RAM_FLOOR_GB} GB RAM."
+            f"Storage-only nodes require at least {T.storage_only_ram_floor_gb} GB RAM."
         )}
 
     return {
