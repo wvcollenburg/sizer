@@ -83,11 +83,29 @@ TUNABLE_DEFS = [
      "how": "Raise it to reserve more — usable cores per node drop, so the engine needs bigger CPUs or more nodes to meet the workload.",
      "beware": "Too high and every node loses usable capacity (more or larger nodes, higher cost and licensing). Too low overstates usable compute and risks under-sizing."},
     {"key": "os_ram_gb", "default": 4, "type": "int", "group": "Sizing overheads",
-     "label": "OS RAM per node (GB)", "min": 0, "step": 1,
-     "help": "RAM reserved per node for the HyperCore OS.",
-     "what": "RAM reserved on each node for the HyperCore OS. With the safety buffer, it's subtracted from each node's RAM before VM capacity is counted.",
-     "how": "Raise it to reserve more — usable RAM per node drops, pushing toward larger RAM options or more nodes.",
+     "label": "OS RAM per node (GB) — flat fallback", "min": 0, "step": 1,
+     "help": "Flat OS RAM used when bay-count tiering can't apply (unknown bays, or a tier set to 0).",
+     "what": "RAM reserved on each node for the HyperCore OS, used as the flat fallback when the bay-count tiers below don't apply (drive-bay count unknown, or the matching tier is set to 0). With the safety buffer, it's subtracted from each node's RAM before VM capacity is counted.",
+     "how": "Raise it to reserve more — usable RAM per node drops, pushing toward larger RAM options or more nodes. The bay-count tiers below override this for nodes whose bay count is known.",
      "beware": "Too high wastes RAM and inflates sizing. Too low overstates usable RAM and can leave the OS starved in practice."},
+    {"key": "os_ram_bays_1_4_gb", "default": 4, "type": "int", "group": "Sizing overheads",
+     "label": "OS RAM — 1–4 drive bays (GB)", "min": 0, "step": 1,
+     "help": "OS RAM for small nodes (1–4 drive bays). 0 = use the flat fallback.",
+     "what": "OS RAM reserved on nodes with 1–4 drive bays. SCRIBE (the storage layer) consumes more RAM as drive count grows, so OS overhead is tiered by bay count.",
+     "how": "Raise it to reserve more on small nodes. Set to 0 to disable this tier and fall back to the flat OS RAM value.",
+     "beware": "Too low can starve SCRIBE on small edge nodes; too high needlessly inflates their sizing."},
+    {"key": "os_ram_bays_5_12_gb", "default": 8, "type": "int", "group": "Sizing overheads",
+     "label": "OS RAM — 5–12 drive bays (GB)", "min": 0, "step": 1,
+     "help": "OS RAM for mid-size nodes (5–12 drive bays). 0 = use the flat fallback.",
+     "what": "OS RAM reserved on nodes with 5–12 drive bays — the typical datacenter node range.",
+     "how": "Raise it to reserve more on mid-size nodes. Set to 0 to disable this tier and fall back to the flat OS RAM value.",
+     "beware": "Too low risks SCRIBE memory pressure under heavy I/O on densely-populated nodes."},
+    {"key": "os_ram_bays_13_plus_gb", "default": 16, "type": "int", "group": "Sizing overheads",
+     "label": "OS RAM — 13+ drive bays (GB)", "min": 0, "step": 1,
+     "help": "OS RAM for large nodes (13+ drive bays). 0 = use the flat fallback.",
+     "what": "OS RAM reserved on nodes with 13 or more drive bays — the largest, drive-dense configurations.",
+     "how": "Raise it to reserve more on large nodes. Set to 0 to disable this tier and fall back to the flat OS RAM value.",
+     "beware": "Too low under-reserves for SCRIBE on drive-dense nodes; too high wastes RAM that workloads could use."},
     {"key": "ram_buffer_gb", "default": 2, "type": "int", "group": "Sizing overheads",
      "label": "RAM safety buffer (GB)", "min": 0, "step": 1,
      "help": "Extra per-node RAM headroom. Usable-RAM overhead = OS RAM + this buffer.",
@@ -108,6 +126,14 @@ TUNABLE_DEFS = [
      "what": "The vCPU-to-physical-core consolidation ratio every new sizing starts from — the initial position of the ratio slider and the value used for the first recommendation, regardless of the source environment's measured ratio (which is still shown for reference).",
      "how": "Raise it to consolidate harder by default (fewer/denser nodes, less hardware). Lower it toward 1:1 to size more conservatively out of the box. Users can still override per-sizing with the slider.",
      "beware": "Set well above what the workloads tolerate and the default recommendation under-provisions CPU until the user notices and dials it back. Set to 1:1 and every sizing starts as large as the source estate, defeating the point of a consolidation default."},
+
+    # ── Advisory thresholds ──────────────────────────────────────────────────
+    {"key": "vm_density_warn_per_node", "default": 100, "type": "int", "group": "Advisory thresholds",
+     "label": "VM-density warning (VMs/node)", "min": 1, "step": 5,
+     "help": "Warn when every recommendation packs more than this many VMs onto each VM-running node.",
+     "what": "The VMs-per-node ceiling above which a sizing is flagged as dense. When even the most-spread recommendation exceeds it, an advisory warns about scheduling/management overhead.",
+     "how": "Lower it to flag density sooner (favouring more nodes). Raise it to tolerate denser packing before warning.",
+     "beware": "Set very high and the advisory never fires, so genuinely over-dense clusters ship unflagged. Set very low and almost every sizing carries a noise warning users learn to ignore."},
 
     # ── Cluster topology ─────────────────────────────────────────────────────
     {"key": "max_nodes_per_cluster", "default": 8, "type": "int", "group": "Cluster topology",
@@ -178,8 +204,30 @@ class _Tunables:
 
     @property
     def usable_ram_overhead(self):
-        """Per-node RAM not available to VMs = OS RAM + safety buffer."""
+        """Per-node RAM not available to VMs = flat OS RAM + safety buffer. Used
+        where a node's drive-bay count isn't known; prefer
+        ``usable_ram_overhead_for(bays)`` when it is."""
         return self._v["os_ram_gb"] + self._v["ram_buffer_gb"]
+
+    def os_ram_for_bays(self, bays):
+        """OS RAM reserved per node, tiered by drive-bay count (SCRIBE scales with
+        drive count). Falls back to the flat ``os_ram_gb`` when the bay count is
+        unknown (<=0) or the matching tier is disabled (set to 0)."""
+        flat = self._v["os_ram_gb"]
+        if not bays or bays <= 0:
+            return flat
+        if bays <= 4:
+            tier = self._v["os_ram_bays_1_4_gb"]
+        elif bays <= 12:
+            tier = self._v["os_ram_bays_5_12_gb"]
+        else:
+            tier = self._v["os_ram_bays_13_plus_gb"]
+        return tier if tier > 0 else flat
+
+    def usable_ram_overhead_for(self, bays):
+        """Per-node RAM not available to VMs for a node with ``bays`` drive bays =
+        bay-tiered OS RAM + safety buffer."""
+        return self.os_ram_for_bays(bays) + self._v["ram_buffer_gb"]
 
     def as_dict(self):
         return dict(self._v)

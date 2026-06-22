@@ -351,8 +351,10 @@ def calculate_appliance(data, node_count):
                   else raw_per_node / 2)
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
+    # OS RAM overhead is tiered by this node's drive-bay count.
     usable_cores = cpu["cores"] - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead_for(
+        compute_drive_count_appliance(data, storage))
 
     total_cores = usable_cores * node_count
     total_threads = cpu["threads"] * node_count
@@ -610,9 +612,9 @@ def calculate_validated(data, node_count):
                     "flash_percentage": round(flash_pct, 1),
                 }
 
-    # Apply HyperCore OS overhead
+    # Apply HyperCore OS overhead; OS RAM is tiered by the node's drive count.
     usable_cores = cores - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead_for(disk_count)
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)

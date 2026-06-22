@@ -602,11 +602,17 @@
             </div>
             <div class="modal-toolbar">
                 <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." oninput="filterVmTable()">
+                <select id="vm-power-filter" class="vm-power-filter" onchange="setVmPowerFilter(this.value)" title="Filter the table by power state">
+                    <option value="all">All power states</option>
+                    <option value="on">Powered on only</option>
+                    <option value="off">Powered off only</option>
+                </select>
                 <div class="modal-actions">
                     <label class="excl-toggle" title="When selecting powered-off VMs, also exclude their storage">
                         <input type="checkbox" id="excl-include-storage" checked>
                         Include storage in exclusions
                     </label>
+                    <button class="btn btn-sm" onclick="addVm()">+ Add VM</button>
                     <button class="btn btn-sm" onclick="selectPoweredOffVms()">Select powered off</button>
                     <button class="btn btn-sm" onclick="selectLikelyCVMs()">Select likely CVMs</button>
                     <button class="btn btn-sm btn-muted" onclick="clearAllVmExclusions()">Clear all</button>
@@ -626,6 +632,7 @@
                                 <th class="vm-col-num sortable" onclick="sortVmTable('provisioned_memory_gb')" title="RAM (GB) &mdash; editable">RAM (GB)</th>
                                 <th class="vm-col-num sortable" onclick="sortVmTable('vdisk_used_gb')">Storage (GB)</th>
                                 <th class="vm-col-os">OS</th>
+                                <th class="vm-col-action"></th>
                             </tr>
                         </thead>
                         <tbody id="vm-table-body"></tbody>

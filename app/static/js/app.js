@@ -20,6 +20,13 @@ let vmExclusions = { compute: new Set(), storage: new Set() };
 let vmConfig = {};
 let vmSortField = 'name';
 let vmSortAsc = true;
+// VMs the user added (net-new workload not in the import) — indices into
+// importVms. Their storage is additive; compute/RAM fall out of the recompute.
+let vmAdded = new Set();
+// VMs the user removed from the dataset. Implemented as a full exclusion plus a
+// UI marker so the row can be struck through and restored.
+let vmRemoved = new Set();
+let vmPowerFilter = 'all';   // table view filter: 'all' | 'on' | 'off'
 
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
@@ -751,6 +758,9 @@ async function uploadFile(file) {
         includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
         vmConfig = {};
+        vmAdded = new Set();
+        vmRemoved = new Set();
+        vmPowerFilter = 'all';
         updateExclusionCountBadge();
         activeMode = 'import';
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
@@ -1099,6 +1109,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const iops = r.iops || null;
         const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
+        const utilBars = buildUtilizationBars(r);
         const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
         const so = r.storage_only || null;
         const nodesLabel = so
@@ -1156,6 +1167,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                     </table>
                 </div>
             </div>
+            ${utilBars}
             ${iopsHeadroom}
             ${witnessNote}
             <div class="rec-footer">
@@ -1164,6 +1176,33 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             </div>
         </div>
     `}).join('');
+}
+
+// Per-resource utilization bars (demand / available capacity at N-1) for a
+// recommendation. The constraining resource — determinant.resource — is flagged
+// "limiting". IOPS is intentionally left to the headroom line below (its ratios
+// are usually huge, so a near-empty bar would mislead).
+function buildUtilizationBars(r) {
+    const u = r.utilization;
+    if (!u) return '';
+    const binding = (r.determinant && r.determinant.resource) || '';
+    const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
+    const bars = rows.map(([key, val]) => {
+        const pct = Math.max(0, Math.round(val || 0));
+        const width = Math.min(pct, 100);
+        const cls = pct > 90 ? 'util-high' : (pct >= 70 ? 'util-mid' : 'util-low');
+        const bind = key === binding
+            ? ' <span class="util-bind" title="The resource that drove the node count">limiting</span>'
+            : '';
+        return `<div class="util-row">
+            <span class="util-label">${key}${bind}</span>
+            <span class="util-track"><span class="util-fill ${cls}" style="width:${width}%"></span></span>
+            <span class="util-pct">${pct}%</span>
+        </div>`;
+    }).join('');
+    return `<div class="rec-utilization">
+        <div class="util-title">Utilization at N-1</div>${bars}
+    </div>`;
 }
 
 // Informational line comparing the config's net available IOPS against the
@@ -1402,20 +1441,36 @@ function renderVmTable() {
         const powerClass = vm.powered_on ? 'vm-power-on' : 'vm-power-off';
         const powerLabel = vm.powered_on ? 'On' : 'Off';
         const edited = vmConfig[vm._idx] && Object.keys(vmConfig[vm._idx]).length > 0;
-        const rowClass = [excluded ? 'vm-excluded' : '', edited ? 'vm-edited' : ''].filter(Boolean).join(' ');
+        const isAdded = vmAdded.has(vm._idx);
+        const isRemoved = vmRemoved.has(vm._idx);
+        const rowClass = [excluded ? 'vm-excluded' : '', edited ? 'vm-edited' : '',
+                          isAdded ? 'vm-added' : '', isRemoved ? 'vm-removed' : '']
+                         .filter(Boolean).join(' ');
         const model = vmVal(vm, vm._idx, 'model') || '';
         const cores = vmVal(vm, vm._idx, 'vcpus');
         const ram = vmVal(vm, vm._idx, 'provisioned_memory_gb');
-        return `<tr class="${rowClass}" data-idx="${vm._idx}">
+        const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
+        const name = vmVal(vm, vm._idx, 'name') || '';
+        const nameCell = isAdded
+            ? `<input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"> <span class="vm-tag">new</span>`
+            : `<span title="${name}">${name}</span>`;
+        const storCell = isAdded
+            ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" onchange="setVmConfig(${vm._idx},'vdisk_used_gb',this.value)">`
+            : `${(stor || 0).toFixed(1)}`;
+        const action = isRemoved
+            ? `<button class="vm-action-btn vm-restore" title="Restore this VM" onclick="restoreVm(${vm._idx})">↺</button>`
+            : `<button class="vm-action-btn vm-remove" title="Remove this VM from the dataset" onclick="removeVm(${vm._idx})">&times;</button>`;
+        return `<tr class="${rowClass}" data-idx="${vm._idx}" data-power="${vm.powered_on ? 'on' : 'off'}">
             <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
             <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
-            <td class="vm-col-name" title="${vm.name}">${vm.name}</td>
+            <td class="vm-col-name">${nameCell}</td>
             <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${model.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
             <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" onchange="setVmConfig(${vm._idx},'vcpus',this.value)"></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" onchange="setVmConfig(${vm._idx},'provisioned_memory_gb',this.value)"></td>
-            <td class="vm-col-num">${vm.vdisk_used_gb.toFixed(1)}</td>
+            <td class="vm-col-num">${storCell}</td>
             <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
+            <td class="vm-col-action">${action}</td>
         </tr>`;
     }).join('');
 
@@ -1452,8 +1507,57 @@ function filterVmTable() {
         const name = row.children[2].textContent.toLowerCase();
         const model = (row.children[3].querySelector('input')?.value || '').toLowerCase();
         const os = row.children[8].textContent.toLowerCase();
-        row.classList.toggle('vm-hidden', q && !name.includes(q) && !os.includes(q) && !model.includes(q));
+        const matchText = !q || name.includes(q) || os.includes(q) || model.includes(q);
+        const matchPower = vmPowerFilter === 'all'
+            || vmPowerFilter === row.getAttribute('data-power');
+        row.classList.toggle('vm-hidden', !(matchText && matchPower));
     });
+}
+
+function setVmPowerFilter(val) {
+    vmPowerFilter = val;
+    filterVmTable();
+}
+
+// Append a blank, fully-editable VM (net-new workload not in the import). Its
+// compute/RAM fall out of the summary recompute; its storage is added there.
+function addVm() {
+    const idx = importVms.length;
+    importVms.push({
+        name: 'New VM', powered_on: true, is_template: false, os: '', model: '',
+        vcpus: 2, provisioned_memory_gb: 4, consumed_memory_gb: 0, used_memory_gb: 0,
+        disk_capacity_gb: 0, disk_used_gb: 0, vdisk_size_gb: 0, vdisk_used_gb: 0,
+    });
+    vmAdded.add(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+    const row = document.querySelector(`#vm-table-body tr[data-idx="${idx}"]`);
+    if (row) {
+        row.scrollIntoView({ block: 'center' });
+        const input = row.querySelector('input.vm-edit-text');
+        if (input) input.select();
+    }
+}
+
+// Remove a VM from the dataset. Reuses the exclusion math (drop from every total)
+// and marks it so the row can be struck through and restored.
+function removeVm(idx) {
+    vmRemoved.add(idx);
+    vmExclusions.compute.add(idx);
+    vmExclusions.storage.add(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+function restoreVm(idx) {
+    vmRemoved.delete(idx);
+    vmExclusions.compute.delete(idx);
+    vmExclusions.storage.delete(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
 }
 
 function toggleVmExclusion(idx, type, checked) {
@@ -1477,7 +1581,7 @@ function setVmConfig(idx, field, value) {
     let v;
     if (field === 'vcpus') {
         v = Math.max(1, Math.round(parseFloat(value) || 0));
-    } else if (field === 'provisioned_memory_gb') {
+    } else if (field === 'provisioned_memory_gb' || field === 'vdisk_used_gb') {
         v = Math.max(0, Math.round((parseFloat(value) || 0) * 10) / 10);
     } else {
         v = (value || '').trim();
@@ -1620,8 +1724,11 @@ function computeAdjustedImportSummary() {
     adjusted.max_vm_ram_gb = maxVmRam;
     adjusted.max_vm_cores = maxVmCores;
 
+    // Excluded/removed IMPORTED VMs are subtracted from the measured datastore
+    // totals (added VMs aren't in those totals, so they're skipped here).
     let exclStorGbAll = 0, exclProvStorGbActive = 0, exclStorGbActive = 0;
     vmExclusions.storage.forEach(i => {
+        if (vmAdded.has(i)) return;
         const vm = importVms[i];
         exclStorGbAll += vm.vdisk_used_gb;
         if (vm.powered_on && !vm.is_template) {
@@ -1630,10 +1737,24 @@ function computeAdjustedImportSummary() {
         }
     });
 
-    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024) * 100) / 100;
-    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive) * 10) / 10;
+    // Added VMs contribute net-new storage (unless removed or storage-excluded).
+    // A new VM is given a single storage figure, used for both used and provisioned.
+    let addStorGbAll = 0, addProvStorGbActive = 0, addStorGbActive = 0;
+    vmAdded.forEach(i => {
+        if (vmRemoved.has(i) || vmExclusions.storage.has(i)) return;
+        const vm = importVms[i];
+        const used = vmVal(vm, i, 'vdisk_used_gb') || 0;
+        addStorGbAll += used;
+        if (vm.powered_on && !vm.is_template) {
+            addStorGbActive += used;
+            addProvStorGbActive += used;
+        }
+    });
+
+    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024 + addStorGbAll / 1024) * 100) / 100;
+    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
     adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / 1024 * 100) / 100;
-    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive) * 10) / 10;
+    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
     adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;

@@ -130,6 +130,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     models = model_q.all()
     candidates = []
     matched_storage = 0
+    # Best single-node hosting capacity across the considered (non-cloud) catalog,
+    # used to explain an empty result caused by an over-large VM.
+    catalog_max_threads = 0
+    catalog_max_usable_ram = 0
 
     for m in models:
         md = m.to_dict()
@@ -144,6 +148,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         if storage_pref and STORAGE_CATEGORIES.get(stype) != storage_pref:
             continue
         matched_storage += 1
+        catalog_max_threads = max(
+            catalog_max_threads,
+            max((c["threads"] for c in md["cpu_options"]), default=0))
+        _md_overhead = T.usable_ram_overhead_for(_bay_count(md["storage"]))
+        catalog_max_usable_ram = max(
+            catalog_max_usable_ram,
+            max((r - _md_overhead for r in md["ram_options_gb"]), default=0))
 
         fits = _fit_model(md, needs, required_cores, validated=validated,
                           validated_only=md.get("validated_only", False),
@@ -213,6 +224,30 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             "7–24.3%). Try Certified mode or raise the target node count."
         )
 
+    # Empty result with no more specific reason: usually a single VM too large
+    # for any node. Name the offending dimension(s) so the user knows what to fix.
+    if not deduped and not warnings:
+        mv_cores = needs.get("max_vm_cores", 0)
+        mv_ram = needs.get("max_vm_ram_gb", 0)
+        reasons = []
+        if mv_cores and catalog_max_threads and mv_cores > catalog_max_threads:
+            reasons.append(f"its {mv_cores} vCPUs exceed the largest node's "
+                           f"{catalog_max_threads} logical processors")
+        if mv_ram and catalog_max_usable_ram and mv_ram > catalog_max_usable_ram:
+            reasons.append(f"its {mv_ram:.0f} GB RAM exceeds the largest node's "
+                           f"{catalog_max_usable_ram:.0f} GB usable RAM")
+        if reasons:
+            warnings.append(
+                "No SC// configuration fits this workload: the largest VM can't "
+                "run on any single node — " + "; and ".join(reasons) +
+                ". Split or shrink that VM, or add a larger node to the catalog."
+            )
+        else:
+            warnings.append(
+                "No SC// configuration fits this workload. Try a higher vCPU:core "
+                "ratio or relaxing the storage/node constraints."
+            )
+
     # Build warnings — only warn when EVERY recommendation is tight on RAM
     max_vm_ram = needs["max_vm_ram_gb"]
     if max_vm_ram > 0 and deduped:
@@ -230,6 +265,22 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                 f"Largest VM ({max_vm_ram:.0f} GB RAM) uses {worst_pct:.0f}%+ of "
                 f"usable node RAM across all recommendations. "
                 f"Check HA implications."
+            )
+
+    # VM density: warn when the headline (top-ranked) recommendation packs more
+    # than the admin-tuned ceiling of VMs onto each VM-running node (scheduling/
+    # management overhead). Density uses the HCI node count in normal operation;
+    # lower-ranked options with more nodes are still available to the user.
+    active_vms = summary.get("active_vms", 0)
+    if active_vms > 0 and deduped:
+        top = deduped[0]
+        hci = top.get("hci_node_count", top["node_count"])
+        if hci > 0 and active_vms / hci > T.vm_density_warn_per_node:
+            warnings.append(
+                f"High VM density: the top recommendation runs ~{active_vms / hci:.0f} "
+                f"VMs per node ({active_vms} VMs across {hci} nodes, >"
+                f"{T.vm_density_warn_per_node}/node). Expect scheduling and "
+                f"management overhead; a higher node count spreads the load."
             )
 
     peak_ghz = summary.get("peak_cpu_ghz", 0)
@@ -381,7 +432,7 @@ def _cluster_usable_storage(raw_per_node, biggest_disk, cluster_sizes):
 
 
 def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
-               num_clusters, node_count, full_cluster):
+               num_clusters, node_count, full_cluster, ram_overhead=None):
     """For a storage-bound config, find the fewest full HCI nodes that still
     satisfy compute + RAM (so the rest can be storage-only). Returns
     (hci_nodes, ram_gb). Enforces >=2 HCI per cluster and at least one compute
@@ -394,7 +445,7 @@ def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
             continue
         if usable_cores * comp < required_cores:
             continue
-        ram = _pick_ram(viable_ram_options, ram_need, h, num_clusters)
+        ram = _pick_ram(viable_ram_options, ram_need, h, num_clusters, ram_overhead)
         if ram is None:
             continue
         return h, ram
@@ -406,6 +457,9 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     storage = model["storage"]
+    # OS RAM overhead is tiered by this node's drive-bay count (SCRIBE scales with
+    # drive count); compute it once for the model and use it everywhere below.
+    ram_overhead = T.usable_ram_overhead_for(_bay_count(storage))
     # 2-node clusters (with a witness) are supported; per-model minimums (e.g. 3)
     # still win where the hardware requires them.
     min_nodes = max(model.get("min_nodes", 2), 2)
@@ -426,9 +480,14 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     viable_ram_options = model["ram_options_gb"]
     if max_vm_ram > 0:
         viable_ram_options = [r for r in viable_ram_options
-                              if (r - T.usable_ram_overhead) >= max_vm_ram]
+                              if (r - ram_overhead) >= max_vm_ram]
     if not viable_ram_options:
         return results
+
+    # A single VM runs on one node, so the largest VM's vCPUs must fit within a
+    # node's logical processors (threads). Filter out CPU options that can't host
+    # it — the symmetric CPU counterpart to the RAM filter above.
+    max_vm_cores = needs.get("max_vm_cores", 0)
 
     max_ram = max(viable_ram_options)
 
@@ -437,7 +496,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1_nodes = n - len(layout)
-            if (max_ram - T.usable_ram_overhead) * n1_nodes >= needs["ram_gb"]:
+            if (max_ram - ram_overhead) * n1_nodes >= needs["ram_gb"]:
                 needed_nodes_ram = n
                 break
 
@@ -454,6 +513,12 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         usable_cores = cores_per_node - T.os_core_overhead
 
         if cores_per_node == 0 or usable_cores <= 0:
+            continue
+
+        # Skip CPUs that can't host the largest single VM (its vCPUs exceed the
+        # node's logical processors). If this eliminates every CPU for the model,
+        # the model yields no fit — same as the RAM filter.
+        if max_vm_cores > 0 and threads_per_node < max_vm_cores:
             continue
 
         full_cluster = needs.get("size_full_cluster", False)
@@ -505,12 +570,13 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if allow_storage_only:
                 hci_nodes, ram_gb = _hci_split(
                     usable_cores, required_cores, viable_ram_options,
-                    needs["ram_gb"], num_clusters, node_count, full_cluster)
+                    needs["ram_gb"], num_clusters, node_count, full_cluster,
+                    ram_overhead)
                 so_nodes = node_count - hci_nodes
             if ram_gb is None:
                 hci_nodes, so_nodes = node_count, 0
                 ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
-                                   node_count, num_clusters)
+                                   node_count, num_clusters, ram_overhead)
             if not ram_gb:
                 continue
 
@@ -525,7 +591,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if not stor:
                 continue
 
-            usable_ram_per_node = ram_gb - T.usable_ram_overhead
+            usable_ram_per_node = ram_gb - ram_overhead
 
             total_cores = cores_per_node * hci_nodes
             total_threads = threads_per_node * hci_nodes
@@ -579,6 +645,16 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             core_headroom = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
             ram_headroom = (usable_ram_per_node * compute_n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
+
+            # Utilization = demand / available capacity (%), on the same N-1 (or
+            # full-cluster) basis the fit was gated on. Drives the per-resource
+            # bars in the UI; the constraining resource is determinant["resource"].
+            ram_avail = usable_ram_per_node * compute_n1_nodes
+            utilization = {
+                "cpu": round(required_cores / cpu_avail * 100) if cpu_avail > 0 else 0,
+                "ram": round(needs["ram_gb"] / ram_avail * 100) if ram_avail > 0 else 0,
+                "storage": round(needs["usable_storage_tb"] / usable * 100) if usable > 0 else 0,
+            }
 
             # Right-sizing score (lower = better) — see the weight block above
             # _rank_key. One combined waste term (each dimension capped so a
@@ -683,6 +759,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "vcpu_ratio_degraded": round(n1_ratio, 2),
                 "sized_full_cluster": full_cluster,
                 "determinant": determinant,
+                "utilization": utilization,
                 "validated": validated,
                 "validated_only": validated_only,
                 "iops": iops_block,
@@ -760,10 +837,28 @@ def _max_raw_per_node(storage):
     return 0, 0
 
 
-def _pick_ram(options, total_needed_gb, node_count, num_clusters=1):
+def _bay_count(storage):
+    """Total drive bays in one node, used to tier the OS RAM overhead (SCRIBE
+    scales with drive count). Returns 0 (flat-overhead fallback) for cloud or
+    unrecognised storage."""
+    stype = storage.get("type", "")
+    if stype in ("nvme_only", "ssd_only", "hdd_only"):
+        return storage.get("drives_per_node", 0)
+    if stype == "hybrid":
+        return storage.get("hdd_count", 0) + storage.get("ssd_count", 0)
+    if stype == "hybrid_nvme":
+        return storage.get("hdd_count", 0) + storage.get("nvme_count", 0)
+    if stype == "nvme_and_ssd":
+        return 2
+    return 0
+
+
+def _pick_ram(options, total_needed_gb, node_count, num_clusters=1, ram_overhead=None):
+    if ram_overhead is None:
+        ram_overhead = T.usable_ram_overhead
     n1_nodes = node_count - num_clusters
     for r in sorted(options):
-        if (r - T.usable_ram_overhead) * n1_nodes >= total_needed_gb:
+        if (r - ram_overhead) * n1_nodes >= total_needed_gb:
             return r
     return None
 
