@@ -154,6 +154,13 @@ class Model(db.Model):
     psu = db.Column(db.String(60))
     ram_slots = db.Column(db.Integer)
     min_nodes = db.Column(db.Integer, default=1)
+    # Relative cost weight (per-model, admin-tunable). Used as a ranking
+    # tiebreaker so that — among configs that fit equally well — the cheaper
+    # platform wins. Wider gaps between families give the recommender more
+    # incentive to pick a smaller appliance instead of over-sizing. Nullable so
+    # the boot migration can back-fill existing rows from seed defaults without
+    # clobbering later admin edits (see seed._migrate_schema).
+    cost_tier = db.Column(db.Float, default=5.0)
     # Software-only platform with no certified equivalent: hidden from Certified
     # recommendations, shown (disk-flexed, plain-named) only in Validated mode.
     validated_only = db.Column(db.Boolean, nullable=False, default=False)
@@ -228,6 +235,7 @@ class Model(db.Model):
             "psu": self.psu,
             "ram_slots": self.ram_slots,
             "min_nodes": self.min_nodes,
+            "cost_tier": self.cost_tier if self.cost_tier is not None else 5.0,
             "validated_only": self.validated_only,
             "notes": self.notes,
             "cpu_options": cpu_options,

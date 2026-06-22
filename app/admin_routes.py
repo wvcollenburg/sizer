@@ -386,6 +386,8 @@ def update_model(model_id):
     model.psu = data.get("psu", model.psu)
     model.ram_slots = data.get("ram_slots", model.ram_slots)
     model.min_nodes = data.get("min_nodes", model.min_nodes)
+    if "cost_tier" in data and data["cost_tier"] not in (None, ""):
+        model.cost_tier = float(data["cost_tier"])
     if "validated_only" in data:
         model.validated_only = bool(data["validated_only"])
     model.notes = data.get("notes", model.notes)
@@ -464,7 +466,8 @@ def export_models():
     ws = wb.active
     ws.title = "Models"
     ws.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-               "Socket", "PSU", "RAM Slots", "Min Nodes", "Validated Only", "Notes"])
+               "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
+               "Validated Only", "Notes"])
     style_headers(ws)
 
     ws_cpu = wb.create_sheet("CPU Options")
@@ -491,7 +494,7 @@ def export_models():
     models = _model_query().order_by(Model.category, Model.name).all()
     for m in models:
         ws.append([m.name, m.status, m.category, m.form_factor, m.chassis,
-                   m.socket, m.psu, m.ram_slots, m.min_nodes,
+                   m.socket, m.psu, m.ram_slots, m.min_nodes, m.cost_tier,
                    "Yes" if m.validated_only else "No", m.notes])
 
         for link in sorted(m.cpu_links, key=lambda l: l.sort_order):
@@ -723,6 +726,7 @@ def _import_catalog_from_excel(file_path):
                 "psu": str(r.get("PSU", "") or "").strip() or None,
                 "ram_slots": int(r.get("RAM Slots", 0) or 0),
                 "min_nodes": int(r.get("Min Nodes", 1) or 1),
+                "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
                 "validated_only": str(r.get("Validated Only", "")).strip().lower()
                                   in ("yes", "true", "1"),
                 "notes": str(r.get("Notes", "") or "").strip() or None,
@@ -796,11 +800,11 @@ def catalog_template():
 
     ws_mod = wb.create_sheet("Models")
     ws_mod.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Notes"])
+                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost", "Notes"])
     style_headers(ws_mod)
     example_rows(ws_mod, [
         [ex, "Active", "1U All-Flash", "1U Rack", "Dell PowerEdge R660",
-         "single", "2x 800W", 16, 3, None],
+         "single", "2x 800W", 16, 3, 28, None],
     ])
 
     ws_mcpu = wb.create_sheet("Model CPU Options")
@@ -894,6 +898,7 @@ def _build_model(data):
         psu=data.get("psu"),
         ram_slots=data.get("ram_slots", 0),
         min_nodes=data.get("min_nodes", 1),
+        cost_tier=float(data["cost_tier"]) if data.get("cost_tier") not in (None, "") else 5.0,
         validated_only=bool(data.get("validated_only", False)),
         notes=data.get("notes"),
     )

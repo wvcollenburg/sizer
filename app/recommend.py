@@ -368,37 +368,10 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
 
 MAX_NODES_PER_CLUSTER = 8
 
-COST_TIERS = {
-    "SE":     3,   # Lenovo
-    "HE15":   1,   # Intel NUC class
-    "HE25":   2,   # Minisforum/SNUC class
-    "HE5":    5,   # Supermicro 1U entry
-    "HC1":    6,   # Supermicro datacenter 1U
-    "HC3F":  10,   # Dell/Lenovo single-socket server
-    "HC3DF": 12,   # Dell/Lenovo dual-socket server
-    "HC5H":  13,   # 2U HDD-only (no NVMe)
-    "HC5D":  14,   # 2U hybrid with NVMe
-}
-
-
-def _model_cost_tier(name):
-    if name.startswith("SE"):
-        return COST_TIERS["SE"]
-    if name.startswith("HE15"):
-        return COST_TIERS["HE15"]
-    if name.startswith("HE25"):
-        return COST_TIERS["HE25"]
-    if name.startswith("HE5"):
-        return COST_TIERS["HE5"]
-    if name.startswith("HC1"):
-        return COST_TIERS["HC1"]
-    if name.startswith("HC3"):
-        return COST_TIERS["HC3DF"] if "DF" in name else COST_TIERS["HC3F"]
-    if name.startswith("HC5"):
-        if "50" in name:
-            return COST_TIERS["HC5D"]
-        return COST_TIERS["HC5H"]
-    return 5
+# Fallback cost weight if a model row somehow has no cost_tier (mirrors
+# models.DEFAULT_MODEL_COST). Cost is now a per-model database setting
+# (models.cost_tier), seeded from models.MODEL_COSTS and admin-tunable.
+DEFAULT_COST_TIER = 5
 
 
 def _cluster_layout(total_nodes):
@@ -596,7 +569,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             full_ratio = needs["vcpus"] / full_usable_cores if full_usable_cores > 0 else 99
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
-            cost_tier = _model_cost_tier(model["name"])
+            cost_tier = model.get("cost_tier") or DEFAULT_COST_TIER
             excess_cores = usable_cores * hci_nodes - required_cores
 
             score = node_count * 20

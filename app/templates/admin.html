@@ -79,6 +79,7 @@
                             <th>RAM Options</th>
                             <th>Storage</th>
                             <th>Min Nodes</th>
+                            <th>Cost</th>
                             <th class="col-actions">Actions</th>
                         </tr>
                     </thead>
@@ -522,6 +523,11 @@
                         <div class="form-group">
                             <label>Min Nodes</label>
                             <input type="number" id="edit-min-nodes" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Cost</label>
+                            <input type="number" id="edit-cost-tier" value="5" min="0" step="0.5"
+                                   title="Relative cost weight used as a ranking tiebreaker — lower wins among configs that fit equally well. Wider gaps between models steer the recommender away from over-sizing. Roughly: edge 2–5, 1U 8–12, datacenter 1U 14–24, all-flash 26–40, 2U 22–40.">
                         </div>
                     </div>
 

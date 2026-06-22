@@ -28,7 +28,10 @@ SIZING_SETTING_DEFAULTS = {
     "iops_replication_factor": 2,   # RF2
     "iops_read_fraction": 0.70,     # 70/30 read/write
 }
-from models import APPLIANCE_MODELS, VALIDATED_NICS, SWITCHING
+from models import (
+    APPLIANCE_MODELS, VALIDATED_NICS, SWITCHING,
+    MODEL_COSTS, DEFAULT_MODEL_COST,
+)
 
 _cpu_cache = {}
 _nic_cache = {}
@@ -88,6 +91,11 @@ def _migrate_schema():
     stmts = [
         "ALTER TABLE models ADD COLUMN IF NOT EXISTS "
         "validated_only BOOLEAN NOT NULL DEFAULT false",
+        # Per-model relative cost weight. Nullable on purpose: freshly added rows
+        # start NULL and get back-filled from MODEL_COSTS just below, but only
+        # while NULL — so an admin's later per-model cost edit is never clobbered
+        # on the next boot.
+        "ALTER TABLE models ADD COLUMN IF NOT EXISTS cost_tier DOUBLE PRECISION",
         # Auth columns added after the users table first shipped — additive so
         # existing test/prod databases pick them up on boot.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
@@ -107,6 +115,21 @@ def _migrate_schema():
     ]
     for sql in stmts:
         db.session.execute(text(sql))
+    db.session.commit()
+
+    # Back-fill per-model cost weights on existing databases (insert-if-NULL,
+    # never overwrite an admin edit). Fresh seeds set cost_tier directly in
+    # seed_appliance_models(); this catches rows that predate the column.
+    db.session.execute(
+        text("UPDATE models SET cost_tier = :c WHERE cost_tier IS NULL "
+             "AND name = :n"),
+        [{"c": cost, "n": name} for name, cost in MODEL_COSTS.items()],
+    )
+    # Any model with no entry in MODEL_COSTS still gets a sane default.
+    db.session.execute(
+        text("UPDATE models SET cost_tier = :c WHERE cost_tier IS NULL"),
+        {"c": DEFAULT_MODEL_COST},
+    )
     db.session.commit()
 
     # Back-fill per-drive-type IOPS defaults (insert-if-missing, never overwrite
@@ -212,6 +235,7 @@ def seed_appliance_models():
             psu=data.get("psu"),
             ram_slots=data.get("ram_slots", 0),
             min_nodes=data.get("min_nodes", 1),
+            cost_tier=MODEL_COSTS.get(name, DEFAULT_MODEL_COST),
             notes=data.get("notes"),
         )
         db.session.add(model)

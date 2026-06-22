@@ -153,6 +153,7 @@ function renderModelTable() {
             <td class="cell-list">${ramSummary}</td>
             <td>${esc(storType)}</td>
             <td>${m.min_nodes}</td>
+            <td>${m.cost_tier ?? '-'}</td>
             <td class="col-actions">
                 <button class="btn-icon" title="Edit" onclick="openEditModel(${m.id})">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -481,6 +482,7 @@ function openAddModel() {
     document.getElementById('edit-psu').value = '';
     document.getElementById('edit-ram-slots').value = '0';
     document.getElementById('edit-min-nodes').value = '1';
+    document.getElementById('edit-cost-tier').value = '5';
     document.getElementById('edit-validated-only').checked = false;
     document.getElementById('edit-notes').value = '';
 
@@ -520,6 +522,8 @@ async function openEditModel(id) {
     document.getElementById('edit-psu').value = m.psu || '';
     document.getElementById('edit-ram-slots').value = m.ram_slots || 0;
     document.getElementById('edit-min-nodes').value = m.min_nodes || 1;
+    document.getElementById('edit-cost-tier').value =
+        (m.cost_tier !== undefined && m.cost_tier !== null) ? m.cost_tier : 5;
     document.getElementById('edit-validated-only').checked = !!m.validated_only;
     document.getElementById('edit-notes').value = m.notes || '';
 
@@ -844,6 +848,7 @@ async function saveModel() {
         psu: document.getElementById('edit-psu').value.trim() || null,
         ram_slots: parseInt(document.getElementById('edit-ram-slots').value) || 0,
         min_nodes: parseInt(document.getElementById('edit-min-nodes').value) || 1,
+        cost_tier: parseFloat(document.getElementById('edit-cost-tier').value) || 5,
         validated_only: document.getElementById('edit-validated-only').checked,
         notes: document.getElementById('edit-notes').value.trim() || null,
         cpu_options: cpuOptions,
