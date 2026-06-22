@@ -1180,6 +1180,13 @@ body { padding-bottom: 64px; }
 .rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
 .rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
 
+/* Witness note belongs to the specific 2-node recommendation, so it sits inside
+   the card (tighter than the standalone info-bar). */
+.rec-card .info-bar {
+    margin: 0 1.2rem 1rem;
+    font-size: 0.8rem;
+}
+
 .btn-export {
     background: var(--accent);
     color: #fff;

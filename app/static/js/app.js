@@ -1067,14 +1067,14 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             '</div>';
     }
 
-    // Show the witness requirement once if any recommendation is a 2-node cluster
-    // (storage-only nodes add quorum, so those never count as 2-node here).
+    // The witness requirement applies per recommendation: only a config whose
+    // cluster is exactly 2 nodes needs one (storage-only nodes add quorum, so
+    // those never count as 2-node here). It's shown inside that specific card.
     const recTotalNodes = r => r.storage_only
         ? (r.hci_node_count || r.node_count) + r.storage_only.count
         : r.node_count;
-    const witnessHtml = recommendations.some(r => recTotalNodes(r) === 2) ? witnessBarHtml() : '';
 
-    recList.innerHTML = witnessHtml + warningsHtml + recommendations.map((r, i) => {
+    recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
         const clusterInfo = r.num_clusters > 1
             ? `${r.num_clusters} clusters (${r.cluster_layout.join(' + ')})`
             : '1 cluster';
@@ -1090,6 +1090,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const iops = r.iops || null;
         const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
+        const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
         const so = r.storage_only || null;
         const nodesLabel = so
             ? `${r.hci_node_count} HCI + ${so.count} storage-only`
@@ -1147,6 +1148,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 </div>
             </div>
             ${iopsHeadroom}
+            ${witnessNote}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
