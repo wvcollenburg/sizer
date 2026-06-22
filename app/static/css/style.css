@@ -1604,6 +1604,15 @@ body { padding-bottom: 64px; }
 }
 .vm-action-btn.vm-remove:hover { color: var(--red); background: #fff0f0; }
 .vm-action-btn.vm-restore { color: var(--accent); }
+.vm-action-btn.vm-clone { color: var(--text-muted); }
+.vm-action-btn.vm-clone:hover { color: var(--accent); background: #eef5fc; }
+.vm-action-btn.vm-clone svg { vertical-align: -2px; }
+
+/* Manual-VM action column holds clone + remove. */
+#manual-vm-modal .vm-col-action { width: 68px; white-space: nowrap; text-align: right; }
+
+/* Clone options popup stacks above the manual VM modal. */
+#clone-vm-modal { z-index: 1001; }
 .vm-power-filter {
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--border);

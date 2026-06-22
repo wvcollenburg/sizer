@@ -1303,6 +1303,76 @@ function removeManualVm(i) {
     updateManualVmSummary();
 }
 
+let cloneSrcIdx = null;
+
+function openCloneModal(i) {
+    cloneSrcIdx = i;
+    const vm = manualVms[i];
+    document.getElementById('clone-count').value = 1;
+    document.getElementById('clone-autoinc').checked = true;
+    document.getElementById('clone-source-name').textContent = vm ? (vm.name || 'VM') : 'VM';
+    document.getElementById('clone-vm-modal').style.display = 'flex';
+    document.getElementById('clone-count').focus();
+}
+
+function closeCloneModal() {
+    document.getElementById('clone-vm-modal').style.display = 'none';
+    cloneSrcIdx = null;
+}
+
+function confirmCloneVm() {
+    const count = Math.max(1, Math.min(500, parseInt(document.getElementById('clone-count').value) || 1));
+    const autoInc = document.getElementById('clone-autoinc').checked;
+    cloneManualVm(cloneSrcIdx, count, autoInc);
+    closeCloneModal();
+}
+
+function _escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Insert `count` copies of manualVms[srcIdx] right after it. With auto-increment,
+// the trailing number on the name is bumped (preserving zero-padding), starting
+// after the highest existing number in that name series to avoid collisions
+// (DC01 with DC02 present -> DC03, DC04). Names with no trailing number get a
+// " N" suffix; without auto-increment the name is duplicated as-is.
+function cloneManualVm(srcIdx, count, autoInc) {
+    const src = manualVms[srcIdx];
+    if (!src) return;
+    const m = String(src.name || '').match(/^(.*?)(\d+)$/);
+    let prefix = '', width = 0, start = 0, mode = 'plain';
+    if (autoInc && m) {
+        prefix = m[1];
+        width = m[2].length;
+        let maxVal = parseInt(m[2], 10);
+        const re = new RegExp('^' + _escapeRegExp(prefix) + '(\\d+)$');
+        manualVms.forEach(vm => {
+            const mm = String(vm.name || '').match(re);
+            if (mm) maxVal = Math.max(maxVal, parseInt(mm[1], 10));
+        });
+        start = maxVal + 1;
+        mode = 'number';
+    } else if (autoInc) {
+        mode = 'suffix';
+    }
+    for (let k = 0; k < count; k++) {
+        let name;
+        if (mode === 'number') {
+            name = prefix + String(start + k).padStart(width, '0');
+        } else if (mode === 'suffix') {
+            name = `${src.name} ${k + 2}`;
+        } else {
+            name = src.name;
+        }
+        manualVms.splice(srcIdx + 1 + k, 0, {
+            name, powered_on: src.powered_on, vcpus: src.vcpus,
+            ram_gb: src.ram_gb, storage_gb: src.storage_gb,
+        });
+    }
+    renderManualVmTable();
+    updateManualVmSummary();
+}
+
 function setManualVm(i, field, value) {
     const vm = manualVms[i];
     if (!vm) return;
@@ -1332,7 +1402,10 @@ function renderManualVmTable() {
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" onchange="setManualVm(${i},'vcpus',this.value)"></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" onchange="setManualVm(${i},'ram_gb',this.value)"></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" onchange="setManualVm(${i},'storage_gb',this.value)"></td>
-            <td class="vm-col-action"><button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button></td>
+            <td class="vm-col-action">
+                <button class="vm-action-btn vm-clone" title="Clone this VM" onclick="openCloneModal(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button>
+            </td>
         </tr>`).join('');
 }
 

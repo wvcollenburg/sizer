@@ -692,6 +692,33 @@
         </div>
     </div>
 
+    <!-- Clone VM options (sub-modal of the manual VM modal) -->
+    <div class="modal-overlay" id="clone-vm-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Clone <span id="clone-source-name"></span></h2>
+                <button class="modal-close" onclick="closeCloneModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Number of copies</label>
+                    <input type="number" id="clone-count" value="1" min="1" max="500">
+                </div>
+                <label class="excl-toggle" title="Bump the trailing number on the name for each copy, keeping zero-padding (DC01 → DC02, DC03…)">
+                    <input type="checkbox" id="clone-autoinc" checked>
+                    Auto-increment name (DC01 &rarr; DC02, DC03…)
+                </label>
+            </div>
+            <div class="modal-footer">
+                <div></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" onclick="closeCloneModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmCloneVm()">Clone</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Auth modal (sign in / sign up) -->
     <div class="modal-overlay" id="auth-modal" style="display:none">
         <div class="modal-content modal-sm">
