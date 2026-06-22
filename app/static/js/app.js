@@ -1263,6 +1263,151 @@ function buildIopsHeadroom(iops, demand) {
 
 let manualSummary = null;
 
+// Per-VM manual entry. The user builds a VM list in a modal; the totals fill the
+// Workload Requirements fields and act as a floor (those fields can be raised but
+// not set below the entered VMs).
+let manualVms = [];
+let manualVmFloors = {};   // { vcpus, prov_ram, prov_storage_tb, ds_used_tb, total_vms, active_vms }
+
+function openManualVmModal() {
+    if (!manualVms.length) addManualVm();   // start with one editable row
+    renderManualVmTable();
+    updateManualVmSummary();
+    document.getElementById('manual-vm-modal').style.display = 'flex';
+}
+
+function closeManualVmModal() {
+    document.getElementById('manual-vm-modal').style.display = 'none';
+}
+
+function addManualVm() {
+    manualVms.push({
+        name: `VM ${manualVms.length + 1}`, powered_on: true,
+        vcpus: 2, ram_gb: 4, storage_gb: 0,
+    });
+    renderManualVmTable();
+    updateManualVmSummary();
+    const body = document.getElementById('manual-vm-body');
+    const rows = body.querySelectorAll('tr');
+    const last = rows[rows.length - 1];
+    if (last) {
+        last.scrollIntoView({ block: 'center' });
+        const input = last.querySelector('input.vm-edit-text');
+        if (input) input.select();
+    }
+}
+
+function removeManualVm(i) {
+    manualVms.splice(i, 1);
+    renderManualVmTable();
+    updateManualVmSummary();
+}
+
+function setManualVm(i, field, value) {
+    const vm = manualVms[i];
+    if (!vm) return;
+    if (field === 'name') {
+        vm.name = (value || '').trim();
+    } else if (field === 'powered_on') {
+        vm.powered_on = value === 'on' || value === true;
+    } else if (field === 'vcpus') {
+        vm.vcpus = Math.max(1, Math.round(parseFloat(value) || 0));
+    } else {  // ram_gb, storage_gb
+        vm[field] = Math.max(0, Math.round((parseFloat(value) || 0) * 10) / 10);
+    }
+    updateManualVmSummary();
+}
+
+function renderManualVmTable() {
+    const body = document.getElementById('manual-vm-body');
+    body.innerHTML = manualVms.map((vm, i) => `
+        <tr data-idx="${i}">
+            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${(vm.name || '').replace(/"/g, '&quot;')}" onchange="setManualVm(${i},'name',this.value)"></td>
+            <td class="vm-col-power">
+                <select class="vm-edit" onchange="setManualVm(${i},'powered_on',this.value)">
+                    <option value="on"${vm.powered_on ? ' selected' : ''}>On</option>
+                    <option value="off"${vm.powered_on ? '' : ' selected'}>Off</option>
+                </select>
+            </td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" onchange="setManualVm(${i},'vcpus',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" onchange="setManualVm(${i},'ram_gb',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" onchange="setManualVm(${i},'storage_gb',this.value)"></td>
+            <td class="vm-col-action"><button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button></td>
+        </tr>`).join('');
+}
+
+function manualVmTotals() {
+    let vcpus = 0, ram = 0, storage = 0, active = 0;
+    manualVms.forEach(vm => {
+        vcpus += vm.vcpus || 0;
+        ram += vm.ram_gb || 0;
+        storage += vm.storage_gb || 0;
+        if (vm.powered_on) active++;
+    });
+    return {
+        count: manualVms.length, active, vcpus,
+        ram_gb: Math.round(ram * 10) / 10,
+        storage_gb: Math.round(storage * 10) / 10,
+        storage_tb: Math.round(storage / 1024 * 100) / 100,
+    };
+}
+
+function updateManualVmSummary() {
+    const t = manualVmTotals();
+    document.getElementById('manual-vm-summary').textContent =
+        `${t.count} VM${t.count === 1 ? '' : 's'} (${t.active} on) · ${t.vcpus} vCPUs · ${t.ram_gb} GB RAM · ${t.storage_gb} GB storage`;
+}
+
+// Apply the entered VMs: set the workload floors and fill the fields (raising any
+// that are below the new totals; leaving higher manual overrides intact).
+function applyManualVms() {
+    const t = manualVmTotals();
+    manualVmFloors = {
+        total_vms: t.count, active_vms: t.active, vcpus: t.vcpus,
+        prov_ram: t.ram_gb, prov_storage_tb: t.storage_tb, ds_used_tb: t.storage_tb,
+    };
+    const raiseTo = (id, floor, dec) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const cur = parseFloat(el.value) || 0;
+        if (cur < floor || el.value === '') el.value = dec ? floor.toFixed(2) : floor;
+    };
+    raiseTo('man-total-vms', t.count);
+    raiseTo('man-active-vms', t.active);
+    raiseTo('man-vcpus', t.vcpus);
+    raiseTo('man-prov-ram', t.ram_gb);
+    raiseTo('man-prov-storage', t.storage_tb, true);
+    raiseTo('man-ds-used', t.storage_tb, true);
+
+    const badge = document.getElementById('manual-vm-count');
+    const note = document.getElementById('manual-vm-note');
+    if (t.count > 0) {
+        badge.textContent = ` (${t.count})`;
+        badge.style.display = '';
+        note.textContent = `${t.count} VM${t.count === 1 ? '' : 's'} entered — the fields below include them and can't be set lower than their totals.`;
+        note.style.display = '';
+    } else {
+        badge.style.display = 'none';
+        note.style.display = 'none';
+    }
+    closeManualVmModal();
+}
+
+// Keep a workload field at or above its entered-VM total. Wired to the field's
+// onchange; a no-op when no VMs have been entered (floor 0/undefined).
+function clampManualField(id, floorKey) {
+    const floor = manualVmFloors[floorKey] || 0;
+    if (!floor) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = parseFloat(el.value) || 0;
+    if (v < floor) {
+        el.value = floorKey.endsWith('_tb') ? floor.toFixed(2) : floor;
+        el.classList.add('field-clamped');
+        setTimeout(() => el.classList.remove('field-clamped'), 1200);
+    }
+}
+
 function calculateManual() {
     const vcpus = parseInt(document.getElementById('man-vcpus').value) || 0;
     const provRam = parseFloat(document.getElementById('man-prov-ram').value) || 0;

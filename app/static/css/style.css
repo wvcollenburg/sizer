@@ -647,9 +647,36 @@ body { padding-bottom: 64px; }
     font-size: 1rem;
 }
 
+.manual-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+.manual-section-head h3 { margin: 0; }
+.manual-vm-count { font-weight: 600; }
+.manual-vm-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: #f0fbf3;
+    border: 1px solid #cdebd6;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.8rem;
+}
+.manual-vm-hint { font-size: 0.78rem; color: var(--text-muted); }
+
 .required-field {
     border-color: var(--accent) !important;
 }
+
+/* Brief flash when a workload field is clamped back up to its entered-VM total. */
+@keyframes field-clamp-flash {
+    0% { background: #fff3cd; border-color: var(--orange); }
+    100% { background: var(--surface); }
+}
+.field-clamped { animation: field-clamp-flash 1.2s ease; }
 
 /* Virtualization Ratio Controls */
 
@@ -1483,12 +1510,14 @@ body { padding-bottom: 64px; }
 /* Make the table wrapper the single scroll container (both axes) so the sticky
    header sticks to it. Otherwise the modal body scrolls vertically while the
    header is positioned relative to this wrapper, and it scrolls out of view. */
-#vm-exclusion-modal .modal-body {
+#vm-exclusion-modal .modal-body,
+#manual-vm-modal .modal-body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
-#vm-exclusion-modal .vm-table-wrap {
+#vm-exclusion-modal .vm-table-wrap,
+#manual-vm-modal .vm-table-wrap {
     flex: 1;
     min-height: 0;
     overflow: auto;

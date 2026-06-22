@@ -380,25 +380,29 @@
             </div>
 
             <div class="manual-section">
-                <h3>Workload Requirements</h3>
+                <div class="manual-section-head">
+                    <h3>Workload Requirements</h3>
+                    <button class="btn btn-sm" type="button" onclick="openManualVmModal()">+ Add / edit VMs<span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
+                </div>
+                <div class="manual-vm-note" id="manual-vm-note" style="display:none"></div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Total VMs</label>
-                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0">
+                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-total-vms','total_vms')">
                     </div>
                     <div class="form-group">
                         <label>Active VMs</label>
-                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0">
+                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-active-vms','active_vms')">
                     </div>
                     <div class="form-group">
                         <label>Total vCPUs *</label>
-                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field">
+                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-vcpus','vcpus')">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned RAM (GB) *</label>
-                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field">
+                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-prov-ram','prov_ram')">
                     </div>
                     <div class="form-group">
                         <label>Used RAM (GB)</label>
@@ -408,11 +412,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned Storage (TB)</label>
-                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0">
+                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0" onchange="clampManualField('man-prov-storage','prov_storage_tb')">
                     </div>
                     <div class="form-group">
                         <label>Datastore Used (TB) *</label>
-                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field">
+                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field" onchange="clampManualField('man-ds-used','ds_used_tb')">
                     </div>
                     <div class="form-group">
                         <label>Datastore Total (TB)</label>
@@ -645,6 +649,44 @@
                     <button class="btn btn-sm btn-muted" onclick="resetVmConfig()">Reset edits</button>
                     <button class="btn btn-muted" onclick="closeVmExclusionModal()">Cancel</button>
                     <button class="btn btn-primary" onclick="applyVmExclusions()">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual per-VM entry modal -->
+    <div class="modal-overlay" id="manual-vm-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Add VMs</h2>
+                <button class="modal-close" onclick="closeManualVmModal()">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <button class="btn btn-sm" type="button" onclick="addManualVm()">+ Add VM</button>
+                <span class="manual-vm-hint">Totals fill the Workload Requirements fields. You can raise those fields afterward, but not below these totals.</span>
+            </div>
+            <div class="modal-body">
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="manual-vm-table">
+                        <thead>
+                            <tr>
+                                <th class="vm-col-name">VM Name</th>
+                                <th class="vm-col-power">Power</th>
+                                <th class="vm-col-num">vCPUs</th>
+                                <th class="vm-col-num">RAM (GB)</th>
+                                <th class="vm-col-num">Storage (GB)</th>
+                                <th class="vm-col-action"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manual-vm-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="vm-exclusion-summary" id="manual-vm-summary"></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" onclick="closeManualVmModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="applyManualVms()">Apply</button>
                 </div>
             </div>
         </div>
