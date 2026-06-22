@@ -3,15 +3,19 @@ from openpyxl import load_workbook
 
 def parse_liveoptics(file_path):
     wb = load_workbook(file_path, read_only=True, data_only=True)
-    # Live Optics ships two unrelated workbook shapes under the same brand:
-    #   * the VMware/vSphere collector ("ESX Hosts" + "VMs" + perf sheets), and
+    # Live Optics ships three unrelated workbook shapes under the same brand:
+    #   * the VMware/vSphere collector ("ESX Hosts" + "VMs" + perf sheets),
     #   * the GENERAL server collector (a single "Servers" sheet, one row per
-    #     OS instance) used for Hyper-V and physical/mixed estates.
-    # The GENERAL export has no host/guest split and folds performance into the
-    # inventory row, so it gets its own parser. Both paths return the same dict
-    # shape so everything downstream (summary, recommend, UI) is format-blind.
+    #     OS instance) used for physical/mixed estates, and
+    #   * the Hyper-V collector ("Hypervisors" host sheet + a "VMs" guest sheet),
+    #     which — unlike GENERAL — keeps a real host/guest split (so it has real
+    #     overcommit and behaves like the VMware path, not the 1:1 server path).
+    # Each gets its own parser; all return the same dict shape so everything
+    # downstream (summary, recommend, UI) is format-blind.
     if "Servers" in wb.sheetnames:
         result = _parse_general(wb)
+    elif "Hypervisors" in wb.sheetnames:
+        result = _parse_hyperv(wb)
     else:
         result = {
             "project": _parse_details(wb),
@@ -28,6 +32,8 @@ def parse_liveoptics(file_path):
     result["summary"] = _build_summary(result)
     if result.get("scan_type") == "general":
         _finalize_general_summary(result)
+    elif result.get("scan_type") == "hyperv":
+        _finalize_hyperv_summary(result)
     return result
 
 
@@ -187,6 +193,169 @@ def _parse_general(wb):
         "host_disks": disks,
         "host_nics": [],
     }
+
+
+def _parse_hyperv(wb):
+    """Parse the Hyper-V Live Optics export.
+
+    Unlike the GENERAL (single "Servers" sheet) collector, the Hyper-V export
+    keeps a real host/guest split: a "Hypervisors" sheet (one row per physical
+    host, with performance folded in) and a "VMs" sheet (one row per guest). It
+    therefore carries genuine overcommit, so it flows through the standard
+    VMware-shaped path and summary — no 1:1 server assumption.
+
+    Two Hyper-V quirks vs the vSphere export: guest memory is reported in *bytes*
+    (not MiB), and power state lives in an "IsRunning" flag ("Power State" is
+    blank). Host-local/CSV storage all moves to the new shared pool, so it's
+    recorded as cluster (primary) capacity rather than excludable local capacity.
+    """
+    hosts, perfs, vms, datastores, disks = [], [], [], [], []
+
+    # Per-host disk roll-up, used as a fallback when a Hypervisors row omits its
+    # capacity totals (some collectors only fill the Server Disks sheet).
+    disk_totals = {}
+    for r in _sheet_rows(wb, "Server Disks"):
+        host = str(r.get("Server Name", "")).strip()
+        agg = disk_totals.setdefault(host, {"cap": 0.0, "used": 0.0, "free": 0.0})
+        agg["cap"] += _float(r.get("Capacity (GiB)", 0))
+        agg["used"] += _float(r.get("Used Capacity (GiB)", 0))
+        agg["free"] += _float(r.get("Free Capacity (GiB)", 0))
+
+    for r in _sheet_rows(wb, "Hypervisors"):
+        name = str(r.get("Server Name", "")).strip()
+        if not name:
+            continue
+        cores = _int(r.get("CPU Cores", 0))
+        sockets = _int(r.get("CPU Sockets", 0))
+        # SMT/thread count is often blank in this export; cores is the only
+        # honest fallback (no assumed hyperthreading benefit).
+        threads = _int(r.get("CPU Threads", 0)) or cores
+        clock = _float(r.get("CPU Clock Speed (GHz)", 0))
+        net_ghz = _float(r.get("Net Clock Speed (GHz)", 0))
+        mem_kib = _float(r.get("Memory (KiB)", 0))
+        peak_mem_kib = _float(r.get("Peak Memory Usage (KiB)", 0))
+        local_cap = _float(r.get("Local Capacity (GiB)", 0))
+        used_cap = _float(r.get("Used Capacity (GiB)", 0))
+        free_cap = _float(r.get("Free Capacity (GiB)", 0))
+        if local_cap == 0 and used_cap == 0:
+            agg = disk_totals.get(name)
+            if agg:
+                local_cap, used_cap, free_cap = agg["cap"], agg["used"], agg["free"]
+
+        hosts.append({
+            "name": name,
+            "cluster": r.get("Cluster", "") or "",
+            "manufacturer": r.get("Manufacturer", ""),
+            "model": r.get("Model", ""),
+            "cpu_sockets": sockets,
+            "cpu_cores": cores,
+            "cpu_threads": threads,
+            "cpu_desc": r.get("CPU Description", ""),
+            "cpu_ghz": clock,
+            "net_ghz": net_ghz,
+            "memory_kib": mem_kib,
+            "memory_gb": round(mem_kib / 1048576, 1),
+            "local_capacity_gib": local_cap,
+            "vm_count": _int(r.get("Guest VM Count", 0)),
+            "nic_count": _int(r.get("Number of NICs", 0)),
+        })
+
+        peak_cpu_pct = _float(r.get("Peak CPU Percentage", 0))
+        perfs.append({
+            "host": name,
+            "peak_cpu_pct": peak_cpu_pct,
+            "peak_cpu_ghz": round(peak_cpu_pct / 100 * net_ghz, 2),
+            # Hyper-V export reports only peak CPU/memory, no averages.
+            "avg_cpu_pct": 0,
+            "avg_cpu_ghz": 0,
+            "peak_mem_pct": round(peak_mem_kib / mem_kib * 100, 1) if mem_kib else 0,
+            "peak_mem_mib": round(peak_mem_kib / 1024, 1),
+            "avg_mem_pct": 0,
+            "avg_mem_mib": 0,
+            "peak_iops": _float(r.get("Peak IOPS", 0)),
+            "avg_iops": _float(r.get("Average IOPS", 0)),
+            "p95_iops": _float(r.get("95% IOPS", 0)),
+            "peak_throughput_mbs": _float(r.get("Peak Throughput MB/s", 0)),
+            "avg_throughput_mbs": _float(r.get("Avg. Throughput MB/s", 0)),
+        })
+
+        datastores.append({
+            "name": name,
+            "type": "cluster",
+            "capacity_gib": local_cap,
+            "used_gib": used_cap,
+            "free_gib": free_cap,
+            "vm_count": _int(r.get("Guest VM Count", 0)),
+        })
+
+    for r in _sheet_rows(wb, "VMs"):
+        name = str(r.get("Guest VM Name", "")).strip()
+        if not name:
+            continue
+        # "Power State" is blank in the Hyper-V export; IsRunning is authoritative.
+        powered_on = str(r.get("IsRunning", "")).upper() == "TRUE"
+        is_template = str(r.get("Template", "")).upper() == "TRUE"
+        prov_mem_b = _float(r.get("Provisioned Memory (Bytes)", 0))
+        used_mem_b = _float(r.get("Used Memory (active) (Bytes)", 0))
+        # Consumed is frequently 0 on Hyper-V; fall back to active usage.
+        consumed_b = _float(r.get("Consumed Memory (Bytes)", 0)) or used_mem_b
+        disk_cap_mib = _float(r.get("Guest VM Disk Capacity (MiB)", 0))
+        disk_used_mib = _float(r.get("Guest VM Disk Used (MiB)", 0))
+        vdisk_size_mib = _float(r.get("Virtual Disk Size (MiB)", 0))
+        vdisk_used_mib = _float(r.get("Virtual Disk Used (MiB)", 0))
+
+        vms.append({
+            "name": name,
+            "powered_on": powered_on,
+            "is_template": is_template,
+            "os": r.get("Guest VM OS", ""),
+            "vcpus": _int(r.get("Virtual CPU", 0)),
+            "provisioned_memory_gb": round(prov_mem_b / 1073741824, 2),
+            "used_memory_gb": round(used_mem_b / 1073741824, 2),
+            "consumed_memory_gb": round(consumed_b / 1073741824, 2),
+            "disk_capacity_gb": round(disk_cap_mib / 1024, 2),
+            "disk_used_gb": round(disk_used_mib / 1024, 2),
+            "vdisk_size_gb": round(vdisk_size_mib / 1024, 2),
+            "vdisk_used_gb": round(vdisk_used_mib / 1024, 2),
+            "datastore": "",
+            "host": r.get("Hypervisor", ""),
+            "cluster": r.get("Cluster", "") or "",
+        })
+
+    for r in _sheet_rows(wb, "Server Disks"):
+        host = str(r.get("Server Name", "")).strip()
+        if not host:
+            continue
+        disks.append({
+            "host": host,
+            "disk_name": r.get("Device Name", ""),
+            "capacity_mib": _float(r.get("Capacity (GiB)", 0)) * 1024,
+            "model": r.get("Model", ""),
+            "vendor": r.get("Vendor", ""),
+            "is_ssd": False,
+        })
+
+    return {
+        "project": _parse_details(wb),
+        "scan_type": "hyperv",
+        "hosts": hosts,
+        "host_performance": perfs,
+        "datastores": datastores,
+        "vms": vms,
+        "vm_performance": [],
+        "host_disks": disks,
+        "host_nics": [],
+    }
+
+
+def _finalize_hyperv_summary(result):
+    """Label the platform for a Hyper-V estate (hosts may be mixed hardware, so
+    the first host's model isn't representative). Keeps the measured vCPU:core
+    ratio — unlike the GENERAL path, Hyper-V has a real host/guest split."""
+    summary = result["summary"]
+    n = summary.get("host_count", 0)
+    summary["current_platform"] = f"Hyper-V ({n} host{'s' if n != 1 else ''})"
+    summary["scan_type"] = "hyperv"
 
 
 def _finalize_general_summary(result):
