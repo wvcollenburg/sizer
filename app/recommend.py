@@ -93,6 +93,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "max_vm_ram_gb": summary.get("max_vm_ram_gb", 0),
         "max_vm_cores": summary.get("max_vm_cores", 0),
         "size_full_cluster": size_full_cluster,
+        # Exact node-count target: when set and reachable, _fit_model sizes each
+        # model at exactly this many nodes (not its minimum). Larger fallbacks
+        # only appear when the target is infeasible.
+        "target_nodes": target_nodes,
     }
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
@@ -185,17 +189,23 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             f"workload. Switch the storage preference to Auto to see all options."
         )
     if target_nodes is not None:
-        within_cap = [c for c in deduped if c["node_count"] <= target_nodes]
-        if not within_cap and deduped:
-            warnings.append(
-                _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs)
-            )
-        elif not within_cap:
-            warnings.append(
-                f"No SC// configuration can fit this workload within "
-                f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
-            )
-        deduped = within_cap
+        # The target is an exact node count: show only N-node configurations.
+        # Larger sizes are offered (with a warning) only when N is infeasible.
+        exact = [c for c in deduped if c["node_count"] == target_nodes]
+        if exact:
+            deduped = exact
+        else:
+            larger = [c for c in deduped if c["node_count"] > target_nodes]
+            if larger:
+                warnings.append(
+                    _target_infeasible_warning(larger, target_nodes, vcpu_ratio, needs)
+                )
+            else:
+                warnings.append(
+                    f"No SC// configuration can fit this workload in "
+                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
+                )
+            deduped = larger
 
     if validated and not deduped and not warnings:
         warnings.append(
@@ -313,9 +323,9 @@ def _rank_key(c, needs, required_cores, iops_demand_val):
 
 
 def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
-    """Explain why no config fits within the target node cap, naming the
-    limiting resource(s) and — when CPU is the fixable constraint — a vCPU:core
-    ratio that would make it fit."""
+    """Explain why the exact node-count target can't be met, naming the limiting
+    resource(s) and — when CPU is the fixable constraint — a vCPU:core ratio that
+    would make it fit. `deduped` here is the set of feasible (larger) configs."""
     plural = "s" if target_nodes != 1 else ""
     best = min(deduped, key=lambda c: c["node_count"])
     mf = best["node_count"]
@@ -331,8 +341,8 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     if best["_nodes_for_storage"] >= mf:
         binding.append(f"storage capacity (≥{best['_nodes_for_storage']} nodes)")
 
-    msg = (f"No SC// configuration fits this workload within "
-           f"{target_nodes} node{plural} (smallest feasible: {mf} nodes).")
+    msg = (f"Target of {target_nodes} node{plural} could not be achieved for "
+           f"this workload (smallest feasible: {mf} nodes).")
     if binding:
         msg += " Limiting factor: " + "; ".join(binding) + "."
 
@@ -479,7 +489,18 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         start_nodes = max(min_nodes, needed_nodes_cpu,
                           needed_nodes_storage, needed_nodes_ram)
 
-        for node_count in range(start_nodes, start_nodes + 5):
+        # Exact node-count target: when the user asks for N nodes and this CPU
+        # can serve the workload in exactly N (N >= the minimum feasible), size
+        # it at N only. When N is below the minimum (workload too big for N with
+        # this CPU), fall back to the normal window so the caller can still
+        # surface the smallest feasible larger size and warn that N is impossible.
+        target_nodes = needs.get("target_nodes")
+        if target_nodes is not None and target_nodes >= start_nodes:
+            node_counts = (target_nodes,)
+        else:
+            node_counts = range(start_nodes, start_nodes + 5)
+
+        for node_count in node_counts:
             layout = _cluster_layout(node_count)
             num_clusters = len(layout)
             n1_nodes = node_count - num_clusters

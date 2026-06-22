@@ -324,8 +324,8 @@
                     <div class="sizing-options-grid">
                         <div class="form-group">
                             <label>Target Node Count</label>
-                            <input type="number" id="target-nodes" placeholder="No limit" min="2" step="1"
-                                   title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
+                            <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
+                                   title="Size recommendations to exactly this many nodes. Larger sizes are only offered (with a warning) when the target can't fit the workload. Leave blank for the optimal/best-priced solution."
                                    onchange="recalcRecommendations()">
                             <!-- CPU sizing is tied to node count. -->
                             <div class="toggle-item">
