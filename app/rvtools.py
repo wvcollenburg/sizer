@@ -104,14 +104,26 @@ def _parse_host_perf(wb):
     return perfs
 
 
+def _mib(row, base):
+    """Read a binary-capacity column that RVTools renamed across versions.
+
+    Pre-4.0 exports label these columns '<base> MiB'; RVTools 4.0.x relabelled
+    them '<base> MB' while keeping the values binary (still MiB). Accept either
+    spelling so storage isn't silently read as 0 on newer exports."""
+    for key in (base + " MiB", base + " MB"):
+        if key in row:
+            return _float(row[key])
+    return 0.0
+
+
 def _parse_datastores(wb):
     stores = []
     for r in _sheet_rows(wb, "vDatastore"):
         stores.append({
             "name": r.get("Name", ""),
-            "capacity_gib": round(_float(r.get("Capacity MiB", 0)) / 1024, 1),
-            "used_gib": round(_float(r.get("In Use MiB", 0)) / 1024, 1),
-            "free_gib": round(_float(r.get("Free MiB", 0)) / 1024, 1),
+            "capacity_gib": round(_mib(r, "Capacity") / 1024, 1),
+            "used_gib": round(_mib(r, "In Use") / 1024, 1),
+            "free_gib": round(_mib(r, "Free") / 1024, 1),
             "vm_count": _int(r.get("# VMs", 0)),
         })
     return stores
@@ -123,9 +135,11 @@ def _parse_vms(wb):
         powered_on = str(r.get("Powerstate", "")).lower() == "poweredon"
         is_template = str(r.get("Template", "")).upper() == "TRUE"
         prov_mem_mib = _float(r.get("Memory", 0))
-        disk_cap_mib = _float(r.get("Total disk capacity MiB", 0))
-        provisioned_mib = _float(r.get("Provisioned MiB", 0))
-        in_use_mib = _float(r.get("In Use MiB", 0))
+        provisioned_mib = _mib(r, "Provisioned")
+        in_use_mib = _mib(r, "In Use")
+        # RVTools 4.0.x dropped the 'Total disk capacity' column; fall back to
+        # provisioned capacity (the closest equivalent) when it's absent.
+        disk_cap_mib = _mib(r, "Total disk capacity") or provisioned_mib
 
         vms.append({
             "name": r.get("VM", ""),
