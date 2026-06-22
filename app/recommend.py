@@ -148,12 +148,12 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                           allow_storage_only=allow_storage_only)
         candidates.extend(fits)
 
-    # Ranking priority (each tier only breaks ties of the previous one):
-    #   1) fewest nodes  2) closest CPU match  3) closest IOPS match
-    #   4) closest storage match  5) closest RAM match  6) cheapest.
-    # "Closest" = least over-provisioning above the requirement. Closeness is
-    # bucketed (5% steps) so near-equal fits fall through to the next tier
-    # instead of a hair's-width difference dominating.
+    # Ranking: a single right-sizing score (lower = better) that trades total
+    # fleet cost against wasted capacity (CPU/RAM/storage over-provisioning),
+    # so the engine can pick a slightly larger but tighter/cheaper cluster
+    # instead of always minimising node count. IOPS is a hard feasibility gate
+    # ahead of the score — configs that can't meet measured demand sort last.
+    # See _rank_key and the weight block above it.
     p95_iops = summary.get("p95_iops", 0) or 0
     avg_iops = summary.get("total_avg_iops", 0) or 0
     iops_demand_val = p95_iops if p95_iops > 0 else avg_iops
@@ -263,54 +263,51 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     return {"recommendations": top, "projection": projection, "warnings": warnings}
 
 
-RANK_BUCKET = 0.05   # 5% closeness buckets for the ranking tiers
-
-
-def _bucket(over_provision):
-    """Quantise an over-provisioning fraction so near-equal fits tie and fall
-    through to the next ranking tier. Negative (shouldn't happen for met
-    requirements) clamps to 0."""
-    return round(max(0.0, over_provision) / RANK_BUCKET)
+# ── Right-sizing score weights ───────────────────────────────────────────────
+# Candidates are ranked by a single scalar score (lower = better) computed per
+# candidate in _fit_model, instead of a lexicographic tuple. A scalar lets a
+# large saving in cost or wasted capacity outweigh a small increase in node
+# count (and vice-versa) — which a lexicographic ordering, where node count
+# alone decides, can never do. All terms are in the same arbitrary "points" so
+# they can be summed; tune the weights here to shift the balance.
+#
+#   fleet cost  = node_count × (per-model cost_tier + NODE_OVERHEAD)
+#   waste       = Σ capped per-dimension over-provisioning (CPU / RAM / storage)
+#   ghz penalty = added only when raw cluster GHz drops below the source
+NODE_OVERHEAD = 8.0       # fixed per-node cost (switch ports, rack U, power,
+                          # ops) added to each node's appliance cost — the
+                          # counterweight that stops the score from fragmenting
+                          # a workload into many tiny, cheap nodes.
+W_COST = 1.0              # weight on total fleet cost
+W_WASTE = 50.0            # weight on aggregate wasted capacity
+W_CPU = 1.0               # per-dimension waste weights
+W_RAM = 1.0
+W_STOR = 1.0
+WASTE_CAP = 1.0           # cap each dimension's over-provisioning at +100%, so
+                          # one wildly-oversized axis (e.g. a hybrid node's
+                          # 80 TB for a 4 TB need) can't swamp the score.
+W_GHZ_SHORTFALL = 40.0    # penalty per 100% GHz shortfall vs the source cluster
 
 
 def _rank_key(c, needs, required_cores, iops_demand_val):
-    """Lexicographic ranking: fewest total nodes, then (when storage-only is in
-    play) fewest HCI nodes so compute is concentrated on the top CPU and the
-    rest offloaded to cheap storage-only nodes, then closest CPU / IOPS /
-    storage / RAM match (least over-provisioning), then cheapest. Lower sorts
-    first."""
-    full = c.get("sized_full_cluster")
-    cpu_avail = c["totals"]["cores"] if full else c["n_minus_1"]["cores"]
-    cpu_close = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
-    # Maximise storage-only offload: among configs with the same total node
-    # count, prefer the one with the fewest full HCI nodes (achieved by the
-    # most capable CPU). With no storage-only split this equals node_count for
-    # every candidate, so it has no effect.
+    """Rank by the single right-sizing score (lower = better) computed per
+    candidate in _fit_model — fleet cost + capped capacity waste + GHz
+    shortfall. IOPS is a feasibility gate, not a score term: any config that
+    cannot meet the measured IOPS demand sorts after every config that can.
+    Ties break to the most storage-only offload (fewest HCI nodes for the same
+    total), then the smallest CPU for determinism."""
+    meets_iops = 0
+    if iops_demand_val > 0 and c["iops"]["total"] < iops_demand_val:
+        meets_iops = 1
+    # Among same-score configs, prefer the one that offloads the most to
+    # storage-only nodes (fewest full HCI nodes). With no storage-only split
+    # this equals node_count for every candidate, so it has no effect.
     hci_nodes = c.get("hci_node_count", c["node_count"])
 
-    if iops_demand_val > 0:
-        net = c["iops"]["total"]
-        if net >= iops_demand_val:
-            iops_close = (net - iops_demand_val) / iops_demand_val
-        else:
-            # Configs that don't meet demand rank after all that do.
-            iops_close = 1000 + (iops_demand_val - net) / iops_demand_val
-    else:
-        iops_close = 0
-
-    need_stor = needs["usable_storage_tb"]
-    stor_close = (c["totals"]["usable_storage_tb"] - need_stor) / need_stor if need_stor > 0 else 0
-    need_ram = needs["ram_gb"]
-    ram_close = (c["n_minus_1"]["ram_gb"] - need_ram) / need_ram if need_ram > 0 else 0
-
     return (
-        c["node_count"],
+        meets_iops,
+        c["score"],
         hci_nodes,
-        _bucket(cpu_close),
-        _bucket(iops_close) if iops_close < 1000 else 1_000_000 + round(iops_close),
-        _bucket(stor_close),
-        _bucket(ram_close),
-        c["cost_tier"],
         c["totals"]["cores"],   # final deterministic tiebreak
     )
 
@@ -570,26 +567,32 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
             cost_tier = model.get("cost_tier") or DEFAULT_COST_TIER
-            excess_cores = usable_cores * hci_nodes - required_cores
 
-            score = node_count * 20
-            score += cost_tier * 6
-            score += excess_cores * 0.3
-
+            # Per-dimension over-provisioning (fraction bought above the
+            # requirement), measured on the same basis the fit was gated on
+            # (N-1, or the full cluster when sizing for it). Also reused by the
+            # determining-factor block below.
             core_headroom = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
             ram_headroom = (usable_ram_per_node * compute_n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
-            score += core_headroom * 3
-            score += ram_headroom * 3
-            score += stor_headroom * 2
+            # Right-sizing score (lower = better) — see the weight block above
+            # _rank_key. One combined waste term (each dimension capped so a
+            # single wildly-oversized axis can't dominate) traded off against
+            # total fleet cost, so the ranker can prefer a slightly larger but
+            # much tighter / cheaper cluster instead of always minimising nodes.
+            waste = (W_CPU * min(max(0.0, core_headroom), WASTE_CAP)
+                     + W_RAM * min(max(0.0, ram_headroom), WASTE_CAP)
+                     + W_STOR * min(max(0.0, stor_headroom), WASTE_CAP))
+            fleet_cost = node_count * (cost_tier + NODE_OVERHEAD)
+            score = W_COST * fleet_cost + W_WASTE * waste
 
+            # Don't let a high vCPU:core ratio quietly under-power the cluster:
+            # penalise raw GHz that falls below the source cluster's total.
             if needs["current_total_ghz"] > 0:
                 ghz_ratio = n1_ghz / needs["current_total_ghz"]
-                if ghz_ratio >= 1.0:
-                    score -= (ghz_ratio - 1.0) * 5
-                else:
-                    score += (1.0 - ghz_ratio) * 15
+                if ghz_ratio < 1.0:
+                    score += (1.0 - ghz_ratio) * W_GHZ_SHORTFALL
 
             # Storage-only nodes (only when the split actually moved nodes off
             # the compute pool). Same model/drives, single lowest-tier CPU, the
