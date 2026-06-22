@@ -426,7 +426,9 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     storage = model["storage"]
-    min_nodes = max(model.get("min_nodes", 3), 3)
+    # 2-node clusters (with a witness) are supported; per-model minimums (e.g. 3)
+    # still win where the hardware requires them.
+    min_nodes = max(model.get("min_nodes", 2), 2)
 
     max_raw, max_biggest = _max_raw_per_node(storage)
 

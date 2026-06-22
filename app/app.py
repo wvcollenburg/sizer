@@ -467,8 +467,8 @@ def compute_biggest_disk_appliance(data, storage):
 
 
 def calculate_validated(data, node_count):
-    if node_count < 3:
-        return {"error": "Software-only (validated) requires minimum 3 nodes"}
+    if node_count < 2:
+        return {"error": "Software-only (validated) requires minimum 2 nodes"}
 
     cores = data.get("cores_per_node", 4)
     threads = data.get("threads_per_node", 8)

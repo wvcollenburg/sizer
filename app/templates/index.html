@@ -126,14 +126,14 @@
                     <li>Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
                     <li>JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
                     <li>Internal storage only &mdash; no SAN or DAS</li>
-                    <li>Minimum 3 nodes</li>
+                    <li>Minimum 2 nodes (2-node clusters require a witness device)</li>
                 </ul>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label>Node Count</label>
-                    <input type="number" id="val-node-count" value="3" min="3" max="99">
+                    <input type="number" id="val-node-count" value="3" min="2" max="99">
                 </div>
                 <div class="form-group">
                     <label>CPU Cores per Node</label>
@@ -324,7 +324,7 @@
                     <div class="sizing-options-grid">
                         <div class="form-group">
                             <label>Target Node Count</label>
-                            <input type="number" id="target-nodes" placeholder="No limit" min="3" step="1"
+                            <input type="number" id="target-nodes" placeholder="No limit" min="2" step="1"
                                    title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
                                    onchange="recalcRecommendations()">
                         </div>
@@ -608,6 +608,7 @@
         <section id="results" class="results-section" style="display:none">
             <h2>Sizing Results</h2>
             <div id="error-msg" class="error-msg" style="display:none"></div>
+            <div id="witness-info" style="display:none"></div>
 
             <div class="results-grid">
                 <div class="result-card">

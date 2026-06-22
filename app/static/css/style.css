@@ -900,6 +900,38 @@ body { padding-bottom: 64px; }
     font-weight: 600;
 }
 
+.info-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    background: #e8f2fc;
+    border: 1px solid #b6d8f5;
+    border-left: 4px solid var(--accent);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.info-bar-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    margin-top: 1px;
+}
+
 .rec-ratio-badge.degraded {
     background: #fdecea;
     border-color: var(--red);

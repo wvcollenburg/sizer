@@ -460,9 +460,23 @@ async function loadValidatedNics() {
     });
 }
 
+const WITNESS_MESSAGE =
+    'A 2-node cluster requires a separate witness device and HyperCore 9.7.5 or ' +
+    'later. The witness can be almost any device with an Intel Core i3 (or newer) ' +
+    'CPU, 16 GB of RAM, and about 100 GB of free disk to install HyperCore.';
+
+function witnessBarHtml() {
+    return '<div class="info-bar">' +
+        '<span class="info-bar-icon">i</span>' +
+        `<span><strong>Witness device required.</strong> ${WITNESS_MESSAGE}</span>` +
+        '</div>';
+}
+
 function displayResults(result) {
     const section = document.getElementById('results');
     const errorDiv = document.getElementById('error-msg');
+    const witnessDiv = document.getElementById('witness-info');
+    witnessDiv.style.display = 'none';
 
     if (result.error) {
         errorDiv.textContent = result.error;
@@ -489,6 +503,13 @@ function displayResults(result) {
         nodesText += `, ${numClusters} clusters: ${result.cluster_layout.join(' + ')}`;
     }
     document.getElementById('result-nodes').textContent = nodesText;
+
+    // A witness is needed only when the whole cluster is exactly 2 nodes
+    // (storage-only nodes add quorum, so 2 HCI + storage-only does not).
+    if ((result.total_node_count || result.node_count) === 2) {
+        witnessDiv.innerHTML = witnessBarHtml();
+        witnessDiv.style.display = 'block';
+    }
 
     const n1Desc = document.getElementById('n1-desc');
     if (n1Desc) {
@@ -940,7 +961,14 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             '</div>';
     }
 
-    recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
+    // Show the witness requirement once if any recommendation is a 2-node cluster
+    // (storage-only nodes add quorum, so those never count as 2-node here).
+    const recTotalNodes = r => r.storage_only
+        ? (r.hci_node_count || r.node_count) + r.storage_only.count
+        : r.node_count;
+    const witnessHtml = recommendations.some(r => recTotalNodes(r) === 2) ? witnessBarHtml() : '';
+
+    recList.innerHTML = witnessHtml + warningsHtml + recommendations.map((r, i) => {
         const clusterInfo = r.num_clusters > 1
             ? `${r.num_clusters} clusters (${r.cluster_layout.join(' + ')})`
             : '1 cluster';
