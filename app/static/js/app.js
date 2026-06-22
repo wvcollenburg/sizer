@@ -1268,6 +1268,7 @@ let manualSummary = null;
 // not set below the entered VMs).
 let manualVms = [];
 let manualVmFloors = {};   // { vcpus, prov_ram, prov_storage_tb, ds_used_tb, total_vms, active_vms }
+let manualVmSort = { field: 'name', asc: true };   // default: VM name A→9
 
 function openManualVmModal() {
     if (!manualVms.length) addManualVm();   // start with one editable row
@@ -1285,14 +1286,13 @@ function addManualVm() {
         name: `VM ${manualVms.length + 1}`, powered_on: true,
         vcpus: 2, ram_gb: 4, storage_gb: 0,
     });
+    const newIdx = manualVms.length - 1;
     renderManualVmTable();
     updateManualVmSummary();
-    const body = document.getElementById('manual-vm-body');
-    const rows = body.querySelectorAll('tr');
-    const last = rows[rows.length - 1];
-    if (last) {
-        last.scrollIntoView({ block: 'center' });
-        const input = last.querySelector('input.vm-edit-text');
+    const row = document.querySelector(`#manual-vm-body tr[data-idx="${newIdx}"]`);
+    if (row) {
+        row.scrollIntoView({ block: 'center' });
+        const input = row.querySelector('input.vm-edit-text');
         if (input) input.select();
     }
 }
@@ -1388,9 +1388,31 @@ function setManualVm(i, field, value) {
     updateManualVmSummary();
 }
 
+function sortManualVm(field) {
+    if (manualVmSort.field === field) manualVmSort.asc = !manualVmSort.asc;
+    else manualVmSort = { field, asc: true };
+    renderManualVmTable();
+}
+
 function renderManualVmTable() {
     const body = document.getElementById('manual-vm-body');
-    body.innerHTML = manualVms.map((vm, i) => `
+    // Sort a display copy so edits/clone/remove still address the real array
+    // index (carried on data-idx), exactly like the import VM table.
+    const f = manualVmSort.field, dir = manualVmSort.asc ? 1 : -1;
+    const view = manualVms.map((vm, i) => ({ vm, i }));
+    view.sort((a, b) => {
+        let c;
+        if (f === 'name') {
+            c = String(a.vm.name || '').localeCompare(String(b.vm.name || ''),
+                undefined, { numeric: true, sensitivity: 'base' });
+        } else if (f === 'powered_on') {
+            c = (a.vm.powered_on ? 1 : 0) - (b.vm.powered_on ? 1 : 0);
+        } else {
+            c = (a.vm[f] || 0) - (b.vm[f] || 0);
+        }
+        return c * dir;
+    });
+    body.innerHTML = view.map(({ vm, i }) => `
         <tr data-idx="${i}">
             <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${(vm.name || '').replace(/"/g, '&quot;')}" onchange="setManualVm(${i},'name',this.value)"></td>
             <td class="vm-col-power">
@@ -1407,6 +1429,18 @@ function renderManualVmTable() {
                 <button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button>
             </td>
         </tr>`).join('');
+
+    document.querySelectorAll('#manual-vm-table th.sortable').forEach(th => {
+        const old = th.querySelector('.sort-arrow');
+        if (old) old.remove();
+        const field = (th.getAttribute('onclick').match(/'(.+?)'/) || [])[1];
+        if (field === manualVmSort.field) {
+            const arrow = document.createElement('span');
+            arrow.className = 'sort-arrow';
+            arrow.textContent = manualVmSort.asc ? ' ▲' : ' ▼';
+            th.appendChild(arrow);
+        }
+    });
 }
 
 function manualVmTotals() {

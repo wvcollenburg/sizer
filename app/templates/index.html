@@ -670,11 +670,11 @@
                     <table class="vm-table" id="manual-vm-table">
                         <thead>
                             <tr>
-                                <th class="vm-col-name">VM Name</th>
-                                <th class="vm-col-power">Power</th>
-                                <th class="vm-col-num">vCPUs</th>
-                                <th class="vm-col-num">RAM (GB)</th>
-                                <th class="vm-col-num">Storage (GB)</th>
+                                <th class="vm-col-name sortable" onclick="sortManualVm('name')">VM Name</th>
+                                <th class="vm-col-power sortable" onclick="sortManualVm('powered_on')">Power</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('vcpus')">vCPUs</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('ram_gb')">RAM (GB)</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('storage_gb')">Storage (GB)</th>
                                 <th class="vm-col-action"></th>
                             </tr>
                         </thead>

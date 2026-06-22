@@ -1611,6 +1611,17 @@ body { padding-bottom: 64px; }
 /* Manual-VM action column holds clone + remove. */
 #manual-vm-modal .vm-col-action { width: 68px; white-space: nowrap; text-align: right; }
 
+/* Manual VM table: short name, wide Power, fixed layout so the widths hold.
+   Names are short (DC01); the form fields need the room more than the name. */
+#manual-vm-modal .modal-content { max-width: min(740px, 95vw); }
+#manual-vm-table { table-layout: fixed; }
+#manual-vm-table th:nth-child(1), #manual-vm-table td:nth-child(1) { width: 24%; }  /* VM Name */
+#manual-vm-table th:nth-child(2), #manual-vm-table td:nth-child(2) { width: 20%; }  /* Power */
+#manual-vm-table th:nth-child(3), #manual-vm-table td:nth-child(3) { width: 13%; }  /* vCPUs */
+#manual-vm-table th:nth-child(4), #manual-vm-table td:nth-child(4) { width: 14%; }  /* RAM */
+#manual-vm-table th:nth-child(5), #manual-vm-table td:nth-child(5) { width: 17%; }  /* Storage */
+#manual-vm-table th:nth-child(6), #manual-vm-table td:nth-child(6) { width: 12%; }  /* actions */
+
 /* Clone options popup stacks above the manual VM modal. */
 #clone-vm-modal { z-index: 1001; }
 .vm-power-filter {
