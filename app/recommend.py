@@ -644,6 +644,34 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                     "raw_storage_tb": round(raw_per_node, 2),
                 }
 
+            # Determining factor: which resource drove the node count (the one
+            # needing the most nodes). Ties break to the tightest headroom. If
+            # nothing exceeds the cluster minimum, the floor itself is the driver.
+            _det_nodes = {"CPU": needed_nodes_cpu, "RAM": needed_nodes_ram,
+                          "Storage": needed_nodes_storage}
+            _binding = max(_det_nodes.values())
+            if _binding <= min_nodes:
+                determinant = {"resource": "minimum", "required": None,
+                               "achieved": None, "unit": None, "headroom_pct": None}
+            else:
+                _hr = {"CPU": core_headroom, "RAM": ram_headroom,
+                       "Storage": stor_headroom}
+                _res = min((r for r, n in _det_nodes.items() if n == _binding),
+                           key=lambda r: _hr[r])
+                _vals = {
+                    "CPU": (required_cores, cpu_avail, "cores"),
+                    "RAM": (needs["ram_gb"], usable_ram_per_node * compute_n1_nodes, "GB"),
+                    "Storage": (needs["usable_storage_tb"], usable, "TB"),
+                }
+                _req, _ach, _unit = _vals[_res]
+                determinant = {
+                    "resource": _res,
+                    "required": round(_req, 1),
+                    "achieved": round(_ach, 1),
+                    "unit": _unit,
+                    "headroom_pct": round(_hr[_res] * 100, 1),
+                }
+
             results.append({
                 "model": model["name"],
                 "category": model["category"],
@@ -667,6 +695,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "vcpu_ratio": round(rec_ratio, 2),
                 "vcpu_ratio_degraded": round(n1_ratio, 2),
                 "sized_full_cluster": full_cluster,
+                "determinant": determinant,
                 "validated": validated,
                 "validated_only": validated_only,
                 "iops": iops_block,

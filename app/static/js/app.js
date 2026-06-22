@@ -989,6 +989,21 @@ function displayImportResults(data) {
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
 }
 
+// "Determined by" line: which resource drove this config's node count, with the
+// required-vs-achieved figures.
+function formatDeterminant(det) {
+    if (!det) return '';
+    if (det.resource === 'minimum') {
+        return '<div class="rec-determinant"><strong>Determined by</strong> minimum cluster size</div>';
+    }
+    const u = det.unit;
+    const fmt = v => u === 'GB' ? formatRam(v)
+        : (u === 'cores' ? `${Math.round(v).toLocaleString()} cores` : `${v} TB`);
+    return `<div class="rec-determinant"><strong>Determined by ${det.resource}</strong>`
+        + ` &mdash; ${fmt(det.required)} required vs ${fmt(det.achieved)} available`
+        + ` (${det.headroom_pct}% headroom)</div>`;
+}
+
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
     const recList = document.getElementById(listId);
     if (!recommendations || recommendations.length === 0) {
@@ -1056,6 +1071,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
+            ${formatDeterminant(r.determinant)}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>Per Node</h4>

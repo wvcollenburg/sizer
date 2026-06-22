@@ -1063,6 +1063,16 @@ body { padding-bottom: 64px; }
     border-radius: 4px;
 }
 
+.rec-determinant {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+}
+
+.rec-determinant strong { color: var(--accent); }
+
 .rec-details {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
