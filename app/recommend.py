@@ -282,6 +282,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 # they can be summed; tune the weights here to shift the balance.
 #
 #   fleet cost  = node_count × (per-model cost_tier + NODE_OVERHEAD)
+#   core cost   = total physical HCI cores × W_CORE_LICENSE  (per-core licensing)
 #   waste       = Σ capped per-dimension over-provisioning (CPU / RAM / storage)
 #   ghz penalty = added only when raw cluster GHz drops below the source
 NODE_OVERHEAD = 8.0       # fixed per-node cost (switch ports, rack U, power,
@@ -289,6 +290,14 @@ NODE_OVERHEAD = 8.0       # fixed per-node cost (switch ports, rack U, power,
                           # counterweight that stops the score from fragmenting
                           # a workload into many tiny, cheap nodes.
 W_COST = 1.0              # weight on total fleet cost
+W_CORE_LICENSE = 1.5      # weight on total PHYSICAL cores across the HCI
+                          # (VM-running) nodes. Core-based licensing — SC
+                          # HyperCore plus per-core guest licensing (Windows
+                          # Datacenter, SQL Server, Oracle) — scales with
+                          # physical cores, not with appliances or node count,
+                          # so it gets its own linear term. Uncapped: licensing
+                          # has no diminishing return. Raise it to make fewer
+                          # total cores matter more; set to 0 to disable.
 W_WASTE = 50.0            # weight on aggregate wasted capacity
 W_CPU = 1.0               # per-dimension waste weights
 W_RAM = 1.0
@@ -606,7 +615,14 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                      + W_RAM * min(max(0.0, ram_headroom), WASTE_CAP)
                      + W_STOR * min(max(0.0, stor_headroom), WASTE_CAP))
             fleet_cost = node_count * (cost_tier + NODE_OVERHEAD)
-            score = W_COST * fleet_cost + W_WASTE * waste
+            # Per-core licensing cost: linear in the total PHYSICAL cores of the
+            # HCI (VM-running) nodes — total_cores = cores_per_node × hci_nodes,
+            # the physical (not usable) count, which is what core-based licences
+            # bill on. Storage-only nodes run no VMs and are excluded. This makes
+            # a config with fewer total cores rank ahead of a fewer-node config
+            # that packs in more cores.
+            core_cost = W_CORE_LICENSE * total_cores
+            score = W_COST * fleet_cost + core_cost + W_WASTE * waste
 
             # Don't let a high vCPU:core ratio quietly under-power the cluster:
             # penalise raw GHz that falls below the source cluster's total.
