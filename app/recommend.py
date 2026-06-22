@@ -285,10 +285,12 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
 #   core cost   = total physical HCI cores × W_CORE_LICENSE  (per-core licensing)
 #   waste       = Σ capped per-dimension over-provisioning (CPU / RAM / storage)
 #   ghz penalty = added only when raw cluster GHz drops below the source
-NODE_OVERHEAD = 8.0       # fixed per-node cost (switch ports, rack U, power,
+NODE_OVERHEAD = 12.0      # fixed per-node cost (switch ports, rack U, power,
                           # ops) added to each node's appliance cost — the
                           # counterweight that stops the score from fragmenting
-                          # a workload into many tiny, cheap nodes.
+                          # a workload into many tiny, cheap nodes. Works against
+                          # W_CORE_LICENSE: raise it if minimising cores starts
+                          # spreading the workload over too many small nodes.
 W_COST = 1.0              # weight on total fleet cost
 W_CORE_LICENSE = 1.5      # weight on total PHYSICAL cores across the HCI
                           # (VM-running) nodes. Core-based licensing — SC
