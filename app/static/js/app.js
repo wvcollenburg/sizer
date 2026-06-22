@@ -1,4 +1,8 @@
 let currentMode = 'appliance';
+// Which workload flow currently owns the shared sizing block: 'import' or
+// 'manual'. recalcRecommendations() reads the matching summary and keys results
+// (lastRecommendations/lastProjection/lastSummary) by it.
+let activeMode = null;
 let modelsCache = {};
 let currentModel = null;
 let lastRecommendations = {};
@@ -21,8 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadValidatedNics();
     initDiskTiers();
-    populateSizingModelDropdown('import-model-select', false);
-    populateSizingModelDropdown('man-model-select', false);
+    populateSizingModelDropdown('sizing-model-select', false);
 });
 
 function switchMode(mode) {
@@ -34,6 +37,21 @@ function switchMode(mode) {
     document.getElementById('import-form').style.display = mode === 'import' ? 'block' : 'none';
     document.getElementById('manual-form').style.display = mode === 'manual' ? 'block' : 'none';
     document.getElementById('results').style.display = 'none';
+
+    // The shared Sizing Options + Growth + Recommendations block is shown for
+    // whichever workload flow (import/manual) already has a summary; hidden for
+    // the appliance/validated builders. Re-running recalc keeps the displayed
+    // results consistent with the (shared) control values.
+    const summary = mode === 'import' ? importSummary
+                  : mode === 'manual' ? manualSummary : null;
+    const sizing = document.getElementById('sizing-results');
+    if (summary) {
+        activeMode = mode;
+        sizing.style.display = 'block';
+        recalcRecommendations();
+    } else {
+        sizing.style.display = 'none';
+    }
 }
 
 async function loadModels() {
@@ -103,14 +121,9 @@ async function populateSizingModelDropdown(selectId, includeEolEos) {
     select.value = (prev && models[prev]) ? prev : '';
 }
 
-function onImportEolToggle() {
-    const include = document.getElementById('import-include-eol').checked;
-    populateSizingModelDropdown('import-model-select', include).then(recalcRecommendations);
-}
-
-function onManualEolToggle() {
-    const include = document.getElementById('man-include-eol').checked;
-    populateSizingModelDropdown('man-model-select', include).then(recalcManualRecommendations);
+function onEolToggle() {
+    const include = document.getElementById('sizing-include-eol').checked;
+    populateSizingModelDropdown('sizing-model-select', include).then(recalcRecommendations);
 }
 
 function loadModelDetails() {
@@ -694,6 +707,7 @@ async function uploadFile(file) {
 
     showUploadStatus('Analyzing workload...', false);
     document.getElementById('import-results').style.display = 'none';
+    document.getElementById('sizing-results').style.display = 'none';
 
     const formData = new FormData();
     formData.append('file', file);
@@ -714,12 +728,13 @@ async function uploadFile(file) {
         vmExclusions = { compute: new Set(), storage: new Set() };
         vmConfig = {};
         updateExclusionCountBadge();
+        activeMode = 'import';
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
         document.getElementById('storage-pref').value = 'auto';
         document.getElementById('size-full-cluster').checked = false;
-        document.getElementById('import-include-eol').checked = false;
-        document.getElementById('import-model-select').value = '';
-        populateSizingModelDropdown('import-model-select', false);
+        document.getElementById('sizing-include-eol').checked = false;
+        document.getElementById('sizing-model-select').value = '';
+        populateSizingModelDropdown('sizing-model-select', false);
         updateFullClusterInfo(false, null);
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         const scanNote = data.summary && data.summary.scan_type === 'general'
@@ -752,8 +767,12 @@ function updateRatioDisplay() {
     ratioDebounce = setTimeout(recalcRecommendations, 250);
 }
 
+// Single recalc path shared by both the VMware Import and Manual Input flows.
+// The active workload summary is chosen by activeMode; every sizing control is
+// read from the one shared block, so the two flows can't diverge.
 async function recalcRecommendations() {
-    if (!importSummary) return;
+    const summary = activeMode === 'manual' ? manualSummary : importSummary;
+    if (!summary) return;
     const ratio = parseFloat(document.getElementById('ratio-slider').value);
     const years = parseInt(document.getElementById('growth-years').value);
     const growthPct = parseFloat(document.getElementById('growth-pct').value);
@@ -764,15 +783,15 @@ async function recalcRecommendations() {
     const sizeFullCluster = document.getElementById('size-full-cluster').checked;
     const sizingMode = document.getElementById('sizing-mode').value;
     const allowStorageOnly = document.getElementById('allow-storage-only').checked;
-    const targetModel = document.getElementById('import-model-select').value || null;
-    const includeEolEos = document.getElementById('import-include-eol').checked;
+    const targetModel = document.getElementById('sizing-model-select').value || null;
+    const includeEolEos = document.getElementById('sizing-include-eol').checked;
 
     try {
         const resp = await fetch('/api/recommend', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                summary: importSummary,
+                summary: summary,
                 vcpu_ratio: ratio,
                 years: years,
                 growth_pct: growthPct,
@@ -789,11 +808,11 @@ async function recalcRecommendations() {
         const data = await resp.json();
         // Store projection first: renderRecommendationsTo reads lastProjection
         // for the IOPS demand/headroom line.
-        if (data.projection) lastProjection['import'] = data.projection;
+        if (data.projection) lastProjection[activeMode] = data.projection;
         if (data.recommendations) {
-            lastRecommendations['import'] = data.recommendations;
-            lastSummary['import'] = importSummary;
-            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
+            lastRecommendations[activeMode] = data.recommendations;
+            lastSummary[activeMode] = summary;
+            renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', activeMode, data.warnings);
             updateFullClusterInfo(sizeFullCluster, data.recommendations);
         }
         if (data.projection) {
@@ -877,7 +896,9 @@ function iopsDemandNote(d) {
 
 function displayImportResults(data) {
     const s = data.summary;
+    activeMode = 'import';
     document.getElementById('import-results').style.display = 'block';
+    document.getElementById('sizing-results').style.display = 'block';
 
     const currentRatio = s.vcpu_per_core_ratio || 3.0;
     const slider = document.getElementById('ratio-slider');
@@ -1141,7 +1162,6 @@ function buildIopsHeadroom(iops, demand) {
 // ==================== MANUAL INPUT MODE ====================
 
 let manualSummary = null;
-let manualRatioDebounce = null;
 
 function calculateManual() {
     const vcpus = parseInt(document.getElementById('man-vcpus').value) || 0;
@@ -1183,74 +1203,31 @@ function calculateManual() {
         vcpu_per_core_ratio: Math.round(currentRatio * 100) / 100,
     };
 
-    const slider = document.getElementById('man-ratio-slider');
+    // Drive the SHARED sizing block (same controls/markup the import flow uses).
+    activeMode = 'manual';
+    const slider = document.getElementById('ratio-slider');
     slider.value = currentRatio;
-    updateManualRatioDisplay();
+    updateRatioDisplay();
 
-    const marker = document.getElementById('man-ratio-bar-marker');
+    const marker = document.getElementById('ratio-bar-marker');
     if (cores > 0) {
         const markerPct = ((currentRatio - 1) / 7) * 100;
         marker.style.left = Math.min(markerPct, 100) + '%';
         marker.style.display = 'block';
         marker.title = `Current environment: ${currentRatio.toFixed(2)}:1`;
-        document.getElementById('man-ratio-current').innerHTML =
+        document.getElementById('ratio-current').innerHTML =
             `Current environment: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
             `(${vcpus} vCPUs / ${cores} cores)`;
     } else {
         marker.style.display = 'none';
-        document.getElementById('man-ratio-current').innerHTML =
+        document.getElementById('ratio-current').innerHTML =
             `No current core count provided &mdash; using slider value`;
     }
 
-    document.getElementById('manual-results').style.display = 'block';
-    recalcManualRecommendations();
-}
-
-function updateManualRatioDisplay() {
-    const slider = document.getElementById('man-ratio-slider');
-    const val = parseFloat(slider.value);
-    document.getElementById('man-ratio-value').textContent = `${val.toFixed(2)} : 1`;
-    if (manualRatioDebounce) clearTimeout(manualRatioDebounce);
-    manualRatioDebounce = setTimeout(recalcManualRecommendations, 250);
-}
-
-async function recalcManualRecommendations() {
-    if (!manualSummary) return;
-
-    const ratio = parseFloat(document.getElementById('man-ratio-slider').value);
-    const years = parseInt(document.getElementById('man-growth-years').value);
-    const growthPct = parseFloat(document.getElementById('man-growth-pct').value) || 0;
-    const snapshotPct = parseFloat(document.getElementById('man-snapshot-pct').value) || 0;
-    const sizingMode = document.getElementById('man-sizing-mode').value;
-    const allowStorageOnly = document.getElementById('man-allow-storage-only').checked;
-    const targetModel = document.getElementById('man-model-select').value || null;
-    const includeEolEos = document.getElementById('man-include-eol').checked;
-
-    const resp = await fetch('/api/recommend', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            summary: manualSummary,
-            vcpu_ratio: ratio,
-            years: years,
-            growth_pct: growthPct,
-            snapshot_pct: snapshotPct,
-            sizing_mode: sizingMode,
-            allow_storage_only: allowStorageOnly,
-            target_model: targetModel,
-            include_eol_eos: includeEolEos,
-        }),
-    });
-    const data = await resp.json();
-    if (data.projection) lastProjection['manual'] = data.projection;
-    if (data.recommendations) {
-        lastRecommendations['manual'] = data.recommendations;
-        lastSummary['manual'] = manualSummary;
-        renderRecommendationsTo(data.recommendations, 'man-rec-list', 'man-ratio-slider', 'manual', data.warnings);
-    }
-    if (data.projection) {
-        renderProjectionTo(data.projection, 'man-projection-summary');
-    }
+    const sizing = document.getElementById('sizing-results');
+    sizing.style.display = 'block';
+    recalcRecommendations();
+    sizing.scrollIntoView({behavior: 'smooth'});
 }
 
 async function exportProposal(mode, recIndex) {
@@ -1682,6 +1659,13 @@ function renderLocalStorageOption(s) {
 
 const SNAPSHOT_VERSION = 1;
 
+// Controls in the shared Sizing Options + Growth block — captured for BOTH the
+// import and manual flows (single source of truth, so they stay in lock-step).
+const _SHARED_SIZING_FIELDS = ['ratio-slider', 'growth-years', 'growth-pct',
+    'snapshot-pct', 'target-nodes', 'storage-pref', 'sizing-mode',
+    'size-full-cluster', 'allow-storage-only', 'sizing-model-select',
+    'sizing-include-eol'];
+
 const SNAP_FIELDS = {
     appliance: ['status-filter', 'model-select', 'node-count', 'cpu-select',
         'ram-select', 'nic-select', 'stor-hdd', 'stor-ssd', 'stor-nvme',
@@ -1690,16 +1674,12 @@ const SNAP_FIELDS = {
         'val-nic', 'st-type', 'st-size', 'st-qty', 'dt-cap-type', 'dt-cap-size',
         'dt-cap-qty', 'dt-fast-type', 'dt-fast-size', 'dt-fast-qty', 'val-so-enable',
         'val-so-count', 'val-so-cores', 'val-so-threads', 'val-so-ghz', 'val-so-ram'],
-    import: ['ratio-slider', 'growth-years', 'growth-pct', 'snapshot-pct',
-        'target-nodes', 'storage-pref', 'sizing-mode', 'size-full-cluster',
-        'allow-storage-only', 'p95-iops'],
+    import: [..._SHARED_SIZING_FIELDS, 'p95-iops'],
     manual: ['man-platform', 'man-cluster', 'man-hosts', 'man-cores', 'man-threads',
         'man-ghz', 'man-host-ram', 'man-peak-cpu', 'man-avg-cpu', 'man-peak-mem',
         'man-avg-mem', 'man-avg-iops', 'man-peak-iops', 'man-p95-iops', 'man-nic-speed',
         'man-total-vms', 'man-active-vms', 'man-vcpus', 'man-prov-ram', 'man-used-ram',
-        'man-prov-storage', 'man-ds-used', 'man-ds-total', 'man-ratio-slider',
-        'man-growth-years', 'man-growth-pct', 'man-snapshot-pct', 'man-sizing-mode',
-        'man-allow-storage-only'],
+        'man-prov-storage', 'man-ds-used', 'man-ds-total', ..._SHARED_SIZING_FIELDS],
 };
 
 function _snapById(id) { return document.getElementById(id); }
@@ -1825,12 +1805,11 @@ async function restoreSizingState(snap) {
 
     if (snap.mode === 'manual') {
         (SNAP_FIELDS.manual).forEach(id => _writeField(id, f[id]));
-        calculateManual();  // rebuilds manualSummary + results, then recalcs
-        // Re-apply saved ratio/growth (calculateManual reset the ratio to derived).
-        ['man-ratio-slider', 'man-growth-years', 'man-growth-pct', 'man-snapshot-pct',
-         'man-sizing-mode', 'man-allow-storage-only'].forEach(id => _writeField(id, f[id]));
-        updateManualRatioDisplay();
-        recalcManualRecommendations();
+        calculateManual();  // rebuilds manualSummary + shows the shared block, then recalcs
+        // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
+        _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
+        updateRatioDisplay();
+        recalcRecommendations();
         return;
     }
 }

@@ -23,6 +23,7 @@
             <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
             <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
             <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
+            <button class="tab" data-tab="tuning" onclick="switchTab('tuning')">Tuning</button>
             <span class="tab-spacer"></span>
             <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
             <button class="tab" data-tab="stale" onclick="switchTab('stale')">Inactive 1yr+</button>
@@ -79,6 +80,7 @@
                             <th>RAM Options</th>
                             <th>Storage</th>
                             <th>Min Nodes</th>
+                            <th>Cost</th>
                             <th class="col-actions">Actions</th>
                         </tr>
                     </thead>
@@ -164,47 +166,6 @@
 
         <!-- ═══════════════════ DRIVE CATALOG TAB ═══════════════════ -->
         <div class="tab-content" id="tab-drives">
-            <div class="iops-card">
-                <div class="iops-card-header">
-                    <h3>IOPS per Drive Type</h3>
-                </div>
-                <div class="iops-inputs">
-                    <div class="form-group">
-                        <label>HDD</label>
-                        <input type="number" id="iops-hdd" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label>SSD</label>
-                        <input type="number" id="iops-ssd" min="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label>NVMe</label>
-                        <input type="number" id="iops-nvme" min="0" step="1">
-                    </div>
-                </div>
-                <div class="iops-card-header" style="margin-top:14px">
-                    <h3>Cluster Adjustments</h3>
-                </div>
-                <div class="iops-inputs">
-                    <div class="form-group">
-                        <label>Derating %</label>
-                        <input type="number" id="iops-derating" min="0" max="89" step="1"
-                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
-                    </div>
-                    <div class="form-group">
-                        <label>Replication Factor</label>
-                        <input type="number" id="iops-rf" min="1" step="1"
-                               title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
-                    </div>
-                    <div class="form-group">
-                        <label>Read %</label>
-                        <input type="number" id="iops-read" min="0" max="100" step="1"
-                               title="Read share of the workload (write share = 100 − read).">
-                    </div>
-                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
-                    <span id="iops-status" class="iops-status"></span>
-                </div>
-            </div>
             <div class="toolbar">
                 <div class="toolbar-left">
                     <button class="btn btn-primary" onclick="openAddCatalogItem('drive')">
@@ -236,6 +197,66 @@
                     </thead>
                     <tbody id="drive-catalog-tbody"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ TUNING TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-tuning">
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3>IOPS per Drive Type</h3>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('hdd')">i</button></label>
+                        <input type="number" id="iops-hdd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('ssd')">i</button></label>
+                        <input type="number" id="iops-ssd" min="0" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('nvme')">i</button></label>
+                        <input type="number" id="iops-nvme" min="0" step="1">
+                    </div>
+                </div>
+                <div class="iops-card-header" style="margin-top:14px">
+                    <h3>Cluster IOPS Adjustments</h3>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label>Derating %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('derating')">i</button></label>
+                        <input type="number" id="iops-derating" min="0" max="89" step="1"
+                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
+                    </div>
+                    <div class="form-group">
+                        <label>Replication Factor<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('rf')">i</button></label>
+                        <input type="number" id="iops-rf" min="1" step="1"
+                               title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
+                    </div>
+                    <div class="form-group">
+                        <label>Read %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('read')">i</button></label>
+                        <input type="number" id="iops-read" min="0" max="100" step="1"
+                               title="Read share of the workload (write share = 100 − read).">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
+                    <span id="iops-status" class="iops-status"></span>
+                </div>
+            </div>
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3>Sizing &amp; Scoring Tunables</h3>
+                    <p class="muted" style="margin:4px 0 0">
+                        Weights and limits used by the recommendation engine. Changes apply to
+                        new sizings immediately. Hover a label for what it does.
+                    </p>
+                </div>
+                <div id="tunables-groups"></div>
+                <div class="iops-inputs" style="margin-top:14px">
+                    <button class="btn btn-primary" onclick="saveTunables()">Save Tunables</button>
+                    <button class="btn btn-secondary" onclick="resetTunables()">Reset to defaults</button>
+                    <span id="tunables-status" class="iops-status"></span>
+                </div>
             </div>
         </div>
 
@@ -411,6 +432,28 @@
             </div>
         </div>
 
+        <!-- ═══════════════════ TUNABLE INFO MODAL ═══════════════════ -->
+        <div class="modal-overlay centered" id="tunable-info-modal" style="display:none"
+             onclick="if(event.target===this)closeTunableInfo()">
+            <div class="modal" style="max-width:520px">
+                <div class="modal-header">
+                    <h2 id="tun-info-title">Setting</h2>
+                    <button class="modal-close" onclick="closeTunableInfo()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tun-info-section tun-info-what">
+                        <h4>What</h4><p id="tun-info-what"></p>
+                    </div>
+                    <div class="tun-info-section tun-info-how">
+                        <h4>How</h4><p id="tun-info-how"></p>
+                    </div>
+                    <div class="tun-info-section tun-info-beware">
+                        <h4>Beware</h4><p id="tun-info-beware"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══════════════════ CATALOG IMPORT MODAL ═══════════════════ -->
         <div class="modal-overlay" id="catalog-import-modal" style="display:none">
             <div class="modal" style="max-width:600px">
@@ -522,6 +565,11 @@
                         <div class="form-group">
                             <label>Min Nodes</label>
                             <input type="number" id="edit-min-nodes" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Cost</label>
+                            <input type="number" id="edit-cost-tier" value="5" min="0" step="0.5"
+                                   title="Relative cost weight used as a ranking tiebreaker — lower wins among configs that fit equally well. Wider gaps between models steer the recommender away from over-sizing. Roughly: edge 2–5, 1U 8–12, datacenter 1U 14–24, all-flash 26–40, 2U 22–40.">
                         </div>
                     </div>
 

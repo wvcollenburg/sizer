@@ -1078,6 +1078,54 @@ APPLIANCE_MODELS = {
     },
 }
 
+# ── Per-model relative cost weights ───────────────────────────────────────────
+# Seeded into models.cost_tier (admin-tunable thereafter). Used purely as a
+# *relative* ranking tiebreaker — lower wins among configs that fit equally well
+# — so absolute units don't matter, only the spacing between models.
+#
+# The scale is deliberately wide (≈2 → ≈40) so a single jump up a family
+# (edge → 1U → datacenter → all-flash → 2U-dual) carries real weight and the
+# recommender stops reaching for a big box when a small one fits. It stays a
+# *tiebreaker*, though: node count, then CPU/IOPS/storage/RAM closeness, all
+# rank ahead of cost (see recommend._rank_key). That is the "gentle" guardrail —
+# cheap edge nodes only win when they genuinely fit the same workload in the
+# same node band, so a large system won't collapse into 130 tiny appliances.
+#
+# Rough family bands (single vs. dual socket = "D", flash = "F"):
+#   edge SFF/NUC ......... 2–5      1U hybrid ........... 8–10
+#   1U flash ............ 11–12     DC 1U single ....... 14–18
+#   DC 1U dual ......... 19–24      all-flash 1U single  26–32
+#   all-flash 1U dual .. 30–40      2U single .......... 22–30
+#   2U dual ............ 28–40
+MODEL_COSTS = {
+    # Edge (SFF / NUC)
+    "HE150": 2, "HE151": 2, "HE153": 2, "HE153s": 2, "HE153p": 3,
+    "HE155-1": 3, "HE155-2": 4, "HE250": 5, "SE100": 5,
+    # 1U Rack (hybrid)
+    "HE500": 8, "HE501": 8, "HE502": 9,
+    "HE550": 9, "HE551": 9, "HE552": 10,
+    # 1U Rack (all-flash)
+    "HE550F": 11, "HE551F": 11, "HE552F": 12,
+    # Datacenter 1U single socket (hybrid)
+    "HC1200": 14, "HC1300": 15, "HC1400": 16, "HC1600": 18,
+    "HC1250": 15, "HC1350": 17, "HC1450": 18,
+    # Datacenter 1U dual socket (hybrid)
+    "HC1250D": 19, "HC1450D": 22, "HC1650D": 24,
+    # Datacenter 1U all-flash
+    "HC3250DF": 24, "HC3350F": 26, "HC3350DF": 30,
+    "HC3450F": 28, "HC3450DF": 34, "HC3450FG": 40,
+    "HC3650F": 32, "HC3650DF": 38,
+    # Datacenter 2U
+    "HC5200": 22, "HC5250D": 28, "HC5400": 26,
+    "HC5450D": 34, "HC5600": 30, "HC5650D": 40,
+    # Cloud (virtual)
+    "Cloud Unity": 12,
+}
+
+# Fallback cost for any model missing from MODEL_COSTS (mirrors the old
+# hardcoded default of 5).
+DEFAULT_MODEL_COST = 5
+
 VALIDATED_NICS = [
     {"desc": "Intel X710-T4L (10GBase-T 4-port)", "speed": "10GbE", "ports": 4},
     {"desc": "Intel X710-DA2 (10GbE SFP+ 2-port)", "speed": "10GbE", "ports": 2},

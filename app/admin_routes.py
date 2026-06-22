@@ -13,8 +13,10 @@ from orm_models import (
     CpuCatalog, NicCatalog, DriveCatalog, DriveTypeIops, SizingSetting,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
+from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
+_TUNABLE_BY_KEY = {d["key"]: d for d in TUNABLE_DEFS}
 
 _QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
 
@@ -316,6 +318,88 @@ def update_sizing_config():
     return jsonify({"message": "Sizing config updated", "sizing_config": _sizing_config_dict()})
 
 
+# ── Scoring / sizing / topology tunables ─────────────────────────────────────
+# Reuses the SizingSetting key/value table; the field set + grouping is driven
+# by tunables.TUNABLE_DEFS so the admin page renders itself from metadata.
+
+def _tunable_values():
+    """Current tunable values: defaults overlaid with any saved overrides,
+    coerced to each tunable's declared type (ints stay ints)."""
+    saved = {s.key: s.value for s in SizingSetting.query.all()}
+    out = {}
+    for d in TUNABLE_DEFS:
+        key = d["key"]
+        val = saved.get(key, d["default"])
+        out[key] = int(round(val)) if d["type"] == "int" else float(val)
+    return out
+
+
+def _coerce_tunable(d, value):
+    """Validate+coerce one incoming tunable value against its metadata.
+    Returns the stored value or raises ValueError with a user message."""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{d['label']} must be a number")
+    if d["type"] == "int":
+        num = int(round(num))
+    lo, hi = d.get("min"), d.get("max")
+    if lo is not None and num < lo:
+        raise ValueError(f"{d['label']} must be ≥ {lo}")
+    if hi is not None and num > hi:
+        raise ValueError(f"{d['label']} must be ≤ {hi}")
+    return num
+
+
+@admin_bp.route("/api/tunables")
+def get_tunables():
+    return jsonify({"defs": TUNABLE_DEFS, "values": _tunable_values()})
+
+
+@admin_bp.route("/api/tunables", methods=["PUT"])
+def update_tunables():
+    data = request.json or {}
+    updates = {}
+    for key, raw in data.items():
+        d = _TUNABLE_BY_KEY.get(key)
+        if d is None:
+            continue  # ignore unknown keys
+        try:
+            updates[key] = _coerce_tunable(d, raw)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    # Cross-field sanity: hybrid flash floor must not exceed its ceiling.
+    lo = updates.get("hybrid_flash_min_pct", _tunable_values()["hybrid_flash_min_pct"])
+    hi = updates.get("hybrid_flash_max_pct", _tunable_values()["hybrid_flash_max_pct"])
+    if lo > hi:
+        return jsonify({"error": "Hybrid flash floor must not exceed the ceiling"}), 400
+
+    if not updates:
+        return jsonify({"error": "No valid tunables provided"}), 400
+
+    for key, value in updates.items():
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            db.session.add(SizingSetting(key=key, value=value))
+    db.session.commit()
+    return jsonify({"message": "Tunables updated", "values": _tunable_values()})
+
+
+@admin_bp.route("/api/tunables/reset", methods=["POST"])
+def reset_tunables():
+    for key, value in TUNABLE_DEFAULTS.items():
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            db.session.add(SizingSetting(key=key, value=value))
+    db.session.commit()
+    return jsonify({"message": "Tunables reset to defaults", "values": _tunable_values()})
+
+
 # ── List all models ──────────────────────────────────────────────────────────
 
 @admin_bp.route("/api/models")
@@ -386,6 +470,8 @@ def update_model(model_id):
     model.psu = data.get("psu", model.psu)
     model.ram_slots = data.get("ram_slots", model.ram_slots)
     model.min_nodes = data.get("min_nodes", model.min_nodes)
+    if "cost_tier" in data and data["cost_tier"] not in (None, ""):
+        model.cost_tier = float(data["cost_tier"])
     if "validated_only" in data:
         model.validated_only = bool(data["validated_only"])
     model.notes = data.get("notes", model.notes)
@@ -464,7 +550,8 @@ def export_models():
     ws = wb.active
     ws.title = "Models"
     ws.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-               "Socket", "PSU", "RAM Slots", "Min Nodes", "Validated Only", "Notes"])
+               "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
+               "Validated Only", "Notes"])
     style_headers(ws)
 
     ws_cpu = wb.create_sheet("CPU Options")
@@ -491,7 +578,7 @@ def export_models():
     models = _model_query().order_by(Model.category, Model.name).all()
     for m in models:
         ws.append([m.name, m.status, m.category, m.form_factor, m.chassis,
-                   m.socket, m.psu, m.ram_slots, m.min_nodes,
+                   m.socket, m.psu, m.ram_slots, m.min_nodes, m.cost_tier,
                    "Yes" if m.validated_only else "No", m.notes])
 
         for link in sorted(m.cpu_links, key=lambda l: l.sort_order):
@@ -723,6 +810,7 @@ def _import_catalog_from_excel(file_path):
                 "psu": str(r.get("PSU", "") or "").strip() or None,
                 "ram_slots": int(r.get("RAM Slots", 0) or 0),
                 "min_nodes": int(r.get("Min Nodes", 1) or 1),
+                "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
                 "validated_only": str(r.get("Validated Only", "")).strip().lower()
                                   in ("yes", "true", "1"),
                 "notes": str(r.get("Notes", "") or "").strip() or None,
@@ -796,11 +884,11 @@ def catalog_template():
 
     ws_mod = wb.create_sheet("Models")
     ws_mod.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Notes"])
+                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost", "Notes"])
     style_headers(ws_mod)
     example_rows(ws_mod, [
         [ex, "Active", "1U All-Flash", "1U Rack", "Dell PowerEdge R660",
-         "single", "2x 800W", 16, 3, None],
+         "single", "2x 800W", 16, 3, 28, None],
     ])
 
     ws_mcpu = wb.create_sheet("Model CPU Options")
@@ -894,6 +982,7 @@ def _build_model(data):
         psu=data.get("psu"),
         ram_slots=data.get("ram_slots", 0),
         min_nodes=data.get("min_nodes", 1),
+        cost_tier=float(data["cost_tier"]) if data.get("cost_tier") not in (None, "") else 5.0,
         validated_only=bool(data.get("validated_only", False)),
         notes=data.get("notes"),
     )

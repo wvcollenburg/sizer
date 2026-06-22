@@ -25,7 +25,8 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
-    if (tab === 'users') loadAdminUsers();
+    if (tab === 'tuning') loadTunables();
+    else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
     else if (tab === 'sizings') loadAdminSizings();
@@ -118,6 +119,153 @@ async function saveDriveIops() {
     setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
 }
 
+// ── Tuning (sizing & scoring tunables) ───────────────────────────────────────
+
+let tunableDefs = [];
+
+async function loadTunables() {
+    // The Tuning tab hosts both the IOPS card and the scoring/sizing tunables.
+    const [tunResp, iopsResp, sizingResp] = await Promise.all([
+        fetch('/admin/api/tunables'),
+        fetch('/admin/api/drive-iops'),
+        fetch('/admin/api/sizing-config'),
+    ]);
+    const data = await tunResp.json();
+    driveIops = await iopsResp.json();
+    sizingConfig = await sizingResp.json();
+    tunableDefs = data.defs || [];
+    renderTunables(data.values || {});
+    renderDriveIops();
+}
+
+function renderTunables(values) {
+    const container = document.getElementById('tunables-groups');
+    // Preserve group order as defined in the metadata.
+    const groups = [];
+    const byGroup = {};
+    for (const d of tunableDefs) {
+        if (!byGroup[d.group]) { byGroup[d.group] = []; groups.push(d.group); }
+        byGroup[d.group].push(d);
+    }
+    container.innerHTML = groups.map(g => `
+        <div class="iops-card-header" style="margin-top:14px"><h3>${esc(g)}</h3></div>
+        <div class="iops-inputs">
+            ${byGroup[g].map(d => `
+                <div class="form-group">
+                    <label title="${esc(d.help || '')}">${esc(d.label)}<button type="button" class="tunable-info-btn" title="What this does" onclick="showTunableInfo('${d.key}')">i</button></label>
+                    <input type="number" id="tun-${d.key}"
+                           ${d.min != null ? `min="${d.min}"` : ''}
+                           ${d.max != null ? `max="${d.max}"` : ''}
+                           step="${d.step != null ? d.step : (d.type === 'int' ? 1 : 'any')}"
+                           value="${values[d.key]}"
+                           title="${esc(d.help || '')}">
+                </div>`).join('')}
+        </div>`).join('');
+}
+
+async function saveTunables() {
+    const status = document.getElementById('tunables-status');
+    const payload = {};
+    for (const d of tunableDefs) {
+        const el = document.getElementById('tun-' + d.key);
+        if (el && el.value !== '') payload[d.key] = parseFloat(el.value);
+    }
+    try {
+        const r = await fetch('/admin/api/tunables', {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Save failed');
+        renderTunables(d.values || {});
+        status.textContent = 'Saved';
+        status.className = 'iops-status ok';
+    } catch (e) {
+        status.textContent = e.message;
+        status.className = 'iops-status err';
+    }
+    setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
+}
+
+// Shared What/How/Beware info modal, driven by a {label, what, how, beware} object.
+function showInfo(d) {
+    if (!d) return;
+    document.getElementById('tun-info-title').textContent = d.label || 'Setting';
+    document.getElementById('tun-info-what').textContent = d.what || d.help || '';
+    document.getElementById('tun-info-how').textContent = d.how || '';
+    document.getElementById('tun-info-beware').textContent = d.beware || '';
+    document.getElementById('tunable-info-modal').style.display = 'flex';
+}
+
+function showTunableInfo(key) {
+    showInfo((tunableDefs || []).find(t => t.key === key));
+}
+
+// IOPS fields are hand-built (not metadata-driven), so their info text lives here.
+const IOPS_INFO = {
+    hdd: {
+        label: 'HDD IOPS per drive',
+        what: 'The raw IOPS credited to a single HDD (spinning) data drive, before cluster derating or write amplification.',
+        how: 'Each HDD in a node adds this to the cluster IOPS total. Raise it to credit hybrid/HDD configs with more performance; lower it to make them look slower (pushing the engine toward flash for IOPS-heavy workloads).',
+        beware: 'Vendor "max" figures are optimistic for random I/O — set too high and HDD configs appear to meet demand they can’t sustain in practice. Too low needlessly disqualifies hybrid/HDD options.',
+    },
+    ssd: {
+        label: 'SSD IOPS per drive',
+        what: 'The raw IOPS credited to a single SATA/SAS SSD data drive, before derating or write amplification.',
+        how: 'Each SSD adds this to the cluster IOPS total. Raise or lower it to change how SSD-tier configs are credited.',
+        beware: 'Optimistic spec-sheet numbers skew which media wins. Keep the HDD/SSD/NVMe values in realistic proportion to one another.',
+    },
+    nvme: {
+        label: 'NVMe IOPS per drive',
+        what: 'The raw IOPS credited to a single NVMe data drive, before derating or write amplification.',
+        how: 'Each NVMe drive adds this to the cluster total. Raise it to credit all-flash NVMe configs with more headroom.',
+        beware: 'Very high values let a 2-node all-flash cluster "satisfy" almost any IOPS demand, hiding the need for more nodes. Keep proportional to SSD/HDD.',
+    },
+    derating: {
+        label: 'Derating %',
+        what: 'A blanket reduction applied to raw drive IOPS for cluster overhead — replication traffic, metadata and scrubbing (SCRIBE). 35% means only 65% of raw IOPS counts.',
+        how: 'Raise it to assume less usable IOPS (more conservative — may need more drives or nodes). Lower it to credit more of the raw IOPS.',
+        beware: 'Too low (near 0) over-promises performance the cluster can’t deliver under real overhead. Too high buries achievable configs and inflates hardware. Range 0–89%.',
+    },
+    rf: {
+        label: 'Replication Factor',
+        what: 'How many copies of each write the cluster stores (RF2 = 2 copies). It drives write amplification — each front-end write costs this many back-end writes.',
+        how: 'Raise it to increase write amplification, lowering the net IOPS available to workloads (so the engine sizes more drives/nodes). It reflects the real data-protection level.',
+        beware: 'Should match the cluster’s actual replication policy: below the real RF over-states usable IOPS; above it needlessly inflates sizing. Must be a whole number ≥ 1.',
+    },
+    read: {
+        label: 'Read %',
+        what: 'The assumed read share of the workload (the rest is writes). Writes are amplified by the replication factor; reads are not — so the read/write mix sets the effective write amplification.',
+        how: 'A higher read % means fewer amplified writes, so more net IOPS are available. A lower (write-heavy) read % reduces net IOPS and pushes toward more or faster drives.',
+        beware: 'If the real workload is more write-heavy than assumed, an optimistic read % over-states usable IOPS and under-sizes the cluster. Range 0–100%.',
+    },
+};
+
+function showIopsInfo(key) {
+    showInfo(IOPS_INFO[key]);
+}
+
+function closeTunableInfo() {
+    document.getElementById('tunable-info-modal').style.display = 'none';
+}
+
+async function resetTunables() {
+    if (!confirm('Reset all sizing & scoring tunables to their defaults?')) return;
+    const status = document.getElementById('tunables-status');
+    try {
+        const r = await fetch('/admin/api/tunables/reset', {method: 'POST'});
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Reset failed');
+        renderTunables(d.values || {});
+        status.textContent = 'Reset to defaults';
+        status.className = 'iops-status ok';
+    } catch (e) {
+        status.textContent = e.message;
+        status.className = 'iops-status err';
+    }
+    setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
+}
+
 // ── Model Table ────────────────────────────────────────────────────────────
 
 function renderModelTable() {
@@ -132,7 +280,7 @@ function renderModelTable() {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-muted)">No models found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted)">No models found</td></tr>';
         return;
     }
 
@@ -153,6 +301,7 @@ function renderModelTable() {
             <td class="cell-list">${ramSummary}</td>
             <td>${esc(storType)}</td>
             <td>${m.min_nodes}</td>
+            <td>${m.cost_tier ?? '-'}</td>
             <td class="col-actions">
                 <button class="btn-icon" title="Edit" onclick="openEditModel(${m.id})">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -481,6 +630,7 @@ function openAddModel() {
     document.getElementById('edit-psu').value = '';
     document.getElementById('edit-ram-slots').value = '0';
     document.getElementById('edit-min-nodes').value = '1';
+    document.getElementById('edit-cost-tier').value = '5';
     document.getElementById('edit-validated-only').checked = false;
     document.getElementById('edit-notes').value = '';
 
@@ -520,6 +670,8 @@ async function openEditModel(id) {
     document.getElementById('edit-psu').value = m.psu || '';
     document.getElementById('edit-ram-slots').value = m.ram_slots || 0;
     document.getElementById('edit-min-nodes').value = m.min_nodes || 1;
+    document.getElementById('edit-cost-tier').value =
+        (m.cost_tier !== undefined && m.cost_tier !== null) ? m.cost_tier : 5;
     document.getElementById('edit-validated-only').checked = !!m.validated_only;
     document.getElementById('edit-notes').value = m.notes || '';
 
@@ -844,6 +996,7 @@ async function saveModel() {
         psu: document.getElementById('edit-psu').value.trim() || null,
         ram_slots: parseInt(document.getElementById('edit-ram-slots').value) || 0,
         min_nodes: parseInt(document.getElementById('edit-min-nodes').value) || 1,
+        cost_tier: parseFloat(document.getElementById('edit-cost-tier').value) || 5,
         validated_only: document.getElementById('edit-validated-only').checked,
         notes: document.getElementById('edit-notes').value.trim() || null,
         cpu_options: cpuOptions,

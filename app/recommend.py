@@ -4,17 +4,16 @@ from orm_models import (
     Model, StorageConfig, ModelCpuOption, ModelNicOption, StorageConfigDrive,
     DriveTypeIops, SizingSetting,
 )
-from storage_only import single_cpu_options, MIN_HCI_NODES_PER_CLUSTER
+from storage_only import single_cpu_options
+from tunables import T, refresh_from_db
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.
 DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
 
-# HyperCore OS overhead per node
-OS_CORE_OVERHEAD = 1          # 1 core reserved for HyperCore OS
-OS_RAM_GB = 4                 # 4 GB RAM for HyperCore OS
-RAM_BUFFER_GB = 2             # 2 GB safety buffer
-USABLE_RAM_OVERHEAD = OS_RAM_GB + RAM_BUFFER_GB  # 6 GB total per node
-
+# Sizing/scoring constants (OS overheads, scoring weights, topology limits) are
+# admin-tunable and live in tunables.T — read as T.<name> so admin edits take
+# effect without a restart. refresh_from_db() (called at the top of
+# generate_recommendations) loads the live values for the request.
 
 STORAGE_CATEGORIES = {
     "nvme_only": "flash",
@@ -26,16 +25,13 @@ STORAGE_CATEGORIES = {
 }
 
 
-MAX_CLUSTER_DISKS = 100      # Software-only hard cap on disks per cluster
-HYBRID_FLASH_MIN_PCT = 7.0   # Validated hybrid: flash tier floor (% of raw capacity)
-HYBRID_FLASH_MAX_PCT = 24.3  # Validated hybrid: flash tier ceiling
-
-
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
                              sizing_mode="certified", allow_storage_only=False,
                              target_model=None, include_eol_eos=False):
+    # Load the current admin-tuned weights/overheads/limits for this request.
+    refresh_from_db()
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -93,6 +89,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "max_vm_ram_gb": summary.get("max_vm_ram_gb", 0),
         "max_vm_cores": summary.get("max_vm_cores", 0),
         "size_full_cluster": size_full_cluster,
+        # Exact node-count target: when set and reachable, _fit_model sizes each
+        # model at exactly this many nodes (not its minimum). Larger fallbacks
+        # only appear when the target is infeasible.
+        "target_nodes": target_nodes,
     }
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
@@ -148,12 +148,12 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                           allow_storage_only=allow_storage_only)
         candidates.extend(fits)
 
-    # Ranking priority (each tier only breaks ties of the previous one):
-    #   1) fewest nodes  2) closest CPU match  3) closest IOPS match
-    #   4) closest storage match  5) closest RAM match  6) cheapest.
-    # "Closest" = least over-provisioning above the requirement. Closeness is
-    # bucketed (5% steps) so near-equal fits fall through to the next tier
-    # instead of a hair's-width difference dominating.
+    # Ranking: a single right-sizing score (lower = better) that trades total
+    # fleet cost against wasted capacity (CPU/RAM/storage over-provisioning),
+    # so the engine can pick a slightly larger but tighter/cheaper cluster
+    # instead of always minimising node count. IOPS is a hard feasibility gate
+    # ahead of the score — configs that can't meet measured demand sort last.
+    # See _rank_key and the weight block above it.
     p95_iops = summary.get("p95_iops", 0) or 0
     avg_iops = summary.get("total_avg_iops", 0) or 0
     iops_demand_val = p95_iops if p95_iops > 0 else avg_iops
@@ -185,17 +185,23 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             f"workload. Switch the storage preference to Auto to see all options."
         )
     if target_nodes is not None:
-        within_cap = [c for c in deduped if c["node_count"] <= target_nodes]
-        if not within_cap and deduped:
-            warnings.append(
-                _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs)
-            )
-        elif not within_cap:
-            warnings.append(
-                f"No SC// configuration can fit this workload within "
-                f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
-            )
-        deduped = within_cap
+        # The target is an exact node count: show only N-node configurations.
+        # Larger sizes are offered (with a warning) only when N is infeasible.
+        exact = [c for c in deduped if c["node_count"] == target_nodes]
+        if exact:
+            deduped = exact
+        else:
+            larger = [c for c in deduped if c["node_count"] > target_nodes]
+            if larger:
+                warnings.append(
+                    _target_infeasible_warning(larger, target_nodes, vcpu_ratio, needs)
+                )
+            else:
+                warnings.append(
+                    f"No SC// configuration can fit this workload in "
+                    f"{target_nodes} node{'s' if target_nodes != 1 else ''}."
+                )
+            deduped = larger
 
     if validated and not deduped and not warnings:
         warnings.append(
@@ -263,62 +269,50 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     return {"recommendations": top, "projection": projection, "warnings": warnings}
 
 
-RANK_BUCKET = 0.05   # 5% closeness buckets for the ranking tiers
-
-
-def _bucket(over_provision):
-    """Quantise an over-provisioning fraction so near-equal fits tie and fall
-    through to the next ranking tier. Negative (shouldn't happen for met
-    requirements) clamps to 0."""
-    return round(max(0.0, over_provision) / RANK_BUCKET)
+# ── Right-sizing score ───────────────────────────────────────────────────────
+# Candidates are ranked by a single scalar score (lower = better) computed per
+# candidate in _fit_model, instead of a lexicographic tuple. A scalar lets a
+# large saving in cost or wasted capacity outweigh a small increase in node
+# count (and vice-versa) — which a lexicographic ordering, where node count
+# alone decides, can never do.
+#
+#   fleet cost  = node_count × (per-model cost_tier + T.node_overhead)
+#   core cost   = total physical HCI cores × T.w_core_license  (per-core licensing)
+#   waste       = Σ capped per-dimension over-provisioning (CPU / RAM / storage)
+#   ghz penalty = added only when raw cluster GHz drops below the source
+#
+# All weights (T.w_cost, T.node_overhead, T.w_core_license, T.w_waste, T.w_cpu,
+# T.w_ram, T.w_stor, T.waste_cap, T.w_ghz_shortfall) are admin-tunable — see
+# tunables.py and the super-admin Tuning page.
 
 
 def _rank_key(c, needs, required_cores, iops_demand_val):
-    """Lexicographic ranking: fewest total nodes, then (when storage-only is in
-    play) fewest HCI nodes so compute is concentrated on the top CPU and the
-    rest offloaded to cheap storage-only nodes, then closest CPU / IOPS /
-    storage / RAM match (least over-provisioning), then cheapest. Lower sorts
-    first."""
-    full = c.get("sized_full_cluster")
-    cpu_avail = c["totals"]["cores"] if full else c["n_minus_1"]["cores"]
-    cpu_close = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
-    # Maximise storage-only offload: among configs with the same total node
-    # count, prefer the one with the fewest full HCI nodes (achieved by the
-    # most capable CPU). With no storage-only split this equals node_count for
-    # every candidate, so it has no effect.
+    """Rank by the single right-sizing score (lower = better) computed per
+    candidate in _fit_model — fleet cost + capped capacity waste + GHz
+    shortfall. IOPS is a feasibility gate, not a score term: any config that
+    cannot meet the measured IOPS demand sorts after every config that can.
+    Ties break to the most storage-only offload (fewest HCI nodes for the same
+    total), then the smallest CPU for determinism."""
+    meets_iops = 0
+    if iops_demand_val > 0 and c["iops"]["total"] < iops_demand_val:
+        meets_iops = 1
+    # Among same-score configs, prefer the one that offloads the most to
+    # storage-only nodes (fewest full HCI nodes). With no storage-only split
+    # this equals node_count for every candidate, so it has no effect.
     hci_nodes = c.get("hci_node_count", c["node_count"])
 
-    if iops_demand_val > 0:
-        net = c["iops"]["total"]
-        if net >= iops_demand_val:
-            iops_close = (net - iops_demand_val) / iops_demand_val
-        else:
-            # Configs that don't meet demand rank after all that do.
-            iops_close = 1000 + (iops_demand_val - net) / iops_demand_val
-    else:
-        iops_close = 0
-
-    need_stor = needs["usable_storage_tb"]
-    stor_close = (c["totals"]["usable_storage_tb"] - need_stor) / need_stor if need_stor > 0 else 0
-    need_ram = needs["ram_gb"]
-    ram_close = (c["n_minus_1"]["ram_gb"] - need_ram) / need_ram if need_ram > 0 else 0
-
     return (
-        c["node_count"],
+        meets_iops,
+        c["score"],
         hci_nodes,
-        _bucket(cpu_close),
-        _bucket(iops_close) if iops_close < 1000 else 1_000_000 + round(iops_close),
-        _bucket(stor_close),
-        _bucket(ram_close),
-        c["cost_tier"],
         c["totals"]["cores"],   # final deterministic tiebreak
     )
 
 
 def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
-    """Explain why no config fits within the target node cap, naming the
-    limiting resource(s) and — when CPU is the fixable constraint — a vCPU:core
-    ratio that would make it fit."""
+    """Explain why the exact node-count target can't be met, naming the limiting
+    resource(s) and — when CPU is the fixable constraint — a vCPU:core ratio that
+    would make it fit. `deduped` here is the set of feasible (larger) configs."""
     plural = "s" if target_nodes != 1 else ""
     best = min(deduped, key=lambda c: c["node_count"])
     mf = best["node_count"]
@@ -334,8 +328,8 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     if best["_nodes_for_storage"] >= mf:
         binding.append(f"storage capacity (≥{best['_nodes_for_storage']} nodes)")
 
-    msg = (f"No SC// configuration fits this workload within "
-           f"{target_nodes} node{plural} (smallest feasible: {mf} nodes).")
+    msg = (f"Target of {target_nodes} node{plural} could not be achieved for "
+           f"this workload (smallest feasible: {mf} nodes).")
     if binding:
         msg += " Limiting factor: " + "; ".join(binding) + "."
 
@@ -366,45 +360,11 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     return msg
 
 
-MAX_NODES_PER_CLUSTER = 8
-
-COST_TIERS = {
-    "SE":     3,   # Lenovo
-    "HE15":   1,   # Intel NUC class
-    "HE25":   2,   # Minisforum/SNUC class
-    "HE5":    5,   # Supermicro 1U entry
-    "HC1":    6,   # Supermicro datacenter 1U
-    "HC3F":  10,   # Dell/Lenovo single-socket server
-    "HC3DF": 12,   # Dell/Lenovo dual-socket server
-    "HC5H":  13,   # 2U HDD-only (no NVMe)
-    "HC5D":  14,   # 2U hybrid with NVMe
-}
-
-
-def _model_cost_tier(name):
-    if name.startswith("SE"):
-        return COST_TIERS["SE"]
-    if name.startswith("HE15"):
-        return COST_TIERS["HE15"]
-    if name.startswith("HE25"):
-        return COST_TIERS["HE25"]
-    if name.startswith("HE5"):
-        return COST_TIERS["HE5"]
-    if name.startswith("HC1"):
-        return COST_TIERS["HC1"]
-    if name.startswith("HC3"):
-        return COST_TIERS["HC3DF"] if "DF" in name else COST_TIERS["HC3F"]
-    if name.startswith("HC5"):
-        if "50" in name:
-            return COST_TIERS["HC5D"]
-        return COST_TIERS["HC5H"]
-    return 5
-
-
 def _cluster_layout(total_nodes):
-    if total_nodes <= MAX_NODES_PER_CLUSTER:
+    max_per = T.max_nodes_per_cluster
+    if total_nodes <= max_per:
         return [total_nodes]
-    num_clusters = math.ceil(total_nodes / MAX_NODES_PER_CLUSTER)
+    num_clusters = math.ceil(total_nodes / max_per)
     base = total_nodes // num_clusters
     remainder = total_nodes % num_clusters
     return [base + 1] * remainder + [base] * (num_clusters - remainder)
@@ -424,7 +384,7 @@ def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
     (hci_nodes, ram_gb). Enforces >=2 HCI per cluster and at least one compute
     node per cluster at N-1. Falls back to (node_count, None) if no split fits
     — caller then treats it as an all-HCI config."""
-    lo = max(MIN_HCI_NODES_PER_CLUSTER * num_clusters, num_clusters + 1)
+    lo = max(T.min_hci_nodes_per_cluster * num_clusters, num_clusters + 1)
     for h in range(lo, node_count + 1):
         comp = h if full_cluster else (h - num_clusters)
         if comp <= 0:
@@ -463,7 +423,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     viable_ram_options = model["ram_options_gb"]
     if max_vm_ram > 0:
         viable_ram_options = [r for r in viable_ram_options
-                              if (r - USABLE_RAM_OVERHEAD) >= max_vm_ram]
+                              if (r - T.usable_ram_overhead) >= max_vm_ram]
     if not viable_ram_options:
         return results
 
@@ -474,7 +434,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1_nodes = n - len(layout)
-            if (max_ram - USABLE_RAM_OVERHEAD) * n1_nodes >= needs["ram_gb"]:
+            if (max_ram - T.usable_ram_overhead) * n1_nodes >= needs["ram_gb"]:
                 needed_nodes_ram = n
                 break
 
@@ -488,7 +448,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         cores_per_node = cpu["cores"]
         threads_per_node = cpu["threads"]
         ghz_per_node = cpu["ghz"] * cores_per_node
-        usable_cores = cores_per_node - OS_CORE_OVERHEAD
+        usable_cores = cores_per_node - T.os_core_overhead
 
         if cores_per_node == 0 or usable_cores <= 0:
             continue
@@ -509,7 +469,18 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         start_nodes = max(min_nodes, needed_nodes_cpu,
                           needed_nodes_storage, needed_nodes_ram)
 
-        for node_count in range(start_nodes, start_nodes + 5):
+        # Exact node-count target: when the user asks for N nodes and this CPU
+        # can serve the workload in exactly N (N >= the minimum feasible), size
+        # it at N only. When N is below the minimum (workload too big for N with
+        # this CPU), fall back to the normal window so the caller can still
+        # surface the smallest feasible larger size and warn that N is impossible.
+        target_nodes = needs.get("target_nodes")
+        if target_nodes is not None and target_nodes >= start_nodes:
+            node_counts = (target_nodes,)
+        else:
+            node_counts = range(start_nodes, start_nodes + 5)
+
+        for node_count in node_counts:
             layout = _cluster_layout(node_count)
             num_clusters = len(layout)
             n1_nodes = node_count - num_clusters
@@ -551,7 +522,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if not stor:
                 continue
 
-            usable_ram_per_node = ram_gb - USABLE_RAM_OVERHEAD
+            usable_ram_per_node = ram_gb - T.usable_ram_overhead
 
             total_cores = cores_per_node * hci_nodes
             total_threads = threads_per_node * hci_nodes
@@ -596,27 +567,40 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             full_ratio = needs["vcpus"] / full_usable_cores if full_usable_cores > 0 else 99
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
-            cost_tier = _model_cost_tier(model["name"])
-            excess_cores = usable_cores * hci_nodes - required_cores
+            cost_tier = model.get("cost_tier") or T.default_cost_tier
 
-            score = node_count * 20
-            score += cost_tier * 6
-            score += excess_cores * 0.3
-
+            # Per-dimension over-provisioning (fraction bought above the
+            # requirement), measured on the same basis the fit was gated on
+            # (N-1, or the full cluster when sizing for it). Also reused by the
+            # determining-factor block below.
             core_headroom = (cpu_avail - required_cores) / required_cores if required_cores > 0 else 0
             ram_headroom = (usable_ram_per_node * compute_n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
-            score += core_headroom * 3
-            score += ram_headroom * 3
-            score += stor_headroom * 2
+            # Right-sizing score (lower = better) — see the weight block above
+            # _rank_key. One combined waste term (each dimension capped so a
+            # single wildly-oversized axis can't dominate) traded off against
+            # total fleet cost, so the ranker can prefer a slightly larger but
+            # much tighter / cheaper cluster instead of always minimising nodes.
+            waste = (T.w_cpu * min(max(0.0, core_headroom), T.waste_cap)
+                     + T.w_ram * min(max(0.0, ram_headroom), T.waste_cap)
+                     + T.w_stor * min(max(0.0, stor_headroom), T.waste_cap))
+            fleet_cost = node_count * (cost_tier + T.node_overhead)
+            # Per-core licensing cost: linear in the total PHYSICAL cores of the
+            # HCI (VM-running) nodes — total_cores = cores_per_node × hci_nodes,
+            # the physical (not usable) count, which is what core-based licences
+            # bill on. Storage-only nodes run no VMs and are excluded. This makes
+            # a config with fewer total cores rank ahead of a fewer-node config
+            # that packs in more cores.
+            core_cost = T.w_core_license * total_cores
+            score = T.w_cost * fleet_cost + core_cost + T.w_waste * waste
 
+            # Don't let a high vCPU:core ratio quietly under-power the cluster:
+            # penalise raw GHz that falls below the source cluster's total.
             if needs["current_total_ghz"] > 0:
                 ghz_ratio = n1_ghz / needs["current_total_ghz"]
-                if ghz_ratio >= 1.0:
-                    score -= (ghz_ratio - 1.0) * 5
-                else:
-                    score += (1.0 - ghz_ratio) * 15
+                if ghz_ratio < 1.0:
+                    score += (1.0 - ghz_ratio) * T.w_ghz_shortfall
 
             # Storage-only nodes (only when the split actually moved nodes off
             # the compute pool). Same model/drives, single lowest-tier CPU, the
@@ -776,7 +760,7 @@ def _max_raw_per_node(storage):
 def _pick_ram(options, total_needed_gb, node_count, num_clusters=1):
     n1_nodes = node_count - num_clusters
     for r in sorted(options):
-        if (r - USABLE_RAM_OVERHEAD) * n1_nodes >= total_needed_gb:
+        if (r - T.usable_ram_overhead) * n1_nodes >= total_needed_gb:
             return r
     return None
 
@@ -834,7 +818,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
     best = None
     for size in sorted(size_options):
         for count in counts:
-            if validated and count * max_cluster_nodes > MAX_CLUSTER_DISKS:
+            if validated and count * max_cluster_nodes > T.max_cluster_disks:
                 continue
             raw_per_node = size * count
             usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
@@ -883,7 +867,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                 for f in flash_counts:
                     if validated:
                         total = h + f
-                        if total < 3 or total * max_cluster_nodes > MAX_CLUSTER_DISKS:
+                        if total < 3 or total * max_cluster_nodes > T.max_cluster_disks:
                             continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
                     # The 7-24.3% flash-capacity band is a hybrid architecture
@@ -892,7 +876,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                     # land out of band (e.g. small HDD + large NVMe -> 56% flash),
                     # so enforce it on every hybrid pick.
                     flash_pct = (flash_tb * f / raw_per_node) * 100 if raw_per_node else 0
-                    if flash_pct < HYBRID_FLASH_MIN_PCT or flash_pct > HYBRID_FLASH_MAX_PCT:
+                    if flash_pct < T.hybrid_flash_min_pct or flash_pct > T.hybrid_flash_max_pct:
                         continue
                     biggest = max(hdd_tb, flash_tb)
                     usable = _cluster_usable_storage(raw_per_node, biggest, cluster_layout)
