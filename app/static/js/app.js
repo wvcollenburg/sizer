@@ -817,10 +817,10 @@ function updateFullClusterInfo(enabled, recommendations) {
     if (!icon) return;
     if (enabled && recommendations && recommendations.length > 0) {
         const worst = Math.max(...recommendations.map(r => r.vcpu_ratio_degraded || 0));
-        icon.title = FULL_CLUSTER_INFO_BASE +
-            ` During a node failure the vCPU:core ratio rises to up to ${worst.toFixed(2)}:1.`;
+        setInfoTip(icon, FULL_CLUSTER_INFO_BASE +
+            ` During a node failure the vCPU:core ratio rises to up to ${worst.toFixed(2)}:1.`);
     } else {
-        icon.title = FULL_CLUSTER_INFO_BASE;
+        setInfoTip(icon, FULL_CLUSTER_INFO_BASE);
     }
 }
 
@@ -1845,3 +1845,79 @@ window.initSizer = function () {
     loadModels();
     loadValidatedNics();
 };
+
+
+// ==================== INFO-ICON TOOLTIPS ====================
+// Turn every .info-icon's `title` into a styled tooltip that shows on hover,
+// keyboard focus, AND click/tap — native title tooltips are slow and don't work
+// on touch. The text lives in data-tip (moved off `title` so the OS tooltip
+// doesn't also fire); kept in aria-label for screen readers.
+
+function setInfoTip(el, text) {
+    if (!el) return;
+    el.dataset.tip = text;
+    el.setAttribute('aria-label', text);
+    el.removeAttribute('title');
+}
+
+let _infoTipEl = null;
+let _infoTipPinned = null;
+
+function _tipText(el) {
+    if (!el.dataset.tip && el.getAttribute('title')) setInfoTip(el, el.getAttribute('title'));
+    return el.dataset.tip || '';
+}
+
+function showInfoTip(el) {
+    const text = _tipText(el);
+    if (!text) return;
+    if (!_infoTipEl) {
+        _infoTipEl = document.createElement('div');
+        _infoTipEl.className = 'info-tooltip';
+        document.body.appendChild(_infoTipEl);
+    }
+    const tip = _infoTipEl;
+    tip.textContent = text;
+    tip.style.display = 'block';
+    const r = el.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    const margin = 8;
+    let left = r.left + r.width / 2 - tr.width / 2 + window.scrollX;
+    const maxLeft = window.scrollX + document.documentElement.clientWidth - tr.width - margin;
+    left = Math.max(window.scrollX + margin, Math.min(left, maxLeft));
+    // Below the icon, or above if it would overflow the viewport bottom.
+    let top = (r.bottom + 6 + tr.height > window.innerHeight ? r.top - tr.height - 6 : r.bottom + 6)
+              + window.scrollY;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+}
+
+function hideInfoTip() {
+    if (_infoTipEl) _infoTipEl.style.display = 'none';
+}
+
+function _iconFrom(e) {
+    return e.target && e.target.closest ? e.target.closest('.info-icon') : null;
+}
+
+document.addEventListener('mouseover', e => { const i = _iconFrom(e); if (i) showInfoTip(i); });
+document.addEventListener('mouseout', e => { if (_iconFrom(e) && !_infoTipPinned) hideInfoTip(); });
+document.addEventListener('focusin', e => { const i = _iconFrom(e); if (i) showInfoTip(i); });
+document.addEventListener('focusout', e => { if (_iconFrom(e) && !_infoTipPinned) hideInfoTip(); });
+document.addEventListener('click', e => {
+    const icon = _iconFrom(e);
+    if (icon) {
+        e.preventDefault();
+        if (_infoTipPinned === icon) { _infoTipPinned = null; hideInfoTip(); }
+        else { _infoTipPinned = icon; showInfoTip(icon); }
+    } else if (_infoTipPinned) {
+        _infoTipPinned = null; hideInfoTip();
+    }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { _infoTipPinned = null; hideInfoTip(); } });
+window.addEventListener('scroll', () => { _infoTipPinned = null; hideInfoTip(); }, true);
+
+// Move static titles into data-tip up front so the native tooltip never fires.
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.info-icon[title]').forEach(el => setInfoTip(el, el.getAttribute('title')));
+});
