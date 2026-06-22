@@ -1442,6 +1442,20 @@ body { padding-bottom: 64px; }
     overflow-x: auto;
 }
 
+/* Make the table wrapper the single scroll container (both axes) so the sticky
+   header sticks to it. Otherwise the modal body scrolls vertically while the
+   header is positioned relative to this wrapper, and it scrolls out of view. */
+#vm-exclusion-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#vm-exclusion-modal .vm-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
 .vm-table {
     width: 100%;
     border-collapse: collapse;
@@ -1451,7 +1465,7 @@ body { padding-bottom: 64px; }
 .vm-table thead {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
 }
 
 .vm-table th {
@@ -1463,6 +1477,10 @@ body { padding-bottom: 64px; }
     font-size: 0.78rem;
     white-space: nowrap;
     user-select: none;
+    /* Sticky on each th as well — with border-collapse some browsers ignore a
+       sticky thead, so the cells carry the stick. */
+    position: sticky;
+    top: 0;
 }
 
 .vm-table th.sortable { cursor: pointer; }
