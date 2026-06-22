@@ -432,6 +432,28 @@
             </div>
         </div>
 
+        <!-- ═══════════════════ TUNABLE INFO MODAL ═══════════════════ -->
+        <div class="modal-overlay centered" id="tunable-info-modal" style="display:none"
+             onclick="if(event.target===this)closeTunableInfo()">
+            <div class="modal" style="max-width:520px">
+                <div class="modal-header">
+                    <h2 id="tun-info-title">Setting</h2>
+                    <button class="modal-close" onclick="closeTunableInfo()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tun-info-section tun-info-what">
+                        <h4>What</h4><p id="tun-info-what"></p>
+                    </div>
+                    <div class="tun-info-section tun-info-how">
+                        <h4>How</h4><p id="tun-info-how"></p>
+                    </div>
+                    <div class="tun-info-section tun-info-beware">
+                        <h4>Beware</h4><p id="tun-info-beware"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══════════════════ CATALOG IMPORT MODAL ═══════════════════ -->
         <div class="modal-overlay" id="catalog-import-modal" style="display:none">
             <div class="modal" style="max-width:600px">

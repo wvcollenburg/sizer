@@ -152,7 +152,7 @@ function renderTunables(values) {
         <div class="iops-inputs">
             ${byGroup[g].map(d => `
                 <div class="form-group">
-                    <label title="${esc(d.help || '')}">${esc(d.label)}</label>
+                    <label title="${esc(d.help || '')}">${esc(d.label)}<button type="button" class="tunable-info-btn" title="What this does" onclick="showTunableInfo('${d.key}')">i</button></label>
                     <input type="number" id="tun-${d.key}"
                            ${d.min != null ? `min="${d.min}"` : ''}
                            ${d.max != null ? `max="${d.max}"` : ''}
@@ -185,6 +185,20 @@ async function saveTunables() {
         status.className = 'iops-status err';
     }
     setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
+}
+
+function showTunableInfo(key) {
+    const d = (tunableDefs || []).find(t => t.key === key);
+    if (!d) return;
+    document.getElementById('tun-info-title').textContent = d.label;
+    document.getElementById('tun-info-what').textContent = d.what || d.help || '';
+    document.getElementById('tun-info-how').textContent = d.how || '';
+    document.getElementById('tun-info-beware').textContent = d.beware || '';
+    document.getElementById('tunable-info-modal').style.display = 'flex';
+}
+
+function closeTunableInfo() {
+    document.getElementById('tunable-info-modal').style.display = 'none';
 }
 
 async function resetTunables() {
