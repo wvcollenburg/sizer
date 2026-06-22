@@ -626,13 +626,13 @@ function displayResults(result) {
         <tr><td>Usable Storage</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
 
     const n1 = result.n_minus_1;
+    // n1Desc is declared and set above (with the multi-cluster wording).
     const n1Card = document.querySelector('.result-card.n1');
-    const n1Desc = document.getElementById('n1-desc');
     if (result.single_node) {
         // A single-node system has no peer to fail over to, so N-1 is meaningless.
         // Grey the card out and replace the figures with the no-redundancy notice.
         n1Card.classList.add('no-redundancy');
-        n1Desc.textContent = '';
+        if (n1Desc) n1Desc.textContent = '';
         document.getElementById('n1-table').innerHTML = `
             <tr><td class="no-redundancy-msg" colspan="2">
                 <strong>No redundancy.</strong> ${result.redundancy_note
@@ -641,7 +641,6 @@ function displayResults(result) {
             </td></tr>`;
     } else {
         n1Card.classList.remove('no-redundancy');
-        n1Desc.textContent = 'Resources available with one node offline';
         document.getElementById('n1-table').innerHTML = `
             <tr><td>Available Cores</td><td>${n1.cores}</td></tr>
             <tr><td>Available Threads</td><td>${n1.threads}</td></tr>
