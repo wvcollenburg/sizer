@@ -1180,17 +1180,43 @@ body { padding-bottom: 64px; }
 .rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
 .rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
 
-/* Per-resource utilization bars in a recommendation card. */
+/* Per-resource utilization bars in a recommendation card. Each bar is two
+   segments: current load (coloured) + reserved growth/snapshot headroom (neutral
+   stripe), so a config sized to 90% projected doesn't read as 90% load today. */
 .rec-utilization {
     padding: 0.5rem 1.2rem 0.2rem;
     border-top: 1px solid var(--border, #e2e8f0);
+}
+.util-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.35rem;
+    flex-wrap: wrap;
 }
 .util-title {
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
-    margin-bottom: 0.35rem;
+}
+.util-legend {
+    display: flex;
+    gap: 0.7rem;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+.util-key { display: inline-flex; align-items: center; gap: 0.25rem; }
+.util-sw {
+    width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+}
+.util-sw-now { background: var(--green, #2e7d32); }
+.util-sw-reserve {
+    background: repeating-linear-gradient(45deg, #cfd9e6, #cfd9e6 3px, #e3eaf2 3px, #e3eaf2 6px);
+}
+.util-sw-ha {
+    background: repeating-linear-gradient(-45deg, #aebfd9, #aebfd9 3px, #cdd9ec 3px, #cdd9ec 6px);
 }
 .util-row {
     display: flex;
@@ -1217,27 +1243,37 @@ body { padding-bottom: 64px; }
 }
 .util-track {
     flex: 1 1 auto;
+    display: flex;
     height: 8px;
     background: #eef1f5;
     border-radius: 4px;
     overflow: hidden;
 }
 .util-fill {
-    display: block;
+    flex: 0 0 auto;
     height: 100%;
-    border-radius: 4px;
     transition: width 0.3s ease;
 }
 .util-fill.util-low { background: var(--green, #2e7d32); }
 .util-fill.util-mid { background: var(--orange, #e67e22); }
 .util-fill.util-high { background: var(--red, #c0392b); }
+.util-fill.util-reserve {
+    background: repeating-linear-gradient(45deg, #cfd9e6, #cfd9e6 3px, #e3eaf2 3px, #e3eaf2 6px);
+}
+/* Operational free space — let the track background show through. */
+.util-fill.util-free { background: transparent; }
+/* HA failover reserve (the held-back node), distinct hatch at the right edge. */
+.util-fill.util-ha {
+    background: repeating-linear-gradient(-45deg, #aebfd9, #aebfd9 3px, #cdd9ec 3px, #cdd9ec 6px);
+}
 .util-pct {
-    flex: 0 0 2.6rem;
+    flex: 0 0 4.2rem;
     text-align: right;
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--text);
 }
+.util-pct-sized { color: var(--text-muted); font-weight: 500; }
 
 /* Witness note belongs to the specific 2-node recommendation, so it sits inside
    the card (tighter than the standalone info-bar). */

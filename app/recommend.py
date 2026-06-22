@@ -86,6 +86,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "vcpus": projected_vcpus,
         "ram_gb": projected_ram,
         "usable_storage_tb": projected_storage,
+        # Current (pre-growth) demand, so the UI can show how much of each
+        # utilization bar is today's load vs reserved growth/snapshot headroom.
+        "base_vcpus": base_vcpus,
+        "base_ram_gb": base_ram,
+        "base_storage_tb": base_storage,
         "nic_speed_mbps": summary["nic_speed_mbps"],
         "vcpu_ratio": vcpu_ratio,
         "current_total_ghz": summary.get("total_host_ghz", 0),
@@ -646,14 +651,37 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             ram_headroom = (usable_ram_per_node * compute_n1_nodes - needs["ram_gb"]) / needs["ram_gb"] if needs["ram_gb"] > 0 else 0
             stor_headroom = (usable - needs["usable_storage_tb"]) / needs["usable_storage_tb"] if needs["usable_storage_tb"] > 0 else 0
 
-            # Utilization = demand / available capacity (%), on the same N-1 (or
-            # full-cluster) basis the fit was gated on. Drives the per-resource
-            # bars in the UI; the constraining resource is determinant["resource"].
-            ram_avail = usable_ram_per_node * compute_n1_nodes
+            # Utilization, expressed against FULL (all-nodes, normal-operation)
+            # capacity so the bars reflect day-to-day load, not the tighter N-1
+            # basis the fit is gated on. Each resource reports:
+            #   current     today's demand,
+            #   total       demand after growth + snapshot reserve (workload sized to),
+            #   ha_reserve  capacity held for HA failover = the (full - N-1) gap.
+            # For CPU/RAM the failover node(s) make ha_reserve > 0; storage usable
+            # is the same at N-1 and full, so its ha_reserve is 0. When sizing for
+            # the full cluster the failover node isn't held back, so ha_reserve is 0.
+            n1_ram = usable_ram_per_node * compute_n1_nodes
+            full_ram = usable_ram_per_node * hci_nodes
+            full_cores = usable_cores * hci_nodes
+            _ratio = needs.get("vcpu_ratio") or 0
+            base_required_cores = math.ceil(needs["base_vcpus"] / _ratio) if _ratio else required_cores
+
+            def _u(demand, cap):
+                return round(demand / cap * 100) if cap > 0 else 0
+
+            def _ha(full, n1):
+                return 0 if full_cluster else (round((full - n1) / full * 100) if full > 0 else 0)
+
             utilization = {
-                "cpu": round(required_cores / cpu_avail * 100) if cpu_avail > 0 else 0,
-                "ram": round(needs["ram_gb"] / ram_avail * 100) if ram_avail > 0 else 0,
-                "storage": round(needs["usable_storage_tb"] / usable * 100) if usable > 0 else 0,
+                "cpu": {"current": _u(base_required_cores, full_cores),
+                        "total": _u(required_cores, full_cores),
+                        "ha_reserve": _ha(full_cores, n1_usable_cores)},
+                "ram": {"current": _u(needs["base_ram_gb"], full_ram),
+                        "total": _u(needs["ram_gb"], full_ram),
+                        "ha_reserve": _ha(full_ram, n1_ram)},
+                "storage": {"current": _u(needs["base_storage_tb"], usable),
+                            "total": _u(needs["usable_storage_tb"], usable),
+                            "ha_reserve": 0},
             }
 
             # Right-sizing score (lower = better) — see the weight block above

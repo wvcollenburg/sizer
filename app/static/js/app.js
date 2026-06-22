@@ -1187,21 +1187,54 @@ function buildUtilizationBars(r) {
     if (!u) return '';
     const binding = (r.determinant && r.determinant.resource) || '';
     const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
+    let anyHa = false;
     const bars = rows.map(([key, val]) => {
-        const pct = Math.max(0, Math.round(val || 0));
-        const width = Math.min(pct, 100);
-        const cls = pct > 90 ? 'util-high' : (pct >= 70 ? 'util-mid' : 'util-low');
+        if (!val) return '';
+        // Bar = full (all-nodes) capacity. `current` is today's load; up to
+        // `total` is growth + snapshot reserve; `ha_reserve` is capacity held for
+        // failover (the N-1→full gap, CPU/RAM only). Colour by CURRENT load (the
+        // real risk now) so a config sized tight against N-1 doesn't read as
+        // near-full load today. The failover node sits at the right edge.
+        const cur = Math.max(0, Math.round(val.current || 0));
+        const tot = Math.max(cur, Math.round(val.total || 0));
+        const reserve = tot - cur;
+        const ha = Math.max(0, Math.round(val.ha_reserve || 0));
+        if (ha > 0) anyHa = true;
+        const curW = Math.min(cur, 100);
+        const resW = Math.min(reserve, 100 - curW);
+        const haW = Math.min(ha, 100 - curW - resW);
+        const freeW = Math.max(0, 100 - curW - resW - haW);
+        const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
         const bind = key === binding
             ? ' <span class="util-bind" title="The resource that drove the node count">limiting</span>'
             : '';
-        return `<div class="util-row">
+        const tipParts = [`now ${cur}%`, `+${reserve}% growth/snapshot reserve`];
+        if (ha > 0) tipParts.push(`${ha}% HA failover reserve`);
+        tipParts.push(`${freeW}% free`);
+        const tip = `${key}: ${tipParts.join(' · ')} (workload sized to ${tot}% of full cluster)`;
+        return `<div class="util-row" title="${tip}">
             <span class="util-label">${key}${bind}</span>
-            <span class="util-track"><span class="util-fill ${cls}" style="width:${width}%"></span></span>
-            <span class="util-pct">${pct}%</span>
+            <span class="util-track">
+                <span class="util-fill ${cls}" style="width:${curW}%"></span>
+                <span class="util-fill util-reserve" style="width:${resW}%"></span>
+                <span class="util-fill util-free" style="width:${freeW}%"></span>
+                <span class="util-fill util-ha" style="width:${haW}%"></span>
+            </span>
+            <span class="util-pct" title="Now ${cur}% · sized to ${tot}% of full cluster after growth + snapshot reserve">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
         </div>`;
     }).join('');
+    const haKey = anyHa
+        ? '<span class="util-key"><i class="util-sw util-sw-ha"></i>HA failover reserve</span>'
+        : '';
     return `<div class="rec-utilization">
-        <div class="util-title">Utilization at N-1</div>${bars}
+        <div class="util-head">
+            <span class="util-title">Utilization vs full cluster &mdash; now / sized</span>
+            <span class="util-legend">
+                <span class="util-key"><i class="util-sw util-sw-now"></i>now</span>
+                <span class="util-key"><i class="util-sw util-sw-reserve"></i>growth + snapshot</span>
+                ${haKey}
+            </span>
+        </div>${bars}
     </div>`;
 }
 
