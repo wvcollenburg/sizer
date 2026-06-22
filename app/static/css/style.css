@@ -788,6 +788,16 @@ body { padding-bottom: 64px; }
 .sizing-options-grid .form-group { min-width: 170px; flex: 1; }
 .sizing-options-grid label { display: flex; align-items: center; gap: 0.35rem; }
 .sizing-options-grid .info-icon { text-transform: none; }
+/* The EOL toggle lives under the "Size For Model" dropdown; render it as a
+   normal checkbox label, not an uppercase field label. */
+.sizing-options-grid .toggle-item { margin-top: 0.55rem; }
+.sizing-options-grid .checkbox-inline {
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text);
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
 
 .sizing-toggles {
     display: flex;

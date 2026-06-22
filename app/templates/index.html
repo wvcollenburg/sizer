@@ -356,18 +356,19 @@
                             <select id="import-model-select" onchange="recalcRecommendations()">
                                 <option value="">All models (best fit)</option>
                             </select>
+                            <!-- Tied to model selection, so it sits under this dropdown. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="import-include-eol" onchange="onImportEolToggle()">
+                                    Include EOL / EOS systems
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
+                            </div>
                         </div>
                     </div>
 
                     <div class="sizing-toggles">
-                        <div class="toggle-item">
-                            <label class="checkbox-inline">
-                                <input type="checkbox" id="import-include-eol" onchange="onImportEolToggle()">
-                                Include EOL / EOS systems
-                            </label>
-                            <span class="info-icon" tabindex="0"
-                                  title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
-                        </div>
                         <div class="toggle-item">
                             <label class="checkbox-inline">
                                 <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
