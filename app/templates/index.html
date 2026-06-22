@@ -348,9 +348,26 @@
                                 <option value="validated">Validated (Software-Only)</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Size For Model
+                                <span class="info-icon" tabindex="0"
+                                      title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
+                            </label>
+                            <select id="import-model-select" onchange="recalcRecommendations()">
+                                <option value="">All models (best fit)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="sizing-toggles">
+                        <div class="toggle-item">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="import-include-eol" onchange="onImportEolToggle()">
+                                Include EOL / EOS systems
+                            </label>
+                            <span class="info-icon" tabindex="0"
+                                  title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
+                        </div>
                         <div class="toggle-item">
                             <label class="checkbox-inline">
                                 <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
@@ -587,9 +604,22 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>Size For Model</label>
+                            <select id="man-model-select" onchange="recalcManualRecommendations()"
+                                    title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">
+                                <option value="">All models (best fit)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label class="checkbox-inline" style="margin-top:1.8rem">
                                 <input type="checkbox" id="man-allow-storage-only" onchange="recalcManualRecommendations()">
                                 Allow storage-only nodes
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-inline" style="margin-top:1.8rem">
+                                <input type="checkbox" id="man-include-eol" onchange="onManualEolToggle()">
+                                Include EOL / EOS systems
                             </label>
                         </div>
                     </div>

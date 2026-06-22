@@ -34,7 +34,8 @@ HYBRID_FLASH_MAX_PCT = 24.3  # Validated hybrid: flash tier ceiling
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
-                             sizing_mode="certified", allow_storage_only=False):
+                             sizing_mode="certified", allow_storage_only=False,
+                             target_model=None, include_eol_eos=False):
     if vcpu_ratio is None:
         vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
@@ -58,6 +59,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # Opt-in: let storage-bound configs use storage-only nodes (no VMs) beyond
     # the 2-HCI-per-cluster minimum, instead of more full HCI nodes.
     allow_storage_only = bool(allow_storage_only)
+
+    # Optional: size against ONE specific model, and/or include EOL/EOS models
+    # (default is Active only). An explicit model wins over the status filter.
+    target_model = (target_model or "").strip() or None
+    include_eol_eos = bool(include_eol_eos)
 
     # Software-only ("Validated") sizing reuses the certified Model catalog but
     # lets the engine fit FEWER disks per node than the certified (fully-populated)
@@ -107,7 +113,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         joinedload(Model.storage_config)
             .joinedload(StorageConfig.drive_links)
             .joinedload(StorageConfigDrive.drive),
-    ).filter(Model.status == "Active")
+    )
+    if target_model:
+        # Explicit model selection sizes against exactly that model, regardless
+        # of its lifecycle status.
+        model_q = model_q.filter(Model.name == target_model)
+    elif not include_eol_eos:
+        model_q = model_q.filter(Model.status == "Active")
     # Validated-only models have no certified equivalent: exclude them from
     # Certified recommendations; include them only in Validated mode.
     if not validated:
@@ -160,6 +172,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # cap, return no recommendations and explain why (naming the smallest
     # feasible count so the user knows how high to raise the target).
     warnings = []
+    if target_model and not candidates:
+        warnings.append(
+            f"{target_model} cannot meet this workload. Try “All models”, "
+            f"a higher vCPU:core ratio, or relaxing the storage/node constraints."
+        )
     if storage_pref and matched_storage == 0:
         labels = {"flash": "all-flash", "hybrid": "hybrid",
                   "spinning": "all-spinning (HDD-only)"}

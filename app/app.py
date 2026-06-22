@@ -207,13 +207,17 @@ def create_app():
         size_full_cluster = data.get("size_full_cluster", False)
         sizing_mode = data.get("sizing_mode", "certified")
         allow_storage_only = data.get("allow_storage_only", False)
+        target_model = data.get("target_model")
+        include_eol_eos = data.get("include_eol_eos", False)
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
                                           storage_pref=storage_pref,
                                           size_full_cluster=size_full_cluster,
                                           sizing_mode=sizing_mode,
-                                          allow_storage_only=allow_storage_only)
+                                          allow_storage_only=allow_storage_only,
+                                          target_model=target_model,
+                                          include_eol_eos=include_eol_eos)
         return jsonify(result)
 
     @app.route("/api/export-config", methods=["POST"])

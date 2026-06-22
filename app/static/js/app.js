@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadValidatedNics();
     initDiskTiers();
+    populateSizingModelDropdown('import-model-select', false);
+    populateSizingModelDropdown('man-model-select', false);
 });
 
 function switchMode(mode) {
@@ -65,6 +67,50 @@ async function loadModels() {
 
     document.getElementById('model-details').style.display = 'none';
     document.getElementById('results').style.display = 'none';
+}
+
+// Populate a "Size For Model" dropdown (import/manual). Lists certified models
+// grouped by category; status shown for non-Active. EOL/EOS models appear only
+// when includeEolEos is set. Preserves the current selection when still valid.
+async function populateSizingModelDropdown(selectId, includeEolEos) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const prev = select.value;
+    const status = includeEolEos ? 'all' : 'active';
+    let models;
+    try {
+        const resp = await fetch(`/api/models?mode=appliance&status=${status}`);
+        if (!resp.ok) return;
+        models = await resp.json();
+    } catch (e) {
+        return;
+    }
+    const categories = {};
+    for (const [name, data] of Object.entries(models)) {
+        (categories[data.category] = categories[data.category] || []).push(name);
+    }
+    let html = '<option value="">All models (best fit)</option>';
+    for (const [cat, names] of Object.entries(categories)) {
+        html += `<optgroup label="${cat}">`;
+        names.forEach(m => {
+            const st = models[m].status;
+            const label = st !== 'Active' ? `${m} (${st})` : m;
+            html += `<option value="${m}">${label}</option>`;
+        });
+        html += '</optgroup>';
+    }
+    select.innerHTML = html;
+    select.value = (prev && models[prev]) ? prev : '';
+}
+
+function onImportEolToggle() {
+    const include = document.getElementById('import-include-eol').checked;
+    populateSizingModelDropdown('import-model-select', include).then(recalcRecommendations);
+}
+
+function onManualEolToggle() {
+    const include = document.getElementById('man-include-eol').checked;
+    populateSizingModelDropdown('man-model-select', include).then(recalcManualRecommendations);
 }
 
 function loadModelDetails() {
@@ -671,6 +717,9 @@ async function uploadFile(file) {
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
         document.getElementById('storage-pref').value = 'auto';
         document.getElementById('size-full-cluster').checked = false;
+        document.getElementById('import-include-eol').checked = false;
+        document.getElementById('import-model-select').value = '';
+        populateSizingModelDropdown('import-model-select', false);
         updateFullClusterInfo(false, null);
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         const scanNote = data.summary && data.summary.scan_type === 'general'
@@ -715,6 +764,8 @@ async function recalcRecommendations() {
     const sizeFullCluster = document.getElementById('size-full-cluster').checked;
     const sizingMode = document.getElementById('sizing-mode').value;
     const allowStorageOnly = document.getElementById('allow-storage-only').checked;
+    const targetModel = document.getElementById('import-model-select').value || null;
+    const includeEolEos = document.getElementById('import-include-eol').checked;
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -731,6 +782,8 @@ async function recalcRecommendations() {
                 size_full_cluster: sizeFullCluster,
                 sizing_mode: sizingMode,
                 allow_storage_only: allowStorageOnly,
+                target_model: targetModel,
+                include_eol_eos: includeEolEos,
             }),
         });
         const data = await resp.json();
@@ -1154,6 +1207,8 @@ async function recalcManualRecommendations() {
     const snapshotPct = parseFloat(document.getElementById('man-snapshot-pct').value) || 0;
     const sizingMode = document.getElementById('man-sizing-mode').value;
     const allowStorageOnly = document.getElementById('man-allow-storage-only').checked;
+    const targetModel = document.getElementById('man-model-select').value || null;
+    const includeEolEos = document.getElementById('man-include-eol').checked;
 
     const resp = await fetch('/api/recommend', {
         method: 'POST',
@@ -1166,6 +1221,8 @@ async function recalcManualRecommendations() {
             snapshot_pct: snapshotPct,
             sizing_mode: sizingMode,
             allow_storage_only: allowStorageOnly,
+            target_model: targetModel,
+            include_eol_eos: includeEolEos,
         }),
     });
     const data = await resp.json();
