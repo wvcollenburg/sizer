@@ -187,14 +187,62 @@ async function saveTunables() {
     setTimeout(() => { status.textContent = ''; status.className = 'iops-status'; }, 3000);
 }
 
-function showTunableInfo(key) {
-    const d = (tunableDefs || []).find(t => t.key === key);
+// Shared What/How/Beware info modal, driven by a {label, what, how, beware} object.
+function showInfo(d) {
     if (!d) return;
-    document.getElementById('tun-info-title').textContent = d.label;
+    document.getElementById('tun-info-title').textContent = d.label || 'Setting';
     document.getElementById('tun-info-what').textContent = d.what || d.help || '';
     document.getElementById('tun-info-how').textContent = d.how || '';
     document.getElementById('tun-info-beware').textContent = d.beware || '';
     document.getElementById('tunable-info-modal').style.display = 'flex';
+}
+
+function showTunableInfo(key) {
+    showInfo((tunableDefs || []).find(t => t.key === key));
+}
+
+// IOPS fields are hand-built (not metadata-driven), so their info text lives here.
+const IOPS_INFO = {
+    hdd: {
+        label: 'HDD IOPS per drive',
+        what: 'The raw IOPS credited to a single HDD (spinning) data drive, before cluster derating or write amplification.',
+        how: 'Each HDD in a node adds this to the cluster IOPS total. Raise it to credit hybrid/HDD configs with more performance; lower it to make them look slower (pushing the engine toward flash for IOPS-heavy workloads).',
+        beware: 'Vendor "max" figures are optimistic for random I/O — set too high and HDD configs appear to meet demand they can’t sustain in practice. Too low needlessly disqualifies hybrid/HDD options.',
+    },
+    ssd: {
+        label: 'SSD IOPS per drive',
+        what: 'The raw IOPS credited to a single SATA/SAS SSD data drive, before derating or write amplification.',
+        how: 'Each SSD adds this to the cluster IOPS total. Raise or lower it to change how SSD-tier configs are credited.',
+        beware: 'Optimistic spec-sheet numbers skew which media wins. Keep the HDD/SSD/NVMe values in realistic proportion to one another.',
+    },
+    nvme: {
+        label: 'NVMe IOPS per drive',
+        what: 'The raw IOPS credited to a single NVMe data drive, before derating or write amplification.',
+        how: 'Each NVMe drive adds this to the cluster total. Raise it to credit all-flash NVMe configs with more headroom.',
+        beware: 'Very high values let a 2-node all-flash cluster "satisfy" almost any IOPS demand, hiding the need for more nodes. Keep proportional to SSD/HDD.',
+    },
+    derating: {
+        label: 'Derating %',
+        what: 'A blanket reduction applied to raw drive IOPS for cluster overhead — replication traffic, metadata and scrubbing (SCRIBE). 35% means only 65% of raw IOPS counts.',
+        how: 'Raise it to assume less usable IOPS (more conservative — may need more drives or nodes). Lower it to credit more of the raw IOPS.',
+        beware: 'Too low (near 0) over-promises performance the cluster can’t deliver under real overhead. Too high buries achievable configs and inflates hardware. Range 0–89%.',
+    },
+    rf: {
+        label: 'Replication Factor',
+        what: 'How many copies of each write the cluster stores (RF2 = 2 copies). It drives write amplification — each front-end write costs this many back-end writes.',
+        how: 'Raise it to increase write amplification, lowering the net IOPS available to workloads (so the engine sizes more drives/nodes). It reflects the real data-protection level.',
+        beware: 'Should match the cluster’s actual replication policy: below the real RF over-states usable IOPS; above it needlessly inflates sizing. Must be a whole number ≥ 1.',
+    },
+    read: {
+        label: 'Read %',
+        what: 'The assumed read share of the workload (the rest is writes). Writes are amplified by the replication factor; reads are not — so the read/write mix sets the effective write amplification.',
+        how: 'A higher read % means fewer amplified writes, so more net IOPS are available. A lower (write-heavy) read % reduces net IOPS and pushes toward more or faster drives.',
+        beware: 'If the real workload is more write-heavy than assumed, an optimistic read % over-states usable IOPS and under-sizes the cluster. Range 0–100%.',
+    },
+};
+
+function showIopsInfo(key) {
+    showInfo(IOPS_INFO[key]);
 }
 
 function closeTunableInfo() {

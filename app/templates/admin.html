@@ -208,15 +208,15 @@
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>HDD</label>
+                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('hdd')">i</button></label>
                         <input type="number" id="iops-hdd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>SSD</label>
+                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('ssd')">i</button></label>
                         <input type="number" id="iops-ssd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>NVMe</label>
+                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('nvme')">i</button></label>
                         <input type="number" id="iops-nvme" min="0" step="1">
                     </div>
                 </div>
@@ -225,17 +225,17 @@
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>Derating %</label>
+                        <label>Derating %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('derating')">i</button></label>
                         <input type="number" id="iops-derating" min="0" max="89" step="1"
                                title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
                     </div>
                     <div class="form-group">
-                        <label>Replication Factor</label>
+                        <label>Replication Factor<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('rf')">i</button></label>
                         <input type="number" id="iops-rf" min="1" step="1"
                                title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
                     </div>
                     <div class="form-group">
-                        <label>Read %</label>
+                        <label>Read %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('read')">i</button></label>
                         <input type="number" id="iops-read" min="0" max="100" step="1"
                                title="Read share of the workload (write share = 100 − read).">
                     </div>
