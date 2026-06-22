@@ -268,6 +268,15 @@ def _detect_file_type(file_path):
     return None
 
 
+# Shown (GUI + PPTX) in place of the N-1 block for a Single Node System, which
+# has no peer to fail over to. Surfaced via the response so both renderers stay
+# in sync on wording.
+SNS_NO_REDUNDANCY_MSG = (
+    "No redundancy — a single-node system cannot tolerate a node failure. "
+    "Ensure workloads are protected with replication or a properly configured backup."
+)
+
+
 def calculate_appliance(data, node_count):
     model_name = data.get("model")
     m = Model.query.filter_by(name=model_name).first()
@@ -381,6 +390,8 @@ def calculate_appliance(data, node_count):
             "ram_gb": n1_ram,
             "usable_storage_tb": round(usable, 2),
         },
+        "single_node": total_nodes == 1,
+        "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
         "form_factor": model["form_factor"],
         "chassis": model["chassis"],
         "status": model["status"],
@@ -660,6 +671,8 @@ def calculate_validated(data, node_count):
             "ram_gb": n1_ram,
             "usable_storage_tb": round(usable, 2),
         },
+        "single_node": total_nodes == 1,
+        "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
         "validation": {
             "disk_count_valid": disk_count == 1 or disk_count >= 3,
             "hybrid_ratio_valid": True,

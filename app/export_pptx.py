@@ -1,6 +1,7 @@
 """Generate a 4-slide SC// proposal PowerPoint deck."""
 
 import io
+import re
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -48,7 +49,7 @@ def generate_config_slide(result):
         nodes_label = (f"{node_count} HCI + {so['count']} storage-only "
                        f"({result.get('total_node_count', node_count)} total)")
     else:
-        nodes_label = f"{node_count} nodes"
+        nodes_label = f"{node_count} node{'' if node_count == 1 else 's'}"
     num_cl = result.get("num_clusters", 1)
     if num_cl > 1:
         layout = result.get("cluster_layout", [])
@@ -104,15 +105,21 @@ def generate_config_slide(result):
     ]
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
-    n1_rows = [
-        ["N-1 Available", ""],
-        ["Cores", str(n1["cores"])],
-        ["Threads", str(n1["threads"])],
-        ["GHz", str(n1["total_ghz"])],
-        ["RAM", _fmt_ram(n1["ram_gb"])],
-        ["Usable Storage", f"{n1['usable_storage_tb']} TB"],
-    ]
-    _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
+    if result.get("single_node"):
+        # No peer node to fail over to — N-1 is meaningless. Replace the figures
+        # with a greyed-out no-redundancy notice.
+        _add_no_redundancy_box(slide, 9.0, 1.6, 4.0, result.get("redundancy_note")
+                               or "No redundancy — ensure replication or backup is configured.")
+    else:
+        n1_rows = [
+            ["N-1 Available", ""],
+            ["Cores", str(n1["cores"])],
+            ["Threads", str(n1["threads"])],
+            ["GHz", str(n1["total_ghz"])],
+            ["RAM", _fmt_ram(n1["ram_gb"])],
+            ["Usable Storage", f"{n1['usable_storage_tb']} TB"],
+        ]
+        _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     if so:
         _add_storage_only_note(slide, so, 4.7)
@@ -192,6 +199,49 @@ def _add_card(slide, left, top, width, height, label, value, accent=False):
     run_v.font.size = Pt(18)
     run_v.font.bold = True
     run_v.font.color.rgb = SC_BLUE if accent else CHARCOAL
+
+
+def _add_no_redundancy_box(slide, left, top, width, msg):
+    """Greyed-out N-1 replacement for a Single Node System: a header and the
+    no-redundancy notice, styled to read as a warning rather than data."""
+    height = 2.0
+    shape = slide.shapes.add_shape(
+        1, Inches(left), Inches(top), Inches(width), Inches(height)
+    )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = LIGHT_GRAY
+    shape.line.color.rgb = CARD_BORDER
+    shape.line.width = Pt(1)
+
+    tf = shape.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.margin_top = Pt(10)
+    tf.margin_left = Pt(12)
+    tf.margin_right = Pt(12)
+
+    p_label = tf.paragraphs[0]
+    run_l = p_label.add_run()
+    run_l.text = "N-1 (Update/Failure)"
+    run_l.font.size = Pt(11)
+    run_l.font.bold = True
+    run_l.font.color.rgb = MID_GRAY
+
+    p_head = tf.add_paragraph()
+    p_head.space_before = Pt(8)
+    run_h = p_head.add_run()
+    run_h.text = "No Redundancy"
+    run_h.font.size = Pt(14)
+    run_h.font.bold = True
+    run_h.font.color.rgb = RED
+
+    p_msg = tf.add_paragraph()
+    p_msg.space_before = Pt(6)
+    run_m = p_msg.add_run()
+    # Drop the leading "No redundancy — " since the heading already says it.
+    run_m.text = re.sub(r"^No redundancy[^a-zA-Z]*", "", msg)
+    run_m.font.size = Pt(10.5)
+    run_m.font.color.rgb = CHARCOAL
 
 
 HEADER_BG = RGBColor(0xE8, 0xF0, 0xF8)

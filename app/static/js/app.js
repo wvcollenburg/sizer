@@ -555,9 +555,10 @@ function displayResults(result) {
 
     const so = result.storage_only;
     const numClusters = result.num_clusters || 1;
+    const totalNodes = result.total_node_count || result.node_count;
     let nodesText = so
         ? `${result.node_count} HCI + ${so.count} storage-only (${result.total_node_count} total)`
-        : `${result.total_node_count || result.node_count}`;
+        : `${totalNodes} node${totalNodes === 1 ? '' : 's'}`;
     if (numClusters > 1 && result.cluster_layout) {
         nodesText += `, ${numClusters} clusters: ${result.cluster_layout.join(' + ')}`;
     }
@@ -625,12 +626,29 @@ function displayResults(result) {
         <tr><td>Usable Storage</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
 
     const n1 = result.n_minus_1;
-    document.getElementById('n1-table').innerHTML = `
-        <tr><td>Available Cores</td><td>${n1.cores}</td></tr>
-        <tr><td>Available Threads</td><td>${n1.threads}</td></tr>
-        <tr><td>Available GHz</td><td>${n1.total_ghz} GHz</td></tr>
-        <tr><td>Available RAM</td><td>${formatRam(n1.ram_gb)}</td></tr>
-        <tr><td>Usable Storage</td><td class="usable">${n1.usable_storage_tb} TB</td></tr>`;
+    const n1Card = document.querySelector('.result-card.n1');
+    const n1Desc = document.getElementById('n1-desc');
+    if (result.single_node) {
+        // A single-node system has no peer to fail over to, so N-1 is meaningless.
+        // Grey the card out and replace the figures with the no-redundancy notice.
+        n1Card.classList.add('no-redundancy');
+        n1Desc.textContent = '';
+        document.getElementById('n1-table').innerHTML = `
+            <tr><td class="no-redundancy-msg" colspan="2">
+                <strong>No redundancy.</strong> ${result.redundancy_note
+                    ? result.redundancy_note.replace(/^No redundancy[^a-zA-Z]*/, '')
+                    : 'Ensure workloads are protected with replication or a properly configured backup.'}
+            </td></tr>`;
+    } else {
+        n1Card.classList.remove('no-redundancy');
+        n1Desc.textContent = 'Resources available with one node offline';
+        document.getElementById('n1-table').innerHTML = `
+            <tr><td>Available Cores</td><td>${n1.cores}</td></tr>
+            <tr><td>Available Threads</td><td>${n1.threads}</td></tr>
+            <tr><td>Available GHz</td><td>${n1.total_ghz} GHz</td></tr>
+            <tr><td>Available RAM</td><td>${formatRam(n1.ram_gb)}</td></tr>
+            <tr><td>Usable Storage</td><td class="usable">${n1.usable_storage_tb} TB</td></tr>`;
+    }
 
     section.scrollIntoView({behavior: 'smooth'});
 }

@@ -420,6 +420,28 @@ select:focus, input:focus {
     font-style: italic;
 }
 
+/* Single Node System: the N-1 card is meaningless (no failover), so it's greyed
+   out and shows a no-redundancy notice instead of figures. */
+.result-card.n1.no-redundancy {
+    border-color: var(--border);
+    background: #f6f7f9;
+    opacity: 0.85;
+}
+
+.result-card.n1.no-redundancy h3 {
+    color: var(--text-muted);
+}
+
+td.no-redundancy-msg {
+    color: var(--red);
+    font-weight: 500 !important;
+    text-align: left !important;
+    width: auto !important;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding: 0.4rem 0 !important;
+}
+
 .result-card table {
     width: 100%;
     border-collapse: collapse;
