@@ -1452,7 +1452,7 @@ function renderVmTable() {
         const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
         const name = vmVal(vm, vm._idx, 'name') || '';
         const nameCell = isAdded
-            ? `<input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"> <span class="vm-tag">new</span>`
+            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"><span class="vm-tag">new</span></span>`
             : `<span title="${name}">${name}</span>`;
         const storCell = isAdded
             ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" onchange="setVmConfig(${vm._idx},'vdisk_used_gb',this.value)">`

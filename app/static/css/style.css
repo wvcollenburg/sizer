@@ -1362,6 +1362,11 @@ body { padding-bottom: 64px; }
 
 .modal-lg { max-width: 1100px; }
 
+/* The VM-configuration modal carries a wide, many-column table, so it gets more
+   horizontal room than the standard large modal (and less overlay padding). */
+#vm-exclusion-modal { padding: 1rem; }
+#vm-exclusion-modal .modal-content { max-width: min(1600px, 97vw); }
+
 .modal-header {
     display: flex;
     align-items: center;
@@ -1488,6 +1493,9 @@ body { padding-bottom: 64px; }
 .vm-col-os { min-width: 140px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .vm-col-action { width: 36px; text-align: center; }
 
+.vm-name-edit { display: flex; align-items: center; gap: 0.35rem; }
+.vm-name-edit .vm-edit { flex: 1 1 auto; min-width: 0; width: auto; }
+.vm-name-edit .vm-tag { flex: 0 0 auto; }
 .vm-tag {
     display: inline-block;
     font-size: 0.6rem;
