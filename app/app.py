@@ -318,8 +318,21 @@ def calculate_appliance(data, node_count):
         )}
 
     total_raw = raw_per_node * total_nodes
-    usable = (_cluster_usable_storage(raw_per_node, biggest_disk, layout)
-              if total_nodes > 1 else raw_per_node)
+    if total_nodes > 1:
+        usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
+    else:
+        # Single Node System. A hybrid SNS must mirror each tier within the one
+        # node, which needs >=2 disks of every type; a 3+1 layout is out of scope.
+        sns_err = _sns_storage_error(storage, model_name)
+        if sns_err:
+            return sns_err
+        # RF2 still mirrors across the node's own drives (usable = raw/2), but
+        # reserves no rebuild disk — there's no peer node to rebuild onto, so the
+        # largest-disk reserve that multi-node clusters hold back doesn't apply. A
+        # single-disk SNS (e.g. HE153) can't mirror at all, so its raw capacity is
+        # fully usable.
+        usable = (raw_per_node if compute_drive_count_appliance(data, storage) <= 1
+                  else raw_per_node / 2)
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
     usable_cores = cpu["cores"] - T.os_core_overhead
@@ -449,6 +462,48 @@ def compute_raw_per_node_appliance(data, storage):
     return 0
 
 
+def _sns_storage_error(storage, model_name):
+    """Validate that a model can run as a Single Node System (SNS). A hybrid SNS
+    must mirror each storage tier within the one node (RF2), which requires at
+    least two disks of every type. A 3+1 layout (a single disk in one tier) can't
+    be mirrored, so it's out of scope for SNS — return an error pointing the user
+    at a multi-node build."""
+    stype = storage["type"]
+    if stype == "hybrid":
+        tiers = {"HDD": storage["hdd_count"], "SSD": storage["ssd_count"]}
+    elif stype == "hybrid_nvme":
+        tiers = {"HDD": storage["hdd_count"], "NVMe": storage["nvme_count"]}
+    elif stype == "nvme_and_ssd":
+        tiers = {"NVMe": 1, "SSD": 1}
+    else:
+        return None
+    if any(c < 2 for c in tiers.values()):
+        layout = ", ".join("%d× %s" % (c, t) for t, c in tiers.items())
+        return {"error": (
+            f"{model_name} can't be configured as a single node: a hybrid Single "
+            f"Node System must mirror each storage tier locally, which needs at "
+            f"least 2 disks of every type (this layout is {layout}). Use 2 or more "
+            f"nodes for this model."
+        )}
+    return None
+
+
+def compute_drive_count_appliance(data, storage):
+    """Number of physical drives in one node — used to decide whether a Single
+    Node System can mirror (RF2). A single-disk node has no second drive to
+    mirror to, so it runs unprotected (usable = raw)."""
+    stype = storage["type"]
+    if stype in ("nvme_only", "ssd_only", "hdd_only"):
+        return storage.get("drives_per_node", 1)
+    elif stype == "hybrid":
+        return storage["hdd_count"] + storage["ssd_count"]
+    elif stype == "hybrid_nvme":
+        return storage["hdd_count"] + storage["nvme_count"]
+    elif stype == "nvme_and_ssd":
+        return 2
+    return 0
+
+
 def compute_biggest_disk_appliance(data, storage):
     stype = storage["type"]
     if stype == "nvme_only":
@@ -546,8 +601,12 @@ def calculate_validated(data, node_count):
     # Storage spans all nodes (HCI + storage-only), per cluster; compute spans
     # the HCI nodes only.
     total_raw = raw_per_node * total_nodes
-    usable = (_cluster_usable_storage(raw_per_node, biggest_disk, layout)
-              if total_nodes > 1 else raw_per_node)
+    if total_nodes > 1:
+        usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
+    else:
+        # Single Node System: RF2 mirrors across the node's own drives (raw/2)
+        # but reserves no rebuild disk; a single-disk SNS can't mirror at all.
+        usable = raw_per_node if disk_count <= 1 else raw_per_node / 2
     if so_block:
         so_block["raw_storage_tb"] = round(raw_per_node, 2)
 
