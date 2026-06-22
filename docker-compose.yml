@@ -7,8 +7,9 @@ services:
       POSTGRES_DB: sizer
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Not published to the host — the sizer container reaches Postgres over the
+    # internal compose network (db:5432). Add a 127.0.0.1-bound mapping only if
+    # you need local admin access.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sizer"]
       interval: 5s
