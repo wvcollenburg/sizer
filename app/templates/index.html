@@ -327,6 +327,15 @@
                             <input type="number" id="target-nodes" placeholder="No limit" min="2" step="1"
                                    title="Cap recommendations at this many nodes. Leave blank for the optimal/best-priced solution."
                                    onchange="recalcRecommendations()">
+                            <!-- CPU sizing is tied to node count. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
+                                    Size CPU for full cluster
+                                </label>
+                                <span class="info-icon" id="full-cluster-info" tabindex="0"
+                                      title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Storage Type</label>
@@ -337,6 +346,16 @@
                                 <option value="hybrid">Hybrid</option>
                                 <option value="spinning">All-Spinning</option>
                             </select>
+                            <!-- Storage-related options grouped under storage type. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
+                                    Allow storage-only nodes
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
+                            </div>
+                            <div id="local-storage-option"></div>
                         </div>
                         <div class="form-group">
                             <label>Sizing Mode
@@ -368,26 +387,6 @@
                         </div>
                     </div>
 
-                    <div class="sizing-toggles">
-                        <div class="toggle-item">
-                            <label class="checkbox-inline">
-                                <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
-                                Size CPU for full cluster
-                            </label>
-                            <span class="info-icon" id="full-cluster-info" tabindex="0"
-                                  title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
-                        </div>
-                        <div class="toggle-item">
-                            <label class="checkbox-inline">
-                                <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
-                                Allow storage-only nodes
-                            </label>
-                            <span class="info-icon" tabindex="0"
-                                  title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
-                        </div>
-                    </div>
-
-                    <div id="local-storage-option"></div>
                 </div>
 
                 <div class="growth-control">
