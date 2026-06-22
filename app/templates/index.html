@@ -297,130 +297,6 @@
                     <h3>Workload Requirements</h3>
                     <div class="summary-grid" id="workload-summary"></div>
                 </div>
-
-                <div class="ratio-control">
-                    <div class="ratio-header">
-                        <h3>Sizing Options</h3>
-                        <div class="ratio-current" id="ratio-current"></div>
-                    </div>
-                    <div class="ratio-slider-row compact">
-                        <label>Target vCPU : Core ratio</label>
-                        <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
-                               oninput="updateRatioDisplay()">
-                        <span class="ratio-value" id="ratio-value">3.00 : 1</span>
-                    </div>
-                    <div class="ratio-bar-container">
-                        <div class="ratio-bar">
-                            <div class="ratio-bar-fill" id="ratio-bar-fill"></div>
-                            <div class="ratio-bar-marker" id="ratio-bar-marker" title="Current environment"></div>
-                        </div>
-                        <div class="ratio-labels">
-                            <span>1:1 Conservative</span>
-                            <span>4:1 Moderate</span>
-                            <span>8:1 Aggressive</span>
-                        </div>
-                    </div>
-
-                    <div class="sizing-options-grid">
-                        <div class="form-group">
-                            <label>Target Node Count</label>
-                            <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
-                                   title="Size recommendations to exactly this many nodes. Larger sizes are only offered (with a warning) when the target can't fit the workload. Leave blank for the optimal/best-priced solution."
-                                   onchange="recalcRecommendations()">
-                            <!-- CPU sizing is tied to node count. -->
-                            <div class="toggle-item">
-                                <label class="checkbox-inline">
-                                    <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
-                                    Size CPU for full cluster
-                                </label>
-                                <span class="info-icon" id="full-cluster-info" tabindex="0"
-                                      title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Storage Type</label>
-                            <select id="storage-pref" onchange="recalcRecommendations()"
-                                    title="Prefer a specific storage media. Auto considers all options.">
-                                <option value="auto" selected>Auto</option>
-                                <option value="flash">All-Flash</option>
-                                <option value="hybrid">Hybrid</option>
-                                <option value="spinning">All-Spinning</option>
-                            </select>
-                            <!-- Storage-related options grouped under storage type. -->
-                            <div class="toggle-item">
-                                <label class="checkbox-inline">
-                                    <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
-                                    Allow storage-only nodes
-                                </label>
-                                <span class="info-icon" tabindex="0"
-                                      title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
-                            </div>
-                            <div id="local-storage-option"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>Sizing Mode
-                                <span class="info-icon" tabindex="0"
-                                      title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
-                            </label>
-                            <select id="sizing-mode" onchange="recalcRecommendations()">
-                                <option value="certified" selected>Certified</option>
-                                <option value="validated">Validated (Software-Only)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Size For Model
-                                <span class="info-icon" tabindex="0"
-                                      title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
-                            </label>
-                            <select id="import-model-select" onchange="recalcRecommendations()">
-                                <option value="">All models (best fit)</option>
-                            </select>
-                            <!-- Tied to model selection, so it sits under this dropdown. -->
-                            <div class="toggle-item">
-                                <label class="checkbox-inline">
-                                    <input type="checkbox" id="import-include-eol" onchange="onImportEolToggle()">
-                                    Include EOL / EOS systems
-                                </label>
-                                <span class="info-icon" tabindex="0"
-                                      title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div class="growth-control">
-                    <h3>Growth Projection</h3>
-                    <div class="growth-inputs">
-                        <div class="form-group">
-                            <label>Projection Years</label>
-                            <select id="growth-years" onchange="recalcRecommendations()">
-                                <option value="1">1 year</option>
-                                <option value="2">2 years</option>
-                                <option value="3">3 years</option>
-                                <option value="4">4 years</option>
-                                <option value="5" selected>5 years</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>YoY Growth %</label>
-                            <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
-                                   onchange="recalcRecommendations()">
-                        </div>
-                        <div class="form-group">
-                            <label>Snapshot Overhead %</label>
-                            <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
-                                   onchange="recalcRecommendations()">
-                        </div>
-                    </div>
-                    <div id="projection-summary" class="projection-summary"></div>
-                </div>
-
-                <div class="import-recommendations">
-                    <h3>SC// Recommendations</h3>
-                    <p class="rec-desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
-                    <div id="rec-list"></div>
-                </div>
             </div>
         </section>
 
@@ -547,22 +423,26 @@
 
             <button class="btn btn-primary" onclick="calculateManual()">Get Recommendations</button>
 
-            <div id="manual-results" style="display:none">
+        </section>
+
+        <!-- SHARED SIZING OPTIONS + GROWTH + RECOMMENDATIONS (used by both VMware
+             Import and Manual Input so the two flows can never drift apart). -->
+        <section id="sizing-results" class="config-form" style="display:none">
                 <div class="ratio-control">
                     <div class="ratio-header">
-                        <h3>Virtualization Ratio</h3>
-                        <div class="ratio-current" id="man-ratio-current"></div>
+                        <h3>Sizing Options</h3>
+                        <div class="ratio-current" id="ratio-current"></div>
                     </div>
-                    <div class="ratio-slider-row">
+                    <div class="ratio-slider-row compact">
                         <label>Target vCPU : Core ratio</label>
-                        <input type="range" id="man-ratio-slider" min="1" max="8" step="0.25" value="3"
-                               oninput="updateManualRatioDisplay()">
-                        <span class="ratio-value" id="man-ratio-value">3.00 : 1</span>
+                        <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
+                               oninput="updateRatioDisplay()">
+                        <span class="ratio-value" id="ratio-value">3.00 : 1</span>
                     </div>
                     <div class="ratio-bar-container">
                         <div class="ratio-bar">
-                            <div class="ratio-bar-fill" id="man-ratio-bar-fill"></div>
-                            <div class="ratio-bar-marker" id="man-ratio-bar-marker" title="Current environment"></div>
+                            <div class="ratio-bar-fill" id="ratio-bar-fill"></div>
+                            <div class="ratio-bar-marker" id="ratio-bar-marker" title="Current environment"></div>
                         </div>
                         <div class="ratio-labels">
                             <span>1:1 Conservative</span>
@@ -570,6 +450,73 @@
                             <span>8:1 Aggressive</span>
                         </div>
                     </div>
+
+                    <div class="sizing-options-grid">
+                        <div class="form-group">
+                            <label>Target Node Count</label>
+                            <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
+                                   title="Size recommendations to exactly this many nodes. Larger sizes are only offered (with a warning) when the target can't fit the workload. Leave blank for the optimal/best-priced solution."
+                                   onchange="recalcRecommendations()">
+                            <!-- CPU sizing is tied to node count. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
+                                    Size CPU for full cluster
+                                </label>
+                                <span class="info-icon" id="full-cluster-info" tabindex="0"
+                                      title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Storage Type</label>
+                            <select id="storage-pref" onchange="recalcRecommendations()"
+                                    title="Prefer a specific storage media. Auto considers all options.">
+                                <option value="auto" selected>Auto</option>
+                                <option value="flash">All-Flash</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="spinning">All-Spinning</option>
+                            </select>
+                            <!-- Storage-related options grouped under storage type. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
+                                    Allow storage-only nodes
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
+                            </div>
+                            <div id="local-storage-option"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Sizing Mode
+                                <span class="info-icon" tabindex="0"
+                                      title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
+                            </label>
+                            <select id="sizing-mode" onchange="recalcRecommendations()">
+                                <option value="certified" selected>Certified</option>
+                                <option value="validated">Validated (Software-Only)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Size For Model
+                                <span class="info-icon" tabindex="0"
+                                      title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
+                            </label>
+                            <select id="sizing-model-select" onchange="recalcRecommendations()">
+                                <option value="">All models (best fit)</option>
+                            </select>
+                            <!-- Tied to model selection, so it sits under this dropdown. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="sizing-include-eol" onchange="onEolToggle()">
+                                    Include EOL / EOS systems
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="growth-control">
@@ -577,7 +524,7 @@
                     <div class="growth-inputs">
                         <div class="form-group">
                             <label>Projection Years</label>
-                            <select id="man-growth-years" onchange="recalcManualRecommendations()">
+                            <select id="growth-years" onchange="recalcRecommendations()">
                                 <option value="1">1 year</option>
                                 <option value="2">2 years</option>
                                 <option value="3">3 years</option>
@@ -587,52 +534,25 @@
                         </div>
                         <div class="form-group">
                             <label>YoY Growth %</label>
-                            <input type="number" id="man-growth-pct" value="10" min="0" max="50" step="1"
-                                   onchange="recalcManualRecommendations()">
+                            <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
+                                   onchange="recalcRecommendations()">
                         </div>
                         <div class="form-group">
                             <label>Snapshot Overhead %</label>
-                            <input type="number" id="man-snapshot-pct" value="20" min="0" max="100" step="5"
-                                   onchange="recalcManualRecommendations()">
-                        </div>
-                        <div class="form-group">
-                            <label>Sizing Mode</label>
-                            <select id="man-sizing-mode" onchange="recalcManualRecommendations()"
-                                    title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced to size storage to need.">
-                                <option value="certified" selected>Certified</option>
-                                <option value="validated">Validated (Software-Only)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Size For Model</label>
-                            <select id="man-model-select" onchange="recalcManualRecommendations()"
-                                    title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">
-                                <option value="">All models (best fit)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-inline" style="margin-top:1.8rem">
-                                <input type="checkbox" id="man-allow-storage-only" onchange="recalcManualRecommendations()">
-                                Allow storage-only nodes
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-inline" style="margin-top:1.8rem">
-                                <input type="checkbox" id="man-include-eol" onchange="onManualEolToggle()">
-                                Include EOL / EOS systems
-                            </label>
+                            <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
+                                   onchange="recalcRecommendations()">
                         </div>
                     </div>
-                    <div id="man-projection-summary" class="projection-summary"></div>
+                    <div id="projection-summary" class="projection-summary"></div>
                 </div>
 
                 <div class="import-recommendations">
                     <h3>SC// Recommendations</h3>
                     <p class="rec-desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
-                    <div id="man-rec-list"></div>
+                    <div id="rec-list"></div>
                 </div>
-            </div>
         </section>
+
 
         <!-- RESULTS -->
         <section id="results" class="results-section" style="display:none">
