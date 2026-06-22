@@ -519,6 +519,13 @@ async function loadValidatedNics() {
     });
 }
 
+// Every sizing starts the target vCPU:core slider here (a standard consolidation
+// ratio), independent of the source environment's detected ratio — which is still
+// shown via the marker/label. The value is the admin-tuned default, injected into
+// the page by the server (window.SIZING_DEFAULTS); 3.0 is the fallback.
+const DEFAULT_SIZING_RATIO =
+    (window.SIZING_DEFAULTS && window.SIZING_DEFAULTS.vcpuRatio) || 3.0;
+
 const WITNESS_MESSAGE =
     'A 2-node cluster requires a separate witness device and HyperCore 9.7.5 or ' +
     'later. The witness can be almost any device with an Intel Core i3 (or newer) ' +
@@ -919,7 +926,9 @@ function displayImportResults(data) {
 
     const currentRatio = s.vcpu_per_core_ratio || 3.0;
     const slider = document.getElementById('ratio-slider');
-    slider.value = currentRatio;
+    // Start sizing at the standard default ratio; the detected ratio is still
+    // reported below via the marker and label.
+    slider.value = DEFAULT_SIZING_RATIO;
     updateRatioDisplay();
 
     const markerPct = ((currentRatio - 1) / 7) * 100;
@@ -1225,7 +1234,9 @@ function calculateManual() {
     // Drive the SHARED sizing block (same controls/markup the import flow uses).
     activeMode = 'manual';
     const slider = document.getElementById('ratio-slider');
-    slider.value = currentRatio;
+    // Start sizing at the standard default ratio; the detected ratio (currentRatio)
+    // is still reported via the marker and label below.
+    slider.value = DEFAULT_SIZING_RATIO;
     updateRatioDisplay();
 
     const marker = document.getElementById('ratio-bar-marker');

@@ -33,7 +33,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
-        vcpu_ratio = summary.get("vcpu_per_core_ratio", 3.0)
+        # Default every sizing to the admin-tuned consolidation ratio rather than
+        # the source environment's measured ratio (which is still reported in the
+        # summary for reference). The UI slider lets the user dial it up or down.
+        vcpu_ratio = T.default_vcpu_ratio
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
     years = max(1, min(years, 5))
 

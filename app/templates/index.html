@@ -869,6 +869,11 @@
         </div>
     </div>
 
+    <script>
+        // Admin-tuned sizing defaults injected at render time; read by app.js
+        // before any sizing runs. Must precede app.js.
+        window.SIZING_DEFAULTS = { vcpuRatio: {{ default_vcpu_ratio | tojson }} };
+    </script>
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>
 </body>

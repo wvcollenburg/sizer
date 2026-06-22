@@ -101,6 +101,14 @@ TUNABLE_DEFS = [
      "how": "It only affects models missing a cost value; raising or lowering it shifts how those unpriced models rank.",
      "beware": "If set far from real model costs, any unpriced model is unfairly favoured or buried. Best practice is to set explicit per-model costs so this is rarely used."},
 
+    # ── Sizing defaults ──────────────────────────────────────────────────────
+    {"key": "default_vcpu_ratio", "default": 3.0, "type": "float", "group": "Sizing defaults",
+     "label": "Default vCPU:core ratio", "min": 1, "max": 10, "step": 0.5,
+     "help": "Starting vCPU:core consolidation ratio every sizing opens at (the UI slider default).",
+     "what": "The vCPU-to-physical-core consolidation ratio every new sizing starts from — the initial position of the ratio slider and the value used for the first recommendation, regardless of the source environment's measured ratio (which is still shown for reference).",
+     "how": "Raise it to consolidate harder by default (fewer/denser nodes, less hardware). Lower it toward 1:1 to size more conservatively out of the box. Users can still override per-sizing with the slider.",
+     "beware": "Set well above what the workloads tolerate and the default recommendation under-provisions CPU until the user notices and dials it back. Set to 1:1 and every sizing starts as large as the source estate, defeating the point of a consolidation default."},
+
     # ── Cluster topology ─────────────────────────────────────────────────────
     {"key": "max_nodes_per_cluster", "default": 8, "type": "int", "group": "Cluster topology",
      "label": "Max nodes per cluster", "min": 1, "step": 1,

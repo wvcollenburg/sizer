@@ -69,7 +69,14 @@ def create_app():
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        # Surface the admin-tuned sizing defaults the client needs at load time
+        # (the ratio slider's starting position). Resilient: if the settings read
+        # fails, T keeps its last/default values so the page still renders.
+        try:
+            refresh_from_db()
+        except Exception:
+            pass
+        return render_template("index.html", default_vcpu_ratio=T.default_vcpu_ratio)
 
     @app.route("/privacy")
     def privacy():
