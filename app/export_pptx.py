@@ -211,17 +211,17 @@ def _add_title(slide, text, subtitle=None):
     run.font.name = TITLE_FONT
     run.font.color.rgb = SC_DARK_BLUE
 
-    # Thin dark-blue rule from just after the title to the right edge (matches the
-    # template title style). Title width is estimated from the text length since
-    # python-pptx can't measure rendered glyphs; the gap is kept generous so the
-    # rule never overlaps the text. Skipped if the title is too long to leave room.
-    title_end = 0.6 + len(text) * 0.17
-    line_x1 = min(title_end + 0.35, 11.5)
-    line_y = 0.96
-    if line_x1 < 12.6:
+    # Thin dark-blue rule from just after the title to the right edge of the slide
+    # (matches the template title style). Title width is estimated from the text
+    # length since python-pptx can't measure rendered glyphs; the gap is generous
+    # so the rule clears the text. y sits on the title baseline, not its top.
+    title_end = 0.6 + len(text) * 0.18
+    line_x1 = min(title_end + 0.5, 12.0)
+    line_y = 1.08
+    if line_x1 < 13.0:
         rule = slide.shapes.add_connector(
             MSO_CONNECTOR.STRAIGHT, Inches(line_x1), Inches(line_y),
-            Inches(12.85), Inches(line_y))
+            Inches(13.2), Inches(line_y))
         rule.line.color.rgb = SC_DARK_BLUE
         rule.line.width = Pt(1)
 
