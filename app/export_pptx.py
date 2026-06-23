@@ -1,29 +1,74 @@
-"""Generate a 4-slide SC// proposal PowerPoint deck."""
+"""Generate SC// proposal / configuration PowerPoint decks.
+
+Decks are derived from the branded SC template at resources/template.pptx so they
+inherit its theme (Arial + the SC colour scheme) and slide masters; our content
+slides are drawn on the template's BLANK layout. If the template file is missing
+(e.g. not deployed), we fall back to a plain blank presentation so exports never
+break.
+"""
 
 import io
+import os
 import re
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.oxml.ns import qn
 
-SC_BLUE = RGBColor(0x00, 0x76, 0xCE)
-SC_DARK_BLUE = RGBColor(0x00, 0x3A, 0x70)
-CHARCOAL = RGBColor(0x33, 0x33, 0x33)
+# Brand palette taken from the template theme (resources/template.pptx):
+#   dk1 272727 · dk2 113859 · lt2 E9EAF0 · accent1 009ADE · accent2 194F90
+#   accent4 3FB748 · accent5 97CAEB · accent6 F78D2C
+SC_BLUE = RGBColor(0x00, 0x9A, 0xDE)       # accent1 — primary SC blue
+SC_DARK_BLUE = RGBColor(0x11, 0x38, 0x59)  # dk2 — title bar / headings
+SC_DEEP_BLUE = RGBColor(0x19, 0x4F, 0x90)  # accent2 — secondary accent / rules
+SC_LIGHT_BLUE = RGBColor(0x97, 0xCA, 0xEB)  # accent5 — "SC//" prefix on dark
+CHARCOAL = RGBColor(0x27, 0x27, 0x27)      # dk1
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-LIGHT_GRAY = RGBColor(0xF2, 0xF4, 0xF7)
+LIGHT_GRAY = RGBColor(0xE9, 0xEA, 0xF0)    # lt2
 MID_GRAY = RGBColor(0x66, 0x66, 0x66)
-GREEN = RGBColor(0x2E, 0x7D, 0x32)
-RED = RGBColor(0xC6, 0x28, 0x28)
+GREEN = RGBColor(0x3F, 0xB7, 0x48)         # accent4
+RED = RGBColor(0xC6, 0x28, 0x28)           # semantic warning (no template red)
+ORANGE = RGBColor(0xF7, 0x8D, 0x2C)        # accent6
 BORDER_SUBTLE = RGBColor(0xDE, 0xE2, 0xE6)
-CARD_BG = RGBColor(0xF2, 0xF4, 0xF7)
+CARD_BG = RGBColor(0xE9, 0xEA, 0xF0)       # lt2
 CARD_BORDER = RGBColor(0xDD, 0xDD, 0xDD)
+
+_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "resources", "template.pptx")
+
+
+def _new_deck():
+    """A fresh deck derived from the SC template (sample slides stripped), or a
+    plain blank presentation if the template isn't available."""
+    if os.path.exists(_TEMPLATE_PATH):
+        prs = Presentation(_TEMPLATE_PATH)
+        # Remove the template's sample slides. Drop BOTH the sldId reference and
+        # the relationship, otherwise the orphaned slide parts linger and collide
+        # with our new slides on save ("Duplicate name: slide1.xml").
+        sld_id_lst = prs.slides._sldIdLst
+        for sld_id in list(sld_id_lst):
+            rid = sld_id.get(qn("r:id"))
+            if rid:
+                prs.part.drop_rel(rid)
+            sld_id_lst.remove(sld_id)
+    else:
+        prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    return prs
+
+
+def _blank_layout(prs):
+    """The template's BLANK layout (falls back to the standard blank)."""
+    for layout in prs.slide_layouts:
+        if (layout.name or "").strip().upper() == "BLANK":
+            return layout
+    # python-pptx default template: layout 6 is "Blank".
+    return prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[-1]
 
 
 def generate_proposal(summary, recommendation, projection):
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    prs = _new_deck()
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
@@ -37,9 +82,7 @@ def generate_proposal(summary, recommendation, projection):
 
 
 def generate_config_slide(result):
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    prs = _new_deck()
 
     slide = _add_slide(prs)
     mode = result.get("mode", "appliance")
@@ -131,7 +174,7 @@ def generate_config_slide(result):
 
 
 def _add_slide(prs):
-    layout = prs.slide_layouts[6]  # blank
+    layout = _blank_layout(prs)
     slide = prs.slides.add_slide(layout)
     bg = slide.background.fill
     bg.solid()
@@ -155,7 +198,7 @@ def _add_title(slide, text, subtitle=None):
     run.text = "SC// "
     run.font.size = Pt(28)
     run.font.bold = True
-    run.font.color.rgb = RGBColor(0x4D, 0xB8, 0xFF)
+    run.font.color.rgb = SC_LIGHT_BLUE
     run = p.add_run()
     run.text = text
     run.font.size = Pt(28)
@@ -244,8 +287,8 @@ def _add_no_redundancy_box(slide, left, top, width, msg):
     run_m.font.color.rgb = CHARCOAL
 
 
-HEADER_BG = RGBColor(0xE8, 0xF0, 0xF8)
-ROW_ALT_BG = RGBColor(0xF7, 0xF8, 0xFA)
+HEADER_BG = RGBColor(0xE9, 0xEA, 0xF0)   # lt2 — table header band
+ROW_ALT_BG = RGBColor(0xF6, 0xF7, 0xFA)  # subtle zebra stripe
 
 
 def _set_cell_border(tc_pr, side, width_pt, color_hex):
@@ -301,7 +344,7 @@ def _add_table(slide, left, top, width, rows_data, col_widths=None):
             _set_cell_border(tc_pr, "top", None, None)
 
             if r == 0:
-                _set_cell_border(tc_pr, "bottom", 1.5, "0076CE")
+                _set_cell_border(tc_pr, "bottom", 1.5, "009ADE")
             elif r < rows - 1:
                 _set_cell_border(tc_pr, "bottom", 0.5, "DEE2E6")
             else:
