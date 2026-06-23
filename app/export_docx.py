@@ -49,6 +49,32 @@ def _content_width(doc):
     return (sec.page_width - sec.left_margin - sec.right_margin) / 914400
 
 
+# OOXML requires tblPr children in this exact order. Word ENFORCES it (and
+# silently drops misordered tblW/tblLayout → falls back to autofit → tables
+# overflow the page); LibreOffice is lenient, which is why the PDF looked fine
+# while the .docx in Word did not. We must insert in-order, not append.
+_TBLPR_ORDER = [
+    "w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual",
+    "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc",
+    "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout",
+    "w:tblCellMar", "w:tblLook", "w:tblCaption", "w:tblDescription",
+]
+
+
+def _set_tblpr_child(tblPr, tag):
+    """Replace (or create) a tblPr child, inserted at its schema-correct position."""
+    for el in tblPr.findall(qn(tag)):
+        tblPr.remove(el)
+    el = OxmlElement(tag)
+    successors = {qn(t) for t in _TBLPR_ORDER[_TBLPR_ORDER.index(tag) + 1:]}
+    for child in tblPr:
+        if child.tag in successors:
+            child.addprevious(el)
+            return el
+    tblPr.append(el)
+    return el
+
+
 def _shade(cell, hex_fill):
     tcPr = cell._tc.get_or_add_tcPr()
     shd = OxmlElement("w:shd")
@@ -58,54 +84,50 @@ def _shade(cell, hex_fill):
 
 
 def _set_table_borders(table, color="DDE2E6"):
-    tblPr = table._tbl.tblPr
-    borders = OxmlElement("w:tblBorders")
+    borders = _set_tblpr_child(table._tbl.tblPr, "w:tblBorders")
     for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
         el = OxmlElement(f"w:{edge}")
         el.set(qn("w:val"), "single")
         el.set(qn("w:sz"), "4")
         el.set(qn("w:color"), color)
         borders.append(el)
-    tblPr.append(borders)
 
 
 def _cell_margins(table, top=70, bottom=70, left=130, right=130):
     """Breathing room inside every cell (twips)."""
-    tblPr = table._tbl.tblPr
-    mar = OxmlElement("w:tblCellMar")
+    mar = _set_tblpr_child(table._tbl.tblPr, "w:tblCellMar")
     for side, val in (("top", top), ("bottom", bottom), ("left", left), ("right", right)):
         e = OxmlElement(f"w:{side}")
         e.set(qn("w:w"), str(val))
         e.set(qn("w:type"), "dxa")
         mar.append(e)
-    tblPr.append(mar)
 
 
 def _fixed_layout(table, widths):
     """Lock column widths so long content WRAPS instead of overflowing the page.
-    python-docx cell widths alone are ignored — Word honours the tblGrid column
-    widths under a fixed layout. Replace (don't duplicate) any tblLayout/tblW the
-    template's table style already injected, then set the authoritative tblGrid."""
+    Sets tblW (preferred width), tblLayout=fixed, tblInd=0, the authoritative
+    tblGrid columns, and each cell's tcW — all inserted in schema order so Word
+    honours them."""
     table.autofit = False
     table.allow_autofit = False
     tbl = table._tbl
     tblPr = tbl.tblPr
-    for tag in ("w:tblLayout", "w:tblW"):
-        for el in tblPr.findall(qn(tag)):
-            tblPr.remove(el)
-    layout = OxmlElement("w:tblLayout")
-    layout.set(qn("w:type"), "fixed")
-    tblPr.append(layout)
-    tblW = OxmlElement("w:tblW")
+
+    tblW = _set_tblpr_child(tblPr, "w:tblW")
     tblW.set(qn("w:w"), str(int(sum(widths) * 1440)))
     tblW.set(qn("w:type"), "dxa")
-    tblPr.append(tblW)
-    # Authoritative per-column widths (the tblGrid) + each cell's tcW.
+
+    tblInd = _set_tblpr_child(tblPr, "w:tblInd")
+    tblInd.set(qn("w:w"), "0")
+    tblInd.set(qn("w:type"), "dxa")
+
+    layout = _set_tblpr_child(tblPr, "w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+
     grid_cols = tbl.tblGrid.findall(qn("w:gridCol"))
     for i, w in enumerate(widths):
-        twips = str(int(w * 1440))
         if i < len(grid_cols):
-            grid_cols[i].set(qn("w:w"), twips)
+            grid_cols[i].set(qn("w:w"), str(int(w * 1440)))
     for row in table.rows:
         for i, w in enumerate(widths):
             row.cells[i].width = Inches(w)
