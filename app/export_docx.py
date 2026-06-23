@@ -14,7 +14,6 @@ PDF is produced by converting the authored .docx with headless LibreOffice
 
 import io
 import os
-import re
 import shutil
 import subprocess
 import tempfile
@@ -43,51 +42,7 @@ def _clear_body(doc):
             body.remove(child)
 
 
-def _set_table_borders(table):
-    tblPr = table._tbl.tblPr
-    borders = OxmlElement("w:tblBorders")
-    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
-        el = OxmlElement(f"w:{edge}")
-        el.set(qn("w:val"), "single")
-        el.set(qn("w:sz"), "4")
-        el.set(qn("w:color"), "DDDDDD")
-        borders.append(el)
-    tblPr.append(borders)
-
-
-def _kv_table(doc, rows, widths=(2.4, 4.0)):
-    """A two-column key/value table (key bold)."""
-    t = doc.add_table(rows=0, cols=2)
-    _set_table_borders(t)
-    for k, v in rows:
-        c = t.add_row().cells
-        c[0].text = ""
-        run = c[0].paragraphs[0].add_run(str(k))
-        run.bold = True
-        run.font.color.rgb = DK2
-        c[1].text = str(v)
-    for row in t.rows:
-        for i, w in enumerate(widths):
-            row.cells[i].width = Inches(w)
-    return t
-
-
-def _grid_table(doc, headers, rows):
-    """A header-row + data-rows table."""
-    t = doc.add_table(rows=1, cols=len(headers))
-    _set_table_borders(t)
-    for i, h in enumerate(headers):
-        cell = t.rows[0].cells[i]
-        cell.text = ""
-        run = cell.paragraphs[0].add_run(str(h))
-        run.bold = True
-        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-        _shade(cell, "113859")
-    for r in rows:
-        cells = t.add_row().cells
-        for i, val in enumerate(r):
-            cells[i].text = str(val)
-    return t
+CONTENT_W = 6.5  # Letter (8.5") minus 1" margins each side
 
 
 def _shade(cell, hex_fill):
@@ -96,6 +51,112 @@ def _shade(cell, hex_fill):
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:fill"), hex_fill)
     tcPr.append(shd)
+
+
+def _set_table_borders(table, color="DDE2E6"):
+    tblPr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), "4")
+        el.set(qn("w:color"), color)
+        borders.append(el)
+    tblPr.append(borders)
+
+
+def _cell_margins(table, top=70, bottom=70, left=130, right=130):
+    """Breathing room inside every cell (twips)."""
+    tblPr = table._tbl.tblPr
+    mar = OxmlElement("w:tblCellMar")
+    for side, val in (("top", top), ("bottom", bottom), ("left", left), ("right", right)):
+        e = OxmlElement(f"w:{side}")
+        e.set(qn("w:w"), str(val))
+        e.set(qn("w:type"), "dxa")
+        mar.append(e)
+    tblPr.append(mar)
+
+
+def _fixed_layout(table, widths):
+    """Lock column widths so long content WRAPS instead of overflowing the page.
+    python-docx cell widths alone are ignored — Word honours the tblGrid column
+    widths under a fixed layout. Replace (don't duplicate) any tblLayout/tblW the
+    template's table style already injected, then set the authoritative tblGrid."""
+    table.autofit = False
+    table.allow_autofit = False
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+    for tag in ("w:tblLayout", "w:tblW"):
+        for el in tblPr.findall(qn(tag)):
+            tblPr.remove(el)
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tblPr.append(layout)
+    tblW = OxmlElement("w:tblW")
+    tblW.set(qn("w:w"), str(int(sum(widths) * 1440)))
+    tblW.set(qn("w:type"), "dxa")
+    tblPr.append(tblW)
+    # Authoritative per-column widths (the tblGrid) + each cell's tcW.
+    grid_cols = tbl.tblGrid.findall(qn("w:gridCol"))
+    for i, w in enumerate(widths):
+        twips = str(int(w * 1440))
+        if i < len(grid_cols):
+            grid_cols[i].set(qn("w:w"), twips)
+    for row in table.rows:
+        for i, w in enumerate(widths):
+            row.cells[i].width = Inches(w)
+
+
+def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
+    cell.text = ""
+    pr = cell.paragraphs[0]
+    if align is not None:
+        pr.alignment = align
+    run = pr.add_run(str(text))
+    run.bold = bold
+    if color is not None:
+        run.font.color.rgb = color
+    if fill is not None:
+        _shade(cell, fill)
+
+
+def _spec_table(doc, rows, label_w=2.1):
+    """Clean two-column spec table: shaded bold labels (left) + values (right),
+    fixed widths so values wrap rather than run off the page."""
+    t = doc.add_table(rows=0, cols=2)
+    _set_table_borders(t)
+    _cell_margins(t)
+    for k, v in rows:
+        cells = t.add_row().cells
+        _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7")
+        _style_cell(cells[1], v)
+    _fixed_layout(t, [label_w, CONTENT_W - label_w])
+    return t
+
+
+def _grid_table(doc, headers, rows, widths=None):
+    """Header-row (dark) + data-rows table, fixed width."""
+    t = doc.add_table(rows=1, cols=len(headers))
+    _set_table_borders(t)
+    _cell_margins(t)
+    for i, h in enumerate(headers):
+        _style_cell(t.rows[0].cells[i], h, bold=True,
+                    color=RGBColor(0xFF, 0xFF, 0xFF), fill="113859")
+    for r in rows:
+        cells = t.add_row().cells
+        for i, val in enumerate(r):
+            _style_cell(cells[i], val)
+    if widths is None:
+        widths = [CONTENT_W / len(headers)] * len(headers)
+    _fixed_layout(t, widths)
+    return t
+
+
+def _spacer(doc, pts=6):
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(pts)
+    p.paragraph_format.space_before = Pt(0)
+    return p
 
 
 def _para(doc, text, italic=False, color=None, size=None):
@@ -115,6 +176,18 @@ def build_proposal_docx(summary, recommendation, projection):
     r = recommendation
     s = summary
     p = projection
+    t = r["totals"]
+    n1 = r["n_minus_1"]
+    iops = r.get("iops") or {}
+    bullet_style = "List Bullet" if "List Bullet" in [st.name for st in doc.styles] else "Normal"
+
+    so = r.get("storage_only")
+    hci_nodes = r.get("hci_node_count", r["node_count"])
+    nodes_label = (f"{hci_nodes} HCI + {so['count']} storage-only"
+                   if so else f"{r['node_count']} node{'' if r['node_count'] == 1 else 's'}")
+    num_cl = r.get("num_clusters", 1)
+    cl_label = (f"{num_cl} clusters ({' + '.join(map(str, r.get('cluster_layout', [])))})"
+                if num_cl > 1 else "single cluster")
 
     # ── Title ────────────────────────────────────────────────────────────────
     doc.add_paragraph("Infrastructure Sizing Proposal", style="Title")
@@ -122,30 +195,53 @@ def build_proposal_docx(summary, recommendation, projection):
     if subtitle:
         doc.add_paragraph(subtitle, style="Subtitle")
 
-    # ── Lead with the recommendation ─────────────────────────────────────────
+    # ── Management overview (executive summary — leads the document) ──────────
+    doc.add_heading("Management Overview", level=1)
+    _para(doc,
+          f"This proposal consolidates the current {s.get('current_platform', 'virtualization')} "
+          f"environment ({s.get('host_count', 0)} hosts, {s.get('active_vms', 0)} active VMs, "
+          f"{s.get('datastore_used_tb', 0)} TB in use) onto a Scale Computing HyperCore cluster. "
+          f"We recommend a {nodes_label} {r['model']} cluster delivering "
+          f"{t['usable_storage_tb']} TB usable capacity and {t['cores']} CPU cores, engineered for "
+          f"N-1 resilience so a complete node can fail without service interruption. The "
+          f"configuration absorbs {p['years']}-year growth at {p['growth_pct']}% annually while "
+          f"maintaining a {r['vcpu_ratio']:.2f}:1 vCPU-to-core ratio.")
+    _spacer(doc, 4)
+    fits = (p["projected_storage_tb"] <= n1["usable_storage_tb"]
+            and p["projected_vcpus"] <= n1["cores"] * r["vcpu_ratio"])
+    proj_fits = "within the proposed N-1 capacity" if fits else "approaching the proposed capacity"
+    _spec_table(doc, [
+        ("Recommended platform", f"{r['model']} · {nodes_label} · {cl_label}"),
+        ("Usable capacity", f"{t['usable_storage_tb']} TB (N-1 protected: "
+                            f"{n1['usable_storage_tb']} TB)"),
+        ("Compute", f"{t['cores']} cores @ {r['vcpu_ratio']:.2f}:1 vCPU:core"),
+        (f"{p['years']}-year outlook", f"~{_fmt_num(p['projected_vcpus'])} vCPUs / "
+                                       f"{p['projected_storage_tb']} TB projected — {proj_fits}"),
+    ], label_w=2.3)
+    _spacer(doc)
+
+    # ── Recommended configuration ────────────────────────────────────────────
     doc.add_heading("Recommended Configuration", level=1)
-    so = r.get("storage_only")
-    nodes_label = (f"{r.get('hci_node_count', r['node_count'])} HCI + {so['count']} storage-only"
-                   if so else f"{r['node_count']} node{'' if r['node_count'] == 1 else 's'}")
-    num_cl = r.get("num_clusters", 1)
-    cl_label = (f"{num_cl} clusters ({' + '.join(map(str, r.get('cluster_layout', [])))})"
-                if num_cl > 1 else "1 cluster")
     _para(doc, f"{r['model']} — {nodes_label}, {cl_label}. "
                f"{r['form_factor']} ({r['chassis']}).")
-
-    t = r["totals"]
-    iops = r.get("iops") or {}
-    _kv_table(doc, [
-        ("Per node", f"{r['cpu']} · {r['cores_per_node']}C/{r['threads_per_node']}T · "
-                     f"{_fmt_ram(r['ram_per_node_gb'])} RAM · {r['storage_config']['desc']}"),
-        ("Cluster total", f"{t['cores']} cores · {_fmt_ram(t['ram_gb'])} · "
-                          f"{t['usable_storage_tb']} TB usable"
-                          + (f" · {iops['total']:,} net IOPS" if iops else "")),
-        ("N-1 (resilient)", f"{r['n_minus_1']['cores']} cores · "
-                            f"{_fmt_ram(r['n_minus_1']['ram_gb'])} · "
-                            f"{r['n_minus_1']['usable_storage_tb']} TB usable"),
+    spec_rows = [
+        ("Per-node CPU", r["cpu"]),
+        ("Per-node cores / threads", f"{r['cores_per_node']} cores / {r['threads_per_node']} threads"),
+        ("Per-node RAM", _fmt_ram(r["ram_per_node_gb"])),
+        ("Per-node storage", r["storage_config"]["desc"]),
+        ("Cluster cores", str(t["cores"])),
+        ("Cluster RAM", _fmt_ram(t["ram_gb"])),
+        ("Cluster usable storage", f"{t['usable_storage_tb']} TB"),
+    ]
+    if iops:
+        spec_rows.append(("Cluster net IOPS", f"{iops['total']:,}"))
+    spec_rows += [
+        ("N-1 (resilient)", f"{n1['cores']} cores · {_fmt_ram(n1['ram_gb'])} · "
+                            f"{n1['usable_storage_tb']} TB usable"),
         ("vCPU : core ratio", f"{r['vcpu_ratio']:.2f} : 1"),
-    ])
+    ]
+    _spec_table(doc, spec_rows)
+    _spacer(doc)
 
     # Network diagram
     svg = r.get("network_svg")
@@ -153,11 +249,34 @@ def build_proposal_docx(summary, recommendation, projection):
         png = _svg_to_png_bytes(svg, out_width=2200)
         if png:
             doc.add_heading("Cluster Network", level=2)
-            doc.add_picture(io.BytesIO(png), width=Inches(6.5))
+            doc.add_picture(io.BytesIO(png), width=Inches(6.0))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _spacer(doc)
+
+    # ── Management & operations ──────────────────────────────────────────────
+    doc.add_heading("Management & Operations", level=1)
+    _para(doc, "Scale Computing HyperCore runs the hypervisor, storage, and "
+               "orchestration as a single integrated fabric — managed from one "
+               "interface with no external SAN, no separate hypervisor licensing, and "
+               "no specialist virtualization administration required.")
+    for note in [
+        "Single-pane management — compute, storage, networking, and VMs are administered from "
+        "the built-in HyperCore web interface; no separate storage console or vCenter-equivalent.",
+        "SC Fleet Manager — cloud-based monitoring, alerting, and fleet-wide management across "
+        "clusters and sites from one dashboard.",
+        "Self-healing storage — RF2 mirroring rebuilds automatically on a disk or node failure, "
+        "with no administrator intervention.",
+        "Non-disruptive operations — rolling updates and node additions complete with VMs running; "
+        "scale out by adding a node, no forklift upgrades.",
+        "Built-in data protection — native VM snapshots and replication for backup and DR without "
+        "third-party software.",
+    ]:
+        doc.add_paragraph(note, style=bullet_style)
+    _spacer(doc)
 
     # ── Current environment & workload ───────────────────────────────────────
     doc.add_heading("Current Environment & Workload", level=1)
-    _kv_table(doc, [
+    _spec_table(doc, [
         ("Platform", s.get("current_platform", "")),
         ("Hosts", f"{s.get('host_count', 0)} · {_fmt_num(s.get('total_host_cores', 0))} cores · "
                   f"{_fmt_ram(s.get('total_host_ram_gb', 0))}"),
@@ -167,12 +286,12 @@ def build_proposal_docx(summary, recommendation, projection):
                      f"{s.get('datastore_used_tb', 0)} TB used"),
         ("Measured ratio", f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
     ])
+    _spacer(doc)
 
     # ── Capacity planning ────────────────────────────────────────────────────
     doc.add_heading(f"Capacity Planning — {p['years']}-Year Projection", level=1)
     _para(doc, f"{p['growth_pct']}% YoY growth, {p['snapshot_pct']}% snapshot overhead "
                f"(growth factor {p.get('growth_factor', 1)}×).", italic=True, color=MUTED)
-    n1 = r["n_minus_1"]
     _grid_table(doc,
                 ["Resource", "Current", f"Year {p['years']}", "Proposed (N-1)"],
                 [["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
@@ -180,7 +299,9 @@ def build_proposal_docx(summary, recommendation, projection):
                  ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]),
                   _fmt_ram(n1["ram_gb"])],
                  ["Storage", f"{p['base_storage_tb']} TB", f"{p['projected_storage_tb']} TB",
-                  f"{n1['usable_storage_tb']} TB usable"]])
+                  f"{n1['usable_storage_tb']} TB usable"]],
+                widths=[1.4, 1.7, 1.7, 1.7])
+    _spacer(doc)
 
     # ── Assumptions ──────────────────────────────────────────────────────────
     doc.add_heading("Assumptions & Notes", level=1)
@@ -189,8 +310,7 @@ def build_proposal_docx(summary, recommendation, projection):
         f"vCPU:core ratio {r['vcpu_ratio']:.2f}:1; OS overhead and growth/snapshot reserve included.",
         "No LAG — networking is active/passive failover across two switches.",
     ]:
-        doc.add_paragraph(note, style="Normal").style = "List Bullet" \
-            if "List Bullet" in [st.name for st in doc.styles] else "Normal"
+        doc.add_paragraph(note, style=bullet_style)
 
     buf = io.BytesIO()
     doc.save(buf)
