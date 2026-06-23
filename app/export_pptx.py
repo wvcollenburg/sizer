@@ -36,6 +36,10 @@ CARD_BORDER = RGBColor(0xDD, 0xDD, 0xDD)
 
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "resources", "template.pptx")
 
+# Slide-title font — embedded in the template (embeddedFontLst), so it renders
+# even where it isn't installed. ExtraLight is a thin weight, so titles aren't bold.
+TITLE_FONT = "Martel Sans ExtraLight"
+
 
 def _new_deck():
     """A fresh deck derived from the SC template (sample slides stripped), or a
@@ -199,13 +203,15 @@ def _add_title(slide, text, subtitle=None):
     p = tf.paragraphs[0]
     run = p.add_run()
     run.text = "SC// "
-    run.font.size = Pt(26)
-    run.font.bold = True
+    run.font.size = Pt(28)
+    run.font.bold = False
+    run.font.name = TITLE_FONT
     run.font.color.rgb = SC_BLUE
     run = p.add_run()
     run.text = text
-    run.font.size = Pt(26)
-    run.font.bold = True
+    run.font.size = Pt(28)
+    run.font.bold = False
+    run.font.name = TITLE_FONT
     run.font.color.rgb = SC_DARK_BLUE
 
     if subtitle:
