@@ -207,6 +207,18 @@ def build_proposal_docx(summary, recommendation, projection):
     sec = doc.sections[0]
     sec.left_margin = Inches(1.0)
     sec.right_margin = Inches(1.0)
+    # The template's paragraph styles inherit a left indent, so the body sits inset
+    # from the title/tables (a visible "double" left margin). Zero it on every style
+    # we use so text aligns to the page margin; a final per-paragraph pass before
+    # save catches anything inherited from docDefaults.
+    for sname in ("Normal", "Title", "Subtitle", "Heading 1", "Heading 2", "Heading 3"):
+        try:
+            spf = doc.styles[sname].paragraph_format
+            spf.left_indent = Inches(0)
+            spf.right_indent = Inches(0)
+            spf.first_line_indent = Inches(0)
+        except KeyError:
+            pass
     r = recommendation
     s = summary
     p = projection
@@ -346,6 +358,13 @@ def build_proposal_docx(summary, recommendation, projection):
         "No LAG — networking is active/passive failover across two switches.",
     ]:
         doc.add_paragraph(note, style=bullet_style)
+
+    # Final pass: clear any indent inherited from docDefaults on every paragraph.
+    for par in doc.paragraphs:
+        ppf = par.paragraph_format
+        ppf.left_indent = Inches(0)
+        ppf.right_indent = Inches(0)
+        ppf.first_line_indent = Inches(0)
 
     buf = io.BytesIO()
     doc.save(buf)
