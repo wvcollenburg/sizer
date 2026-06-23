@@ -217,13 +217,14 @@ def _add_title(slide, text, subtitle=None):
     # so the rule clears the text. y sits on the title baseline, not its top.
     title_end = 0.6 + len(text) * 0.18
     line_x1 = min(title_end + 0.5, 12.0)
-    line_y = 1.08
+    line_y = 1.01
     if line_x1 < 13.0:
         rule = slide.shapes.add_connector(
             MSO_CONNECTOR.STRAIGHT, Inches(line_x1), Inches(line_y),
-            Inches(13.2), Inches(line_y))
+            Inches(13.333), Inches(line_y))
         rule.line.color.rgb = SC_DARK_BLUE
         rule.line.width = Pt(1)
+        rule.shadow.inherit = False  # the template's connector style adds a shadow
 
     if subtitle:
         txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.18), Inches(12.2), Inches(0.35))
