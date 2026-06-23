@@ -1595,13 +1595,32 @@ function openClusterDiagram(mode, recIndex) {
     const nodes = rec.node_count;
     document.getElementById('diagram-modal-title').textContent =
         `Network — ${rec.model} (${nodes} node${nodes === 1 ? '' : 's'})`;
-    document.getElementById('diagram-modal-body').innerHTML = rec.network_svg;
+    const body = document.getElementById('diagram-modal-body');
+    body.innerHTML = rec.network_svg;
+    body.dataset.filename =
+        `SC_Network_${String(rec.model).replace(/[^A-Za-z0-9]+/g, '')}_${nodes}node`;
     document.getElementById('diagram-modal').style.display = 'flex';
 }
 
 function closeClusterDiagram() {
     document.getElementById('diagram-modal').style.display = 'none';
     document.getElementById('diagram-modal-body').innerHTML = '';
+}
+
+// Download the currently-shown diagram as an SVG file.
+function downloadClusterDiagram() {
+    const body = document.getElementById('diagram-modal-body');
+    const svg = body.innerHTML.trim();
+    if (!svg) return;
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (body.dataset.filename || 'SC_Network_diagram') + '.svg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 }
 
 async function exportProposal(mode, recIndex) {
