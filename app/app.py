@@ -5,7 +5,7 @@ import tempfile
 
 from flask import Flask, render_template, jsonify, request, send_file
 from database import db, init_db
-from auth import register_auth, start_scheduler
+from auth import register_auth, start_scheduler, current_user
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, RamOption, StorageConfig,
@@ -21,7 +21,7 @@ from recommend import (
 )
 from tunables import T, refresh_from_db
 from export_pptx import generate_proposal, generate_config_slide
-from export_docx import build_proposal_docx, convert_docx_to_pdf
+from export_docx import build_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 
@@ -253,6 +253,8 @@ def create_app():
         projection = data.get("projection")
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
 
         try:
             buf = generate_proposal(summary, recommendation, projection)
@@ -267,11 +269,19 @@ def create_app():
         data = request.json or {}
         return data.get("summary"), data.get("recommendation"), data.get("projection")
 
+    def _can_export_editable():
+        # Editable source files (Word, PPTX) are limited to Scale users and super
+        # admins; everyone else is restricted to read-only PDFs.
+        u = current_user()
+        return bool(u and (u.is_scale or u.is_super_admin))
+
     @app.route("/api/export-docx", methods=["POST"])
     def export_docx_route():
         summary, recommendation, projection = _proposal_payload()
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
         try:
             buf = build_proposal_docx(summary, recommendation, projection)
             fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
@@ -295,6 +305,22 @@ def create_app():
                              mimetype="application/pdf")
         except Exception as e:
             return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
+
+    @app.route("/api/export-presentation-pdf", methods=["POST"])
+    def export_presentation_pdf_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        try:
+            pptx_buf = generate_proposal(summary, recommendation, projection)
+            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Presentation_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate presentation PDF: {str(e)}"}), 500
 
     return app
 

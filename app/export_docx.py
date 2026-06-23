@@ -485,16 +485,16 @@ def _soffice_bin():
     return shutil.which("soffice") or shutil.which("libreoffice")
 
 
-def convert_docx_to_pdf(docx_bytes):
-    """Convert .docx bytes → PDF bytes via headless LibreOffice. Returns None if
-    LibreOffice isn't available (caller can fall back to serving the .docx)."""
+def _office_to_pdf(data_bytes, in_ext):
+    """Convert an office document (.docx/.pptx) → PDF bytes via headless
+    LibreOffice. Returns None if LibreOffice isn't available."""
     soffice = _soffice_bin()
     if not soffice:
         return None
     with tempfile.TemporaryDirectory() as d:
-        src = os.path.join(d, "proposal.docx")
+        src = os.path.join(d, f"doc.{in_ext}")
         with open(src, "wb") as f:
-            f.write(docx_bytes)
+            f.write(data_bytes)
         try:
             subprocess.run([soffice, "--headless", "--convert-to", "pdf",
                             "--outdir", d, src],
@@ -503,5 +503,13 @@ def convert_docx_to_pdf(docx_bytes):
                            env={**os.environ, "HOME": d})
         except Exception:
             return None
-        out = os.path.join(d, "proposal.pdf")
+        out = os.path.join(d, "doc.pdf")
         return open(out, "rb").read() if os.path.exists(out) else None
+
+
+def convert_docx_to_pdf(docx_bytes):
+    return _office_to_pdf(docx_bytes, "docx")
+
+
+def convert_pptx_to_pdf(pptx_bytes):
+    return _office_to_pdf(pptx_bytes, "pptx")

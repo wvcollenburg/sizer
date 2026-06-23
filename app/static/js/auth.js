@@ -95,6 +95,12 @@ function renderAccountBar() {
         + `</div>`;
 }
 
+// Editable exports (Word, PPTX) are limited to Scale users and super admins;
+// everyone else gets read-only PDFs. Mirrors the server-side gate.
+function canExportEditable() {
+    return !!(currentAccount && (currentAccount.is_scale || currentAccount.role === 'super_admin'));
+}
+
 // Badge label + colour class: purple super admin, blue scale user, green others.
 function accountBadge(u) {
     if (u.role === 'super_admin') return { label: 'Super admin', cls: 'super' };

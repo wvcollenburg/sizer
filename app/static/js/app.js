@@ -1174,9 +1174,10 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <div class="rec-footer-actions">
                     ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
-                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'pdf')" title="Export the proposal as a branded PDF">PDF</button>
-                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'docx')" title="Export the proposal as a branded Word document">Word</button>
-                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i}, 'pptx')" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PPTX</button>
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'docx')" title="Download the editable Word proposal (Scale users)">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'pptx')" title="Download the editable PowerPoint deck (Scale users)">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'presentation-pdf')" title="Download the presentation as PDF">Slides PDF</button>
+                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i}, 'pdf')" title="Download the proposal as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Proposal PDF</button>
                 </div>
             </div>
         </div>
@@ -1629,6 +1630,7 @@ const _EXPORT_ENDPOINTS = {
     pptx: '/api/export-proposal',
     pdf: '/api/export-pdf',
     docx: '/api/export-docx',
+    'presentation-pdf': '/api/export-presentation-pdf',
 };
 
 async function exportProposal(mode, recIndex, fmt = 'pptx') {
