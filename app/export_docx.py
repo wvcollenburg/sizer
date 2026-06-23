@@ -253,6 +253,17 @@ def build_proposal_docx(summary, recommendation, projection):
           f"N-1 resilience so a complete node can fail without service interruption. The "
           f"configuration absorbs {p['years']}-year growth at {p['growth_pct']}% annually while "
           f"maintaining a {r['vcpu_ratio']:.2f}:1 vCPU-to-core ratio.")
+    _para(doc,
+          "Scale Computing SC//HyperCore simplifies your systems and moves beyond "
+          "traditional IT silos. The award-winning, self-healing platform identifies, "
+          "reduces, and corrects problems in real-time — making application uptime "
+          "easier for IT to manage and more affordable to run. Its lightweight, "
+          "all-in-one architecture eliminates the need to combine separate "
+          "virtualization software, disaster recovery software, servers, and shared "
+          "storage from different vendors, deploying fully integrated, highly available "
+          "virtualization right out of the box. Designed to scale as the business grows "
+          "without downtime, disruption, or rigid hardware requirements, it lets teams "
+          "spend less time on infrastructure maintenance and more on strategic projects.")
     _spacer(doc, 4)
     fits = (p["projected_storage_tb"] <= n1["usable_storage_tb"]
             and p["projected_vcpus"] <= n1["cores"] * r["vcpu_ratio"])
