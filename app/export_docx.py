@@ -42,7 +42,11 @@ def _clear_body(doc):
             body.remove(child)
 
 
-CONTENT_W = 6.5  # Letter (8.5") minus 1" margins each side
+def _content_width(doc):
+    """Usable text width (inches) from the template's actual page + margins, so
+    tables match the paragraph block exactly (template uses 0.75" margins → 7.0")."""
+    sec = doc.sections[0]
+    return (sec.page_width - sec.left_margin - sec.right_margin) / 914400
 
 
 def _shade(cell, hex_fill):
@@ -120,9 +124,9 @@ def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
         _shade(cell, fill)
 
 
-def _spec_table(doc, rows, label_w=2.1):
+def _spec_table(doc, rows, total_w, label_w=2.5):
     """Clean two-column spec table: shaded bold labels (left) + values (right),
-    fixed widths so values wrap rather than run off the page."""
+    spanning the full content width so its right edge matches the paragraphs."""
     t = doc.add_table(rows=0, cols=2)
     _set_table_borders(t)
     _cell_margins(t)
@@ -130,12 +134,13 @@ def _spec_table(doc, rows, label_w=2.1):
         cells = t.add_row().cells
         _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7")
         _style_cell(cells[1], v)
-    _fixed_layout(t, [label_w, CONTENT_W - label_w])
+    _fixed_layout(t, [label_w, total_w - label_w])
     return t
 
 
-def _grid_table(doc, headers, rows, widths=None):
-    """Header-row (dark) + data-rows table, fixed width."""
+def _grid_table(doc, headers, rows, total_w, weights=None):
+    """Header-row (dark) + data-rows table spanning the full content width.
+    weights are relative column proportions (default equal)."""
     t = doc.add_table(rows=1, cols=len(headers))
     _set_table_borders(t)
     _cell_margins(t)
@@ -146,9 +151,10 @@ def _grid_table(doc, headers, rows, widths=None):
         cells = t.add_row().cells
         for i, val in enumerate(r):
             _style_cell(cells[i], val)
-    if widths is None:
-        widths = [CONTENT_W / len(headers)] * len(headers)
-    _fixed_layout(t, widths)
+    if weights is None:
+        weights = [1] * len(headers)
+    scale = total_w / sum(weights)
+    _fixed_layout(t, [w * scale for w in weights])
     return t
 
 
@@ -180,6 +186,7 @@ def build_proposal_docx(summary, recommendation, projection):
     n1 = r["n_minus_1"]
     iops = r.get("iops") or {}
     bullet_style = "List Bullet" if "List Bullet" in [st.name for st in doc.styles] else "Normal"
+    cw = _content_width(doc)
 
     so = r.get("storage_only")
     hci_nodes = r.get("hci_node_count", r["node_count"])
@@ -217,7 +224,7 @@ def build_proposal_docx(summary, recommendation, projection):
         ("Compute", f"{t['cores']} cores @ {r['vcpu_ratio']:.2f}:1 vCPU:core"),
         (f"{p['years']}-year outlook", f"~{_fmt_num(p['projected_vcpus'])} vCPUs / "
                                        f"{p['projected_storage_tb']} TB projected — {proj_fits}"),
-    ], label_w=2.3)
+    ], total_w=cw, label_w=2.5)
     _spacer(doc)
 
     # ── Recommended configuration ────────────────────────────────────────────
@@ -240,7 +247,7 @@ def build_proposal_docx(summary, recommendation, projection):
                             f"{n1['usable_storage_tb']} TB usable"),
         ("vCPU : core ratio", f"{r['vcpu_ratio']:.2f} : 1"),
     ]
-    _spec_table(doc, spec_rows)
+    _spec_table(doc, spec_rows, total_w=cw)
     _spacer(doc)
 
     # Network diagram
@@ -249,7 +256,7 @@ def build_proposal_docx(summary, recommendation, projection):
         png = _svg_to_png_bytes(svg, out_width=2200)
         if png:
             doc.add_heading("Cluster Network", level=2)
-            doc.add_picture(io.BytesIO(png), width=Inches(6.0))
+            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             _spacer(doc)
 
@@ -285,7 +292,7 @@ def build_proposal_docx(summary, recommendation, projection):
                      f"{_fmt_ram(s.get('total_vm_provisioned_memory_gb', 0))} RAM · "
                      f"{s.get('datastore_used_tb', 0)} TB used"),
         ("Measured ratio", f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
-    ])
+    ], total_w=cw)
     _spacer(doc)
 
     # ── Capacity planning ────────────────────────────────────────────────────
@@ -300,7 +307,7 @@ def build_proposal_docx(summary, recommendation, projection):
                   _fmt_ram(n1["ram_gb"])],
                  ["Storage", f"{p['base_storage_tb']} TB", f"{p['projected_storage_tb']} TB",
                   f"{n1['usable_storage_tb']} TB usable"]],
-                widths=[1.4, 1.7, 1.7, 1.7])
+                total_w=cw, weights=[1.6, 1.8, 1.8, 1.8])
     _spacer(doc)
 
     # ── Assumptions ──────────────────────────────────────────────────────────
