@@ -23,8 +23,6 @@ def parse_liveoptics(file_path):
             "host_performance": _parse_host_perf(wb),
             "datastores": _parse_datastores(wb),
             "vms": _parse_vms(wb),
-            "vm_performance": _parse_vm_perf(wb),
-            "host_disks": _parse_host_disks(wb),
             "host_nics": _parse_host_nics(wb),
         }
     wb.close()
@@ -73,7 +71,7 @@ def _parse_general(wb):
     lower it in the UI). All server-local storage must land on the new shared
     pool, so it's recorded as cluster (primary) capacity, not local.
     """
-    hosts, vms, perfs, datastores, disks = [], [], [], [], []
+    hosts, vms, perfs, datastores = [], [], [], []
 
     # Per-server disk totals, used as a fallback when a Servers row omits its
     # roll-up capacity (some collectors leave it blank and only fill Server Disks).
@@ -172,16 +170,6 @@ def _parse_general(wb):
             "vm_count": 1,
         })
 
-    for r in _sheet_rows(wb, "Server Disks"):
-        disks.append({
-            "host": str(r.get("Server Name", "")).strip(),
-            "disk_name": r.get("Device Name", ""),
-            "capacity_mib": _float(r.get("Capacity (GiB)", 0)) * 1024,
-            "model": r.get("Model", ""),
-            "vendor": r.get("Vendor", ""),
-            "is_ssd": False,
-        })
-
     return {
         "project": _parse_details(wb),
         "scan_type": "general",
@@ -189,8 +177,6 @@ def _parse_general(wb):
         "host_performance": perfs,
         "datastores": datastores,
         "vms": vms,
-        "vm_performance": [],
-        "host_disks": disks,
         "host_nics": [],
     }
 
@@ -209,7 +195,7 @@ def _parse_hyperv(wb):
     blank). Host-local/CSV storage all moves to the new shared pool, so it's
     recorded as cluster (primary) capacity rather than excludable local capacity.
     """
-    hosts, perfs, vms, datastores, disks = [], [], [], [], []
+    hosts, perfs, vms, datastores = [], [], [], []
 
     # Per-host disk roll-up, used as a fallback when a Hypervisors row omits its
     # capacity totals (some collectors only fill the Server Disks sheet).
@@ -322,19 +308,6 @@ def _parse_hyperv(wb):
             "cluster": r.get("Cluster", "") or "",
         })
 
-    for r in _sheet_rows(wb, "Server Disks"):
-        host = str(r.get("Server Name", "")).strip()
-        if not host:
-            continue
-        disks.append({
-            "host": host,
-            "disk_name": r.get("Device Name", ""),
-            "capacity_mib": _float(r.get("Capacity (GiB)", 0)) * 1024,
-            "model": r.get("Model", ""),
-            "vendor": r.get("Vendor", ""),
-            "is_ssd": False,
-        })
-
     return {
         "project": _parse_details(wb),
         "scan_type": "hyperv",
@@ -342,8 +315,6 @@ def _parse_hyperv(wb):
         "host_performance": perfs,
         "datastores": datastores,
         "vms": vms,
-        "vm_performance": [],
-        "host_disks": disks,
         "host_nics": [],
     }
 
@@ -485,44 +456,10 @@ def _parse_vms(wb):
     return vms
 
 
-def _parse_vm_perf(wb):
-    perfs = []
-    for r in _sheet_rows(wb, "VM Performance"):
-        perfs.append({
-            "name": r.get("VM Name", ""),
-            "peak_vcpu_pct": _float(r.get("Peak vCPU %", 0)),
-            "peak_vcpu_ghz": _float(r.get("Peak vCPU (GHz)", 0)),
-            "avg_vcpu_pct": _float(r.get("Average vCPU %", 0)),
-            "avg_vcpu_ghz": _float(r.get("Average vCPU (GHz)", 0)),
-            "peak_mem_pct": _float(r.get("Peak Memory %", 0)),
-            "peak_mem_mib": _float(r.get("Peak Memory (MiB)", 0)),
-            "avg_mem_mib": _float(r.get("Avg Memory (MiB)", 0)),
-            "peak_iops": _float(r.get("Peak IOPS", 0)),
-            "avg_iops": _float(r.get("Average IOPS", 0)),
-        })
-    return perfs
-
-
-def _parse_host_disks(wb):
-    disks = []
-    for r in _sheet_rows(wb, "Host Disks"):
-        disks.append({
-            "host": r.get("Host", ""),
-            "disk_name": r.get("Disk Name", ""),
-            "capacity_mib": _float(r.get("Disk Capacity (MiB)", 0)),
-            "model": r.get("Disk Model", ""),
-            "vendor": r.get("Disk Vendor", ""),
-            "is_ssd": str(r.get("SSD", "")).upper() == "TRUE",
-        })
-    return disks
-
-
 def _parse_host_nics(wb):
     nics = []
-    seen_speeds = set()
     for r in _sheet_rows(wb, "Host Network Adapters"):
         speed = _float(r.get("PNIC Speed (Mb/sec)", 0))
-        seen_speeds.add(speed)
         nics.append({
             "host": r.get("Host", ""),
             "name": r.get("PNIC Name", ""),

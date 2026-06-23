@@ -229,9 +229,6 @@ class _Tunables:
         bay-tiered OS RAM + safety buffer."""
         return self.os_ram_for_bays(bays) + self._v["ram_buffer_gb"]
 
-    def as_dict(self):
-        return dict(self._v)
-
     def set_values(self, overrides):
         """Atomically replace the value set: defaults overlaid with any provided
         (and recognised) overrides, each coerced to its declared type."""

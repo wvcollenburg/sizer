@@ -1172,24 +1172,6 @@ async function resetUserPassword(id, email) {
     setStatus('admin-status', (data && (data.message || data.error)) || (ok ? 'Done.' : 'Failed.'), !ok);
 }
 
-// The super-user listing doesn't carry tenant_id; resolve it via domain when
-// promoting. We look the tenant up by domain from the cache.
-async function makeTenantAdmin(tenantId, userId, domain) {
-    if (!tenantId) {
-        const t = tenantCache.find(t => t.domain === domain);
-        tenantId = t ? t.id : 0;
-    }
-    if (!tenantId) { setStatus('admin-status', 'Could not resolve tenant.', true); return; }
-    if (!confirm('Make this user the tenant admin? The current admin will be demoted.')) return;
-    const { ok, data } = await adminApi(`/api/admin/super/tenants/${tenantId}/admin`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId }),
-    });
-    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
-    setStatus('admin-status', 'Tenant admin reassigned.', false);
-    loadAdminUsers();
-}
-
 async function disableAdminUser(id) {
     if (!confirm('Disable this user?')) return;
     const { ok, data } = await adminApi(`/api/admin/users/${id}/disable`, { method: 'POST' });

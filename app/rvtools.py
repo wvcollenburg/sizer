@@ -9,8 +9,6 @@ def parse_rvtools(file_path):
         "host_performance": _parse_host_perf(wb),
         "datastores": _parse_datastores(wb),
         "vms": _parse_vms(wb),
-        "vm_performance": [],
-        "host_disks": [],
         "host_nics": _parse_nics(wb),
     }
     wb.close()

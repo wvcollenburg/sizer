@@ -611,7 +611,6 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             total_cores = cores_per_node * hci_nodes
             total_threads = threads_per_node * hci_nodes
             total_ghz = ghz_per_node * hci_nodes
-            total_ram = ram_gb * hci_nodes
 
             raw_per_node = stor["raw_per_node"]
             biggest_disk = stor["biggest_disk"]

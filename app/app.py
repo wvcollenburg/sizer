@@ -4,14 +4,13 @@ import secrets
 import tempfile
 
 from flask import Flask, render_template, jsonify, request, send_file
-from database import db, init_db
+from database import init_db
 from auth import register_auth, start_scheduler, current_user
 from sqlalchemy.orm import joinedload
 from orm_models import (
-    Model, RamOption, StorageConfig,
-    CpuCatalog, NicCatalog, DriveCatalog,
+    Model, StorageConfig,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
-    ValidatedNic, ValidatedPlatform, Switch,
+    ValidatedNic, ValidatedPlatform,
 )
 from models import DISK_SIZES_TB, RAM_SIZES_GB
 from liveoptics import parse_liveoptics
@@ -120,28 +119,6 @@ def create_app():
                 "ram_sizes": RAM_SIZES_GB,
                 "platforms": platforms,
             })
-
-    @app.route("/api/model/<model_name>")
-    def get_model(model_name):
-        m = Model.query.filter_by(name=model_name).first()
-        if m:
-            return jsonify(m.to_dict())
-        return jsonify({"error": "Model not found"}), 404
-
-    @app.route("/api/switches")
-    def get_switches():
-        switches = [s.to_dict() for s in Switch.query.all()]
-        return jsonify(switches)
-
-    @app.route("/api/validated-platforms")
-    def get_validated_platforms():
-        platforms = [p.to_dict() for p in ValidatedPlatform.query.all()]
-        return jsonify(platforms)
-
-    @app.route("/api/validated-platforms/<int:platform_id>")
-    def get_validated_platform(platform_id):
-        p = ValidatedPlatform.query.get_or_404(platform_id)
-        return jsonify(p.to_dict())
 
     @app.route("/api/calculate", methods=["POST"])
     def calculate():
