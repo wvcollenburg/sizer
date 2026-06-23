@@ -179,6 +179,12 @@ def _para(doc, text, italic=False, color=None, size=None):
 def build_proposal_docx(summary, recommendation, projection):
     doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
     _clear_body(doc)
+    # The template ships with tight 0.75" (~1.9 cm) side margins, which leaves the
+    # body running to the page edge. Widen to a comfortable 1" (2.54 cm) so there's
+    # real whitespace on the right and full-width tables sit inside the page.
+    sec = doc.sections[0]
+    sec.left_margin = Inches(1.0)
+    sec.right_margin = Inches(1.0)
     r = recommendation
     s = summary
     p = projection
