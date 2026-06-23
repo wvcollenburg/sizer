@@ -564,8 +564,11 @@ function displayResults(result) {
     section.style.display = 'block';
 
     lastConfigResult = result;
+    // PDF export is open to everyone; the editable PPTX is Scale-only.
+    const exportPdfBtn = document.getElementById('config-export-pdf-btn');
+    if (exportPdfBtn) exportPdfBtn.style.display = 'inline-block';
     const exportBtn = document.getElementById('config-export-btn');
-    if (exportBtn) exportBtn.style.display = 'inline-block';
+    if (exportBtn) exportBtn.style.display = canExportEditable() ? 'inline-block' : 'none';
 
     const so = result.storage_only;
     const numClusters = result.num_clusters || 1;
@@ -1683,26 +1686,28 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     }
 }
 
-async function exportConfig() {
+async function exportConfig(fmt = 'pptx') {
     if (!lastConfigResult) {
         alert('No configuration to export. Please calculate first.');
         return;
     }
 
-    const btn = document.getElementById('config-export-btn');
-    const origText = btn.textContent;
-    btn.textContent = 'Generating...';
+    const endpoint = fmt === 'pdf' ? '/api/export-config-pdf' : '/api/export-config';
+    const btn = (event && event.target.closest && event.target.closest('button'))
+        || document.getElementById('config-export-btn');
+    const origHtml = btn.innerHTML;
+    btn.textContent = 'Generating…';
     btn.disabled = true;
 
     try {
-        const resp = await fetch('/api/export-config', {
+        const resp = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(lastConfigResult),
         });
 
         if (!resp.ok) {
-            const err = await resp.json();
+            const err = await resp.json().catch(() => ({}));
             alert(err.error || 'Export failed');
             return;
         }
@@ -1712,7 +1717,7 @@ async function exportConfig() {
         const a = document.createElement('a');
         a.href = url;
         a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Config_${lastConfigResult.node_count}N.pptx`;
+            || `SC_Config_${lastConfigResult.node_count}N.${fmt}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1720,7 +1725,7 @@ async function exportConfig() {
     } catch (e) {
         alert('Export failed: ' + e.message);
     } finally {
-        btn.textContent = origText;
+        btn.innerHTML = origHtml;
         btn.disabled = false;
     }
 }

@@ -234,6 +234,8 @@ def create_app():
         data = request.json
         if not data:
             return jsonify({"error": "No data provided"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
         try:
             buf = generate_config_slide(data)
             mode = data.get("mode", "config")
@@ -244,6 +246,24 @@ def create_app():
                              mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
         except Exception as e:
             return jsonify({"error": f"Failed to generate config slide: {str(e)}"}), 500
+
+    @app.route("/api/export-config-pdf", methods=["POST"])
+    def export_config_pdf():
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        try:
+            pptx_buf = generate_config_slide(data)
+            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            model = data.get("model", data.get("mode", "config"))
+            nodes = data.get("node_count", "")
+            filename = f"SC_Config_{model}_{nodes}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=filename,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate config PDF: {str(e)}"}), 500
 
     @app.route("/api/export-proposal", methods=["POST"])
     def export_proposal():
