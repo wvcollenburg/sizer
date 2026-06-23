@@ -67,6 +67,17 @@ def _blank_layout(prs):
     return prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[-1]
 
 
+def _content_layout(prs):
+    """The branded light content layout ('b. blank light narrow' — the 3rd option
+    in PowerPoint's layout gallery). Its background image carries the SC branding
+    (gradient, corner, // logo), so we draw our content on top of it rather than
+    painting our own. Falls back to BLANK when the template isn't present."""
+    for layout in prs.slide_layouts:
+        if (layout.name or "").strip().lower() == "b. blank light narrow":
+            return layout
+    return _blank_layout(prs)
+
+
 def generate_proposal(summary, recommendation, projection):
     prs = _new_deck()
 
@@ -174,45 +185,37 @@ def generate_config_slide(result):
 
 
 def _add_slide(prs):
-    layout = _blank_layout(prs)
-    slide = prs.slides.add_slide(layout)
-    bg = slide.background.fill
-    bg.solid()
-    bg.fore_color.rgb = WHITE
-    return slide
+    # Use the branded content layout and let its background show — no white fill.
+    return prs.slides.add_slide(_content_layout(prs))
 
 
 def _add_title(slide, text, subtitle=None):
-    bar = slide.shapes.add_shape(
-        1, Inches(0), Inches(0), Inches(13.333), Inches(1.1)
-    )
-    bar.fill.solid()
-    bar.fill.fore_color.rgb = SC_DARK_BLUE
-    bar.line.fill.background()
-
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.15), Inches(12), Inches(0.6))
+    # No bar — the template's branded background carries the slide furniture.
+    # Title is dark text in the top-left; subtitle sits beneath it. Width is held
+    # short of the right edge so it clears the template's accent/logo.
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.32), Inches(10.8), Inches(0.7))
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     run = p.add_run()
     run.text = "SC// "
-    run.font.size = Pt(28)
+    run.font.size = Pt(26)
     run.font.bold = True
-    run.font.color.rgb = SC_LIGHT_BLUE
+    run.font.color.rgb = SC_BLUE
     run = p.add_run()
     run.text = text
-    run.font.size = Pt(28)
+    run.font.size = Pt(26)
     run.font.bold = True
-    run.font.color.rgb = WHITE
+    run.font.color.rgb = SC_DARK_BLUE
 
     if subtitle:
-        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(0.7), Inches(12), Inches(0.35))
+        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.02), Inches(10.8), Inches(0.35))
         tf2 = txBox2.text_frame
         p2 = tf2.paragraphs[0]
         run2 = p2.add_run()
         run2.text = subtitle
         run2.font.size = Pt(13)
-        run2.font.color.rgb = RGBColor(0xBB, 0xD5, 0xEE)
+        run2.font.color.rgb = MID_GRAY
 
 
 def _add_card(slide, left, top, width, height, label, value, accent=False):
