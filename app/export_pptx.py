@@ -72,13 +72,15 @@ def _blank_layout(prs):
 
 
 def _content_layout(prs):
-    """The branded light content layout ('b. blank light narrow' — the 3rd option
-    in PowerPoint's layout gallery). Its background image carries the SC branding
-    (gradient, corner, // logo), so we draw our content on top of it rather than
-    painting our own. Falls back to BLANK when the template isn't present."""
-    for layout in prs.slide_layouts:
-        if (layout.name or "").strip().lower() == "b. blank light narrow":
-            return layout
+    """The branded light content layout ('b. blank light wide'). Its background
+    is a clean light gradient with only a small bottom-right corner + // logo (no
+    frame, no right-edge accent), so our tables clear the branding. We draw on top
+    of it rather than painting our own background. Searches all masters (this
+    layout lives on the second master) and falls back to BLANK if absent."""
+    for master in prs.slide_masters:
+        for layout in master.slide_layouts:
+            if (layout.name or "").strip().lower() == "b. blank light wide":
+                return layout
     return _blank_layout(prs)
 
 
@@ -194,28 +196,22 @@ def _add_slide(prs):
 
 
 def _add_title(slide, text, subtitle=None):
-    # No bar — the template's branded background carries the slide furniture.
-    # Title is dark text in the top-left; subtitle sits beneath it. Width is held
-    # short of the right edge so it clears the template's accent/logo.
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.32), Inches(10.8), Inches(0.7))
+    # No bar, no "SC//" prefix — the template's branded background (corner + //
+    # logo) carries the SC mark. Title sits lower to match the template's title
+    # height, in Martel Sans ExtraLight; subtitle beneath it.
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.7), Inches(12.2), Inches(0.6))
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     run = p.add_run()
-    run.text = "SC// "
-    run.font.size = Pt(28)
-    run.font.bold = False
-    run.font.name = TITLE_FONT
-    run.font.color.rgb = SC_BLUE
-    run = p.add_run()
     run.text = text
-    run.font.size = Pt(28)
+    run.font.size = Pt(26)
     run.font.bold = False
     run.font.name = TITLE_FONT
     run.font.color.rgb = SC_DARK_BLUE
 
     if subtitle:
-        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.02), Inches(10.8), Inches(0.35))
+        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.18), Inches(12.2), Inches(0.35))
         tf2 = txBox2.text_frame
         p2 = tf2.paragraphs[0]
         run2 = p2.add_run()
@@ -594,7 +590,7 @@ def _slide_proposal(prs, r, projection=None):
                 f"− {iops['derating_pct']:.0f}% derating "
                 f"= {iops['derated_per_node']:,} ÷ {iops['write_amp']}× RF write-amp "
                 f"= {iops['per_node']:,}/node, × {r['node_count']} nodes.")
-        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(12), Inches(0.5))
+        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(11.2), Inches(0.5))
         p = box.text_frame.paragraphs[0]
         run = p.add_run()
         run.text = note
@@ -664,7 +660,7 @@ def _slide_projection(prs, s, r, p):
         verdict_text = (f"Based on current projections, some resources may need to be expanded "
                         f"before year {p['years']}.")
 
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.5), Inches(12), Inches(0.5))
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.5), Inches(11.2), Inches(0.5))
     tf = txBox.text_frame
     pr = tf.paragraphs[0]
     run = pr.add_run()
@@ -674,7 +670,7 @@ def _slide_projection(prs, s, r, p):
     run.font.color.rgb = GREEN if all_ok else SC_BLUE
 
     if full_cluster:
-        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(12), Inches(0.4))
+        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(11.2), Inches(0.4))
         ctf = cpu_note.text_frame
         ctf.word_wrap = True
         cp = ctf.paragraphs[0]
@@ -684,7 +680,7 @@ def _slide_projection(prs, s, r, p):
         cr.font.size = Pt(10.5)
         cr.font.color.rgb = CHARCOAL
 
-    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(12), Inches(0.7))
+    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(11.2), Inches(0.7))
     dtf = disclaimer.text_frame
     dtf.word_wrap = True
     dp = dtf.paragraphs[0]
