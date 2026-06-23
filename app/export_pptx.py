@@ -85,12 +85,59 @@ def _content_layout(prs):
     return _blank_layout(prs)
 
 
+def _svg_to_png_bytes(svg, out_width=2000):
+    """Rasterise an SVG string to PNG bytes. Production uses cairosvg; on the dev
+    mac (no cairo) it falls back to qlmanage so the export can be tested locally.
+    Returns None if neither is available (the caller then skips the diagram)."""
+    try:
+        import cairosvg
+        return cairosvg.svg2png(bytestring=svg.encode("utf-8"), output_width=out_width)
+    except Exception:
+        pass
+    try:  # macOS dev fallback
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            sp = os.path.join(d, "d.svg")
+            with open(sp, "w") as f:
+                f.write(svg)
+            subprocess.run(["qlmanage", "-t", "-s", str(out_width), "-o", d, sp],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            png = sp + ".png"
+            return open(png, "rb").read() if os.path.exists(png) else None
+    except Exception:
+        return None
+
+
+def _slide_network(prs, recommendation):
+    """A 'Cluster Network' slide with the recommendation's diagram, scaled to fit
+    the content area (preserving the SVG's aspect ratio). Skipped if there's no
+    diagram or no rasteriser available."""
+    svg = recommendation.get("network_svg")
+    if not svg:
+        return
+    png = _svg_to_png_bytes(svg)
+    if not png:
+        return
+    slide = _add_slide(prs)
+    _add_title(slide, "Cluster Network", recommendation.get("model", ""))
+    m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    vw, vh = (float(m.group(1)), float(m.group(2))) if m else (1200.0, 800.0)
+    avail_l, avail_t, avail_w, avail_h = 0.6, 1.7, 12.1, 5.3
+    scale = min(avail_w / vw, avail_h / vh)
+    bw, bh = vw * scale, vh * scale
+    left = avail_l + (avail_w - bw) / 2
+    top = avail_t + (avail_h - bh) / 2
+    slide.shapes.add_picture(io.BytesIO(png), Inches(left), Inches(top),
+                             Inches(bw), Inches(bh))
+
+
 def generate_proposal(summary, recommendation, projection):
     prs = _new_deck()
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
     _slide_proposal(prs, recommendation, projection)
+    _slide_network(prs, recommendation)
     _slide_projection(prs, summary, recommendation, projection)
 
     buf = io.BytesIO()
@@ -184,6 +231,9 @@ def generate_config_slide(result):
 
     if so:
         _add_storage_only_note(slide, so, 4.7)
+
+    # Append the cluster network diagram as its own slide (manual builder).
+    _slide_network(prs, result)
 
     buf = io.BytesIO()
     prs.save(buf)

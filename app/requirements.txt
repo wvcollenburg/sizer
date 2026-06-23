@@ -4,3 +4,5 @@ psycopg2-binary==2.9.10
 gunicorn==23.0.0
 openpyxl==3.1.5
 python-pptx==1.0.2
+cairosvg==2.7.1
+python-docx==1.1.2

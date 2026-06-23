@@ -210,6 +210,21 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
     return svg.svg()
 
 
+def network_svg_for(hci_count, storage_count=0, nic_ports=2):
+    """Build the network-diagram SVG for a topology described by counts. Shared by
+    the recommendation export and the manual builder. Returns None if no nodes."""
+    nodes = [{"name": f"Node {i+1}", "nics": nic_ports, "role": "hci"} for i in range(hci_count)]
+    nodes += [{"name": f"Storage {i+1}", "nics": nic_ports, "role": "storage"} for i in range(storage_count)]
+    if not nodes:
+        return None
+    try:
+        return render_cluster_svg(nodes,
+                                  witness=(hci_count == 2 and storage_count == 0),
+                                  single_switch=(nic_ports <= 1))
+    except Exception:
+        return None
+
+
 if __name__ == "__main__":
     # qlmanage squares the thumbnail, so pad to a square canvas for self-checks.
     cases = {

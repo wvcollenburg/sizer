@@ -1173,8 +1173,10 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network diagram</button>` : ''}
-                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
+                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'pdf')" title="Export the proposal as a branded PDF">PDF</button>
+                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'docx')" title="Export the proposal as a branded Word document">Word</button>
+                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i}, 'pptx')" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PPTX</button>
                 </div>
             </div>
         </div>
@@ -1623,7 +1625,13 @@ function downloadClusterDiagram() {
     URL.revokeObjectURL(url);
 }
 
-async function exportProposal(mode, recIndex) {
+const _EXPORT_ENDPOINTS = {
+    pptx: '/api/export-proposal',
+    pdf: '/api/export-pdf',
+    docx: '/api/export-docx',
+};
+
+async function exportProposal(mode, recIndex, fmt = 'pptx') {
     const recs = lastRecommendations[mode];
     const summary = lastSummary[mode];
     const projection = lastProjection[mode];
@@ -1633,13 +1641,13 @@ async function exportProposal(mode, recIndex) {
         return;
     }
 
-    const btn = event.target;
-    const origText = btn.textContent;
-    btn.textContent = 'Generating...';
+    const btn = (event.target.closest && event.target.closest('button')) || event.target;
+    const origHtml = btn.innerHTML;
+    btn.textContent = 'Generating…';
     btn.disabled = true;
 
     try {
-        const resp = await fetch('/api/export-proposal', {
+        const resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -1650,7 +1658,7 @@ async function exportProposal(mode, recIndex) {
         });
 
         if (!resp.ok) {
-            const err = await resp.json();
+            const err = await resp.json().catch(() => ({}));
             alert(err.error || 'Export failed');
             return;
         }
@@ -1660,7 +1668,7 @@ async function exportProposal(mode, recIndex) {
         const a = document.createElement('a');
         a.href = url;
         a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.pptx`;
+            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1668,7 +1676,7 @@ async function exportProposal(mode, recIndex) {
     } catch (e) {
         alert('Export failed: ' + e.message);
     } finally {
-        btn.textContent = origText;
+        btn.innerHTML = origHtml;
         btn.disabled = false;
     }
 }

@@ -1,3 +1,4 @@
+import io
 import os
 import secrets
 import tempfile
@@ -20,6 +21,8 @@ from recommend import (
 )
 from tunables import T, refresh_from_db
 from export_pptx import generate_proposal, generate_config_slide
+from export_docx import build_proposal_docx, convert_docx_to_pdf
+from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 
 
@@ -260,6 +263,39 @@ def create_app():
         except Exception as e:
             return jsonify({"error": f"Failed to generate proposal: {str(e)}"}), 500
 
+    def _proposal_payload():
+        data = request.json or {}
+        return data.get("summary"), data.get("recommendation"), data.get("projection")
+
+    @app.route("/api/export-docx", methods=["POST"])
+    def export_docx_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        try:
+            buf = build_proposal_docx(summary, recommendation, projection)
+            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
+            return send_file(buf, as_attachment=True, download_name=fn,
+                             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate document: {str(e)}"}), 500
+
+    @app.route("/api/export-pdf", methods=["POST"])
+    def export_pdf_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        try:
+            docx_buf = build_proposal_docx(summary, recommendation, projection)
+            pdf = convert_docx_to_pdf(docx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
+
     return app
 
 
@@ -368,6 +404,9 @@ def calculate_appliance(data, node_count):
     n1_ghz = cpu["ghz"] * cpu["cores"] * n1_hci if node_count > 1 else total_ghz
     n1_ram = usable_ram * n1_hci if node_count > 1 else usable_ram
 
+    _nic_ports = max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2)
+    network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
+
     return {
         "mode": "appliance",
         "model": model_name,
@@ -376,6 +415,7 @@ def calculate_appliance(data, node_count):
         "num_clusters": num_clusters,
         "cluster_layout": layout,
         "storage_only": so_block,
+        "network_svg": network_svg,
         "per_node": {
             "cpu": cpu["desc"],
             "cores": usable_cores,
@@ -648,6 +688,11 @@ def calculate_validated(data, node_count):
     elif has_spinning:
         storage_type = "HDD-Only"
 
+    # Software-only configs carry no model NIC count; default to dedicated (4)
+    # unless the request specifies otherwise.
+    _nic_ports = int(data.get("nic_ports", 4) or 4)
+    network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
+
     return {
         "mode": "validated",
         "node_count": node_count,
@@ -656,6 +701,7 @@ def calculate_validated(data, node_count):
         "cluster_layout": layout,
         "storage_only": so_block,
         "storage_type": storage_type,
+        "network_svg": network_svg,
         "per_node": {
             "cores": usable_cores,
             "threads": threads,

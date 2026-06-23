@@ -1632,7 +1632,7 @@ body { padding-bottom: 64px; }
 #diagram-modal-body svg { width: 100%; height: auto; display: block; }
 
 /* Recommendation card footer: keep the action buttons grouped on the right. */
-.rec-footer-actions { display: flex; gap: 0.5rem; align-items: center; }
+.rec-footer-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .vm-power-filter {
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--border);
