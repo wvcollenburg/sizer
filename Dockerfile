@@ -22,6 +22,13 @@ COPY app/ .
 # ../resources/template.pptx relative to the app code, so copy it to /resources.
 COPY resources/ /resources/
 
+# Install the Martel Sans family system-wide so LibreOffice renders the branded
+# slide titles ("Martel Sans ExtraLight") correctly when converting the deck →
+# PDF. Without it LibreOffice substitutes the font and mangles the title spacing.
+RUN mkdir -p /usr/share/fonts/truetype/martel-sans \
+    && cp /resources/fonts/*.ttf /usr/share/fonts/truetype/martel-sans/ \
+    && fc-cache -f
+
 EXPOSE 5000
 
 COPY entrypoint.sh /entrypoint.sh
