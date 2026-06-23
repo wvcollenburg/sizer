@@ -5,10 +5,12 @@ WORKDIR /app
 # Runtime libs for the exports:
 #  * cairosvg rasterises the cluster diagram SVG → PNG (cairo/pango).
 #  * libreoffice-writer converts the authored .docx proposal → PDF (headless).
-#  * fonts-liberation gives Arial-compatible glyphs for both.
+#  * libreoffice-impress provides the PowerPoint filters for the deck → PDF
+#    ("Slides PDF"); Writer alone can't convert .pptx.
+#  * fonts-liberation gives Arial-compatible glyphs for all of them.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libcairo2 libpango-1.0-0 libpangocairo-1.0-0 fonts-liberation \
-        libreoffice-writer \
+        libreoffice-writer libreoffice-impress \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app/requirements.txt .
