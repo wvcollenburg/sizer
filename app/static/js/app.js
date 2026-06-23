@@ -1172,7 +1172,10 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             ${witnessNote}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
-                <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+                <div class="rec-footer-actions">
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network diagram</button>` : ''}
+                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+                </div>
             </div>
         </div>
     `}).join('');
@@ -1582,6 +1585,23 @@ function calculateManual() {
     sizing.style.display = 'block';
     recalcRecommendations();
     sizing.scrollIntoView({behavior: 'smooth'});
+}
+
+// Open the cluster network diagram for a recommendation in a modal (the SVG is
+// generated server-side and rides on rec.network_svg).
+function openClusterDiagram(mode, recIndex) {
+    const rec = (lastRecommendations[mode] || [])[recIndex];
+    if (!rec || !rec.network_svg) return;
+    const nodes = rec.node_count;
+    document.getElementById('diagram-modal-title').textContent =
+        `Network — ${rec.model} (${nodes} node${nodes === 1 ? '' : 's'})`;
+    document.getElementById('diagram-modal-body').innerHTML = rec.network_svg;
+    document.getElementById('diagram-modal').style.display = 'flex';
+}
+
+function closeClusterDiagram() {
+    document.getElementById('diagram-modal').style.display = 'none';
+    document.getElementById('diagram-modal-body').innerHTML = '';
 }
 
 async function exportProposal(mode, recIndex) {

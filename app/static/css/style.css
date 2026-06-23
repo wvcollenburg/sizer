@@ -1624,6 +1624,15 @@ body { padding-bottom: 64px; }
 
 /* Clone options popup stacks above the manual VM modal. */
 #clone-vm-modal { z-index: 1001; }
+
+/* Cluster network diagram modal — wide, with the SVG scaled to fit. */
+#diagram-modal { padding: 1rem; }
+#diagram-modal .modal-content { max-width: min(1280px, 96vw); }
+#diagram-modal-body { padding: 1rem 1.2rem 1.4rem; overflow: auto; }
+#diagram-modal-body svg { width: 100%; height: auto; display: block; }
+
+/* Recommendation card footer: keep the action buttons grouped on the right. */
+.rec-footer-actions { display: flex; gap: 0.5rem; align-items: center; }
 .vm-power-filter {
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--border);

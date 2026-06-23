@@ -5,6 +5,26 @@ from orm_models import (
     DriveTypeIops, SizingSetting,
 )
 from storage_only import single_cpu_options
+from cluster_diagram import render_cluster_svg
+
+
+def _rec_network_svg(rec):
+    """Build the house-style network diagram SVG for a recommendation: node count
+    + storage-only split + witness (2-node) + NIC ports → topology."""
+    node_count = rec.get("node_count", 1)
+    so_count = rec["storage_only"]["count"] if rec.get("storage_only") else 0
+    hci_count = rec.get("hci_node_count") or (node_count - so_count)
+    nic_ports = rec.get("nic_ports", 2)
+    nodes = [{"name": f"Node {i+1}", "nics": nic_ports, "role": "hci"} for i in range(hci_count)]
+    nodes += [{"name": f"Storage {i+1}", "nics": nic_ports, "role": "storage"} for i in range(so_count)]
+    if not nodes:
+        return None
+    try:
+        return render_cluster_svg(nodes,
+                                  witness=(node_count == 2 and so_count == 0),
+                                  single_switch=(nic_ports <= 1))
+    except Exception:
+        return None
 from tunables import T, refresh_from_db
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.
@@ -324,6 +344,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         c.pop("_nodes_for_cpu", None)
         c.pop("_nodes_for_ram", None)
         c.pop("_nodes_for_storage", None)
+        c["network_svg"] = _rec_network_svg(c)
 
     return {"recommendations": top, "projection": projection, "warnings": warnings}
 
@@ -768,6 +789,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "category": model["category"],
                 "form_factor": model["form_factor"],
                 "chassis": model["chassis"],
+                "nic_ports": max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2),
                 "cost_tier": cost_tier,
                 "node_count": node_count,
                 "hci_node_count": hci_nodes,
