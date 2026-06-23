@@ -42,6 +42,20 @@ def _clear_body(doc):
             body.remove(child)
 
 
+def _set_header_text(section, text):
+    """Replace the template's 'Header' placeholder in both the first-page and
+    running headers, preserving its (grey Martel Sans) styling. The placeholder
+    lives inside a text box (vertical-text shape), so it isn't reachable via
+    paragraphs/runs — walk every w:t in the header part instead (catches both the
+    shape and its mc:Fallback copy)."""
+    for hdr in (section.first_page_header, section.header):
+        if hdr is None:
+            continue
+        for t in hdr._element.iter(qn("w:t")):
+            if (t.text or "").strip() == "Header":
+                t.text = text
+
+
 def _content_width(doc):
     """Usable text width (inches) from the template's actual page + margins, so
     tables match the paragraph block exactly (template uses 0.75" margins → 7.0")."""
@@ -219,6 +233,11 @@ def build_proposal_docx(summary, recommendation, projection):
             spf.first_line_indent = Inches(0)
         except KeyError:
             pass
+    # Replace the template's "Header" placeholder with the proposal title (plus the
+    # customer/cluster name when one is set), on every page.
+    _hdr_name = (summary.get("cluster_name") or "").strip()
+    _set_header_text(sec, "Infrastructure Sizing Proposal"
+                     + (f" — {_hdr_name}" if _hdr_name else ""))
     r = recommendation
     s = summary
     p = projection
