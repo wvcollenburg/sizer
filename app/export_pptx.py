@@ -250,9 +250,17 @@ def _add_title(slide, text, subtitle=None):
     # No bar, no "SC//" prefix — the template's branded background (corner + //
     # logo) carries the SC mark. Title sits lower to match the template's title
     # height, in Martel Sans ExtraLight; subtitle beneath it.
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.7), Inches(12.2), Inches(0.6))
+    # Middle-anchor the title in a fixed box and align the rule to the box's
+    # vertical CENTER (not the baseline): PowerPoint and LibreOffice compute a
+    # font's first-baseline differently, so a baseline-aligned rule drifts in the
+    # LibreOffice PDF. Centering is consistent across both renderers.
+    box_top, box_h = 0.64, 0.62
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(box_top), Inches(12.2), Inches(box_h))
     tf = txBox.text_frame
     tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_top = 0
+    tf.margin_bottom = 0
     p = tf.paragraphs[0]
     run = p.add_run()
     run.text = text
@@ -264,10 +272,10 @@ def _add_title(slide, text, subtitle=None):
     # Thin dark-blue rule from just after the title to the right edge of the slide
     # (matches the template title style). Title width is estimated from the text
     # length since python-pptx can't measure rendered glyphs; the gap is generous
-    # so the rule clears the text. y sits on the title baseline, not its top.
+    # so the rule clears the text. y sits at the title box's vertical centre.
     title_end = 0.6 + len(text) * 0.18
     line_x1 = min(title_end + 0.5, 12.0)
-    line_y = 1.01
+    line_y = box_top + box_h / 2
     if line_x1 < 13.0:
         rule = slide.shapes.add_connector(
             MSO_CONNECTOR.STRAIGHT, Inches(line_x1), Inches(line_y),
@@ -277,7 +285,7 @@ def _add_title(slide, text, subtitle=None):
         rule.shadow.inherit = False  # the template's connector style adds a shadow
 
     if subtitle:
-        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.18), Inches(12.2), Inches(0.35))
+        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.22), Inches(12.2), Inches(0.35))
         tf2 = txBox2.text_frame
         p2 = tf2.paragraphs[0]
         run2 = p2.add_run()
