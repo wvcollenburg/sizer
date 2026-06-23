@@ -389,6 +389,85 @@ def build_proposal_docx(summary, recommendation, projection):
     ]:
         doc.add_paragraph(note, style=bullet_style)
 
+    # ── HEAT automated tiering ───────────────────────────────────────────────
+    doc.add_heading("HEAT — HyperCore Enhanced Automated Tiering", level=1)
+    _para(doc,
+          "Optimizing storage efficiency with HEAT. In flash-equipped SC//HyperCore "
+          "nodes, HyperCore Enhanced Automated Tiering (HEAT) meters real-time IOPS for "
+          "each virtual disk and intelligently places data blocks across the flash and "
+          "spinning tiers based on block I/O heat mapping assessed from historical "
+          "activity — striking the correct balance of IOPS efficiency across virtual "
+          "disks and VMs.")
+    for note in [
+        "Per-disk flash priority — configurable flash allocation at the individual "
+        "virtual-disk level through an easy-to-use slide bar in the HyperCore UI.",
+        "Intelligent data placement — data-block priority based on block I/O heat "
+        "mapping assessed from historical information.",
+        "Automatic warm-up — new writes are assigned to the flash tier until SCRIBE can "
+        "accurately assess their activity.",
+        "Exponential priority scale — the 0–11 scale is exponential; raising a virtual "
+        "disk from 4 to 5 doubles its priority for flash placement.",
+        "Flexible tiering — setting 0 keeps static data off flash, while setting 11 "
+        "multiplies flash priority by an order of magnitude.",
+    ]:
+        doc.add_paragraph(note, style=bullet_style)
+
+    # ── SCRIBE block engine ──────────────────────────────────────────────────
+    doc.add_heading("SCRIBE Block Engine", level=1)
+    _para(doc,
+          "Efficiency redefined. The Scale Computing Reliable Independent Block "
+          "Engine (SCRIBE) is a critical software component of the SC//HyperCore "
+          "virtualization suite — an enterprise-class, clustered, block storage layer "
+          "purpose-built to be consumed directly by the KVM-based SC//HyperCore "
+          "hypervisor. By interfacing directly with the hypervisor rather than "
+          "repurposing a traditional file system, SCRIBE eliminates the performance "
+          "bottlenecks, latency, and alignment issues associated with repurposed file "
+          "systems.")
+    for note in [
+        "Performance — hypervisor-integrated block storage eliminates file-system "
+        "latency, disk-partition misalignment, and snapshot delta-file merging.",
+        "Simplified management — complex storage management tasks are abstracted away "
+        "for automated storage with minimal manual intervention.",
+        "Reliability — avoiding intermediary file-system abstractions minimizes the "
+        "risk of data corruption or performance degradation.",
+        "Native snapshots — fast, native snapshots with no merge penalties or "
+        "performance hit.",
+        "Storage efficiency — purpose-built for virtualized workloads with zero "
+        "alignment issues.",
+        "Effortless scale — simply add nodes; SCRIBE scales storage automatically with "
+        "no downtime.",
+        "Hardware-agnostic — runs on industry-standard hardware.",
+    ]:
+        doc.add_paragraph(note, style=bullet_style)
+
+    # ── AIME autonomous infrastructure management ────────────────────────────
+    doc.add_heading("AIME — Autonomous Infrastructure Management Engine", level=1)
+    _para(doc,
+          "AIME by Scale Computing — the AIOps platform for intelligent "
+          "infrastructure. AIME is the artificial-intelligence orchestration and "
+          "management functionality that powers the SC//HyperCore virtualization "
+          "suite. Acting as a digital twin — a hand-built model of the environment the "
+          "cluster runs in — it continuously thinks about the state the system is in, "
+          "modelling the hardware, cluster operations, and surrounding environment so "
+          "SC//HyperCore can handle day-to-day operational and maintenance tasks "
+          "automatically. AIME monitors for security, hardware, and software errors, "
+          "remediates issues where possible, and identifies root causes to minimize "
+          "impact when automatic repair isn't feasible.")
+    for note in [
+        "Reduce manual intervention — comprehensive monitoring, proactive problem "
+        "detection, and automated remediation keep the cluster healthy.",
+        "Simplified troubleshooting — precise problem determination and actionable "
+        "insights replace the guesswork of log interpretation.",
+        "Autonomous remediation — automatically addresses issues to minimize downtime.",
+        "Predictive anomaly detection — continuous monitoring surfaces problems before "
+        "they escalate.",
+        "Zero-touch deployment — automated provisioning of new nodes and resources.",
+        "Resource optimization — dynamic workload balancing and automatic resource "
+        "rerouting.",
+        "Policy-based security automation — enforced without manual scripting.",
+    ]:
+        doc.add_paragraph(note, style=bullet_style)
+
     # Final pass: clear any indent inherited from docDefaults on every paragraph.
     for par in doc.paragraphs:
         ppf = par.paragraph_format
