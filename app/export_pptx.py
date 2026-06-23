@@ -1,33 +1,143 @@
-"""Generate a 4-slide SC// proposal PowerPoint deck."""
+"""Generate SC// proposal / configuration PowerPoint decks.
+
+Decks are derived from the branded SC template at resources/template.pptx so they
+inherit its theme (Arial + the SC colour scheme) and slide masters; our content
+slides are drawn on the template's BLANK layout. If the template file is missing
+(e.g. not deployed), we fall back to a plain blank presentation so exports never
+break.
+"""
 
 import io
+import os
 import re
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.shapes import MSO_CONNECTOR
+from pptx.oxml.ns import qn
 
-SC_BLUE = RGBColor(0x00, 0x76, 0xCE)
-SC_DARK_BLUE = RGBColor(0x00, 0x3A, 0x70)
-CHARCOAL = RGBColor(0x33, 0x33, 0x33)
+# Brand palette taken from the template theme (resources/template.pptx):
+#   dk1 272727 · dk2 113859 · lt2 E9EAF0 · accent1 009ADE · accent2 194F90
+#   accent4 3FB748 · accent5 97CAEB · accent6 F78D2C
+SC_BLUE = RGBColor(0x00, 0x9A, 0xDE)       # accent1 — primary SC blue
+SC_DARK_BLUE = RGBColor(0x11, 0x38, 0x59)  # dk2 — title bar / headings
+SC_DEEP_BLUE = RGBColor(0x19, 0x4F, 0x90)  # accent2 — secondary accent / rules
+SC_LIGHT_BLUE = RGBColor(0x97, 0xCA, 0xEB)  # accent5 — "SC//" prefix on dark
+CHARCOAL = RGBColor(0x27, 0x27, 0x27)      # dk1
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-LIGHT_GRAY = RGBColor(0xF2, 0xF4, 0xF7)
+LIGHT_GRAY = RGBColor(0xE9, 0xEA, 0xF0)    # lt2
 MID_GRAY = RGBColor(0x66, 0x66, 0x66)
-GREEN = RGBColor(0x2E, 0x7D, 0x32)
-RED = RGBColor(0xC6, 0x28, 0x28)
+GREEN = RGBColor(0x3F, 0xB7, 0x48)         # accent4
+RED = RGBColor(0xC6, 0x28, 0x28)           # semantic warning (no template red)
+ORANGE = RGBColor(0xF7, 0x8D, 0x2C)        # accent6
 BORDER_SUBTLE = RGBColor(0xDE, 0xE2, 0xE6)
-CARD_BG = RGBColor(0xF2, 0xF4, 0xF7)
+CARD_BG = RGBColor(0xE9, 0xEA, 0xF0)       # lt2
 CARD_BORDER = RGBColor(0xDD, 0xDD, 0xDD)
+
+_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "resources", "template.pptx")
+
+# Slide-title font — embedded in the template (embeddedFontLst), so it renders
+# even where it isn't installed. ExtraLight is a thin weight, so titles aren't bold.
+TITLE_FONT = "Martel Sans ExtraLight"
+
+
+def _new_deck():
+    """A fresh deck derived from the SC template (sample slides stripped), or a
+    plain blank presentation if the template isn't available."""
+    if os.path.exists(_TEMPLATE_PATH):
+        prs = Presentation(_TEMPLATE_PATH)
+        # Remove the template's sample slides. Drop BOTH the sldId reference and
+        # the relationship, otherwise the orphaned slide parts linger and collide
+        # with our new slides on save ("Duplicate name: slide1.xml").
+        sld_id_lst = prs.slides._sldIdLst
+        for sld_id in list(sld_id_lst):
+            rid = sld_id.get(qn("r:id"))
+            if rid:
+                prs.part.drop_rel(rid)
+            sld_id_lst.remove(sld_id)
+    else:
+        prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+    return prs
+
+
+def _blank_layout(prs):
+    """The template's BLANK layout (falls back to the standard blank)."""
+    for layout in prs.slide_layouts:
+        if (layout.name or "").strip().upper() == "BLANK":
+            return layout
+    # python-pptx default template: layout 6 is "Blank".
+    return prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[-1]
+
+
+def _content_layout(prs):
+    """The branded light content layout ('b. blank light wide'). Its background
+    is a clean light gradient with only a small bottom-right corner + // logo (no
+    frame, no right-edge accent), so our tables clear the branding. We draw on top
+    of it rather than painting our own background. Searches all masters (this
+    layout lives on the second master) and falls back to BLANK if absent."""
+    for master in prs.slide_masters:
+        for layout in master.slide_layouts:
+            if (layout.name or "").strip().lower() == "b. blank light wide":
+                return layout
+    return _blank_layout(prs)
+
+
+def _svg_to_png_bytes(svg, out_width=2000):
+    """Rasterise an SVG string to PNG bytes. Production uses cairosvg; on the dev
+    mac (no cairo) it falls back to qlmanage so the export can be tested locally.
+    Returns None if neither is available (the caller then skips the diagram)."""
+    try:
+        import cairosvg
+        return cairosvg.svg2png(bytestring=svg.encode("utf-8"), output_width=out_width)
+    except Exception:
+        pass
+    try:  # macOS dev fallback
+        import subprocess, tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            sp = os.path.join(d, "d.svg")
+            with open(sp, "w") as f:
+                f.write(svg)
+            subprocess.run(["qlmanage", "-t", "-s", str(out_width), "-o", d, sp],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            png = sp + ".png"
+            return open(png, "rb").read() if os.path.exists(png) else None
+    except Exception:
+        return None
+
+
+def _slide_network(prs, recommendation):
+    """A 'Cluster Network' slide with the recommendation's diagram, scaled to fit
+    the content area (preserving the SVG's aspect ratio). Skipped if there's no
+    diagram or no rasteriser available."""
+    svg = recommendation.get("network_svg")
+    if not svg:
+        return
+    png = _svg_to_png_bytes(svg)
+    if not png:
+        return
+    slide = _add_slide(prs)
+    _add_title(slide, "Cluster Network", recommendation.get("model", ""))
+    m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    vw, vh = (float(m.group(1)), float(m.group(2))) if m else (1200.0, 800.0)
+    avail_l, avail_t, avail_w, avail_h = 0.6, 1.7, 12.1, 5.3
+    scale = min(avail_w / vw, avail_h / vh)
+    bw, bh = vw * scale, vh * scale
+    left = avail_l + (avail_w - bw) / 2
+    top = avail_t + (avail_h - bh) / 2
+    slide.shapes.add_picture(io.BytesIO(png), Inches(left), Inches(top),
+                             Inches(bw), Inches(bh))
 
 
 def generate_proposal(summary, recommendation, projection):
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    prs = _new_deck()
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
     _slide_proposal(prs, recommendation, projection)
+    _slide_network(prs, recommendation)
     _slide_projection(prs, summary, recommendation, projection)
 
     buf = io.BytesIO()
@@ -37,9 +147,7 @@ def generate_proposal(summary, recommendation, projection):
 
 
 def generate_config_slide(result):
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    prs = _new_deck()
 
     slide = _add_slide(prs)
     mode = result.get("mode", "appliance")
@@ -124,6 +232,9 @@ def generate_config_slide(result):
     if so:
         _add_storage_only_note(slide, so, 4.7)
 
+    # Append the cluster network diagram as its own slide (manual builder).
+    _slide_network(prs, result)
+
     buf = io.BytesIO()
     prs.save(buf)
     buf.seek(0)
@@ -131,45 +242,51 @@ def generate_config_slide(result):
 
 
 def _add_slide(prs):
-    layout = prs.slide_layouts[6]  # blank
-    slide = prs.slides.add_slide(layout)
-    bg = slide.background.fill
-    bg.solid()
-    bg.fore_color.rgb = WHITE
-    return slide
+    # Use the branded content layout and let its background show — no white fill.
+    return prs.slides.add_slide(_content_layout(prs))
 
 
 def _add_title(slide, text, subtitle=None):
-    bar = slide.shapes.add_shape(
-        1, Inches(0), Inches(0), Inches(13.333), Inches(1.1)
-    )
-    bar.fill.solid()
-    bar.fill.fore_color.rgb = SC_DARK_BLUE
-    bar.line.fill.background()
-
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.15), Inches(12), Inches(0.6))
+    # No bar, no "SC//" prefix — the template's branded background (corner + //
+    # logo) carries the SC mark. Title sits lower to match the template's title
+    # height, in Martel Sans ExtraLight; subtitle beneath it.
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(0.7), Inches(12.2), Inches(0.6))
     tf = txBox.text_frame
     tf.word_wrap = True
     p = tf.paragraphs[0]
     run = p.add_run()
-    run.text = "SC// "
-    run.font.size = Pt(28)
-    run.font.bold = True
-    run.font.color.rgb = RGBColor(0x4D, 0xB8, 0xFF)
-    run = p.add_run()
     run.text = text
-    run.font.size = Pt(28)
-    run.font.bold = True
-    run.font.color.rgb = WHITE
+    run.font.size = Pt(26)
+    run.font.bold = False
+    run.font.name = TITLE_FONT
+    run.font.color.rgb = SC_DARK_BLUE
+
+    # Thin dark-blue rule from just after the title to the right edge of the slide.
+    # y is the title's CAP vertical centre, computed from Martel Sans ExtraLight's
+    # real metrics (ascent 1.15em, capHeight 0.68em) so it lands the same in both
+    # PowerPoint and the LibreOffice PDF (both now use the installed font, whose
+    # hhea/typo/win metrics all agree). For a 26pt title in a box at top=0.7":
+    #   baseline = 0.7 + 0.05 inset + 0.415 ascent ≈ 1.165"
+    #   cap centre = baseline − capHeight/2 (0.123") ≈ 1.04"  (old 1.01 sat too high)
+    title_end = 0.6 + len(text) * 0.18
+    line_x1 = min(title_end + 0.5, 12.0)
+    line_y = 1.04
+    if line_x1 < 13.0:
+        rule = slide.shapes.add_connector(
+            MSO_CONNECTOR.STRAIGHT, Inches(line_x1), Inches(line_y),
+            Inches(13.333), Inches(line_y))
+        rule.line.color.rgb = SC_DARK_BLUE
+        rule.line.width = Pt(1)
+        rule.shadow.inherit = False  # the template's connector style adds a shadow
 
     if subtitle:
-        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(0.7), Inches(12), Inches(0.35))
+        txBox2 = slide.shapes.add_textbox(Inches(0.6), Inches(1.18), Inches(12.2), Inches(0.35))
         tf2 = txBox2.text_frame
         p2 = tf2.paragraphs[0]
         run2 = p2.add_run()
         run2.text = subtitle
         run2.font.size = Pt(13)
-        run2.font.color.rgb = RGBColor(0xBB, 0xD5, 0xEE)
+        run2.font.color.rgb = MID_GRAY
 
 
 def _add_card(slide, left, top, width, height, label, value, accent=False):
@@ -244,8 +361,8 @@ def _add_no_redundancy_box(slide, left, top, width, msg):
     run_m.font.color.rgb = CHARCOAL
 
 
-HEADER_BG = RGBColor(0xE8, 0xF0, 0xF8)
-ROW_ALT_BG = RGBColor(0xF7, 0xF8, 0xFA)
+HEADER_BG = RGBColor(0xE9, 0xEA, 0xF0)   # lt2 — table header band
+ROW_ALT_BG = RGBColor(0xF6, 0xF7, 0xFA)  # subtle zebra stripe
 
 
 def _set_cell_border(tc_pr, side, width_pt, color_hex):
@@ -301,7 +418,7 @@ def _add_table(slide, left, top, width, rows_data, col_widths=None):
             _set_cell_border(tc_pr, "top", None, None)
 
             if r == 0:
-                _set_cell_border(tc_pr, "bottom", 1.5, "0076CE")
+                _set_cell_border(tc_pr, "bottom", 1.5, "009ADE")
             elif r < rows - 1:
                 _set_cell_border(tc_pr, "bottom", 0.5, "DEE2E6")
             else:
@@ -542,7 +659,7 @@ def _slide_proposal(prs, r, projection=None):
                 f"− {iops['derating_pct']:.0f}% derating "
                 f"= {iops['derated_per_node']:,} ÷ {iops['write_amp']}× RF write-amp "
                 f"= {iops['per_node']:,}/node, × {r['node_count']} nodes.")
-        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(12), Inches(0.5))
+        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(11.2), Inches(0.5))
         p = box.text_frame.paragraphs[0]
         run = p.add_run()
         run.text = note
@@ -612,7 +729,7 @@ def _slide_projection(prs, s, r, p):
         verdict_text = (f"Based on current projections, some resources may need to be expanded "
                         f"before year {p['years']}.")
 
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.5), Inches(12), Inches(0.5))
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.5), Inches(11.2), Inches(0.5))
     tf = txBox.text_frame
     pr = tf.paragraphs[0]
     run = pr.add_run()
@@ -622,7 +739,7 @@ def _slide_projection(prs, s, r, p):
     run.font.color.rgb = GREEN if all_ok else SC_BLUE
 
     if full_cluster:
-        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(12), Inches(0.4))
+        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(11.2), Inches(0.4))
         ctf = cpu_note.text_frame
         ctf.word_wrap = True
         cp = ctf.paragraphs[0]
@@ -632,7 +749,7 @@ def _slide_projection(prs, s, r, p):
         cr.font.size = Pt(10.5)
         cr.font.color.rgb = CHARCOAL
 
-    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(12), Inches(0.7))
+    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(11.2), Inches(0.7))
     dtf = disclaimer.text_frame
     dtf.word_wrap = True
     dp = dtf.paragraphs[0]

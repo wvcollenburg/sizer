@@ -20,6 +20,13 @@ let vmExclusions = { compute: new Set(), storage: new Set() };
 let vmConfig = {};
 let vmSortField = 'name';
 let vmSortAsc = true;
+// VMs the user added (net-new workload not in the import) — indices into
+// importVms. Their storage is additive; compute/RAM fall out of the recompute.
+let vmAdded = new Set();
+// VMs the user removed from the dataset. Implemented as a full exclusion plus a
+// UI marker so the row can be struck through and restored.
+let vmRemoved = new Set();
+let vmPowerFilter = 'all';   // table view filter: 'all' | 'on' | 'off'
 
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
@@ -557,8 +564,11 @@ function displayResults(result) {
     section.style.display = 'block';
 
     lastConfigResult = result;
+    // PDF export is open to everyone; the editable PPTX is Scale-only.
+    const exportPdfBtn = document.getElementById('config-export-pdf-btn');
+    if (exportPdfBtn) exportPdfBtn.style.display = 'inline-block';
     const exportBtn = document.getElementById('config-export-btn');
-    if (exportBtn) exportBtn.style.display = 'inline-block';
+    if (exportBtn) exportBtn.style.display = canExportEditable() ? 'inline-block' : 'none';
 
     const so = result.storage_only;
     const numClusters = result.num_clusters || 1;
@@ -751,6 +761,9 @@ async function uploadFile(file) {
         includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
         vmConfig = {};
+        vmAdded = new Set();
+        vmRemoved = new Set();
+        vmPowerFilter = 'all';
         updateExclusionCountBadge();
         activeMode = 'import';
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
@@ -1099,6 +1112,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         const iops = r.iops || null;
         const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
+        const utilBars = buildUtilizationBars(r);
         const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
         const so = r.storage_only || null;
         const nodesLabel = so
@@ -1156,14 +1170,81 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                     </table>
                 </div>
             </div>
+            ${utilBars}
             ${iopsHeadroom}
             ${witnessNote}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
-                <button class="btn btn-export" onclick="exportProposal('${mode}', ${i})" title="Export PowerPoint proposal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+                <div class="rec-footer-actions">
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'docx')" title="Download the editable Word proposal (Scale users)">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'pptx')" title="Download the editable PowerPoint deck (Scale users)">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'presentation-pdf')" title="Download the presentation as PDF">Slides PDF</button>
+                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i}, 'pdf')" title="Download the proposal as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Proposal PDF</button>
+                </div>
             </div>
         </div>
     `}).join('');
+}
+
+// Per-resource utilization bars (demand / available capacity at N-1) for a
+// recommendation. The constraining resource — determinant.resource — is flagged
+// "limiting". IOPS is intentionally left to the headroom line below (its ratios
+// are usually huge, so a near-empty bar would mislead).
+function buildUtilizationBars(r) {
+    const u = r.utilization;
+    if (!u) return '';
+    const binding = (r.determinant && r.determinant.resource) || '';
+    const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
+    let anyHa = false;
+    const bars = rows.map(([key, val]) => {
+        if (!val) return '';
+        // Bar = full (all-nodes) capacity. `current` is today's load; up to
+        // `total` is growth + snapshot reserve; `ha_reserve` is capacity held for
+        // failover (the N-1→full gap, CPU/RAM only). Colour by CURRENT load (the
+        // real risk now) so a config sized tight against N-1 doesn't read as
+        // near-full load today. The failover node sits at the right edge.
+        const cur = Math.max(0, Math.round(val.current || 0));
+        const tot = Math.max(cur, Math.round(val.total || 0));
+        const reserve = tot - cur;
+        const ha = Math.max(0, Math.round(val.ha_reserve || 0));
+        if (ha > 0) anyHa = true;
+        const curW = Math.min(cur, 100);
+        const resW = Math.min(reserve, 100 - curW);
+        const haW = Math.min(ha, 100 - curW - resW);
+        const freeW = Math.max(0, 100 - curW - resW - haW);
+        const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
+        const bind = key === binding
+            ? ' <span class="util-bind" title="The resource that drove the node count">limiting</span>'
+            : '';
+        const tipParts = [`now ${cur}%`, `+${reserve}% growth/snapshot reserve`];
+        if (ha > 0) tipParts.push(`${ha}% HA failover reserve`);
+        tipParts.push(`${freeW}% free`);
+        const tip = `${key}: ${tipParts.join(' · ')} (workload sized to ${tot}% of full cluster)`;
+        return `<div class="util-row" title="${tip}">
+            <span class="util-label">${key}${bind}</span>
+            <span class="util-track">
+                <span class="util-fill ${cls}" style="width:${curW}%"></span>
+                <span class="util-fill util-reserve" style="width:${resW}%"></span>
+                <span class="util-fill util-free" style="width:${freeW}%"></span>
+                <span class="util-fill util-ha" style="width:${haW}%"></span>
+            </span>
+            <span class="util-pct" title="Now ${cur}% · sized to ${tot}% of full cluster after growth + snapshot reserve">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+        </div>`;
+    }).join('');
+    const haKey = anyHa
+        ? '<span class="util-key"><i class="util-sw util-sw-ha"></i>HA failover reserve</span>'
+        : '';
+    return `<div class="rec-utilization">
+        <div class="util-head">
+            <span class="util-title">Utilization vs full cluster &mdash; now / sized</span>
+            <span class="util-legend">
+                <span class="util-key"><i class="util-sw util-sw-now"></i>now</span>
+                <span class="util-key"><i class="util-sw util-sw-reserve"></i>growth + snapshot</span>
+                ${haKey}
+            </span>
+        </div>${bars}
+    </div>`;
 }
 
 // Informational line comparing the config's net available IOPS against the
@@ -1190,6 +1271,258 @@ function buildIopsHeadroom(iops, demand) {
 // ==================== MANUAL INPUT MODE ====================
 
 let manualSummary = null;
+
+// Per-VM manual entry. The user builds a VM list in a modal; the totals fill the
+// Workload Requirements fields and act as a floor (those fields can be raised but
+// not set below the entered VMs).
+let manualVms = [];
+let manualVmFloors = {};   // { vcpus, prov_ram, prov_storage_tb, ds_used_tb, total_vms, active_vms }
+let manualVmSort = { field: 'name', asc: true };   // default: VM name A→9
+
+function openManualVmModal() {
+    if (!manualVms.length) addManualVm();   // start with one editable row
+    renderManualVmTable();
+    updateManualVmSummary();
+    document.getElementById('manual-vm-modal').style.display = 'flex';
+}
+
+function closeManualVmModal() {
+    document.getElementById('manual-vm-modal').style.display = 'none';
+}
+
+function addManualVm() {
+    manualVms.push({
+        name: `VM ${manualVms.length + 1}`, powered_on: true,
+        vcpus: 2, ram_gb: 4, storage_gb: 0,
+    });
+    const newIdx = manualVms.length - 1;
+    renderManualVmTable();
+    updateManualVmSummary();
+    const row = document.querySelector(`#manual-vm-body tr[data-idx="${newIdx}"]`);
+    if (row) {
+        row.scrollIntoView({ block: 'center' });
+        const input = row.querySelector('input.vm-edit-text');
+        if (input) input.select();
+    }
+}
+
+function removeManualVm(i) {
+    manualVms.splice(i, 1);
+    renderManualVmTable();
+    updateManualVmSummary();
+}
+
+let cloneSrcIdx = null;
+
+function openCloneModal(i) {
+    cloneSrcIdx = i;
+    const vm = manualVms[i];
+    document.getElementById('clone-count').value = 1;
+    document.getElementById('clone-autoinc').checked = true;
+    document.getElementById('clone-source-name').textContent = vm ? (vm.name || 'VM') : 'VM';
+    document.getElementById('clone-vm-modal').style.display = 'flex';
+    document.getElementById('clone-count').focus();
+}
+
+function closeCloneModal() {
+    document.getElementById('clone-vm-modal').style.display = 'none';
+    cloneSrcIdx = null;
+}
+
+function confirmCloneVm() {
+    const count = Math.max(1, Math.min(500, parseInt(document.getElementById('clone-count').value) || 1));
+    const autoInc = document.getElementById('clone-autoinc').checked;
+    cloneManualVm(cloneSrcIdx, count, autoInc);
+    closeCloneModal();
+}
+
+function _escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Insert `count` copies of manualVms[srcIdx] right after it. With auto-increment,
+// the trailing number on the name is bumped (preserving zero-padding), starting
+// after the highest existing number in that name series to avoid collisions
+// (DC01 with DC02 present -> DC03, DC04). Names with no trailing number get a
+// " N" suffix; without auto-increment the name is duplicated as-is.
+function cloneManualVm(srcIdx, count, autoInc) {
+    const src = manualVms[srcIdx];
+    if (!src) return;
+    const m = String(src.name || '').match(/^(.*?)(\d+)$/);
+    let prefix = '', width = 0, start = 0, mode = 'plain';
+    if (autoInc && m) {
+        prefix = m[1];
+        width = m[2].length;
+        let maxVal = parseInt(m[2], 10);
+        const re = new RegExp('^' + _escapeRegExp(prefix) + '(\\d+)$');
+        manualVms.forEach(vm => {
+            const mm = String(vm.name || '').match(re);
+            if (mm) maxVal = Math.max(maxVal, parseInt(mm[1], 10));
+        });
+        start = maxVal + 1;
+        mode = 'number';
+    } else if (autoInc) {
+        mode = 'suffix';
+    }
+    for (let k = 0; k < count; k++) {
+        let name;
+        if (mode === 'number') {
+            name = prefix + String(start + k).padStart(width, '0');
+        } else if (mode === 'suffix') {
+            name = `${src.name} ${k + 2}`;
+        } else {
+            name = src.name;
+        }
+        manualVms.splice(srcIdx + 1 + k, 0, {
+            name, powered_on: src.powered_on, vcpus: src.vcpus,
+            ram_gb: src.ram_gb, storage_gb: src.storage_gb,
+        });
+    }
+    renderManualVmTable();
+    updateManualVmSummary();
+}
+
+function setManualVm(i, field, value) {
+    const vm = manualVms[i];
+    if (!vm) return;
+    if (field === 'name') {
+        vm.name = (value || '').trim();
+    } else if (field === 'powered_on') {
+        vm.powered_on = value === 'on' || value === true;
+    } else if (field === 'vcpus') {
+        vm.vcpus = Math.max(1, Math.round(parseFloat(value) || 0));
+    } else {  // ram_gb, storage_gb
+        vm[field] = Math.max(0, Math.round((parseFloat(value) || 0) * 10) / 10);
+    }
+    updateManualVmSummary();
+}
+
+function sortManualVm(field) {
+    if (manualVmSort.field === field) manualVmSort.asc = !manualVmSort.asc;
+    else manualVmSort = { field, asc: true };
+    renderManualVmTable();
+}
+
+function renderManualVmTable() {
+    const body = document.getElementById('manual-vm-body');
+    // Sort a display copy so edits/clone/remove still address the real array
+    // index (carried on data-idx), exactly like the import VM table.
+    const f = manualVmSort.field, dir = manualVmSort.asc ? 1 : -1;
+    const view = manualVms.map((vm, i) => ({ vm, i }));
+    view.sort((a, b) => {
+        let c;
+        if (f === 'name') {
+            c = String(a.vm.name || '').localeCompare(String(b.vm.name || ''),
+                undefined, { numeric: true, sensitivity: 'base' });
+        } else if (f === 'powered_on') {
+            c = (a.vm.powered_on ? 1 : 0) - (b.vm.powered_on ? 1 : 0);
+        } else {
+            c = (a.vm[f] || 0) - (b.vm[f] || 0);
+        }
+        return c * dir;
+    });
+    body.innerHTML = view.map(({ vm, i }) => `
+        <tr data-idx="${i}">
+            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${(vm.name || '').replace(/"/g, '&quot;')}" onchange="setManualVm(${i},'name',this.value)"></td>
+            <td class="vm-col-power">
+                <select class="vm-edit" onchange="setManualVm(${i},'powered_on',this.value)">
+                    <option value="on"${vm.powered_on ? ' selected' : ''}>On</option>
+                    <option value="off"${vm.powered_on ? '' : ' selected'}>Off</option>
+                </select>
+            </td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" onchange="setManualVm(${i},'vcpus',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" onchange="setManualVm(${i},'ram_gb',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" onchange="setManualVm(${i},'storage_gb',this.value)"></td>
+            <td class="vm-col-action">
+                <button class="vm-action-btn vm-clone" title="Clone this VM" onclick="openCloneModal(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button>
+            </td>
+        </tr>`).join('');
+
+    document.querySelectorAll('#manual-vm-table th.sortable').forEach(th => {
+        const old = th.querySelector('.sort-arrow');
+        if (old) old.remove();
+        const field = (th.getAttribute('onclick').match(/'(.+?)'/) || [])[1];
+        if (field === manualVmSort.field) {
+            const arrow = document.createElement('span');
+            arrow.className = 'sort-arrow';
+            arrow.textContent = manualVmSort.asc ? ' ▲' : ' ▼';
+            th.appendChild(arrow);
+        }
+    });
+}
+
+function manualVmTotals() {
+    let vcpus = 0, ram = 0, storage = 0, active = 0;
+    manualVms.forEach(vm => {
+        vcpus += vm.vcpus || 0;
+        ram += vm.ram_gb || 0;
+        storage += vm.storage_gb || 0;
+        if (vm.powered_on) active++;
+    });
+    return {
+        count: manualVms.length, active, vcpus,
+        ram_gb: Math.round(ram * 10) / 10,
+        storage_gb: Math.round(storage * 10) / 10,
+        storage_tb: Math.round(storage / 1024 * 100) / 100,
+    };
+}
+
+function updateManualVmSummary() {
+    const t = manualVmTotals();
+    document.getElementById('manual-vm-summary').textContent =
+        `${t.count} VM${t.count === 1 ? '' : 's'} (${t.active} on) · ${t.vcpus} vCPUs · ${t.ram_gb} GB RAM · ${t.storage_gb} GB storage`;
+}
+
+// Apply the entered VMs: set the workload floors and fill the fields (raising any
+// that are below the new totals; leaving higher manual overrides intact).
+function applyManualVms() {
+    const t = manualVmTotals();
+    manualVmFloors = {
+        total_vms: t.count, active_vms: t.active, vcpus: t.vcpus,
+        prov_ram: t.ram_gb, prov_storage_tb: t.storage_tb, ds_used_tb: t.storage_tb,
+    };
+    const raiseTo = (id, floor, dec) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const cur = parseFloat(el.value) || 0;
+        if (cur < floor || el.value === '') el.value = dec ? floor.toFixed(2) : floor;
+    };
+    raiseTo('man-total-vms', t.count);
+    raiseTo('man-active-vms', t.active);
+    raiseTo('man-vcpus', t.vcpus);
+    raiseTo('man-prov-ram', t.ram_gb);
+    raiseTo('man-prov-storage', t.storage_tb, true);
+    raiseTo('man-ds-used', t.storage_tb, true);
+
+    const badge = document.getElementById('manual-vm-count');
+    const note = document.getElementById('manual-vm-note');
+    if (t.count > 0) {
+        badge.textContent = ` (${t.count})`;
+        badge.style.display = '';
+        note.textContent = `${t.count} VM${t.count === 1 ? '' : 's'} entered — the fields below include them and can't be set lower than their totals.`;
+        note.style.display = '';
+    } else {
+        badge.style.display = 'none';
+        note.style.display = 'none';
+    }
+    closeManualVmModal();
+}
+
+// Keep a workload field at or above its entered-VM total. Wired to the field's
+// onchange; a no-op when no VMs have been entered (floor 0/undefined).
+function clampManualField(id, floorKey) {
+    const floor = manualVmFloors[floorKey] || 0;
+    if (!floor) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = parseFloat(el.value) || 0;
+    if (v < floor) {
+        el.value = floorKey.endsWith('_tb') ? floor.toFixed(2) : floor;
+        el.classList.add('field-clamped');
+        setTimeout(() => el.classList.remove('field-clamped'), 1200);
+    }
+}
 
 function calculateManual() {
     const vcpus = parseInt(document.getElementById('man-vcpus').value) || 0;
@@ -1260,7 +1593,50 @@ function calculateManual() {
     sizing.scrollIntoView({behavior: 'smooth'});
 }
 
-async function exportProposal(mode, recIndex) {
+// Open the cluster network diagram for a recommendation in a modal (the SVG is
+// generated server-side and rides on rec.network_svg).
+function openClusterDiagram(mode, recIndex) {
+    const rec = (lastRecommendations[mode] || [])[recIndex];
+    if (!rec || !rec.network_svg) return;
+    const nodes = rec.node_count;
+    document.getElementById('diagram-modal-title').textContent =
+        `Network — ${rec.model} (${nodes} node${nodes === 1 ? '' : 's'})`;
+    const body = document.getElementById('diagram-modal-body');
+    body.innerHTML = rec.network_svg;
+    body.dataset.filename =
+        `SC_Network_${String(rec.model).replace(/[^A-Za-z0-9]+/g, '')}_${nodes}node`;
+    document.getElementById('diagram-modal').style.display = 'flex';
+}
+
+function closeClusterDiagram() {
+    document.getElementById('diagram-modal').style.display = 'none';
+    document.getElementById('diagram-modal-body').innerHTML = '';
+}
+
+// Download the currently-shown diagram as an SVG file.
+function downloadClusterDiagram() {
+    const body = document.getElementById('diagram-modal-body');
+    const svg = body.innerHTML.trim();
+    if (!svg) return;
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (body.dataset.filename || 'SC_Network_diagram') + '.svg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+const _EXPORT_ENDPOINTS = {
+    pptx: '/api/export-proposal',
+    pdf: '/api/export-pdf',
+    docx: '/api/export-docx',
+    'presentation-pdf': '/api/export-presentation-pdf',
+};
+
+async function exportProposal(mode, recIndex, fmt = 'pptx') {
     const recs = lastRecommendations[mode];
     const summary = lastSummary[mode];
     const projection = lastProjection[mode];
@@ -1270,13 +1646,13 @@ async function exportProposal(mode, recIndex) {
         return;
     }
 
-    const btn = event.target;
-    const origText = btn.textContent;
-    btn.textContent = 'Generating...';
+    const btn = (event.target.closest && event.target.closest('button')) || event.target;
+    const origHtml = btn.innerHTML;
+    btn.textContent = 'Generating…';
     btn.disabled = true;
 
     try {
-        const resp = await fetch('/api/export-proposal', {
+        const resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -1287,7 +1663,7 @@ async function exportProposal(mode, recIndex) {
         });
 
         if (!resp.ok) {
-            const err = await resp.json();
+            const err = await resp.json().catch(() => ({}));
             alert(err.error || 'Export failed');
             return;
         }
@@ -1297,7 +1673,7 @@ async function exportProposal(mode, recIndex) {
         const a = document.createElement('a');
         a.href = url;
         a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.pptx`;
+            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1305,31 +1681,33 @@ async function exportProposal(mode, recIndex) {
     } catch (e) {
         alert('Export failed: ' + e.message);
     } finally {
-        btn.textContent = origText;
+        btn.innerHTML = origHtml;
         btn.disabled = false;
     }
 }
 
-async function exportConfig() {
+async function exportConfig(fmt = 'pptx') {
     if (!lastConfigResult) {
         alert('No configuration to export. Please calculate first.');
         return;
     }
 
-    const btn = document.getElementById('config-export-btn');
-    const origText = btn.textContent;
-    btn.textContent = 'Generating...';
+    const endpoint = fmt === 'pdf' ? '/api/export-config-pdf' : '/api/export-config';
+    const btn = (event && event.target.closest && event.target.closest('button'))
+        || document.getElementById('config-export-btn');
+    const origHtml = btn.innerHTML;
+    btn.textContent = 'Generating…';
     btn.disabled = true;
 
     try {
-        const resp = await fetch('/api/export-config', {
+        const resp = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(lastConfigResult),
         });
 
         if (!resp.ok) {
-            const err = await resp.json();
+            const err = await resp.json().catch(() => ({}));
             alert(err.error || 'Export failed');
             return;
         }
@@ -1339,7 +1717,7 @@ async function exportConfig() {
         const a = document.createElement('a');
         a.href = url;
         a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Config_${lastConfigResult.node_count}N.pptx`;
+            || `SC_Config_${lastConfigResult.node_count}N.${fmt}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1347,7 +1725,7 @@ async function exportConfig() {
     } catch (e) {
         alert('Export failed: ' + e.message);
     } finally {
-        btn.textContent = origText;
+        btn.innerHTML = origHtml;
         btn.disabled = false;
     }
 }
@@ -1402,20 +1780,36 @@ function renderVmTable() {
         const powerClass = vm.powered_on ? 'vm-power-on' : 'vm-power-off';
         const powerLabel = vm.powered_on ? 'On' : 'Off';
         const edited = vmConfig[vm._idx] && Object.keys(vmConfig[vm._idx]).length > 0;
-        const rowClass = [excluded ? 'vm-excluded' : '', edited ? 'vm-edited' : ''].filter(Boolean).join(' ');
+        const isAdded = vmAdded.has(vm._idx);
+        const isRemoved = vmRemoved.has(vm._idx);
+        const rowClass = [excluded ? 'vm-excluded' : '', edited ? 'vm-edited' : '',
+                          isAdded ? 'vm-added' : '', isRemoved ? 'vm-removed' : '']
+                         .filter(Boolean).join(' ');
         const model = vmVal(vm, vm._idx, 'model') || '';
         const cores = vmVal(vm, vm._idx, 'vcpus');
         const ram = vmVal(vm, vm._idx, 'provisioned_memory_gb');
-        return `<tr class="${rowClass}" data-idx="${vm._idx}">
+        const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
+        const name = vmVal(vm, vm._idx, 'name') || '';
+        const nameCell = isAdded
+            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"><span class="vm-tag">new</span></span>`
+            : `<span title="${name}">${name}</span>`;
+        const storCell = isAdded
+            ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" onchange="setVmConfig(${vm._idx},'vdisk_used_gb',this.value)">`
+            : `${(stor || 0).toFixed(1)}`;
+        const action = isRemoved
+            ? `<button class="vm-action-btn vm-restore" title="Restore this VM" onclick="restoreVm(${vm._idx})">↺</button>`
+            : `<button class="vm-action-btn vm-remove" title="Remove this VM from the dataset" onclick="removeVm(${vm._idx})">&times;</button>`;
+        return `<tr class="${rowClass}" data-idx="${vm._idx}" data-power="${vm.powered_on ? 'on' : 'off'}">
             <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
             <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
-            <td class="vm-col-name" title="${vm.name}">${vm.name}</td>
+            <td class="vm-col-name">${nameCell}</td>
             <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${model.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
             <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" onchange="setVmConfig(${vm._idx},'vcpus',this.value)"></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" onchange="setVmConfig(${vm._idx},'provisioned_memory_gb',this.value)"></td>
-            <td class="vm-col-num">${vm.vdisk_used_gb.toFixed(1)}</td>
+            <td class="vm-col-num">${storCell}</td>
             <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
+            <td class="vm-col-action">${action}</td>
         </tr>`;
     }).join('');
 
@@ -1452,8 +1846,57 @@ function filterVmTable() {
         const name = row.children[2].textContent.toLowerCase();
         const model = (row.children[3].querySelector('input')?.value || '').toLowerCase();
         const os = row.children[8].textContent.toLowerCase();
-        row.classList.toggle('vm-hidden', q && !name.includes(q) && !os.includes(q) && !model.includes(q));
+        const matchText = !q || name.includes(q) || os.includes(q) || model.includes(q);
+        const matchPower = vmPowerFilter === 'all'
+            || vmPowerFilter === row.getAttribute('data-power');
+        row.classList.toggle('vm-hidden', !(matchText && matchPower));
     });
+}
+
+function setVmPowerFilter(val) {
+    vmPowerFilter = val;
+    filterVmTable();
+}
+
+// Append a blank, fully-editable VM (net-new workload not in the import). Its
+// compute/RAM fall out of the summary recompute; its storage is added there.
+function addVm() {
+    const idx = importVms.length;
+    importVms.push({
+        name: 'New VM', powered_on: true, is_template: false, os: '', model: '',
+        vcpus: 2, provisioned_memory_gb: 4, consumed_memory_gb: 0, used_memory_gb: 0,
+        disk_capacity_gb: 0, disk_used_gb: 0, vdisk_size_gb: 0, vdisk_used_gb: 0,
+    });
+    vmAdded.add(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+    const row = document.querySelector(`#vm-table-body tr[data-idx="${idx}"]`);
+    if (row) {
+        row.scrollIntoView({ block: 'center' });
+        const input = row.querySelector('input.vm-edit-text');
+        if (input) input.select();
+    }
+}
+
+// Remove a VM from the dataset. Reuses the exclusion math (drop from every total)
+// and marks it so the row can be struck through and restored.
+function removeVm(idx) {
+    vmRemoved.add(idx);
+    vmExclusions.compute.add(idx);
+    vmExclusions.storage.add(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+function restoreVm(idx) {
+    vmRemoved.delete(idx);
+    vmExclusions.compute.delete(idx);
+    vmExclusions.storage.delete(idx);
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
 }
 
 function toggleVmExclusion(idx, type, checked) {
@@ -1477,7 +1920,7 @@ function setVmConfig(idx, field, value) {
     let v;
     if (field === 'vcpus') {
         v = Math.max(1, Math.round(parseFloat(value) || 0));
-    } else if (field === 'provisioned_memory_gb') {
+    } else if (field === 'provisioned_memory_gb' || field === 'vdisk_used_gb') {
         v = Math.max(0, Math.round((parseFloat(value) || 0) * 10) / 10);
     } else {
         v = (value || '').trim();
@@ -1620,8 +2063,11 @@ function computeAdjustedImportSummary() {
     adjusted.max_vm_ram_gb = maxVmRam;
     adjusted.max_vm_cores = maxVmCores;
 
+    // Excluded/removed IMPORTED VMs are subtracted from the measured datastore
+    // totals (added VMs aren't in those totals, so they're skipped here).
     let exclStorGbAll = 0, exclProvStorGbActive = 0, exclStorGbActive = 0;
     vmExclusions.storage.forEach(i => {
+        if (vmAdded.has(i)) return;
         const vm = importVms[i];
         exclStorGbAll += vm.vdisk_used_gb;
         if (vm.powered_on && !vm.is_template) {
@@ -1630,10 +2076,24 @@ function computeAdjustedImportSummary() {
         }
     });
 
-    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024) * 100) / 100;
-    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive) * 10) / 10;
+    // Added VMs contribute net-new storage (unless removed or storage-excluded).
+    // A new VM is given a single storage figure, used for both used and provisioned.
+    let addStorGbAll = 0, addProvStorGbActive = 0, addStorGbActive = 0;
+    vmAdded.forEach(i => {
+        if (vmRemoved.has(i) || vmExclusions.storage.has(i)) return;
+        const vm = importVms[i];
+        const used = vmVal(vm, i, 'vdisk_used_gb') || 0;
+        addStorGbAll += used;
+        if (vm.powered_on && !vm.is_template) {
+            addStorGbActive += used;
+            addProvStorGbActive += used;
+        }
+    });
+
+    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024 + addStorGbAll / 1024) * 100) / 100;
+    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
     adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / 1024 * 100) / 100;
-    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive) * 10) / 10;
+    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
     adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;

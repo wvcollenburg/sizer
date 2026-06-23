@@ -380,25 +380,29 @@
             </div>
 
             <div class="manual-section">
-                <h3>Workload Requirements</h3>
+                <div class="manual-section-head">
+                    <h3>Workload Requirements</h3>
+                    <button class="btn btn-sm" type="button" onclick="openManualVmModal()">+ Add / edit VMs<span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
+                </div>
+                <div class="manual-vm-note" id="manual-vm-note" style="display:none"></div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Total VMs</label>
-                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0">
+                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-total-vms','total_vms')">
                     </div>
                     <div class="form-group">
                         <label>Active VMs</label>
-                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0">
+                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-active-vms','active_vms')">
                     </div>
                     <div class="form-group">
                         <label>Total vCPUs *</label>
-                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field">
+                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-vcpus','vcpus')">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned RAM (GB) *</label>
-                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field">
+                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-prov-ram','prov_ram')">
                     </div>
                     <div class="form-group">
                         <label>Used RAM (GB)</label>
@@ -408,11 +412,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned Storage (TB)</label>
-                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0">
+                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0" onchange="clampManualField('man-prov-storage','prov_storage_tb')">
                     </div>
                     <div class="form-group">
                         <label>Datastore Used (TB) *</label>
-                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field">
+                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field" onchange="clampManualField('man-ds-used','ds_used_tb')">
                     </div>
                     <div class="form-group">
                         <label>Datastore Total (TB)</label>
@@ -576,7 +580,8 @@
                 </div>
             </div>
             <div class="results-export">
-                <button class="btn btn-export" onclick="exportConfig()" id="config-export-btn" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PPTX</button>
+                <button class="btn btn-muted btn-sm" onclick="exportConfig('pptx')" id="config-export-btn" style="display:none" title="Download the editable PowerPoint (Scale users)">PPTX</button>
+                <button class="btn btn-export" onclick="exportConfig('pdf')" id="config-export-pdf-btn" style="display:none" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PDF</button>
             </div>
         </section>
     </main>
@@ -602,11 +607,17 @@
             </div>
             <div class="modal-toolbar">
                 <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." oninput="filterVmTable()">
+                <select id="vm-power-filter" class="vm-power-filter" onchange="setVmPowerFilter(this.value)" title="Filter the table by power state">
+                    <option value="all">All power states</option>
+                    <option value="on">Powered on only</option>
+                    <option value="off">Powered off only</option>
+                </select>
                 <div class="modal-actions">
                     <label class="excl-toggle" title="When selecting powered-off VMs, also exclude their storage">
                         <input type="checkbox" id="excl-include-storage" checked>
                         Include storage in exclusions
                     </label>
+                    <button class="btn btn-sm" onclick="addVm()">+ Add VM</button>
                     <button class="btn btn-sm" onclick="selectPoweredOffVms()">Select powered off</button>
                     <button class="btn btn-sm" onclick="selectLikelyCVMs()">Select likely CVMs</button>
                     <button class="btn btn-sm btn-muted" onclick="clearAllVmExclusions()">Clear all</button>
@@ -626,6 +637,7 @@
                                 <th class="vm-col-num sortable" onclick="sortVmTable('provisioned_memory_gb')" title="RAM (GB) &mdash; editable">RAM (GB)</th>
                                 <th class="vm-col-num sortable" onclick="sortVmTable('vdisk_used_gb')">Storage (GB)</th>
                                 <th class="vm-col-os">OS</th>
+                                <th class="vm-col-action"></th>
                             </tr>
                         </thead>
                         <tbody id="vm-table-body"></tbody>
@@ -638,6 +650,88 @@
                     <button class="btn btn-sm btn-muted" onclick="resetVmConfig()">Reset edits</button>
                     <button class="btn btn-muted" onclick="closeVmExclusionModal()">Cancel</button>
                     <button class="btn btn-primary" onclick="applyVmExclusions()">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual per-VM entry modal -->
+    <div class="modal-overlay" id="manual-vm-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Add VMs</h2>
+                <button class="modal-close" onclick="closeManualVmModal()">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <button class="btn btn-sm" type="button" onclick="addManualVm()">+ Add VM</button>
+                <span class="manual-vm-hint">Totals fill the Workload Requirements fields. You can raise those fields afterward, but not below these totals.</span>
+            </div>
+            <div class="modal-body">
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="manual-vm-table">
+                        <thead>
+                            <tr>
+                                <th class="vm-col-name sortable" onclick="sortManualVm('name')">VM Name</th>
+                                <th class="vm-col-power sortable" onclick="sortManualVm('powered_on')">Power</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('vcpus')">vCPUs</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('ram_gb')">RAM (GB)</th>
+                                <th class="vm-col-num sortable" onclick="sortManualVm('storage_gb')">Storage (GB)</th>
+                                <th class="vm-col-action"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="manual-vm-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="vm-exclusion-summary" id="manual-vm-summary"></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" onclick="closeManualVmModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="applyManualVms()">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cluster network diagram (per recommendation) -->
+    <div class="modal-overlay" id="diagram-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 id="diagram-modal-title">Network diagram</h2>
+                <button class="modal-close" onclick="closeClusterDiagram()">&times;</button>
+            </div>
+            <div class="modal-body" id="diagram-modal-body"></div>
+            <div class="modal-footer">
+                <div></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-primary" onclick="downloadClusterDiagram()" title="Download this diagram as an SVG"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download SVG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clone VM options (sub-modal of the manual VM modal) -->
+    <div class="modal-overlay" id="clone-vm-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Clone <span id="clone-source-name"></span></h2>
+                <button class="modal-close" onclick="closeCloneModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Number of copies</label>
+                    <input type="number" id="clone-count" value="1" min="1" max="500">
+                </div>
+                <label class="excl-toggle" title="Bump the trailing number on the name for each copy, keeping zero-padding (DC01 → DC02, DC03…)">
+                    <input type="checkbox" id="clone-autoinc" checked>
+                    Auto-increment name (DC01 &rarr; DC02, DC03…)
+                </label>
+            </div>
+            <div class="modal-footer">
+                <div></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" onclick="closeCloneModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmCloneVm()">Clone</button>
                 </div>
             </div>
         </div>

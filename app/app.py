@@ -1,10 +1,11 @@
+import io
 import os
 import secrets
 import tempfile
 
 from flask import Flask, render_template, jsonify, request, send_file
 from database import db, init_db
-from auth import register_auth, start_scheduler
+from auth import register_auth, start_scheduler, current_user
 from sqlalchemy.orm import joinedload
 from orm_models import (
     Model, RamOption, StorageConfig,
@@ -20,6 +21,8 @@ from recommend import (
 )
 from tunables import T, refresh_from_db
 from export_pptx import generate_proposal, generate_config_slide
+from export_docx import build_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
+from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 
 
@@ -231,6 +234,8 @@ def create_app():
         data = request.json
         if not data:
             return jsonify({"error": "No data provided"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
         try:
             buf = generate_config_slide(data)
             mode = data.get("mode", "config")
@@ -242,6 +247,24 @@ def create_app():
         except Exception as e:
             return jsonify({"error": f"Failed to generate config slide: {str(e)}"}), 500
 
+    @app.route("/api/export-config-pdf", methods=["POST"])
+    def export_config_pdf():
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        try:
+            pptx_buf = generate_config_slide(data)
+            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            model = data.get("model", data.get("mode", "config"))
+            nodes = data.get("node_count", "")
+            filename = f"SC_Config_{model}_{nodes}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=filename,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate config PDF: {str(e)}"}), 500
+
     @app.route("/api/export-proposal", methods=["POST"])
     def export_proposal():
         data = request.json
@@ -250,6 +273,8 @@ def create_app():
         projection = data.get("projection")
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
 
         try:
             buf = generate_proposal(summary, recommendation, projection)
@@ -259,6 +284,63 @@ def create_app():
                              mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
         except Exception as e:
             return jsonify({"error": f"Failed to generate proposal: {str(e)}"}), 500
+
+    def _proposal_payload():
+        data = request.json or {}
+        return data.get("summary"), data.get("recommendation"), data.get("projection")
+
+    def _can_export_editable():
+        # Editable source files (Word, PPTX) are limited to Scale users and super
+        # admins; everyone else is restricted to read-only PDFs.
+        u = current_user()
+        return bool(u and (u.is_scale or u.is_super_admin))
+
+    @app.route("/api/export-docx", methods=["POST"])
+    def export_docx_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
+        try:
+            buf = build_proposal_docx(summary, recommendation, projection)
+            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
+            return send_file(buf, as_attachment=True, download_name=fn,
+                             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate document: {str(e)}"}), 500
+
+    @app.route("/api/export-pdf", methods=["POST"])
+    def export_pdf_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        try:
+            docx_buf = build_proposal_docx(summary, recommendation, projection)
+            pdf = convert_docx_to_pdf(docx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
+
+    @app.route("/api/export-presentation-pdf", methods=["POST"])
+    def export_presentation_pdf_route():
+        summary, recommendation, projection = _proposal_payload()
+        if not summary or not recommendation or not projection:
+            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
+        try:
+            pptx_buf = generate_proposal(summary, recommendation, projection)
+            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Presentation_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            return jsonify({"error": f"Failed to generate presentation PDF: {str(e)}"}), 500
 
     return app
 
@@ -351,8 +433,10 @@ def calculate_appliance(data, node_count):
                   else raw_per_node / 2)
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
+    # OS RAM overhead is tiered by this node's drive-bay count.
     usable_cores = cpu["cores"] - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead_for(
+        compute_drive_count_appliance(data, storage))
 
     total_cores = usable_cores * node_count
     total_threads = cpu["threads"] * node_count
@@ -366,6 +450,9 @@ def calculate_appliance(data, node_count):
     n1_ghz = cpu["ghz"] * cpu["cores"] * n1_hci if node_count > 1 else total_ghz
     n1_ram = usable_ram * n1_hci if node_count > 1 else usable_ram
 
+    _nic_ports = max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2)
+    network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
+
     return {
         "mode": "appliance",
         "model": model_name,
@@ -374,6 +461,7 @@ def calculate_appliance(data, node_count):
         "num_clusters": num_clusters,
         "cluster_layout": layout,
         "storage_only": so_block,
+        "network_svg": network_svg,
         "per_node": {
             "cpu": cpu["desc"],
             "cores": usable_cores,
@@ -610,9 +698,9 @@ def calculate_validated(data, node_count):
                     "flash_percentage": round(flash_pct, 1),
                 }
 
-    # Apply HyperCore OS overhead
+    # Apply HyperCore OS overhead; OS RAM is tiered by the node's drive count.
     usable_cores = cores - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead
+    usable_ram = ram_gb - T.usable_ram_overhead_for(disk_count)
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
@@ -646,6 +734,11 @@ def calculate_validated(data, node_count):
     elif has_spinning:
         storage_type = "HDD-Only"
 
+    # Software-only configs carry no model NIC count; default to dedicated (4)
+    # unless the request specifies otherwise.
+    _nic_ports = int(data.get("nic_ports", 4) or 4)
+    network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
+
     return {
         "mode": "validated",
         "node_count": node_count,
@@ -654,6 +747,7 @@ def calculate_validated(data, node_count):
         "cluster_layout": layout,
         "storage_only": so_block,
         "storage_type": storage_type,
+        "network_svg": network_svg,
         "per_node": {
             "cores": usable_cores,
             "threads": threads,

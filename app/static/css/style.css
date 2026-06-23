@@ -647,9 +647,36 @@ body { padding-bottom: 64px; }
     font-size: 1rem;
 }
 
+.manual-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+.manual-section-head h3 { margin: 0; }
+.manual-vm-count { font-weight: 600; }
+.manual-vm-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: #f0fbf3;
+    border: 1px solid #cdebd6;
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.8rem;
+}
+.manual-vm-hint { font-size: 0.78rem; color: var(--text-muted); }
+
 .required-field {
     border-color: var(--accent) !important;
 }
+
+/* Brief flash when a workload field is clamped back up to its entered-VM total. */
+@keyframes field-clamp-flash {
+    0% { background: #fff3cd; border-color: var(--orange); }
+    100% { background: var(--surface); }
+}
+.field-clamped { animation: field-clamp-flash 1.2s ease; }
 
 /* Virtualization Ratio Controls */
 
@@ -1180,6 +1207,103 @@ body { padding-bottom: 64px; }
 .rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
 .rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
 
+/* Per-resource utilization bars in a recommendation card. Each bar is two
+   segments: current load (coloured) + reserved growth/snapshot headroom (neutral
+   stripe), so a config sized to 90% projected doesn't read as 90% load today. */
+.rec-utilization {
+    padding: 0.5rem 1.2rem 0.2rem;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
+.util-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.35rem;
+    flex-wrap: wrap;
+}
+.util-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+.util-legend {
+    display: flex;
+    gap: 0.7rem;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+.util-key { display: inline-flex; align-items: center; gap: 0.25rem; }
+.util-sw {
+    width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+}
+.util-sw-now { background: var(--green, #2e7d32); }
+.util-sw-reserve {
+    background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+}
+.util-sw-ha {
+    background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
+}
+.util-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.22rem 0;
+}
+.util-label {
+    flex: 0 0 7.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.util-bind {
+    display: inline-block;
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    border-radius: 3px;
+    padding: 0 0.2rem;
+    margin-left: 0.25rem;
+    vertical-align: 1px;
+}
+.util-track {
+    flex: 1 1 auto;
+    display: flex;
+    height: 8px;
+    background: #eef1f5;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.util-fill {
+    flex: 0 0 auto;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+.util-fill.util-low { background: var(--green, #2e7d32); }
+.util-fill.util-mid { background: var(--orange, #e67e22); }
+.util-fill.util-high { background: var(--red, #c0392b); }
+.util-fill.util-reserve {
+    background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+}
+/* Operational free space — let the track background show through. */
+.util-fill.util-free { background: transparent; }
+/* HA failover reserve (the held-back node), distinct hatch at the right edge. */
+.util-fill.util-ha {
+    background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
+}
+.util-pct {
+    flex: 0 0 5rem;
+    text-align: right;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+}
+.util-pct-sized { color: var(--text-muted); font-weight: 500; }
+
 /* Witness note belongs to the specific 2-node recommendation, so it sits inside
    the card (tighter than the standalone info-bar). */
 .rec-card .info-bar {
@@ -1303,6 +1427,11 @@ body { padding-bottom: 64px; }
 
 .modal-lg { max-width: 1100px; }
 
+/* The VM-configuration modal carries a wide, many-column table, so it gets more
+   horizontal room than the standard large modal (and less overlay padding). */
+#vm-exclusion-modal { padding: 1rem; }
+#vm-exclusion-modal .modal-content { max-width: min(1600px, 97vw); }
+
 .modal-header {
     display: flex;
     align-items: center;
@@ -1378,6 +1507,22 @@ body { padding-bottom: 64px; }
     overflow-x: auto;
 }
 
+/* Make the table wrapper the single scroll container (both axes) so the sticky
+   header sticks to it. Otherwise the modal body scrolls vertically while the
+   header is positioned relative to this wrapper, and it scrolls out of view. */
+#vm-exclusion-modal .modal-body,
+#manual-vm-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#vm-exclusion-modal .vm-table-wrap,
+#manual-vm-modal .vm-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
 .vm-table {
     width: 100%;
     border-collapse: collapse;
@@ -1387,7 +1532,7 @@ body { padding-bottom: 64px; }
 .vm-table thead {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
 }
 
 .vm-table th {
@@ -1399,6 +1544,10 @@ body { padding-bottom: 64px; }
     font-size: 0.78rem;
     white-space: nowrap;
     user-select: none;
+    /* Sticky on each th as well — with border-collapse some browsers ignore a
+       sticky thead, so the cells carry the stick. */
+    position: sticky;
+    top: 0;
 }
 
 .vm-table th.sortable { cursor: pointer; }
@@ -1417,6 +1566,8 @@ body { padding-bottom: 64px; }
 .vm-table tbody tr.vm-edited { background: #f0f7ff; }
 .vm-table tbody tr.vm-edited.vm-excluded { background: #fff5f5; }
 .vm-table tbody tr.vm-hidden { display: none; }
+.vm-table tbody tr.vm-added { background: #f0fbf3; }
+.vm-table tbody tr.vm-removed td { text-decoration: line-through; color: var(--text-muted); opacity: 0.7; }
 
 .vm-col-check { width: 90px; text-align: center; }
 .vm-col-check input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
@@ -1425,6 +1576,71 @@ body { padding-bottom: 64px; }
 .vm-col-power { width: 60px; }
 .vm-col-num { width: 90px; text-align: right; }
 .vm-col-os { min-width: 140px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.vm-col-action { width: 36px; text-align: center; }
+
+.vm-name-edit { display: flex; align-items: center; gap: 0.35rem; }
+.vm-name-edit .vm-edit { flex: 1 1 auto; min-width: 0; width: auto; }
+.vm-name-edit .vm-tag { flex: 0 0 auto; }
+.vm-tag {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid var(--green);
+    border-radius: 3px;
+    padding: 0 0.2rem;
+    vertical-align: 1px;
+}
+.vm-action-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+.vm-action-btn.vm-remove:hover { color: var(--red); background: #fff0f0; }
+.vm-action-btn.vm-restore { color: var(--accent); }
+.vm-action-btn.vm-clone { color: var(--text-muted); }
+.vm-action-btn.vm-clone:hover { color: var(--accent); background: #eef5fc; }
+.vm-action-btn.vm-clone svg { vertical-align: -2px; }
+
+/* Manual-VM action column holds clone + remove. */
+#manual-vm-modal .vm-col-action { width: 68px; white-space: nowrap; text-align: right; }
+
+/* Manual VM table: short name, wide Power, fixed layout so the widths hold.
+   Names are short (DC01); the form fields need the room more than the name. */
+#manual-vm-modal .modal-content { max-width: min(740px, 95vw); }
+#manual-vm-table { table-layout: fixed; }
+#manual-vm-table th:nth-child(1), #manual-vm-table td:nth-child(1) { width: 24%; }  /* VM Name */
+#manual-vm-table th:nth-child(2), #manual-vm-table td:nth-child(2) { width: 20%; }  /* Power */
+#manual-vm-table th:nth-child(3), #manual-vm-table td:nth-child(3) { width: 13%; }  /* vCPUs */
+#manual-vm-table th:nth-child(4), #manual-vm-table td:nth-child(4) { width: 14%; }  /* RAM */
+#manual-vm-table th:nth-child(5), #manual-vm-table td:nth-child(5) { width: 17%; }  /* Storage */
+#manual-vm-table th:nth-child(6), #manual-vm-table td:nth-child(6) { width: 12%; }  /* actions */
+
+/* Clone options popup stacks above the manual VM modal. */
+#clone-vm-modal { z-index: 1001; }
+
+/* Cluster network diagram modal — wide, with the SVG scaled to fit. */
+#diagram-modal { padding: 1rem; }
+#diagram-modal .modal-content { max-width: min(1280px, 96vw); }
+#diagram-modal-body { padding: 1rem 1.2rem 1.4rem; overflow: auto; }
+#diagram-modal-body svg { width: 100%; height: auto; display: block; }
+
+/* Recommendation card footer: keep the action buttons grouped on the right. */
+.rec-footer-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.vm-power-filter {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font: inherit;
+    background: var(--surface);
+    color: var(--text);
+}
 
 .vm-edit {
     width: 100%;
