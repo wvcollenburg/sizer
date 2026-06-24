@@ -13,8 +13,9 @@ from orm_models import (
     Model, StorageConfig,
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
     ValidatedNic, ValidatedPlatform,
+    DriveCatalog, RamOption,
 )
-from models import DISK_SIZES_TB, RAM_SIZES_GB
+from models import RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from recommend import (
@@ -25,6 +26,29 @@ from export_pptx import generate_proposal, generate_config_slide
 from export_docx import build_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
+
+
+def _validated_disk_sizes():
+    """Disk-size options for the validated picker, read live from the
+    admin-editable drive catalog so a newly added drive size is immediately
+    selectable without a code change. Keyed by performance bucket; the front end
+    maps the spinning interface types (SAS/NLSAS/SATA) onto the HDD bucket."""
+    buckets = {"HDD": set(), "SSD": set(), "NVMe": set()}
+    for drive in DriveCatalog.query.all():
+        if drive.drive_type in buckets:
+            buckets[drive.drive_type].add(drive.size_tb)
+    return {bucket: sorted(sizes) for bucket, sizes in buckets.items()}
+
+
+def _validated_ram_sizes():
+    """RAM options for the validated picker: every size the hardware catalog
+    offers (across all models) unioned with the standard baseline, so an
+    admin-added RAM size shows up while the generic list never shrinks."""
+    catalog = {
+        row.size_gb
+        for row in RamOption.query.with_entities(RamOption.size_gb).distinct()
+    }
+    return sorted(set(RAM_SIZES_GB) | catalog)
 
 
 def create_app():
@@ -133,8 +157,8 @@ def create_app():
             platforms = [p.to_dict() for p in ValidatedPlatform.query.filter_by(status="Active").all()]
             return jsonify({
                 "nics": nics,
-                "disk_sizes": DISK_SIZES_TB,
-                "ram_sizes": RAM_SIZES_GB,
+                "disk_sizes": _validated_disk_sizes(),
+                "ram_sizes": _validated_ram_sizes(),
                 "platforms": platforms,
             })
 

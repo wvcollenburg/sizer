@@ -40,8 +40,8 @@ let vmPowerFilter = 'all';   // table view filter: 'all' | 'on' | 'off'
 
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
-    loadValidatedNics();
-    initDiskTiers();
+    // Seed the tier defaults only after the disk-size catalog has loaded.
+    loadValidatedNics().then(initDiskTiers);
     populateSizingModelDropdown('sizing-model-select', false);
 });
 
@@ -511,16 +511,15 @@ function updateValidatedRules() {
     }
 }
 
-const DISK_SIZES = {
-    spinning: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24],
-    SSD: [0.24, 0.48, 0.96, 1.92, 3.84, 7.68, 15.36, 30.72],
-    NVMe: [0.25, 0.5, 0.96, 1, 1.92, 2, 3.84, 4, 7.68, 8, 15.36, 30.72],
-};
+// Disk-size options per performance bucket, loaded live from the editable drive
+// catalog by loadValidatedNics() (see /api/models?mode=validated) so admin-added
+// sizes appear without a code change. Empty until that fetch resolves.
+let VALIDATED_DISK_SIZES = { HDD: [], SSD: [], NVMe: [] };
 
 function sizesForType(type) {
-    if (['SAS', 'NLSAS', 'SATA', 'HDD'].includes(type)) return DISK_SIZES.spinning;
-    if (type === 'SSD') return DISK_SIZES.SSD;
-    return DISK_SIZES.NVMe;
+    if (['SAS', 'NLSAS', 'SATA', 'HDD'].includes(type)) return VALIDATED_DISK_SIZES.HDD;
+    if (type === 'SSD') return VALIDATED_DISK_SIZES.SSD;
+    return VALIDATED_DISK_SIZES.NVMe;
 }
 
 // Fill the size dropdown that belongs to the same tier row as this type select,
@@ -582,10 +581,32 @@ function collectValidatedDisks() {
     return disks;
 }
 
+// Fill the validated RAM dropdown from the catalog, preserving the current pick
+// (defaults to 64 GB the first time, matching the prior hardcoded default).
+function populateRamOptions(sizes) {
+    const select = document.getElementById('val-ram');
+    if (!select || !sizes.length) return;
+    const prev = select.value || '64';
+    select.innerHTML = sizes.map(s => `<option value="${s}">${s} GB</option>`).join('');
+    if (sizes.map(String).includes(prev)) select.value = prev;
+    else if (sizes.includes(64)) select.value = '64';
+}
+
+// Loads everything the validated picker needs in one request: NICs, plus the
+// disk-size and RAM option lists that now come from the editable catalogs rather
+// than hardcoded arrays. Safe to call again after sign-in or a catalog change —
+// existing selections are preserved.
 async function loadValidatedNics() {
     const resp = await fetch('/api/models?mode=validated');
     if (!resp.ok) return;  // not signed in yet
     const data = await resp.json();
+
+    VALIDATED_DISK_SIZES = data.disk_sizes || VALIDATED_DISK_SIZES;
+    // Refresh any already-rendered size dropdowns against the fresh catalog,
+    // keeping the current pick where it still exists.
+    document.querySelectorAll('.tier-row .disk-type').forEach(populateDiskSizes);
+    populateRamOptions(data.ram_sizes || []);
+
     const select = document.getElementById('val-nic');
     select.innerHTML = '';
     data.nics.forEach(nic => {
@@ -2386,7 +2407,9 @@ window.hasSizingToSave = hasSizingToSave;
 // rejected (401) while anonymous under the mandatory-login gate.
 window.initSizer = function () {
     loadModels();
-    loadValidatedNics();
+    // This is the real first successful catalog load under the login gate, so
+    // seed the tier defaults once the disk-size catalog is in.
+    loadValidatedNics().then(initDiskTiers);
 };
 
 
