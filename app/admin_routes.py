@@ -14,6 +14,7 @@ from orm_models import (
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
+from xlsx_utils import sheet_rows as _sheet_rows
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
 _TUNABLE_BY_KEY = {d["key"]: d for d in TUNABLE_DEFS}
@@ -661,6 +662,63 @@ def import_catalog():
         os.unlink(tmp.name)
 
 
+def _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows):
+    """Group the per-model option rows (CPU / RAM / Storage / Drive / NIC) by
+    model name. Shared by both Excel importers — they differ only in which sheet
+    names these rows are read from, not in how the rows are shaped."""
+    cpus = {}
+    for r in cpu_rows:
+        name = str(r.get("Model Name", "")).strip()
+        if name:
+            cpus.setdefault(name, []).append({
+                "desc": str(r.get("Description", "")),
+                "qty": int(r.get("Qty", 1) or 1),
+                "cores": int(r.get("Cores", 0) or 0),
+                "threads": int(r.get("Threads", 0) or 0),
+                "ghz": float(r.get("GHz", 0) or 0),
+            })
+
+    ram = {}
+    for r in ram_rows:
+        name = str(r.get("Model Name", "")).strip()
+        if name:
+            ram.setdefault(name, []).append(int(r.get("Size GB", 0) or 0))
+
+    stor = {}
+    for r in stor_rows:
+        name = str(r.get("Model Name", "")).strip()
+        if name:
+            stor[name] = {
+                "type": str(r.get("Type", "nvme_only")).strip(),
+                "hdd_count": int(r.get("HDD Count", 0) or 0) or None,
+                "ssd_count": int(r.get("SSD Count", 0) or 0) or None,
+                "nvme_count": int(r.get("NVMe Count", 0) or 0) or None,
+                "drives_per_node": int(r.get("Drives Per Node", 0) or 0) or None,
+            }
+
+    drives = {}
+    for r in drv_rows:
+        name = str(r.get("Model Name", "")).strip()
+        if name:
+            drives.setdefault(name, []).append({
+                "type": str(r.get("Drive Type", "")).strip(),
+                "size_tb": float(r.get("Size TB", 0) or 0),
+            })
+
+    nics = {}
+    for r in nic_rows:
+        name = str(r.get("Model Name", "")).strip()
+        if name:
+            nics.setdefault(name, []).append({
+                "desc": str(r.get("Description", "")),
+                "qty": int(r.get("Qty", 1) or 1),
+                "ports": int(r.get("Ports", 0) or 0),
+                "speed": str(r.get("Speed", "")),
+            })
+
+    return cpus, ram, stor, drives, nics
+
+
 def _import_catalog_from_excel(file_path):
     from openpyxl import load_workbook
     wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -737,55 +795,9 @@ def _import_catalog_from_excel(file_path):
 
     models_created = models_skipped = 0
     if model_rows:
-        cpus_by_model = {}
-        for r in model_cpu_rows:
-            name = str(r.get("Model Name", "")).strip()
-            if name:
-                cpus_by_model.setdefault(name, []).append({
-                    "desc": str(r.get("Description", "")),
-                    "qty": int(r.get("Qty", 1) or 1),
-                    "cores": int(r.get("Cores", 0) or 0),
-                    "threads": int(r.get("Threads", 0) or 0),
-                    "ghz": float(r.get("GHz", 0) or 0),
-                })
-
-        ram_by_model = {}
-        for r in model_ram_rows:
-            name = str(r.get("Model Name", "")).strip()
-            if name:
-                ram_by_model.setdefault(name, []).append(int(r.get("Size GB", 0) or 0))
-
-        stor_by_model = {}
-        for r in model_stor_rows:
-            name = str(r.get("Model Name", "")).strip()
-            if name:
-                stor_by_model[name] = {
-                    "type": str(r.get("Type", "nvme_only")).strip(),
-                    "hdd_count": int(r.get("HDD Count", 0) or 0) or None,
-                    "ssd_count": int(r.get("SSD Count", 0) or 0) or None,
-                    "nvme_count": int(r.get("NVMe Count", 0) or 0) or None,
-                    "drives_per_node": int(r.get("Drives Per Node", 0) or 0) or None,
-                }
-
-        mdrives_by_model = {}
-        for r in model_drv_rows:
-            name = str(r.get("Model Name", "")).strip()
-            if name:
-                mdrives_by_model.setdefault(name, []).append({
-                    "type": str(r.get("Drive Type", "")).strip(),
-                    "size_tb": float(r.get("Size TB", 0) or 0),
-                })
-
-        nics_by_model = {}
-        for r in model_nic_rows:
-            name = str(r.get("Model Name", "")).strip()
-            if name:
-                nics_by_model.setdefault(name, []).append({
-                    "desc": str(r.get("Description", "")),
-                    "qty": int(r.get("Qty", 1) or 1),
-                    "ports": int(r.get("Ports", 0) or 0),
-                    "speed": str(r.get("Speed", "")),
-                })
+        cpus_by_model, ram_by_model, stor_by_model, mdrives_by_model, nics_by_model = \
+            _model_option_maps(model_cpu_rows, model_ram_rows, model_stor_rows,
+                               model_drv_rows, model_nic_rows)
 
         for r in model_rows:
             name = str(r.get("Name", "")).strip()
@@ -1044,17 +1056,6 @@ def _add_storage(model, storage):
             ))
 
 
-def _sheet_rows(wb, name):
-    if name not in wb.sheetnames:
-        return []
-    ws = wb[name]
-    rows = list(ws.iter_rows(values_only=True))
-    if len(rows) < 2:
-        return []
-    headers = [str(h).strip() if h else f"col_{i}" for i, h in enumerate(rows[0])]
-    return [dict(zip(headers, row)) for row in rows[1:] if any(v is not None for v in row)]
-
-
 def _import_from_excel(file_path, mode):
     from openpyxl import load_workbook
     wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -1070,55 +1071,8 @@ def _import_from_excel(file_path, mode):
     if not model_rows:
         return {"error": "No models found in the 'Models' sheet"}
 
-    cpus_by_model = {}
-    for r in cpu_rows:
-        name = str(r.get("Model Name", "")).strip()
-        if name:
-            cpus_by_model.setdefault(name, []).append({
-                "desc": str(r.get("Description", "")),
-                "qty": int(r.get("Qty", 1) or 1),
-                "cores": int(r.get("Cores", 0) or 0),
-                "threads": int(r.get("Threads", 0) or 0),
-                "ghz": float(r.get("GHz", 0) or 0),
-            })
-
-    ram_by_model = {}
-    for r in ram_rows:
-        name = str(r.get("Model Name", "")).strip()
-        if name:
-            ram_by_model.setdefault(name, []).append(int(r.get("Size GB", 0) or 0))
-
-    stor_by_model = {}
-    for r in stor_rows:
-        name = str(r.get("Model Name", "")).strip()
-        if name:
-            stor_by_model[name] = {
-                "type": str(r.get("Type", "nvme_only")).strip(),
-                "hdd_count": int(r.get("HDD Count", 0) or 0) or None,
-                "ssd_count": int(r.get("SSD Count", 0) or 0) or None,
-                "nvme_count": int(r.get("NVMe Count", 0) or 0) or None,
-                "drives_per_node": int(r.get("Drives Per Node", 0) or 0) or None,
-            }
-
-    drives_by_model = {}
-    for r in drv_rows:
-        name = str(r.get("Model Name", "")).strip()
-        if name:
-            drives_by_model.setdefault(name, []).append({
-                "type": str(r.get("Drive Type", "")).strip(),
-                "size_tb": float(r.get("Size TB", 0) or 0),
-            })
-
-    nics_by_model = {}
-    for r in nic_rows:
-        name = str(r.get("Model Name", "")).strip()
-        if name:
-            nics_by_model.setdefault(name, []).append({
-                "desc": str(r.get("Description", "")),
-                "qty": int(r.get("Qty", 1) or 1),
-                "ports": int(r.get("Ports", 0) or 0),
-                "speed": str(r.get("Speed", "")),
-            })
+    cpus_by_model, ram_by_model, stor_by_model, drives_by_model, nics_by_model = \
+        _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows)
 
     created = 0
     updated = 0

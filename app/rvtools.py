@@ -1,4 +1,5 @@
 from openpyxl import load_workbook
+from xlsx_utils import sheet_rows as _sheet_rows, to_float as _float, to_int as _int
 
 
 def parse_rvtools(file_path):
@@ -15,17 +16,6 @@ def parse_rvtools(file_path):
 
     result["summary"] = _build_summary(result)
     return result
-
-
-def _sheet_rows(wb, name):
-    if name not in wb.sheetnames:
-        return []
-    ws = wb[name]
-    rows = list(ws.iter_rows(values_only=True))
-    if len(rows) < 2:
-        return []
-    headers = [str(h).strip() if h else f"col_{i}" for i, h in enumerate(rows[0])]
-    return [dict(zip(headers, row)) for row in rows[1:] if any(v is not None for v in row)]
 
 
 def _parse_metadata(wb):
@@ -260,15 +250,3 @@ def _build_summary(data):
     }
 
 
-def _float(v):
-    try:
-        return float(v) if v else 0.0
-    except (ValueError, TypeError):
-        return 0.0
-
-
-def _int(v):
-    try:
-        return int(v) if v else 0
-    except (ValueError, TypeError):
-        return 0

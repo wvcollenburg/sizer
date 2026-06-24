@@ -1,4 +1,5 @@
 from openpyxl import load_workbook
+from xlsx_utils import sheet_rows as _sheet_rows, to_float as _float, to_int as _int
 
 
 def parse_liveoptics(file_path):
@@ -33,17 +34,6 @@ def parse_liveoptics(file_path):
     elif result.get("scan_type") == "hyperv":
         _finalize_hyperv_summary(result)
     return result
-
-
-def _sheet_rows(wb, name):
-    if name not in wb.sheetnames:
-        return []
-    ws = wb[name]
-    rows = list(ws.iter_rows(values_only=True))
-    if len(rows) < 2:
-        return []
-    headers = [str(h).strip() if h else f"col_{i}" for i, h in enumerate(rows[0])]
-    return [dict(zip(headers, row)) for row in rows[1:]]
 
 
 def _parse_details(wb):
@@ -558,17 +548,3 @@ def _build_summary(data):
         "max_vm_ram_gb": max((v["provisioned_memory_gb"] for v in active_vms), default=0),
         "max_vm_cores": max((v["vcpus"] for v in active_vms), default=0),
     }
-
-
-def _float(v):
-    try:
-        return float(v) if v else 0.0
-    except (ValueError, TypeError):
-        return 0.0
-
-
-def _int(v):
-    try:
-        return int(v) if v else 0
-    except (ValueError, TypeError):
-        return 0
