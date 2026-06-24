@@ -495,6 +495,29 @@
             </div>
         </div>
 
+        <!-- Drive picker (opens over the model editor) -->
+        <div class="modal-overlay" id="drive-select-modal" style="display:none">
+            <div class="modal" style="max-width:560px">
+                <div class="modal-header">
+                    <h2>Add Drives</h2>
+                    <button class="modal-close" data-click='["closeDriveSelect"]'>&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="drive-select-toolbar">
+                        <label class="drive-select-all-lbl">
+                            <input type="checkbox" id="drive-select-all" data-change='["toggleAllDriveSelect","$this"]'>
+                            Select all
+                        </label>
+                    </div>
+                    <div id="drive-select-list" class="drive-select-grid"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-click='["closeDriveSelect"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmDriveSelect"]'>Add Selected</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══════════════════ MODEL EDIT MODAL ═══════════════════ -->
         <div class="modal-overlay" id="edit-modal" style="display:none">
             <div class="modal modal-wide">
@@ -641,14 +664,10 @@
                         <div id="drive-options-wrap">
                             <div class="sub-header" style="margin-top:0.5rem">
                                 <h4>Drive Size Options</h4>
-                                <span class="sub-hint">Ctrl/Cmd-click to select several</span>
                             </div>
-                            <div class="picker-row picker-row-multi">
-                                <select id="drive-picker" class="picker-select" multiple size="6"></select>
-                                <div class="picker-row-actions">
-                                    <button class="btn btn-small" data-click='["addDrivesFromPicker"]'>Add Selected</button>
-                                    <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
-                                </div>
+                            <div class="picker-row">
+                                <button class="btn btn-small" data-click='["openDriveSelect"]'>+ Add Drives…</button>
+                                <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
                             </div>
                             <div id="drive-chips" class="chip-list"></div>
                         </div>

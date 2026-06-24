@@ -603,8 +603,6 @@ function populatePickers() {
         opt.textContent = `${n.desc} (${n.ports}p ${n.speed})`;
         nicPicker.appendChild(opt);
     });
-
-    populateDrivePicker();
 }
 
 function refreshPickersAfterCatalogChange(type) {
@@ -741,17 +739,6 @@ function addNicFromPicker() {
     sel.value = '';
 }
 
-function addDrivesFromPicker() {
-    const sel = document.getElementById('drive-picker');
-    Array.from(sel.selectedOptions).forEach(opt => {
-        const cat = driveCatalog.find(d => d.id === parseInt(opt.value));
-        if (cat && !selectedDrives.some(d => d.drive_type === cat.drive_type && d.size_tb === cat.size_tb)) {
-            selectedDrives.push({ ...cat });
-        }
-    });
-    renderDriveChips();  // also repopulates the picker, dropping the added drives
-}
-
 // ── Chip Rendering ─────────────────────────────────────────────────────────
 
 function renderCpuChips() {
@@ -789,7 +776,6 @@ function renderDriveChips() {
         chip.innerHTML = `${esc(d.drive_type)} ${d.size_tb} TB <span class="remove" data-click='["removeDrive",${i}]'>&times;</span>`;
         container.appendChild(chip);
     });
-    populateDrivePicker();
 }
 
 function removeCpu(i) { selectedCpus.splice(i, 1); renderCpuChips(); }
@@ -923,31 +909,51 @@ function allowedDriveTypes() {
     return STORAGE_DRIVE_TYPES[document.getElementById('edit-stor-type').value] || [];
 }
 
-// Fill the multi-select drive picker with catalog drives valid for the current
-// storage type, hiding any already added so they can't be double-selected.
-function populateDrivePicker() {
-    const picker = document.getElementById('drive-picker');
-    if (!picker) return;
+// Drive picker modal: list the catalog drives valid for the current storage type
+// (hiding ones already added) as checkboxes, so several can be added at once
+// without a bulky inline multi-select.
+function openDriveSelect() {
+    renderDriveSelectList();
+    document.getElementById('drive-select-all').checked = false;
+    document.getElementById('drive-select-modal').style.display = 'flex';
+}
+
+function closeDriveSelect() {
+    document.getElementById('drive-select-modal').style.display = 'none';
+}
+
+function renderDriveSelectList() {
+    const list = document.getElementById('drive-select-list');
     const allowed = allowedDriveTypes();
     const taken = new Set(selectedDrives.map(d => `${d.drive_type}|${d.size_tb}`));
     const avail = driveCatalog
         .filter(d => allowed.includes(d.drive_type) && !taken.has(`${d.drive_type}|${d.size_tb}`))
         .sort((a, b) => a.drive_type.localeCompare(b.drive_type) || a.size_tb - b.size_tb);
-    picker.innerHTML = '';
-    if (!allowed.length) {
-        picker.innerHTML = '<option disabled>No drives for this storage type</option>';
-        return;
-    }
     if (!avail.length) {
-        picker.innerHTML = '<option disabled>All matching drives added</option>';
+        list.innerHTML = `<p class="drive-select-empty">${allowed.length
+            ? 'All matching drives are already added.'
+            : 'This storage type has no drive options.'}</p>`;
         return;
     }
-    avail.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = `${d.drive_type} ${d.size_tb} TB`;
-        picker.appendChild(opt);
+    list.innerHTML = avail.map(d =>
+        `<label><input type="checkbox" value="${d.id}"> ${esc(d.drive_type)} ${d.size_tb} TB</label>`
+    ).join('');
+}
+
+function toggleAllDriveSelect(el) {
+    document.querySelectorAll('#drive-select-list input[type=checkbox]')
+        .forEach(cb => { cb.checked = el.checked; });
+}
+
+function confirmDriveSelect() {
+    document.querySelectorAll('#drive-select-list input[type=checkbox]:checked').forEach(cb => {
+        const cat = driveCatalog.find(d => d.id === parseInt(cb.value));
+        if (cat && !selectedDrives.some(d => d.drive_type === cat.drive_type && d.size_tb === cat.size_tb)) {
+            selectedDrives.push({ ...cat });
+        }
     });
+    renderDriveChips();
+    closeDriveSelect();
 }
 
 // ── Storage Fields ─────────────────────────────────────────────────────────
@@ -983,15 +989,12 @@ function updateStorageFields() {
     if (driveWrap) driveWrap.style.display = type === 'cloud' ? 'none' : '';
 
     // Guard: drop any selected drives whose media is invalid for the new storage
-    // type (e.g. switching Hybrid -> NVMe-only strips HDD/SSD picks), then refresh
-    // the picker. renderDriveChips repopulates the picker on its own.
+    // type (e.g. switching Hybrid -> NVMe-only strips HDD/SSD picks).
     const allowed = STORAGE_DRIVE_TYPES[type] || [];
     const kept = selectedDrives.filter(d => allowed.includes(d.drive_type));
     if (kept.length !== selectedDrives.length) {
         selectedDrives = kept;
         renderDriveChips();
-    } else {
-        populateDrivePicker();
     }
 }
 
