@@ -38,7 +38,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
                              sizing_mode="certified", allow_storage_only=False,
-                             target_model=None, include_eol_eos=False):
+                             target_model=None, include_eol_eos=False,
+                             max_day_one_storage_pct=None, max_day_one_ram_pct=None):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -73,6 +74,25 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     target_model = (target_model or "").strip() or None
     include_eol_eos = bool(include_eol_eos)
 
+    # Max day-one (pre-growth) consumption caps. The cluster is sized so today's
+    # load sits at or below this fraction of capacity, on top of the growth /
+    # snapshot reserve. Modeled as a capacity FLOOR (capacity >= base_demand /
+    # (cap/100)); the engine later sizes to the max of this floor and the
+    # projected-demand requirement. Storage is capped against full-cluster usable
+    # (RF replication already covers a node loss, so storage N-1 == full); RAM
+    # against N-1 available (so the workload still fits with a node down even at
+    # the projected end-state). 100% (or blank) effectively disables the cap.
+    def _resolve_pct(val, fallback):
+        try:
+            v = float(val) if val is not None else float(fallback)
+        except (TypeError, ValueError):
+            v = float(fallback)
+        return max(1.0, min(v, 100.0))
+
+    max_day_one_storage_pct = _resolve_pct(max_day_one_storage_pct,
+                                           T.max_day_one_storage_pct)
+    max_day_one_ram_pct = _resolve_pct(max_day_one_ram_pct, T.max_day_one_ram_pct)
+
     # Software-only ("Validated") sizing reuses the certified Model catalog but
     # lets the engine fit FEWER disks per node than the certified (fully-populated)
     # count — sizing storage to need instead of to the fixed appliance config.
@@ -91,10 +111,21 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     projected_ram = base_ram * growth_factor
     projected_storage = base_storage * growth_factor * (1 + snap_at_target)
 
+    # Day-one capacity floors: the workload must occupy <= cap% of capacity today.
+    # Equivalent to requiring capacity >= base_demand / (cap/100). Sizing then
+    # gates on max(projected demand, floor) — see min_capacity_* in needs.
+    storage_floor_tb = base_storage / (max_day_one_storage_pct / 100)
+    ram_floor_gb = base_ram / (max_day_one_ram_pct / 100)
+
     needs = {
         "vcpus": projected_vcpus,
         "ram_gb": projected_ram,
         "usable_storage_tb": projected_storage,
+        # Capacity the fit is gated on per dimension: the larger of projected
+        # demand and the day-one consumption floor. usable_storage_tb / ram_gb
+        # above stay as projected demand for the utilization bars & headroom.
+        "min_capacity_storage_tb": max(projected_storage, storage_floor_tb),
+        "min_capacity_ram_gb": max(projected_ram, ram_floor_gb),
         # Current (pre-growth) demand, so the UI can show how much of each
         # utilization bar is today's load vs reserved growth/snapshot headroom.
         "base_vcpus": base_vcpus,
@@ -482,11 +513,11 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     max_raw, max_biggest = _max_raw_per_node(storage)
 
     needed_nodes_storage = 0
-    if max_raw > 0 and needs["usable_storage_tb"] > 0:
+    if max_raw > 0 and needs["min_capacity_storage_tb"] > 0:
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             usable = _cluster_usable_storage(max_raw, max_biggest, layout)
-            if usable >= needs["usable_storage_tb"]:
+            if usable >= needs["min_capacity_storage_tb"]:
                 needed_nodes_storage = n
                 break
 
@@ -507,11 +538,11 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     max_ram = max(viable_ram_options)
 
     needed_nodes_ram = 0
-    if max_ram > 0 and needs["ram_gb"] > 0:
+    if max_ram > 0 and needs["min_capacity_ram_gb"] > 0:
         for n in range(min_nodes, 200):
             layout = _cluster_layout(n)
             n1_nodes = n - len(layout)
-            if (max_ram - ram_overhead) * n1_nodes >= needs["ram_gb"]:
+            if (max_ram - ram_overhead) * n1_nodes >= needs["min_capacity_ram_gb"]:
                 needed_nodes_ram = n
                 break
 
@@ -585,12 +616,12 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if allow_storage_only:
                 hci_nodes, ram_gb = _hci_split(
                     usable_cores, required_cores, viable_ram_options,
-                    needs["ram_gb"], num_clusters, node_count, full_cluster,
-                    ram_overhead)
+                    needs["min_capacity_ram_gb"], num_clusters, node_count,
+                    full_cluster, ram_overhead)
                 so_nodes = node_count - hci_nodes
             if ram_gb is None:
                 hci_nodes, so_nodes = node_count, 0
-                ram_gb = _pick_ram(viable_ram_options, needs["ram_gb"],
+                ram_gb = _pick_ram(viable_ram_options, needs["min_capacity_ram_gb"],
                                    node_count, num_clusters, ram_overhead)
             if not ram_gb:
                 continue
@@ -601,7 +632,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             full_usable_cores = usable_cores * hci_nodes
             cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
 
-            stor = _pick_storage_multi(storage, needs["usable_storage_tb"],
+            stor = _pick_storage_multi(storage, needs["min_capacity_storage_tb"],
                                        layout, validated=validated)
             if not stor:
                 continue
@@ -617,7 +648,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             total_raw = raw_per_node * node_count
             usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
 
-            if usable < needs["usable_storage_tb"]:
+            if usable < needs["min_capacity_storage_tb"]:
                 continue
 
             # Per-node IOPS: raw drive IOPS → derate for cluster overhead → divide

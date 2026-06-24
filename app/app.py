@@ -94,7 +94,9 @@ def create_app():
             refresh_from_db()
         except Exception:
             pass
-        return render_template("index.html", default_vcpu_ratio=T.default_vcpu_ratio)
+        return render_template("index.html", default_vcpu_ratio=T.default_vcpu_ratio,
+                               max_day_one_storage_pct=T.max_day_one_storage_pct,
+                               max_day_one_ram_pct=T.max_day_one_ram_pct)
 
     @app.route("/privacy")
     def privacy():
@@ -212,6 +214,8 @@ def create_app():
         allow_storage_only = data.get("allow_storage_only", False)
         target_model = data.get("target_model")
         include_eol_eos = data.get("include_eol_eos", False)
+        max_day_one_storage_pct = data.get("max_day_one_storage_pct")
+        max_day_one_ram_pct = data.get("max_day_one_ram_pct")
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
@@ -220,7 +224,9 @@ def create_app():
                                           sizing_mode=sizing_mode,
                                           allow_storage_only=allow_storage_only,
                                           target_model=target_model,
-                                          include_eol_eos=include_eol_eos)
+                                          include_eol_eos=include_eol_eos,
+                                          max_day_one_storage_pct=max_day_one_storage_pct,
+                                          max_day_one_ram_pct=max_day_one_ram_pct)
         return jsonify(result)
 
     @app.route("/api/export-config", methods=["POST"])
