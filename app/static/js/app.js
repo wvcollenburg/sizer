@@ -1,3 +1,13 @@
+// HTML-escape any value before interpolating it into an innerHTML string.
+// Imported file fields (cluster/platform/VM names, OS strings) and other
+// user-supplied text are untrusted and must never reach innerHTML raw — they
+// can be saved into a shared sizing and fire as stored XSS for whoever opens it.
+function esc(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 let currentMode = 'appliance';
 // Which workload flow currently owns the shared sizing block: 'import' or
 // 'manual'. recalcRecommendations() reads the matching summary and keys results
@@ -964,11 +974,11 @@ function displayImportResults(data) {
     document.getElementById('env-summary').innerHTML = `
         <div class="summary-card">
             <div class="summary-label">Current Platform</div>
-            <div class="summary-value">${s.current_platform}</div>
+            <div class="summary-value">${esc(s.current_platform)}</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Cluster</div>
-            <div class="summary-value">${s.cluster_name}</div>
+            <div class="summary-value">${esc(s.cluster_name)}</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Hosts</div>
@@ -1122,7 +1132,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr class="so-divider"><td colspan="2">Storage-Only &times; ${so.count} (no VMs)</td></tr>
                         <tr><td>CPU</td><td>${so.cpu}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(so.ram_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>` : '';
+                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -1142,7 +1152,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>Cores</td><td>${r.cores_per_node}</td></tr>
                         <tr><td>Threads</td><td>${r.threads_per_node}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>
+                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>
                         ${iops ? iopsRow(iops.per_node) : ''}
                         ${soRows}
                     </table>
@@ -1423,7 +1433,7 @@ function renderManualVmTable() {
     });
     body.innerHTML = view.map(({ vm, i }) => `
         <tr data-idx="${i}">
-            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${(vm.name || '').replace(/"/g, '&quot;')}" onchange="setManualVm(${i},'name',this.value)"></td>
+            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${esc(vm.name)}" onchange="setManualVm(${i},'name',this.value)"></td>
             <td class="vm-col-power">
                 <select class="vm-edit" onchange="setManualVm(${i},'powered_on',this.value)">
                     <option value="on"${vm.powered_on ? ' selected' : ''}>On</option>
@@ -1791,8 +1801,8 @@ function renderVmTable() {
         const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
         const name = vmVal(vm, vm._idx, 'name') || '';
         const nameCell = isAdded
-            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"><span class="vm-tag">new</span></span>`
-            : `<span title="${name}">${name}</span>`;
+            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${esc(name)}" onchange="setVmConfig(${vm._idx},'name',this.value)"><span class="vm-tag">new</span></span>`
+            : `<span title="${esc(name)}">${esc(name)}</span>`;
         const storCell = isAdded
             ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" onchange="setVmConfig(${vm._idx},'vdisk_used_gb',this.value)">`
             : `${(stor || 0).toFixed(1)}`;
@@ -1803,12 +1813,12 @@ function renderVmTable() {
             <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
             <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
             <td class="vm-col-name">${nameCell}</td>
-            <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${model.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
+            <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${esc(model)}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
             <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" onchange="setVmConfig(${vm._idx},'vcpus',this.value)"></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" onchange="setVmConfig(${vm._idx},'provisioned_memory_gb',this.value)"></td>
             <td class="vm-col-num">${storCell}</td>
-            <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
+            <td class="vm-col-os" title="${esc(vm.os)}">${esc(vm.os)}</td>
             <td class="vm-col-action">${action}</td>
         </tr>`;
     }).join('');

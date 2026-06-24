@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database import db
+from extensions import limiter
 from auth_models import (
     Tenant, User, Configuration, ScaleConfigLink, AppSetting, AdminAuditLog,
     PiiErasure, ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
@@ -158,6 +159,17 @@ def _build_message(to_addr, subject, body):
 def send_email(to_addr, subject, body):
     """Send a plain-text email via the configured SMTP server. Raises on failure."""
     _smtp_send(_build_message(to_addr, subject, body))
+
+
+def app_base_url():
+    """Base URL for links embedded in outbound emails. Prefer the configured
+    APP_BASE_URL so a link can't be poisoned by a spoofed Host header on the
+    request that triggers the email (password-reset poisoning); fall back to the
+    request's own root for local/dev where it isn't set."""
+    base = (os.environ.get("APP_BASE_URL") or "").strip()
+    if base:
+        return base if base.endswith("/") else base + "/"
+    return request.url_root
 
 
 def send_verification_email(user, base_url):
@@ -545,6 +557,7 @@ def me():
 
 
 @auth_bp.route("/signup", methods=["POST"])
+@limiter.limit("15 per hour")
 def signup():
     data = request.json or {}
     email = normalize_email(data.get("email"))
@@ -596,7 +609,7 @@ def signup():
     db.session.commit()
 
     if needs_verification:
-        sent = send_verification_email(user, request.url_root)
+        sent = send_verification_email(user, app_base_url())
         # Do not log them in until verified.
         return jsonify({
             "pending_verification": True,
@@ -613,6 +626,7 @@ def signup():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("30 per minute")
 def login():
     data = request.json or {}
     email = normalize_email(data.get("email"))
@@ -682,18 +696,20 @@ def verify_email(token):
 
 
 @auth_bp.route("/resend-verification", methods=["POST"])
+@limiter.limit("10 per hour")
 def resend_verification():
     # Always returns a generic success so it can't be used to probe for accounts.
     email = normalize_email((request.json or {}).get("email"))
     if email and verification_active():
         user = User.query.filter_by(email=email).first()
         if user and not user.is_verified and not user.is_disabled:
-            send_verification_email(user, request.url_root)
+            send_verification_email(user, app_base_url())
     return jsonify({"message":
                     "If that account exists and needs verification, an email is on its way."})
 
 
 @auth_bp.route("/forgot-password", methods=["POST"])
+@limiter.limit("10 per hour")
 def forgot_password():
     # Generic response regardless of outcome — never reveal whether an account
     # exists. Only does anything when SMTP is configured.
@@ -704,7 +720,7 @@ def forgot_password():
         return generic
     user = User.query.filter_by(email=email).first()
     if user and not user.is_disabled and not (user.tenant and user.tenant.is_blocked):
-        send_reset_email(user, request.url_root)
+        send_reset_email(user, app_base_url())
         audit("forgot_password", "{} requested a reset link".format(user.email),
               actor=user)
         db.session.commit()
@@ -712,6 +728,7 @@ def forgot_password():
 
 
 @auth_bp.route("/reset-password", methods=["POST"])
+@limiter.limit("15 per hour")
 def reset_password():
     data = request.json or {}
     token = (data.get("token") or "").strip()
@@ -1084,7 +1101,7 @@ def super_reset_password(user_id):
     if not smtp_configured():
         return jsonify({"error":
                         "Provide a new password, or configure SMTP to email a reset link."}), 400
-    sent = send_reset_email(target, request.url_root)
+    sent = send_reset_email(target, app_base_url())
     audit("reset_password_email", target.email)
     db.session.commit()
     return jsonify({"message": ("Reset link sent to {}.".format(target.email) if sent
