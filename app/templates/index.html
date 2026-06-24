@@ -6,7 +6,7 @@
     <title>SC// Infrastructure Sizer</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
-<body>
+<body data-vcpu-ratio="{{ default_vcpu_ratio }}">
     <header>
         <div class="header-content">
             <h1>SC// Infrastructure Sizer</h1>
@@ -19,22 +19,22 @@
 
     <main>
         <section class="mode-selector">
-            <button class="mode-btn active" data-mode="appliance" onclick="switchMode('appliance')">
+            <button class="mode-btn active" data-mode="appliance" data-click='["switchMode","appliance"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
                 <span class="mode-label">Appliance (Certified)</span>
                 <span class="mode-desc">Fixed hardware configurations</span>
             </button>
-            <button class="mode-btn" data-mode="validated" onclick="switchMode('validated')">
+            <button class="mode-btn" data-mode="validated" data-click='["switchMode","validated"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="mode-label">Software Only (Validated)</span>
                 <span class="mode-desc">Flexible configurations with rules</span>
             </button>
-            <button class="mode-btn" data-mode="import" onclick="switchMode('import')">
+            <button class="mode-btn" data-mode="import" data-click='["switchMode","import"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
                 <span class="mode-label">VMware Import</span>
                 <span class="mode-desc">Import Live Optics or RVTools export</span>
             </button>
-            <button class="mode-btn" data-mode="manual" onclick="switchMode('manual')">
+            <button class="mode-btn" data-mode="manual" data-click='["switchMode","manual"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
                 <span class="mode-label">Manual Input</span>
                 <span class="mode-desc">Enter workload requirements manually</span>
@@ -46,7 +46,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Show Models</label>
-                    <select id="status-filter" onchange="loadModels()">
+                    <select id="status-filter" data-change='["loadModels"]'>
                         <option value="active">Active Only</option>
                         <option value="all_current">Active + EOL</option>
                         <option value="all">All (incl. EOS)</option>
@@ -54,13 +54,13 @@
                 </div>
                 <div class="form-group">
                     <label>Model</label>
-                    <select id="model-select" onchange="loadModelDetails()">
+                    <select id="model-select" data-change='["loadModelDetails"]'>
                         <option value="">-- Select Model --</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Node Count</label>
-                    <input type="number" id="node-count" value="3" min="1" max="99" onchange="calculate()">
+                    <input type="number" id="node-count" value="3" min="1" max="99" data-change='["calculate"]'>
                 </div>
             </div>
 
@@ -75,15 +75,15 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>CPU</label>
-                        <select id="cpu-select" onchange="calculate()"></select>
+                        <select id="cpu-select" data-change='["calculate"]'></select>
                     </div>
                     <div class="form-group">
                         <label>RAM (GB)</label>
-                        <select id="ram-select" onchange="calculate()"></select>
+                        <select id="ram-select" data-change='["calculate"]'></select>
                     </div>
                     <div class="form-group">
                         <label>NIC</label>
-                        <select id="nic-select" onchange="calculate()"></select>
+                        <select id="nic-select" data-change='["calculate"]'></select>
                     </div>
                 </div>
 
@@ -92,7 +92,7 @@
                 <div class="storage-only-block">
                     <div class="storage-only-header">
                         <label class="checkbox-inline">
-                            <input type="checkbox" id="so-enable" onchange="toggleStorageOnly()">
+                            <input type="checkbox" id="so-enable" data-change='["toggleStorageOnly"]'>
                             Add storage-only nodes
                         </label>
                         <span class="info-icon" tabindex="0"
@@ -101,15 +101,15 @@
                     <div id="so-config" class="form-row" style="display:none">
                         <div class="form-group">
                             <label>Storage-Only Node Count</label>
-                            <input type="number" id="so-count" value="1" min="1" max="98" onchange="calculate()">
+                            <input type="number" id="so-count" value="1" min="1" max="98" data-change='["calculate"]'>
                         </div>
                         <div class="form-group">
                             <label>CPU (storage-only)</label>
-                            <select id="so-cpu-select" onchange="calculate()"></select>
+                            <select id="so-cpu-select" data-change='["calculate"]'></select>
                         </div>
                         <div class="form-group">
                             <label>RAM (GB)</label>
-                            <select id="so-ram-select" onchange="calculate()"></select>
+                            <select id="so-ram-select" data-change='["calculate"]'></select>
                         </div>
                     </div>
                 </div>
@@ -180,11 +180,11 @@
                     <div class="tier-mode-toggle">
                         <label class="radio-inline">
                             <input type="radio" name="disk-tier-mode" value="single" checked
-                                   onchange="setTierMode('single')"> Single tier
+                                   data-change='["setTierMode","single"]'> Single tier
                         </label>
                         <label class="radio-inline">
                             <input type="radio" name="disk-tier-mode" value="dual"
-                                   onchange="setTierMode('dual')"> Dual tier (hybrid)
+                                   data-change='["setTierMode","dual"]'> Dual tier (hybrid)
                         </label>
                     </div>
                 </div>
@@ -192,7 +192,7 @@
                 <div id="single-tier-config">
                     <div class="tier-row">
                         <span class="tier-label">Tier</span>
-                        <select id="st-type" class="disk-type" onchange="populateDiskSizes(this)">
+                        <select id="st-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
                             <option value="SAS">SAS (Spinning)</option>
                             <option value="NLSAS">NLSAS (Spinning)</option>
                             <option value="SATA">SATA (Spinning)</option>
@@ -208,7 +208,7 @@
                 <div id="dual-tier-config" style="display:none">
                     <div class="tier-row">
                         <span class="tier-label">Capacity</span>
-                        <select id="dt-cap-type" class="disk-type" onchange="populateDiskSizes(this)">
+                        <select id="dt-cap-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
                             <option value="SAS">SAS (Spinning)</option>
                             <option value="NLSAS">NLSAS (Spinning)</option>
                             <option value="SATA">SATA (Spinning)</option>
@@ -219,7 +219,7 @@
                     </div>
                     <div class="tier-row">
                         <span class="tier-label">Fast</span>
-                        <select id="dt-fast-type" class="disk-type" onchange="populateDiskSizes(this)">
+                        <select id="dt-fast-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
                             <option value="SSD">SSD (Flash)</option>
                             <option value="NVMe">NVMe (Flash)</option>
                         </select>
@@ -235,7 +235,7 @@
             <div class="storage-only-block">
                 <div class="storage-only-header">
                     <label class="checkbox-inline">
-                        <input type="checkbox" id="val-so-enable" onchange="toggleValidatedStorageOnly()">
+                        <input type="checkbox" id="val-so-enable" data-change='["toggleValidatedStorageOnly"]'>
                         Add storage-only nodes
                     </label>
                     <span class="info-icon" tabindex="0"
@@ -265,7 +265,7 @@
                 </div>
             </div>
 
-            <button class="btn btn-primary" onclick="calculateValidated()">Calculate</button>
+            <button class="btn btn-primary" data-click='["calculateValidated"]'>Calculate</button>
         </section>
 
         <!-- IMPORT MODE -->
@@ -276,7 +276,7 @@
                 <div class="upload-area" id="upload-area">
                     <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
                     <div class="upload-text">Drop .xlsx file here or click to browse</div>
-                    <input type="file" id="file-input" accept=".xlsx" onchange="handleFileSelect(this)">
+                    <input type="file" id="file-input" accept=".xlsx" data-change='["handleFileSelect","$this"]'>
                 </div>
                 <div id="upload-status" class="upload-status" style="display:none"></div>
             </div>
@@ -285,7 +285,7 @@
                 <div class="import-summary">
                     <div class="section-header-row">
                         <h3>Environment Summary</h3>
-                        <button class="btn btn-advanced" id="btn-vm-exclusions" onclick="openVmExclusionModal()">
+                        <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                             Configure VMs <span id="vm-exclusion-count"></span>
                         </button>
@@ -382,27 +382,27 @@
             <div class="manual-section">
                 <div class="manual-section-head">
                     <h3>Workload Requirements</h3>
-                    <button class="btn btn-sm" type="button" onclick="openManualVmModal()">+ Add / edit VMs<span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
+                    <button class="btn btn-sm" type="button" data-click='["openManualVmModal"]'>+ Add / edit VMs<span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
                 </div>
                 <div class="manual-vm-note" id="manual-vm-note" style="display:none"></div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Total VMs</label>
-                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-total-vms','total_vms')">
+                        <input type="number" id="man-total-vms" value="" min="0" placeholder="0" data-change='["clampManualField","man-total-vms","total_vms"]'>
                     </div>
                     <div class="form-group">
                         <label>Active VMs</label>
-                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0" onchange="clampManualField('man-active-vms','active_vms')">
+                        <input type="number" id="man-active-vms" value="" min="0" placeholder="0" data-change='["clampManualField","man-active-vms","active_vms"]'>
                     </div>
                     <div class="form-group">
                         <label>Total vCPUs *</label>
-                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-vcpus','vcpus')">
+                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field" data-change='["clampManualField","man-vcpus","vcpus"]'>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned RAM (GB) *</label>
-                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field" onchange="clampManualField('man-prov-ram','prov_ram')">
+                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field" data-change='["clampManualField","man-prov-ram","prov_ram"]'>
                     </div>
                     <div class="form-group">
                         <label>Used RAM (GB)</label>
@@ -412,11 +412,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Provisioned Storage (TB)</label>
-                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0" onchange="clampManualField('man-prov-storage','prov_storage_tb')">
+                        <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0" data-change='["clampManualField","man-prov-storage","prov_storage_tb"]'>
                     </div>
                     <div class="form-group">
                         <label>Datastore Used (TB) *</label>
-                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field" onchange="clampManualField('man-ds-used','ds_used_tb')">
+                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field" data-change='["clampManualField","man-ds-used","ds_used_tb"]'>
                     </div>
                     <div class="form-group">
                         <label>Datastore Total (TB)</label>
@@ -425,7 +425,7 @@
                 </div>
             </div>
 
-            <button class="btn btn-primary" onclick="calculateManual()">Get Recommendations</button>
+            <button class="btn btn-primary" data-click='["calculateManual"]'>Get Recommendations</button>
 
         </section>
 
@@ -440,7 +440,7 @@
                     <div class="ratio-slider-row compact">
                         <label>Target vCPU : Core ratio</label>
                         <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
-                               oninput="updateRatioDisplay()">
+                               data-input='["updateRatioDisplay"]'>
                         <span class="ratio-value" id="ratio-value">3.00 : 1</span>
                     </div>
                     <div class="ratio-bar-container">
@@ -460,11 +460,11 @@
                             <label>Target Node Count</label>
                             <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
                                    title="Size recommendations to exactly this many nodes. Larger sizes are only offered (with a warning) when the target can't fit the workload. Leave blank for the optimal/best-priced solution."
-                                   onchange="recalcRecommendations()">
+                                   data-change='["recalcRecommendations"]'>
                             <!-- CPU sizing is tied to node count. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
-                                    <input type="checkbox" id="size-full-cluster" onchange="recalcRecommendations()">
+                                    <input type="checkbox" id="size-full-cluster" data-change='["recalcRecommendations"]'>
                                     Size CPU for full cluster
                                 </label>
                                 <span class="info-icon" id="full-cluster-info" tabindex="0"
@@ -473,7 +473,7 @@
                         </div>
                         <div class="form-group">
                             <label>Storage Type</label>
-                            <select id="storage-pref" onchange="recalcRecommendations()"
+                            <select id="storage-pref" data-change='["recalcRecommendations"]'
                                     title="Prefer a specific storage media. Auto considers all options.">
                                 <option value="auto" selected>Auto</option>
                                 <option value="flash">All-Flash</option>
@@ -483,7 +483,7 @@
                             <!-- Storage-related options grouped under storage type. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
-                                    <input type="checkbox" id="allow-storage-only" onchange="recalcRecommendations()">
+                                    <input type="checkbox" id="allow-storage-only" data-change='["recalcRecommendations"]'>
                                     Allow storage-only nodes
                                 </label>
                                 <span class="info-icon" tabindex="0"
@@ -496,7 +496,7 @@
                                 <span class="info-icon" tabindex="0"
                                       title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
                             </label>
-                            <select id="sizing-mode" onchange="recalcRecommendations()">
+                            <select id="sizing-mode" data-change='["recalcRecommendations"]'>
                                 <option value="certified" selected>Certified</option>
                                 <option value="validated">Validated (Software-Only)</option>
                             </select>
@@ -506,13 +506,13 @@
                                 <span class="info-icon" tabindex="0"
                                       title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
                             </label>
-                            <select id="sizing-model-select" onchange="recalcRecommendations()">
+                            <select id="sizing-model-select" data-change='["recalcRecommendations"]'>
                                 <option value="">All models (best fit)</option>
                             </select>
                             <!-- Tied to model selection, so it sits under this dropdown. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
-                                    <input type="checkbox" id="sizing-include-eol" onchange="onEolToggle()">
+                                    <input type="checkbox" id="sizing-include-eol" data-change='["onEolToggle"]'>
                                     Include EOL / EOS systems
                                 </label>
                                 <span class="info-icon" tabindex="0"
@@ -528,7 +528,7 @@
                     <div class="growth-inputs">
                         <div class="form-group">
                             <label>Projection Years</label>
-                            <select id="growth-years" onchange="recalcRecommendations()">
+                            <select id="growth-years" data-change='["recalcRecommendations"]'>
                                 <option value="1">1 year</option>
                                 <option value="2">2 years</option>
                                 <option value="3">3 years</option>
@@ -539,12 +539,12 @@
                         <div class="form-group">
                             <label>YoY Growth %</label>
                             <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
-                                   onchange="recalcRecommendations()">
+                                   data-change='["recalcRecommendations"]'>
                         </div>
                         <div class="form-group">
                             <label>Snapshot Overhead %</label>
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
-                                   onchange="recalcRecommendations()">
+                                   data-change='["recalcRecommendations"]'>
                         </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
@@ -580,8 +580,8 @@
                 </div>
             </div>
             <div class="results-export">
-                <button class="btn btn-muted btn-sm" onclick="exportConfig('pptx')" id="config-export-btn" style="display:none" title="Download the editable PowerPoint (Scale users)">PPTX</button>
-                <button class="btn btn-export" onclick="exportConfig('pdf')" id="config-export-pdf-btn" style="display:none" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PDF</button>
+                <button class="btn btn-muted btn-sm" data-click='["exportConfig","pptx"]' id="config-export-btn" style="display:none" title="Download the editable PowerPoint (Scale users)">PPTX</button>
+                <button class="btn btn-export" data-click='["exportConfig","pdf"]' id="config-export-pdf-btn" style="display:none" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PDF</button>
             </div>
         </section>
     </main>
@@ -603,11 +603,11 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>Configure VMs for Sizing</h2>
-                <button class="modal-close" onclick="closeVmExclusionModal()">&times;</button>
+                <button class="modal-close" data-click='["closeVmExclusionModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar">
-                <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." oninput="filterVmTable()">
-                <select id="vm-power-filter" class="vm-power-filter" onchange="setVmPowerFilter(this.value)" title="Filter the table by power state">
+                <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-input='["filterVmTable"]'>
+                <select id="vm-power-filter" class="vm-power-filter" data-change='["setVmPowerFilter","$value"]' title="Filter the table by power state">
                     <option value="all">All power states</option>
                     <option value="on">Powered on only</option>
                     <option value="off">Powered off only</option>
@@ -617,10 +617,10 @@
                         <input type="checkbox" id="excl-include-storage" checked>
                         Include storage in exclusions
                     </label>
-                    <button class="btn btn-sm" onclick="addVm()">+ Add VM</button>
-                    <button class="btn btn-sm" onclick="selectPoweredOffVms()">Select powered off</button>
-                    <button class="btn btn-sm" onclick="selectLikelyCVMs()">Select likely CVMs</button>
-                    <button class="btn btn-sm btn-muted" onclick="clearAllVmExclusions()">Clear all</button>
+                    <button class="btn btn-sm" data-click='["addVm"]'>+ Add VM</button>
+                    <button class="btn btn-sm" data-click='["selectPoweredOffVms"]'>Select powered off</button>
+                    <button class="btn btn-sm" data-click='["selectLikelyCVMs"]'>Select likely CVMs</button>
+                    <button class="btn btn-sm btn-muted" data-click='["clearAllVmExclusions"]'>Clear all</button>
                 </div>
             </div>
             <div class="modal-body">
@@ -630,12 +630,12 @@
                             <tr>
                                 <th class="vm-col-check">Excl. Compute</th>
                                 <th class="vm-col-check">Excl. Storage</th>
-                                <th class="vm-col-name sortable" onclick="sortVmTable('name')">VM Name</th>
-                                <th class="vm-col-model sortable" onclick="sortVmTable('model')">Model</th>
-                                <th class="vm-col-power sortable" onclick="sortVmTable('powered_on')">Power</th>
-                                <th class="vm-col-num sortable" onclick="sortVmTable('vcpus')" title="Total cores (sockets &times; cores) &mdash; editable">Cores</th>
-                                <th class="vm-col-num sortable" onclick="sortVmTable('provisioned_memory_gb')" title="RAM (GB) &mdash; editable">RAM (GB)</th>
-                                <th class="vm-col-num sortable" onclick="sortVmTable('vdisk_used_gb')">Storage (GB)</th>
+                                <th class="vm-col-name sortable" data-click='["sortVmTable","name"]'>VM Name</th>
+                                <th class="vm-col-model sortable" data-click='["sortVmTable","model"]'>Model</th>
+                                <th class="vm-col-power sortable" data-click='["sortVmTable","powered_on"]'>Power</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","vcpus"]' title="Total cores (sockets &times; cores) &mdash; editable">Cores</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","provisioned_memory_gb"]' title="RAM (GB) &mdash; editable">RAM (GB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","vdisk_used_gb"]'>Storage (GB)</th>
                                 <th class="vm-col-os">OS</th>
                                 <th class="vm-col-action"></th>
                             </tr>
@@ -647,9 +647,9 @@
             <div class="modal-footer">
                 <div class="vm-exclusion-summary" id="vm-exclusion-summary"></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-sm btn-muted" onclick="resetVmConfig()">Reset edits</button>
-                    <button class="btn btn-muted" onclick="closeVmExclusionModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="applyVmExclusions()">Apply Changes</button>
+                    <button class="btn btn-sm btn-muted" data-click='["resetVmConfig"]'>Reset edits</button>
+                    <button class="btn btn-muted" data-click='["closeVmExclusionModal"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyVmExclusions"]'>Apply Changes</button>
                 </div>
             </div>
         </div>
@@ -660,10 +660,10 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>Add VMs</h2>
-                <button class="modal-close" onclick="closeManualVmModal()">&times;</button>
+                <button class="modal-close" data-click='["closeManualVmModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar">
-                <button class="btn btn-sm" type="button" onclick="addManualVm()">+ Add VM</button>
+                <button class="btn btn-sm" type="button" data-click='["addManualVm"]'>+ Add VM</button>
                 <span class="manual-vm-hint">Totals fill the Workload Requirements fields. You can raise those fields afterward, but not below these totals.</span>
             </div>
             <div class="modal-body">
@@ -671,11 +671,11 @@
                     <table class="vm-table" id="manual-vm-table">
                         <thead>
                             <tr>
-                                <th class="vm-col-name sortable" onclick="sortManualVm('name')">VM Name</th>
-                                <th class="vm-col-power sortable" onclick="sortManualVm('powered_on')">Power</th>
-                                <th class="vm-col-num sortable" onclick="sortManualVm('vcpus')">vCPUs</th>
-                                <th class="vm-col-num sortable" onclick="sortManualVm('ram_gb')">RAM (GB)</th>
-                                <th class="vm-col-num sortable" onclick="sortManualVm('storage_gb')">Storage (GB)</th>
+                                <th class="vm-col-name sortable" data-click='["sortManualVm","name"]'>VM Name</th>
+                                <th class="vm-col-power sortable" data-click='["sortManualVm","powered_on"]'>Power</th>
+                                <th class="vm-col-num sortable" data-click='["sortManualVm","vcpus"]'>vCPUs</th>
+                                <th class="vm-col-num sortable" data-click='["sortManualVm","ram_gb"]'>RAM (GB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortManualVm","storage_gb"]'>Storage (GB)</th>
                                 <th class="vm-col-action"></th>
                             </tr>
                         </thead>
@@ -686,8 +686,8 @@
             <div class="modal-footer">
                 <div class="vm-exclusion-summary" id="manual-vm-summary"></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-muted" onclick="closeManualVmModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="applyManualVms()">Apply</button>
+                    <button class="btn btn-muted" data-click='["closeManualVmModal"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyManualVms"]'>Apply</button>
                 </div>
             </div>
         </div>
@@ -698,13 +698,13 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 id="diagram-modal-title">Network diagram</h2>
-                <button class="modal-close" onclick="closeClusterDiagram()">&times;</button>
+                <button class="modal-close" data-click='["closeClusterDiagram"]'>&times;</button>
             </div>
             <div class="modal-body" id="diagram-modal-body"></div>
             <div class="modal-footer">
                 <div></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-primary" onclick="downloadClusterDiagram()" title="Download this diagram as an SVG"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download SVG</button>
+                    <button class="btn btn-primary" data-click='["downloadClusterDiagram"]' title="Download this diagram as an SVG"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download SVG</button>
                 </div>
             </div>
         </div>
@@ -715,7 +715,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Clone <span id="clone-source-name"></span></h2>
-                <button class="modal-close" onclick="closeCloneModal()">&times;</button>
+                <button class="modal-close" data-click='["closeCloneModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -730,8 +730,8 @@
             <div class="modal-footer">
                 <div></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-muted" onclick="closeCloneModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="confirmCloneVm()">Clone</button>
+                    <button class="btn btn-muted" data-click='["closeCloneModal"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmCloneVm"]'>Clone</button>
                 </div>
             </div>
         </div>
@@ -742,14 +742,14 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="auth-modal-title">Sign in</h2>
-                <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+                <button class="modal-close" data-click='["closeAuthModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <div class="auth-tabs">
-                    <button class="auth-tab active" id="auth-tab-login" onclick="setAuthTab('login')">Sign in</button>
-                    <button class="auth-tab" id="auth-tab-signup" onclick="setAuthTab('signup')">Sign up</button>
+                    <button class="auth-tab active" id="auth-tab-login" data-click='["setAuthTab","login"]'>Sign in</button>
+                    <button class="auth-tab" id="auth-tab-signup" data-click='["setAuthTab","signup"]'>Sign up</button>
                 </div>
-                <form id="auth-form" onsubmit="submitAuth(event)">
+                <form id="auth-form" data-submit='["submitAuth","$event"]'>
                     <div class="form-group">
                         <label>Work email</label>
                         <input type="email" id="auth-email" autocomplete="email" required
@@ -758,12 +758,12 @@
                     <div class="form-group">
                         <label>Password</label>
                         <input type="password" id="auth-password" autocomplete="current-password"
-                               required placeholder="Your password" oninput="onAuthPwInput()">
+                               required placeholder="Your password" data-input='["onAuthPwInput"]'>
                     </div>
                     <div class="form-group" id="auth-confirm-group" style="display:none">
                         <label>Confirm password</label>
                         <input type="password" id="auth-confirm" autocomplete="new-password"
-                               placeholder="Re-enter your password" oninput="onAuthPwInput()">
+                               placeholder="Re-enter your password" data-input='["onAuthPwInput"]'>
                     </div>
                     <ul class="pw-rules" id="auth-pw-rules" style="display:none">
                         <li data-rule="len">At least 10 characters</li>
@@ -787,11 +787,11 @@
                     </div>
                     <div class="auth-error" id="auth-error" style="display:none"></div>
                     <div class="auth-resend" id="auth-resend" style="display:none">
-                        <a href="#" onclick="resendVerification(event)">Resend verification email</a>
+                        <a href="#" data-click='["resendVerification","$event"]'>Resend verification email</a>
                     </div>
                     <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Sign in</button>
                     <div class="auth-links" id="auth-forgot-row">
-                        <a href="#" onclick="forgotPassword(event)">Forgot password?</a>
+                        <a href="#" data-click='["forgotPassword","$event"]'>Forgot password?</a>
                     </div>
                 </form>
             </div>
@@ -803,19 +803,19 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>My Sizings</h2>
-                <button class="modal-close" onclick="closeSizingsModal()">&times;</button>
+                <button class="modal-close" data-click='["closeSizingsModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar" id="sizings-toolbar">
                 <input type="text" id="sizings-search" class="vm-search"
-                       placeholder="Search by name or code…" oninput="filterSizings()">
+                       placeholder="Search by name or code…" data-input='["filterSizings"]'>
                 <div class="modal-actions" id="sizings-code-box">
                     <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code">
-                    <button class="btn btn-sm" onclick="retrieveByCode()">Retrieve</button>
+                    <button class="btn btn-sm" data-click='["retrieveByCode"]'>Retrieve</button>
                 </div>
             </div>
             <div class="sizings-tabs">
-                <button class="sizings-tab active" id="sizings-tab-mine" onclick="setSizingsTab('mine')">My Sizings</button>
-                <button class="sizings-tab" id="sizings-tab-org" onclick="setSizingsTab('org')">My Organization</button>
+                <button class="sizings-tab active" id="sizings-tab-mine" data-click='["setSizingsTab","mine"]'>My Sizings</button>
+                <button class="sizings-tab" id="sizings-tab-org" data-click='["setSizingsTab","org"]'>My Organization</button>
             </div>
             <div class="modal-body">
                 <div class="sizings-status" id="sizings-status" style="display:none"></div>
@@ -843,7 +843,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>Organization</h2>
-                <button class="modal-close" onclick="closeOrgModal()">&times;</button>
+                <button class="modal-close" data-click='["closeOrgModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <p class="rec-desc" id="org-desc"></p>
@@ -865,17 +865,17 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Name this sizing</h2>
-                <button class="modal-close" onclick="closeNameModal()">&times;</button>
+                <button class="modal-close" data-click='["closeNameModal"]'>&times;</button>
             </div>
             <div class="modal-body">
-                <form id="name-sizing-form" onsubmit="submitNameSizing(event)">
+                <form id="name-sizing-form" data-submit='["submitNameSizing","$event"]'>
                     <div class="form-group">
                         <label>Sizing name</label>
                         <input type="text" id="name-sizing-input" maxlength="200"
                                placeholder="e.g. Acme production cluster" autocomplete="off" required>
                     </div>
                     <div class="modal-btn-row">
-                        <button type="button" class="btn btn-muted" onclick="closeNameModal()">Cancel</button>
+                        <button type="button" class="btn btn-muted" data-click='["closeNameModal"]'>Cancel</button>
                         <button type="submit" class="btn btn-primary">Save</button>
                     </div>
                 </form>
@@ -888,21 +888,21 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Set a new password</h2>
-                <button class="modal-close" onclick="closeResetModal()">&times;</button>
+                <button class="modal-close" data-click='["closeResetModal"]'>&times;</button>
             </div>
             <div class="modal-body">
-                <form id="reset-form" onsubmit="submitReset(event)">
+                <form id="reset-form" data-submit='["submitReset","$event"]'>
                     <div class="form-group">
                         <label>New password</label>
                         <input type="password" id="reset-password" required
                                autocomplete="new-password" placeholder="Your new password"
-                               oninput="onResetPwInput()">
+                               data-input='["onResetPwInput"]'>
                     </div>
                     <div class="form-group">
                         <label>Confirm new password</label>
                         <input type="password" id="reset-confirm" required
                                autocomplete="new-password" placeholder="Re-enter your new password"
-                               oninput="onResetPwInput()">
+                               data-input='["onResetPwInput"]'>
                     </div>
                     <ul class="pw-rules" id="reset-pw-rules">
                         <li data-rule="len">At least 10 characters</li>
@@ -914,7 +914,7 @@
                     </ul>
                     <div class="auth-error" id="reset-error" style="display:none"></div>
                     <div class="modal-btn-row">
-                        <button type="button" class="btn btn-muted" onclick="closeResetModal()">Cancel</button>
+                        <button type="button" class="btn btn-muted" data-click='["closeResetModal"]'>Cancel</button>
                         <button type="submit" class="btn btn-primary">Set password</button>
                     </div>
                 </form>
@@ -927,14 +927,14 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Save sizing</h2>
-                <button class="modal-close" onclick="closeSaveChoice()">&times;</button>
+                <button class="modal-close" data-click='["closeSaveChoice"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" id="save-choice-msg"></p>
                 <div class="modal-btn-row">
-                    <button type="button" class="btn btn-muted" onclick="closeSaveChoice()">Cancel</button>
-                    <button type="button" class="btn btn-secondary" onclick="chooseSave('new')">Save as new</button>
-                    <button type="button" class="btn btn-primary" onclick="chooseSave('update')">Update</button>
+                    <button type="button" class="btn btn-muted" data-click='["closeSaveChoice"]'>Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-click='["chooseSave","new"]'>Save as new</button>
+                    <button type="button" class="btn btn-primary" data-click='["chooseSave","update"]'>Update</button>
                 </div>
             </div>
         </div>
@@ -945,7 +945,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="info-modal-title">Notice</h2>
-                <button class="modal-close" onclick="closeInfoModal()">&times;</button>
+                <button class="modal-close" data-click='["closeInfoModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <p id="info-modal-msg" class="info-modal-msg"></p>
@@ -954,20 +954,18 @@
                         <div class="info-code-label">Share code</div>
                         <code class="sizing-code info-code" id="info-modal-code"></code>
                     </div>
-                    <button type="button" class="btn btn-sm" id="info-copy-btn" onclick="copyInfoCode()">Copy</button>
+                    <button type="button" class="btn btn-sm" id="info-copy-btn" data-click='["copyInfoCode"]'>Copy</button>
                 </div>
                 <div class="modal-btn-row">
-                    <button type="button" class="btn btn-primary" onclick="closeInfoModal()">Done</button>
+                    <button type="button" class="btn btn-primary" data-click='["closeInfoModal"]'>Done</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Admin-tuned sizing defaults injected at render time; read by app.js
-        // before any sizing runs. Must precede app.js.
-        window.SIZING_DEFAULTS = { vcpuRatio: {{ default_vcpu_ratio | tojson }} };
-    </script>
+    <!-- Admin-tuned sizing default is injected via the <body data-vcpu-ratio>
+         attribute (read by app.js) — no inline script, so the CSP can forbid it. -->
+    <script src="{{ asset('js/delegate.js') }}"></script>
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>
 </body>

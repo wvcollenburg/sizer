@@ -11,11 +11,16 @@ from flask_limiter.util import get_remote_address
 # real client IP, which requires ProxyFix (see app.create_app) so every request
 # isn't bucketed under the reverse proxy's address.
 #
-# Storage defaults to in-memory, which is per-gunicorn-worker: with N workers a
-# limit is effectively enforced up to N times before biting. That's acceptable
-# for slowing brute-force / email-bombing here; point RATELIMIT_STORAGE_URI at a
-# shared backend (e.g. redis://...) to make limits exact across workers.
+# Storage: point RATELIMIT_STORAGE_URI at Redis (redis://redis:6379 in compose)
+# so limits are exact and shared across gunicorn workers. Falls back to in-memory
+# (per-worker) if unset.
+#
+# Resilience: swallow_errors + an in-memory fallback mean a Redis outage degrades
+# to per-worker limiting (or open) rather than 500-ing every login — availability
+# of auth wins over perfectly-exact limits during an outage.
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )

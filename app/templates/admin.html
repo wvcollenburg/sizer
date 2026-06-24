@@ -19,49 +19,49 @@
     <main>
         <!-- Tab Navigation -->
         <div class="tab-bar">
-            <button class="tab active" data-tab="models" onclick="switchTab('models')">Models</button>
-            <button class="tab" data-tab="cpus" onclick="switchTab('cpus')">CPUs</button>
-            <button class="tab" data-tab="nics" onclick="switchTab('nics')">NICs</button>
-            <button class="tab" data-tab="drives" onclick="switchTab('drives')">Drives</button>
-            <button class="tab" data-tab="tuning" onclick="switchTab('tuning')">Tuning</button>
+            <button class="tab active" data-tab="models" data-click='["switchTab","models"]'>Models</button>
+            <button class="tab" data-tab="cpus" data-click='["switchTab","cpus"]'>CPUs</button>
+            <button class="tab" data-tab="nics" data-click='["switchTab","nics"]'>NICs</button>
+            <button class="tab" data-tab="drives" data-click='["switchTab","drives"]'>Drives</button>
+            <button class="tab" data-tab="tuning" data-click='["switchTab","tuning"]'>Tuning</button>
             <span class="tab-spacer"></span>
-            <button class="tab" data-tab="users" onclick="switchTab('users')">Users</button>
-            <button class="tab" data-tab="stale" onclick="switchTab('stale')">Inactive 1yr+</button>
-            <button class="tab" data-tab="tenants" onclick="switchTab('tenants')">Tenants</button>
-            <button class="tab" data-tab="sizings" onclick="switchTab('sizings')">Saved Sizings</button>
-            <button class="tab" data-tab="email" onclick="switchTab('email')">Email</button>
-            <button class="tab" data-tab="audit" onclick="switchTab('audit')">Audit Log</button>
+            <button class="tab" data-tab="users" data-click='["switchTab","users"]'>Users</button>
+            <button class="tab" data-tab="stale" data-click='["switchTab","stale"]'>Inactive 1yr+</button>
+            <button class="tab" data-tab="tenants" data-click='["switchTab","tenants"]'>Tenants</button>
+            <button class="tab" data-tab="sizings" data-click='["switchTab","sizings"]'>Saved Sizings</button>
+            <button class="tab" data-tab="email" data-click='["switchTab","email"]'>Email</button>
+            <button class="tab" data-tab="audit" data-click='["switchTab","audit"]'>Audit Log</button>
         </div>
 
         <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
         <div class="tab-content active" id="tab-models">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <button class="btn btn-primary" onclick="openAddModel()">
+                    <button class="btn btn-primary" data-click='["openAddModel"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add Model
                     </button>
-                    <button class="btn btn-secondary" onclick="exportModels()">
+                    <button class="btn btn-secondary" data-click='["exportModels"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export Excel
                     </button>
-                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                    <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Import Excel
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                    <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Template
                     </button>
                 </div>
                 <div class="toolbar-right">
-                    <select id="status-filter" onchange="loadModels()">
+                    <select id="status-filter" data-change='["loadModels"]'>
                         <option value="all">All Statuses</option>
                         <option value="Active" selected>Active</option>
                         <option value="EOL">EOL</option>
                         <option value="EOS">EOS</option>
                     </select>
-                    <select id="category-filter" onchange="loadModels()">
+                    <select id="category-filter" data-change='["loadModels"]'>
                         <option value="all">All Categories</option>
                     </select>
                 </div>
@@ -93,15 +93,15 @@
         <div class="tab-content" id="tab-cpus">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <button class="btn btn-primary" onclick="openAddCatalogItem('cpu')">
+                    <button class="btn btn-primary" data-click='["openAddCatalogItem","cpu"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add CPU
                     </button>
-                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                    <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Import Catalog
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                    <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Template
                     </button>
@@ -131,15 +131,15 @@
         <div class="tab-content" id="tab-nics">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <button class="btn btn-primary" onclick="openAddCatalogItem('nic')">
+                    <button class="btn btn-primary" data-click='["openAddCatalogItem","nic"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add NIC
                     </button>
-                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                    <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Import Catalog
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                    <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Template
                     </button>
@@ -168,15 +168,15 @@
         <div class="tab-content" id="tab-drives">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <button class="btn btn-primary" onclick="openAddCatalogItem('drive')">
+                    <button class="btn btn-primary" data-click='["openAddCatalogItem","drive"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add Drive
                     </button>
-                    <button class="btn btn-secondary" onclick="openCatalogImport()">
+                    <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Import Catalog
                     </button>
-                    <button class="btn btn-secondary" onclick="downloadCatalogTemplate()">
+                    <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Template
                     </button>
@@ -208,15 +208,15 @@
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('hdd')">i</button></label>
+                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","hdd"]'>i</button></label>
                         <input type="number" id="iops-hdd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('ssd')">i</button></label>
+                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","ssd"]'>i</button></label>
                         <input type="number" id="iops-ssd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('nvme')">i</button></label>
+                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","nvme"]'>i</button></label>
                         <input type="number" id="iops-nvme" min="0" step="1">
                     </div>
                 </div>
@@ -225,21 +225,21 @@
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>Derating %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('derating')">i</button></label>
+                        <label>Derating %<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","derating"]'>i</button></label>
                         <input type="number" id="iops-derating" min="0" max="89" step="1"
                                title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
                     </div>
                     <div class="form-group">
-                        <label>Replication Factor<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('rf')">i</button></label>
+                        <label>Replication Factor<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","rf"]'>i</button></label>
                         <input type="number" id="iops-rf" min="1" step="1"
                                title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
                     </div>
                     <div class="form-group">
-                        <label>Read %<button type="button" class="tunable-info-btn" title="What this does" onclick="showIopsInfo('read')">i</button></label>
+                        <label>Read %<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","read"]'>i</button></label>
                         <input type="number" id="iops-read" min="0" max="100" step="1"
                                title="Read share of the workload (write share = 100 − read).">
                     </div>
-                    <button class="btn btn-primary" onclick="saveDriveIops()">Save IOPS</button>
+                    <button class="btn btn-primary" data-click='["saveDriveIops"]'>Save IOPS</button>
                     <span id="iops-status" class="iops-status"></span>
                 </div>
             </div>
@@ -253,8 +253,8 @@
                 </div>
                 <div id="tunables-groups"></div>
                 <div class="iops-inputs" style="margin-top:14px">
-                    <button class="btn btn-primary" onclick="saveTunables()">Save Tunables</button>
-                    <button class="btn btn-secondary" onclick="resetTunables()">Reset to defaults</button>
+                    <button class="btn btn-primary" data-click='["saveTunables"]'>Save Tunables</button>
+                    <button class="btn btn-secondary" data-click='["resetTunables"]'>Reset to defaults</button>
                     <span id="tunables-status" class="iops-status"></span>
                 </div>
             </div>
@@ -265,16 +265,16 @@
             <div class="toolbar">
                 <div class="toolbar-left">
                     <label class="checkbox-inline">
-                        <input type="checkbox" id="users-include-disabled" onchange="loadAdminUsers()">
+                        <input type="checkbox" id="users-include-disabled" data-change='["loadAdminUsers"]'>
                         Show disabled
                     </label>
                     <label class="checkbox-inline">
-                        <input type="checkbox" id="users-unverified-only" onchange="loadAdminUsers()">
+                        <input type="checkbox" id="users-unverified-only" data-change='["loadAdminUsers"]'>
                         Unactivated only
                     </label>
                 </div>
                 <div class="toolbar-right">
-                    <select id="users-tenant-filter" onchange="loadAdminUsers()">
+                    <select id="users-tenant-filter" data-change='["loadAdminUsers"]'>
                         <option value="">All tenants</option>
                     </select>
                 </div>
@@ -297,10 +297,10 @@
         <div class="tab-content" id="tab-stale">
             <div class="toolbar">
                 <div class="toolbar-left">
-                    <select id="stale-domain-select" onchange="selectStaleByDomain()">
+                    <select id="stale-domain-select" data-change='["selectStaleByDomain"]'>
                         <option value="">Select all from domain…</option>
                     </select>
-                    <button class="btn btn-danger" onclick="purgeSelectedStale()">Purge selected</button>
+                    <button class="btn btn-danger" data-click='["purgeSelectedStale"]'>Purge selected</button>
                     <span id="stale-selected-count" class="muted"></span>
                 </div>
                 <div class="toolbar-right">
@@ -312,7 +312,7 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th style="width:36px"><input type="checkbox" id="stale-select-all" onclick="toggleSelectAllStale(this)"></th>
+                            <th style="width:36px"><input type="checkbox" id="stale-select-all" data-click='["toggleSelectAllStale","$this"]'></th>
                             <th>Email</th><th>Domain</th><th>Role</th><th>Last login</th><th>Signed up</th>
                         </tr>
                     </thead>
@@ -342,12 +342,12 @@
             <div class="toolbar">
                 <div class="toolbar-left">
                     <label class="checkbox-inline">
-                        <input type="checkbox" id="sizings-include-deleted" onchange="loadAdminSizings()">
+                        <input type="checkbox" id="sizings-include-deleted" data-change='["loadAdminSizings"]'>
                         Show deleted (within 90-day retention)
                     </label>
                 </div>
                 <div class="toolbar-right">
-                    <button class="btn btn-secondary" onclick="runPurge()">Run retention purge</button>
+                    <button class="btn btn-secondary" data-click='["runPurge"]'>Run retention purge</button>
                 </div>
             </div>
             <div id="sizings-status-admin" class="admin-status" style="display:none"></div>
@@ -410,8 +410,8 @@
                 </label>
                 <div class="toolbar" style="margin-top:1rem;padding:0">
                     <div class="toolbar-left">
-                        <button class="btn btn-primary" onclick="saveEmailSettings()">Save settings</button>
-                        <button class="btn btn-secondary" onclick="sendTestEmail()">Send test email</button>
+                        <button class="btn btn-primary" data-click='["saveEmailSettings"]'>Save settings</button>
+                        <button class="btn btn-secondary" data-click='["sendTestEmail"]'>Send test email</button>
                     </div>
                     <div class="toolbar-right">
                         <span id="email-active-state" class="muted"></span>
@@ -434,11 +434,11 @@
 
         <!-- ═══════════════════ TUNABLE INFO MODAL ═══════════════════ -->
         <div class="modal-overlay centered" id="tunable-info-modal" style="display:none"
-             onclick="if(event.target===this)closeTunableInfo()">
+             data-click='["closeTunableInfoBackdrop","$this","$event"]'>
             <div class="modal" style="max-width:520px">
                 <div class="modal-header">
                     <h2 id="tun-info-title">Setting</h2>
-                    <button class="modal-close" onclick="closeTunableInfo()">&times;</button>
+                    <button class="modal-close" data-click='["closeTunableInfo"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="tun-info-section tun-info-what">
@@ -459,7 +459,7 @@
             <div class="modal" style="max-width:600px">
                 <div class="modal-header">
                     <h2>Import from Excel</h2>
-                    <button class="modal-close" onclick="closeCatalogImport()">&times;</button>
+                    <button class="modal-close" data-click='["closeCatalogImport"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <p class="import-info">Upload an Excel file with any combination of these sheets:</p>
@@ -474,8 +474,8 @@
                     <div id="catalog-import-status" style="display:none"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeCatalogImport()">Cancel</button>
-                    <button class="btn btn-primary" onclick="doCatalogImport()">Import</button>
+                    <button class="btn btn-secondary" data-click='["closeCatalogImport"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["doCatalogImport"]'>Import</button>
                 </div>
             </div>
         </div>
@@ -485,12 +485,12 @@
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
                     <h2 id="catalog-modal-title">Add Item</h2>
-                    <button class="modal-close" onclick="closeCatalogModal()">&times;</button>
+                    <button class="modal-close" data-click='["closeCatalogModal"]'>&times;</button>
                 </div>
                 <div class="modal-body" id="catalog-modal-body"></div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeCatalogModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveCatalogItem()">Save</button>
+                    <button class="btn btn-secondary" data-click='["closeCatalogModal"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["saveCatalogItem"]'>Save</button>
                 </div>
             </div>
         </div>
@@ -500,7 +500,7 @@
             <div class="modal modal-wide">
                 <div class="modal-header">
                     <h2 id="edit-title">Add Model</h2>
-                    <button class="modal-close" onclick="closeEdit()">&times;</button>
+                    <button class="modal-close" data-click='["closeEdit"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="edit-id">
@@ -508,7 +508,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Model Name *</label>
-                            <input type="text" id="edit-name" placeholder="e.g. HC3450F" oninput="onModelNameInput()">
+                            <input type="text" id="edit-name" placeholder="e.g. HC3450F" data-input='["onModelNameInput"]'>
                         </div>
                         <div class="form-group">
                             <label>Status</label>
@@ -589,8 +589,8 @@
                             <select id="cpu-picker" class="picker-select">
                                 <option value="">Select a CPU to add...</option>
                             </select>
-                            <button class="btn btn-small" onclick="addCpuFromPicker()">Add</button>
-                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('cpu', true)">New CPU</button>
+                            <button class="btn btn-small" data-click='["addCpuFromPicker"]'>Add</button>
+                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","cpu",true]'>New CPU</button>
                         </div>
                         <div id="cpu-chips" class="chip-list"></div>
                     </div>
@@ -611,7 +611,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Type</label>
-                                <select id="edit-stor-type" onchange="updateStorageFields()">
+                                <select id="edit-stor-type" data-change='["updateStorageFields"]'>
                                     <option value="nvme_only">NVMe Only</option>
                                     <option value="ssd_only">SSD Only</option>
                                     <option value="hdd_only">HDD Only</option>
@@ -645,8 +645,8 @@
                             <select id="drive-picker" class="picker-select">
                                 <option value="">Select a drive to add...</option>
                             </select>
-                            <button class="btn btn-small" onclick="addDriveFromPicker()">Add</button>
-                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('drive', true)">New Drive</button>
+                            <button class="btn btn-small" data-click='["addDriveFromPicker"]'>Add</button>
+                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
                         </div>
                         <div id="drive-chips" class="chip-list"></div>
                     </div>
@@ -660,15 +660,15 @@
                             <select id="nic-picker" class="picker-select">
                                 <option value="">Select a NIC to add...</option>
                             </select>
-                            <button class="btn btn-small" onclick="addNicFromPicker()">Add</button>
-                            <button class="btn btn-small btn-secondary" onclick="openAddCatalogItem('nic', true)">New NIC</button>
+                            <button class="btn btn-small" data-click='["addNicFromPicker"]'>Add</button>
+                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","nic",true]'>New NIC</button>
                         </div>
                         <div id="nic-chips" class="chip-list"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveModel()">Save Model</button>
+                    <button class="btn btn-secondary" data-click='["closeEdit"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["saveModel"]'>Save Model</button>
                 </div>
             </div>
         </div>
@@ -681,6 +681,7 @@
         decisions taken based on its output. Always validate results before relying on them.
     </div>
 
+    <script src="{{ asset('js/delegate.js') }}"></script>
     <script src="{{ asset('js/admin.js') }}"></script>
 </body>
 </html>

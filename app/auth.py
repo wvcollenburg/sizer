@@ -10,6 +10,8 @@ Tenancy = email domain. Roles: user / tenant_admin / super_admin. Scale users
 import os
 import re
 import time
+import base64
+import hashlib
 import threading
 import smtplib
 import secrets
@@ -17,7 +19,8 @@ from datetime import timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, session, g, redirect
+from flask import Blueprint, jsonify, request, session, g, redirect, current_app
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -122,13 +125,38 @@ def verification_active():
 
 # ── email ────────────────────────────────────────────────────────────────────
 
+def _secret_fernet():
+    """Fernet built from a key derived from the app SECRET_KEY. Used to encrypt
+    the stored SMTP password at rest. Stable as long as SECRET_KEY is stable
+    (it must be set in prod anyway, for sessions)."""
+    key = base64.urlsafe_b64encode(
+        hashlib.sha256(current_app.config["SECRET_KEY"].encode()).digest())
+    return Fernet(key)
+
+
+def _encrypt_secret(plaintext):
+    return _secret_fernet().encrypt((plaintext or "").encode()).decode()
+
+
+def _decrypt_secret(stored):
+    """Decrypt a value written by _encrypt_secret. Falls back to returning the
+    value unchanged if it isn't a valid token — covers settings saved before
+    encryption was added (legacy plaintext) so they keep working until re-saved."""
+    if not stored:
+        return ""
+    try:
+        return _secret_fernet().decrypt(stored.encode()).decode()
+    except (InvalidToken, ValueError, TypeError):
+        return stored
+
+
 def _smtp_send(msg):
     """Open a connection to the configured SMTP server and send ``msg``.
     Raises on failure."""
     host = get_setting("smtp_host")
     port = int(get_setting("smtp_port", "587") or "587")
     username = get_setting("smtp_username")
-    password = get_setting("smtp_password")
+    password = _decrypt_secret(get_setting("smtp_password"))
     use_tls = _setting_bool("smtp_use_tls")
     # Port 465 is implicit TLS (SMTPS); 587/25 use optional STARTTLS.
     use_ssl = port == 465
@@ -161,6 +189,14 @@ def send_email(to_addr, subject, body):
     _smtp_send(_build_message(to_addr, subject, body))
 
 
+def _hash_token(token):
+    """SHA-256 of a verification/reset token. The raw token is emailed to the
+    user; only this hash is stored, so a DB read can't be used to verify accounts
+    or hijack a pending reset. SHA-256 (no salt/stretch) is fine here — the token
+    is 256 bits of CSPRNG entropy, not a low-entropy password."""
+    return hashlib.sha256((token or "").encode()).hexdigest()
+
+
 def app_base_url():
     """Base URL for links embedded in outbound emails. Prefer the configured
     APP_BASE_URL so a link can't be poisoned by a spoofed Host header on the
@@ -175,7 +211,7 @@ def app_base_url():
 def send_verification_email(user, base_url):
     """Issue a fresh token and email a verification link. Returns True on success."""
     token = secrets.token_urlsafe(32)[:64]
-    user.verification_token = token
+    user.verification_token = _hash_token(token)
     user.verification_sent_at = _utcnow()
     db.session.commit()
     link = "{}api/auth/verify/{}".format(base_url, token)
@@ -195,7 +231,7 @@ def send_verification_email(user, base_url):
 def send_reset_email(user, base_url):
     """Issue a fresh reset token and email a reset link. Returns True on success."""
     token = secrets.token_urlsafe(32)[:64]
-    user.reset_token = token
+    user.reset_token = _hash_token(token)
     user.reset_sent_at = _utcnow()
     db.session.commit()
     link = "{}?reset={}".format(base_url, token)
@@ -578,12 +614,29 @@ def signup():
             "organisation's email domain."
         )}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "An account with this email already exists"}), 409
-
     tenant = Tenant.query.filter_by(domain=domain).first()
     if tenant and tenant.is_blocked:
         return jsonify({"error": "This domain has been blocked. Contact support."}), 403
+
+    needs_verification = verification_active()
+
+    # Enumeration-safe: never reveal (via a 409) that the address is already
+    # registered. Respond exactly as for a fresh signup. When verification is on,
+    # (re)send a link to the real owner if they're still unverified so the
+    # behaviour and response are indistinguishable from a brand-new account.
+    # (With verification OFF a new signup is auto-logged-in, so the shapes still
+    # differ in that mode — enable verification, the prod default, for full
+    # enumeration resistance.)
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        if needs_verification:
+            if not existing.is_verified and not existing.is_disabled:
+                send_verification_email(existing, app_base_url())
+            return jsonify({"pending_verification": True, "email": email,
+                            "email_sent": True}), 201
+        return jsonify({"pending_verification": True, "email": email,
+                        "email_sent": False}), 201
+
     if tenant is None:
         tenant = _get_or_create_tenant(domain)
 
@@ -592,7 +645,6 @@ def signup():
     is_first_admin = not tenant.active_admins()
     role = ROLE_TENANT_ADMIN if is_first_admin else ROLE_USER
 
-    needs_verification = verification_active()
     user = User(
         email=email,
         password_hash=generate_password_hash(password, method=PWHASH_METHOD),
@@ -685,7 +737,7 @@ def logout():
 
 @auth_bp.route("/verify/<token>")
 def verify_email(token):
-    user = User.query.filter_by(verification_token=(token or "").strip()).first()
+    user = User.query.filter_by(verification_token=_hash_token((token or "").strip())).first()
     if user is None:
         return redirect("/?verify=invalid")
     user.is_verified = True
@@ -737,7 +789,7 @@ def reset_password():
     if pw_error:
         return jsonify({"error": pw_error}), 400
 
-    user = User.query.filter_by(reset_token=token).first() if token else None
+    user = User.query.filter_by(reset_token=_hash_token(token)).first() if token else None
     if user is None:
         return jsonify({"error": "This reset link is invalid or has already been used."}), 400
     sent = _aware(user.reset_sent_at)
@@ -1256,8 +1308,9 @@ def update_email_settings():
         if key in data:
             set_setting(key, "true" if data[key] else "false")
     # Only overwrite the password when a non-empty new value is supplied.
+    # Stored encrypted at rest (decrypted only when sending mail).
     if data.get("smtp_password"):
-        set_setting("smtp_password", str(data["smtp_password"]))
+        set_setting("smtp_password", _encrypt_secret(str(data["smtp_password"])))
     if data.get("clear_password"):
         set_setting("smtp_password", "")
     audit("update_email_settings", "verify={}".format(
