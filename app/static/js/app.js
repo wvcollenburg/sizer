@@ -105,17 +105,20 @@ async function loadModels() {
     document.getElementById('results').style.display = 'none';
 }
 
-// Populate a "Size For Model" dropdown (import/manual). Lists certified models
-// grouped by category; status shown for non-Active. EOL/EOS models appear only
-// when includeEolEos is set. Preserves the current selection when still valid.
+// Populate a "Size For Model" dropdown (import/manual). Lists the models grouped
+// by category; status shown for non-Active. EOL/EOS models appear only when
+// includeEolEos is set. The candidate set tracks the current Sizing Mode so it
+// matches what the engine will size (validated mode adds validated-only models
+// and drops NVMe+SSD). Preserves the current selection when still valid.
 async function populateSizingModelDropdown(selectId, includeEolEos) {
     const select = document.getElementById(selectId);
     if (!select) return;
     const prev = select.value;
     const status = includeEolEos ? 'all' : 'active';
+    const sizing = document.getElementById('sizing-mode')?.value || 'certified';
     let models;
     try {
-        const resp = await fetch(`/api/models?mode=appliance&status=${status}`);
+        const resp = await fetch(`/api/models?mode=appliance&status=${status}&sizing=${sizing}`);
         if (!resp.ok) return;
         models = await resp.json();
     } catch (e) {
@@ -140,6 +143,14 @@ async function populateSizingModelDropdown(selectId, includeEolEos) {
 }
 
 function onEolToggle() {
+    const include = document.getElementById('sizing-include-eol').checked;
+    populateSizingModelDropdown('sizing-model-select', include).then(recalcRecommendations);
+}
+
+// Switching Certified <-> Validated changes which models the engine considers,
+// so rebuild the "Size For Model" list (dropping a now-invalid selection) before
+// recalculating.
+function onSizingModeChange() {
     const include = document.getElementById('sizing-include-eol').checked;
     populateSizingModelDropdown('sizing-model-select', include).then(recalcRecommendations);
 }

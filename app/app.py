@@ -132,6 +132,12 @@ def create_app():
         status_filter = request.args.get("status", "active")
 
         if mode == "appliance":
+            # The "Size For Model" picker must list exactly the models the
+            # recommendation engine will consider for the chosen sizing mode
+            # (see recommend.generate_recommendations): validated mode includes
+            # validated-only platforms but drops NVMe+SSD (1+1) models, while
+            # certified mode is the inverse.
+            validated = request.args.get("sizing") == "validated"
             query = Model.query.options(
                 joinedload(Model.cpu_links).joinedload(ModelCpuOption.cpu),
                 joinedload(Model.nic_links).joinedload(ModelNicOption.nic),
@@ -144,12 +150,18 @@ def create_app():
                 query = query.filter(Model.status == "Active")
             elif status_filter == "all_current":
                 query = query.filter(Model.status.in_(["Active", "EOL"]))
-            # Validated-only platforms have no certified equivalent, so they
-            # don't belong in the certified appliance picker.
-            query = query.filter(Model.validated_only == False)  # noqa: E712
+            if not validated:
+                # Validated-only platforms have no certified equivalent, so they
+                # don't belong in the certified appliance picker.
+                query = query.filter(Model.validated_only == False)  # noqa: E712
 
             models = {}
             for m in query.order_by(Model.category, Model.name).all():
+                # Validated mode can't use NVMe+SSD models (inherently 2-disk),
+                # so exclude them to match what the engine will actually size.
+                if validated and m.storage_config \
+                        and m.storage_config.storage_type == "nvme_and_ssd":
+                    continue
                 models[m.name] = m.to_dict()
             return jsonify(models)
         else:
