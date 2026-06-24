@@ -152,7 +152,7 @@ function renderTunables(values) {
         <div class="iops-inputs">
             ${byGroup[g].map(d => `
                 <div class="form-group">
-                    <label title="${esc(d.help || '')}">${esc(d.label)}<button type="button" class="tunable-info-btn" title="What this does" onclick="showTunableInfo('${d.key}')">i</button></label>
+                    <label title="${esc(d.help || '')}">${esc(d.label)}<button type="button" class="tunable-info-btn" title="What this does" data-click='["showTunableInfo","${d.key}"]'>i</button></label>
                     <input type="number" id="tun-${d.key}"
                            ${d.min != null ? `min="${d.min}"` : ''}
                            ${d.max != null ? `max="${d.max}"` : ''}
@@ -303,10 +303,10 @@ function renderModelTable() {
             <td>${m.min_nodes}</td>
             <td>${m.cost_tier ?? '-'}</td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" onclick="openEditModel(${m.id})">
+                <button class="btn-icon" title="Edit" data-click='["openEditModel",${m.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" onclick="deleteModel(${m.id}, '${esc(m.name)}')">
+                <button class="btn-icon danger" title="Delete" data-click='["deleteModel",${m.id},"${esc(m.name)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -337,10 +337,10 @@ function renderCpuCatalog() {
             <td>${c.ghz}</td>
             <td><span class="count-pill">${c.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" onclick="openEditCatalogItem('cpu', ${c.id})">
+                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","cpu",${c.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" onclick="deleteCatalogItem('cpu', ${c.id}, '${esc(c.desc)}')">
+                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","cpu",${c.id},"${esc(c.desc)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -361,10 +361,10 @@ function renderNicCatalog() {
             <td>${esc(n.speed)}</td>
             <td><span class="count-pill">${n.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" onclick="openEditCatalogItem('nic', ${n.id})">
+                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","nic",${n.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" onclick="deleteCatalogItem('nic', ${n.id}, '${esc(n.desc)}')">
+                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","nic",${n.id},"${esc(n.desc)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -384,10 +384,10 @@ function renderDriveCatalog() {
             <td>${d.size_tb}</td>
             <td><span class="count-pill">${d.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" onclick="openEditCatalogItem('drive', ${d.id})">
+                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","drive",${d.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" onclick="deleteCatalogItem('drive', ${d.id}, '${d.drive_type} ${d.size_tb}TB')">
+                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","drive",${d.id},"${d.drive_type} ${d.size_tb}TB"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -768,7 +768,7 @@ function renderCpuChips() {
     selectedCpus.forEach((c, i) => {
         const chip = document.createElement('span');
         chip.className = 'chip';
-        chip.innerHTML = `<select class="qty-select" onchange="selectedCpus[${i}].qty=parseInt(this.value)">${qtyOptions(c.qty)}</select> x ${esc(c.desc)} <span class="remove" onclick="removeCpu(${i})">&times;</span>`;
+        chip.innerHTML = `<select class="qty-select" data-change='["setSelCpuQty",${i},"$value"]'>${qtyOptions(c.qty)}</select> x ${esc(c.desc)} <span class="remove" data-click='["removeCpu",${i}]'>&times;</span>`;
         container.appendChild(chip);
     });
 }
@@ -779,7 +779,7 @@ function renderNicChips() {
     selectedNics.forEach((n, i) => {
         const chip = document.createElement('span');
         chip.className = 'chip';
-        chip.innerHTML = `<select class="qty-select" onchange="selectedNics[${i}].qty=parseInt(this.value)">${qtyOptions(n.qty)}</select> x ${esc(n.desc)} <span class="remove" onclick="removeNic(${i})">&times;</span>`;
+        chip.innerHTML = `<select class="qty-select" data-change='["setSelNicQty",${i},"$value"]'>${qtyOptions(n.qty)}</select> x ${esc(n.desc)} <span class="remove" data-click='["removeNic",${i}]'>&times;</span>`;
         container.appendChild(chip);
     });
 }
@@ -794,7 +794,7 @@ function renderDriveChips() {
     selectedDrives.forEach((d, i) => {
         const chip = document.createElement('span');
         chip.className = 'chip';
-        chip.innerHTML = `${esc(d.drive_type)} ${d.size_tb} TB <span class="remove" onclick="removeDrive(${i})">&times;</span>`;
+        chip.innerHTML = `${esc(d.drive_type)} ${d.size_tb} TB <span class="remove" data-click='["removeDrive",${i}]'>&times;</span>`;
         container.appendChild(chip);
     });
 }
@@ -802,6 +802,14 @@ function renderDriveChips() {
 function removeCpu(i) { selectedCpus.splice(i, 1); renderCpuChips(); }
 function removeNic(i) { selectedNics.splice(i, 1); renderNicChips(); }
 function removeDrive(i) { selectedDrives.splice(i, 1); renderDriveChips(); }
+
+// Delegation wrappers (replace former inline handlers; CSP-safe).
+function setSelCpuQty(i, v) { selectedCpus[i].qty = parseInt(v) || 1; }
+function setSelNicQty(i, v) { selectedNics[i].qty = parseInt(v) || 1; }
+function removeParentChip(el) { el.parentElement.remove(); }
+function ramInputEnter(el, e) { if (e.key === 'Enter') { e.preventDefault(); addRamFromInput(el); } }
+function addRamFromPrev(el) { addRamFromInput(el.previousElementSibling); }
+function closeTunableInfoBackdrop(el, e) { if (e.target === el) closeTunableInfo(); }
 
 // ── RAM Chips ──────────────────────────────────────────────────────────────
 
@@ -811,7 +819,7 @@ function addRamChip(size) {
     const chip = document.createElement('span');
     chip.className = 'chip';
     chip.dataset.size = size;
-    chip.innerHTML = `${size} GB <span class="remove" onclick="this.parentElement.remove()">&times;</span>`;
+    chip.innerHTML = `${size} GB <span class="remove" data-click='["removeParentChip","$this"]'>&times;</span>`;
     if (inputWrap) list.insertBefore(chip, inputWrap);
     else list.appendChild(chip);
 }
@@ -821,8 +829,8 @@ function addRamInput() {
     if (list.querySelector('.ram-input-wrap')) return;
     const wrap = document.createElement('span');
     wrap.className = 'ram-input-wrap';
-    wrap.innerHTML = `<input type="number" placeholder="GB" min="1" onkeydown="if(event.key==='Enter'){event.preventDefault();addRamFromInput(this)}">
-        <button class="btn btn-small" onclick="addRamFromInput(this.previousElementSibling)">+</button>`;
+    wrap.innerHTML = `<input type="number" placeholder="GB" min="1" data-keydown='["ramInputEnter","$this","$event"]'>
+        <button class="btn btn-small" data-click='["addRamFromPrev","$this"]'>+</button>`;
     list.appendChild(wrap);
 }
 
@@ -1078,7 +1086,7 @@ async function loadAdminTenants() {
             <td>${t.is_blocked ? '<span class="badge-blocked">Blocked</span>' : 'Active'}</td>
             <td class="col-actions">
                 <button class="btn btn-sm ${t.is_blocked ? 'btn-secondary' : 'btn-danger'}"
-                        onclick="toggleBlockTenant(${t.id}, ${t.is_blocked ? 'false' : 'true'})">
+                        data-click='["toggleBlockTenant",${t.id},${t.is_blocked ? 'false' : 'true'}]'>
                     ${t.is_blocked ? 'Unblock' : 'Block'}
                 </button>
             </td>
@@ -1118,19 +1126,19 @@ async function loadAdminUsers() {
     body.innerHTML = data.map(u => {
         const actions = [];
         if (!u.is_disabled) {
-            actions.push(`<button class="btn btn-sm btn-secondary" onclick="resetUserPassword(${u.id}, '${adminEsc(u.email)}')">Reset password</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["resetUserPassword",${u.id},"${adminEsc(u.email)}"]'>Reset password</button>`);
             if (u.role !== 'super_admin') {
-                actions.push(`<button class="btn btn-sm btn-danger" onclick="disableAdminUser(${u.id})">Disable</button>`);
+                actions.push(`<button class="btn btn-sm btn-danger" data-click='["disableAdminUser",${u.id}]'>Disable</button>`);
             }
         } else {
-            actions.push(`<button class="btn btn-sm btn-secondary" onclick="restoreUser(${u.id})">Restore</button>`);
-            actions.push(`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Delete</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["restoreUser",${u.id}]'>Restore</button>`);
+            actions.push(`<button class="btn btn-sm btn-danger" data-click='["deleteUser",${u.id}]'>Delete</button>`);
         }
         // Role is editable inline for active users; disabled users must be
         // restored before their role can change (server enforces this too).
         const roleCell = u.is_disabled
             ? adminEsc(u.role)
-            : `<select class="role-select" onchange="changeUserRole(${u.id}, this.value, '${adminEsc(u.role)}')">${roleOpts(u.role)}</select>`;
+            : `<select class="role-select" data-change='["changeUserRole",${u.id},"$value","${adminEsc(u.role)}"]'>${roleOpts(u.role)}</select>`;
         const statusCell = u.is_disabled ? 'Disabled'
             : (u.is_verified ? 'Active'
                : '<span class="badge-unverified">Unactivated</span>');
@@ -1213,7 +1221,7 @@ async function loadAdminSizings() {
             <td>${c.is_deleted ? 'Deleted' : 'Active'}</td>
             <td>${adminDate(c.updated_at)}</td>
             <td class="col-actions">
-                <button class="btn btn-sm btn-danger" onclick="purgeSizing(${c.id})">Purge</button>
+                <button class="btn btn-sm btn-danger" data-click='["purgeSizing",${c.id}]'>Purge</button>
             </td>
         </tr>`).join('') || `<tr><td colspan="7">No sizings.</td></tr>`;
 }
@@ -1316,7 +1324,7 @@ async function loadStaleUsers() {
 
     body.innerHTML = data.map(u => `
         <tr>
-            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${adminEsc(u.tenant_domain)}" onclick="updateStaleCount()"></td>
+            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${adminEsc(u.tenant_domain)}" data-click='["updateStaleCount"]'></td>
             <td>${adminEsc(u.email)}</td>
             <td>${adminEsc(u.tenant_domain)}</td>
             <td>${adminEsc(u.role)}</td>

@@ -1,3 +1,13 @@
+// HTML-escape any value before interpolating it into an innerHTML string.
+// Imported file fields (cluster/platform/VM names, OS strings) and other
+// user-supplied text are untrusted and must never reach innerHTML raw — they
+// can be saved into a shared sizing and fire as stored XSS for whoever opens it.
+function esc(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 let currentMode = 'appliance';
 // Which workload flow currently owns the shared sizing block: 'import' or
 // 'manual'. recalcRecommendations() reads the matching summary and keys results
@@ -237,7 +247,7 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>NVMe Drive Size (TB) &times; ${storage.drives_per_node || 1}</label>
-                <select id="stor-nvme" onchange="calculate()">
+                <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -245,7 +255,7 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>SSD Drive Size (TB) &times; ${storage.drives_per_node || 4}</label>
-                <select id="stor-ssd" onchange="calculate()">
+                <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -253,7 +263,7 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>HDD Drive Size (TB) &times; ${storage.drives_per_node || 4}</label>
-                <select id="stor-hdd" onchange="calculate()">
+                <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -261,13 +271,13 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>HDD Size (TB) &times; ${storage.hdd_count}</label>
-                <select id="stor-hdd" onchange="calculate()">
+                <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
                 <label>SSD Cache Size (TB) &times; ${storage.ssd_count}</label>
-                <select id="stor-ssd" onchange="calculate()">
+                <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -275,13 +285,13 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>HDD Size (TB) &times; ${storage.hdd_count}</label>
-                <select id="stor-hdd" onchange="calculate()">
+                <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
                 <label>NVMe Cache Size (TB) &times; ${storage.nvme_count}</label>
-                <select id="stor-nvme" onchange="calculate()">
+                <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -289,13 +299,13 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>NVMe Drive Size (TB)</label>
-                <select id="stor-nvme" onchange="calculate()">
+                <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
                 <label>SSD Drive Size (TB)</label>
-                <select id="stor-ssd" onchange="calculate()">
+                <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>`;
@@ -303,7 +313,7 @@ function buildStorageSection(storage) {
         section.innerHTML = `
             <div class="form-group">
                 <label>Storage Tier</label>
-                <select id="stor-cloud" onchange="calculate()">
+                <select id="stor-cloud" data-change='["calculate"]'>
                     ${storage.options.map(s => `<option value="${s}">${s}</option>`).join('')}
                 </select>
             </div>`;
@@ -529,9 +539,9 @@ async function loadValidatedNics() {
 // Every sizing starts the target vCPU:core slider here (a standard consolidation
 // ratio), independent of the source environment's detected ratio — which is still
 // shown via the marker/label. The value is the admin-tuned default, injected into
-// the page by the server (window.SIZING_DEFAULTS); 3.0 is the fallback.
+// the page by the server via <body data-vcpu-ratio>; 3.0 is the fallback.
 const DEFAULT_SIZING_RATIO =
-    (window.SIZING_DEFAULTS && window.SIZING_DEFAULTS.vcpuRatio) || 3.0;
+    parseFloat(document.body.dataset.vcpuRatio) || 3.0;
 
 const WITNESS_MESSAGE =
     'A 2-node cluster requires a separate witness device and HyperCore 9.7.5 or ' +
@@ -964,11 +974,11 @@ function displayImportResults(data) {
     document.getElementById('env-summary').innerHTML = `
         <div class="summary-card">
             <div class="summary-label">Current Platform</div>
-            <div class="summary-value">${s.current_platform}</div>
+            <div class="summary-value">${esc(s.current_platform)}</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Cluster</div>
-            <div class="summary-value">${s.cluster_name}</div>
+            <div class="summary-value">${esc(s.cluster_name)}</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">Hosts</div>
@@ -1007,7 +1017,7 @@ function displayImportResults(data) {
             <div class="summary-value">
                 <input type="number" id="p95-iops" value="${s.p95_iops || 0}" min="0" step="1"
                        class="inline-input" placeholder="0 = unknown"
-                       onchange="updateP95Display()">
+                       data-change='["updateP95Display"]'>
             </div>
         </div>
     `;
@@ -1122,7 +1132,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr class="so-divider"><td colspan="2">Storage-Only &times; ${so.count} (no VMs)</td></tr>
                         <tr><td>CPU</td><td>${so.cpu}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(so.ram_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>` : '';
+                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -1142,7 +1152,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>Cores</td><td>${r.cores_per_node}</td></tr>
                         <tr><td>Threads</td><td>${r.threads_per_node}</td></tr>
                         <tr><td>RAM</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${r.storage_config.desc}</td></tr>
+                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>
                         ${iops ? iopsRow(iops.per_node) : ''}
                         ${soRows}
                     </table>
@@ -1176,11 +1186,11 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" onclick="openClusterDiagram('${mode}', ${i})" title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'docx')" title="Download the editable Word proposal (Scale users)">Word</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'pptx')" title="Download the editable PowerPoint deck (Scale users)">PPTX</button>` : ''}
-                    <button class="btn btn-muted btn-sm" onclick="exportProposal('${mode}', ${i}, 'presentation-pdf')" title="Download the presentation as PDF">Slides PDF</button>
-                    <button class="btn btn-export" onclick="exportProposal('${mode}', ${i}, 'pdf')" title="Download the proposal as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Proposal PDF</button>
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="Download the editable Word proposal (Scale users)">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="Download the editable PowerPoint deck (Scale users)">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="Download the presentation as PDF">Slides PDF</button>
+                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="Download the proposal as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Proposal PDF</button>
                 </div>
             </div>
         </div>
@@ -1423,26 +1433,26 @@ function renderManualVmTable() {
     });
     body.innerHTML = view.map(({ vm, i }) => `
         <tr data-idx="${i}">
-            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${(vm.name || '').replace(/"/g, '&quot;')}" onchange="setManualVm(${i},'name',this.value)"></td>
+            <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${esc(vm.name)}" data-change='["setManualVm",${i},"name","$value"]'></td>
             <td class="vm-col-power">
-                <select class="vm-edit" onchange="setManualVm(${i},'powered_on',this.value)">
+                <select class="vm-edit" data-change='["setManualVm",${i},"powered_on","$value"]'>
                     <option value="on"${vm.powered_on ? ' selected' : ''}>On</option>
                     <option value="off"${vm.powered_on ? '' : ' selected'}>Off</option>
                 </select>
             </td>
-            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" onchange="setManualVm(${i},'vcpus',this.value)"></td>
-            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" onchange="setManualVm(${i},'ram_gb',this.value)"></td>
-            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" onchange="setManualVm(${i},'storage_gb',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" data-change='["setManualVm",${i},"vcpus","$value"]'></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" data-change='["setManualVm",${i},"ram_gb","$value"]'></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" data-change='["setManualVm",${i},"storage_gb","$value"]'></td>
             <td class="vm-col-action">
-                <button class="vm-action-btn vm-clone" title="Clone this VM" onclick="openCloneModal(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button class="vm-action-btn vm-remove" title="Remove this VM" onclick="removeManualVm(${i})">&times;</button>
+                <button class="vm-action-btn vm-clone" title="Clone this VM" data-click='["openCloneModal",${i}]'><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button class="vm-action-btn vm-remove" title="Remove this VM" data-click='["removeManualVm",${i}]'>&times;</button>
             </td>
         </tr>`).join('');
 
     document.querySelectorAll('#manual-vm-table th.sortable').forEach(th => {
         const old = th.querySelector('.sort-arrow');
         if (old) old.remove();
-        const field = (th.getAttribute('onclick').match(/'(.+?)'/) || [])[1];
+        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
         if (field === manualVmSort.field) {
             const arrow = document.createElement('span');
             arrow.className = 'sort-arrow';
@@ -1791,24 +1801,24 @@ function renderVmTable() {
         const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
         const name = vmVal(vm, vm._idx, 'name') || '';
         const nameCell = isAdded
-            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${name.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'name',this.value)"><span class="vm-tag">new</span></span>`
-            : `<span title="${name}">${name}</span>`;
+            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${esc(name)}" data-change='["setVmConfig",${vm._idx},"name","$value"]'><span class="vm-tag">new</span></span>`
+            : `<span title="${esc(name)}">${esc(name)}</span>`;
         const storCell = isAdded
-            ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" onchange="setVmConfig(${vm._idx},'vdisk_used_gb',this.value)">`
+            ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" data-change='["setVmConfig",${vm._idx},"vdisk_used_gb","$value"]'>`
             : `${(stor || 0).toFixed(1)}`;
         const action = isRemoved
-            ? `<button class="vm-action-btn vm-restore" title="Restore this VM" onclick="restoreVm(${vm._idx})">↺</button>`
-            : `<button class="vm-action-btn vm-remove" title="Remove this VM from the dataset" onclick="removeVm(${vm._idx})">&times;</button>`;
+            ? `<button class="vm-action-btn vm-restore" title="Restore this VM" data-click='["restoreVm",${vm._idx}]'>↺</button>`
+            : `<button class="vm-action-btn vm-remove" title="Remove this VM from the dataset" data-click='["removeVm",${vm._idx}]'>&times;</button>`;
         return `<tr class="${rowClass}" data-idx="${vm._idx}" data-power="${vm.powered_on ? 'on' : 'off'}">
-            <td class="vm-col-check"><input type="checkbox" ${compChecked} onchange="toggleVmExclusion(${vm._idx},'compute',this.checked)"></td>
-            <td class="vm-col-check"><input type="checkbox" ${storChecked} onchange="toggleVmExclusion(${vm._idx},'storage',this.checked)"></td>
+            <td class="vm-col-check"><input type="checkbox" ${compChecked} data-change='["toggleVmExclusion",${vm._idx},"compute","$checked"]'></td>
+            <td class="vm-col-check"><input type="checkbox" ${storChecked} data-change='["toggleVmExclusion",${vm._idx},"storage","$checked"]'></td>
             <td class="vm-col-name">${nameCell}</td>
-            <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${model.replace(/"/g, '&quot;')}" onchange="setVmConfig(${vm._idx},'model',this.value)"></td>
+            <td class="vm-col-model"><input type="text" class="vm-edit vm-edit-text" value="${esc(model)}" data-change='["setVmConfig",${vm._idx},"model","$value"]'></td>
             <td class="vm-col-power"><span class="${powerClass}">${powerLabel}</span></td>
-            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" onchange="setVmConfig(${vm._idx},'vcpus',this.value)"></td>
-            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" onchange="setVmConfig(${vm._idx},'provisioned_memory_gb',this.value)"></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${cores}" data-change='["setVmConfig",${vm._idx},"vcpus","$value"]'></td>
+            <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${ram}" data-change='["setVmConfig",${vm._idx},"provisioned_memory_gb","$value"]'></td>
             <td class="vm-col-num">${storCell}</td>
-            <td class="vm-col-os" title="${vm.os || ''}">${vm.os || ''}</td>
+            <td class="vm-col-os" title="${esc(vm.os)}">${esc(vm.os)}</td>
             <td class="vm-col-action">${action}</td>
         </tr>`;
     }).join('');
@@ -1819,7 +1829,7 @@ function renderVmTable() {
     });
     const headers = document.querySelectorAll('.vm-table th.sortable');
     headers.forEach(th => {
-        const field = th.getAttribute('onclick').match(/'(.+?)'/)?.[1];
+        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
         if (field === vmSortField) {
             const arrow = document.createElement('span');
             arrow.className = 'sort-arrow';
@@ -2137,7 +2147,7 @@ function renderLocalStorageOption(s) {
     el.innerHTML = `
         <label class="checkbox-inline local-storage-toggle">
             <input type="checkbox" id="include-local-cb" ${includeLocalStorage ? 'checked' : ''}
-                   onchange="toggleLocalStorage()">
+                   data-change='["toggleLocalStorage"]'>
             Include ${localGb.toLocaleString()} GB found on local storage
         </label>`;
 }

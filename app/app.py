@@ -4,7 +4,9 @@ import secrets
 import tempfile
 
 from flask import Flask, render_template, jsonify, request, send_file
+from werkzeug.middleware.proxy_fix import ProxyFix
 from database import init_db
+from extensions import limiter
 from auth import register_auth, start_scheduler, current_user
 from sqlalchemy.orm import joinedload
 from orm_models import (
@@ -28,6 +30,19 @@ from admin_routes import admin_bp
 def create_app():
     app = Flask(__name__)
 
+    # Behind nginx: trust one proxy hop for the client IP (X-Forwarded-For) and
+    # scheme (X-Forwarded-Proto) so rate limiting buckets per real client and
+    # Flask knows requests are HTTPS. X-Forwarded-Host is deliberately NOT
+    # trusted — email links use a configured base URL (see auth.app_base_url) to
+    # avoid Host-header poisoning.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0)
+
+    # Cap request bodies (defense against memory-exhaustion uploads). Generous
+    # enough for a large RVTools/Live Optics export; the saved-config payload has
+    # its own tighter 4 MB check in the configs blueprint.
+    app.config["MAX_CONTENT_LENGTH"] = int(
+        os.environ.get("MAX_CONTENT_LENGTH_BYTES", str(32 * 1024 * 1024)))
+
     # Signed-cookie sessions. SECRET_KEY must be set in production (and shared
     # across gunicorn workers, since each validates the same cookie signature).
     # Fall back to an ephemeral key for dev with a loud warning — sessions then
@@ -48,6 +63,7 @@ def create_app():
     )
 
     init_db(app)
+    limiter.init_app(app)
     register_auth(app)
     app.register_blueprint(admin_bp)
 
@@ -174,7 +190,8 @@ def create_app():
                 "source": file_type,
             })
         except Exception as e:
-            return jsonify({"error": f"Failed to parse file: {str(e)}"}), 400
+            app.logger.warning("Import parse failed: %s", e)
+            return jsonify({"error": "Could not parse the file. Upload a valid Live Optics or RVTools .xlsx export."}), 400
         finally:
             os.unlink(tmp.name)
 
@@ -222,7 +239,8 @@ def create_app():
             return send_file(buf, as_attachment=True, download_name=filename,
                              mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate config slide: {str(e)}"}), 500
+            app.logger.exception("Config slide generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the configuration slide."}), 500
 
     @app.route("/api/export-config-pdf", methods=["POST"])
     def export_config_pdf():
@@ -240,7 +258,8 @@ def create_app():
             return send_file(io.BytesIO(pdf), as_attachment=True, download_name=filename,
                              mimetype="application/pdf")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate config PDF: {str(e)}"}), 500
+            app.logger.exception("Config PDF generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the configuration PDF."}), 500
 
     @app.route("/api/export-proposal", methods=["POST"])
     def export_proposal():
@@ -260,7 +279,8 @@ def create_app():
             return send_file(buf, as_attachment=True, download_name=filename,
                              mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate proposal: {str(e)}"}), 500
+            app.logger.exception("Proposal generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the proposal."}), 500
 
     def _proposal_payload():
         data = request.json or {}
@@ -285,7 +305,8 @@ def create_app():
             return send_file(buf, as_attachment=True, download_name=fn,
                              mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate document: {str(e)}"}), 500
+            app.logger.exception("Document generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the document."}), 500
 
     @app.route("/api/export-pdf", methods=["POST"])
     def export_pdf_route():
@@ -301,7 +322,8 @@ def create_app():
             return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
                              mimetype="application/pdf")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
+            app.logger.exception("PDF generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the PDF."}), 500
 
     @app.route("/api/export-presentation-pdf", methods=["POST"])
     def export_presentation_pdf_route():
@@ -317,7 +339,8 @@ def create_app():
             return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
                              mimetype="application/pdf")
         except Exception as e:
-            return jsonify({"error": f"Failed to generate presentation PDF: {str(e)}"}), 500
+            app.logger.exception("Presentation PDF generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the presentation PDF."}), 500
 
     return app
 

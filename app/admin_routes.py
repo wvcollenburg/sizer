@@ -4,7 +4,7 @@ import re
 import tempfile
 import os
 
-from flask import Blueprint, render_template, jsonify, request, send_file, redirect
+from flask import Blueprint, render_template, jsonify, request, send_file, redirect, current_app
 from sqlalchemy.orm import joinedload
 from database import db
 from auth import current_user
@@ -633,7 +633,8 @@ def import_models():
         return jsonify(result)
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Import failed: {str(e)}"}), 400
+        current_app.logger.exception("Model import failed: %s", e)
+        return jsonify({"error": "Import failed. Check the file matches the template format."}), 400
     finally:
         os.unlink(tmp.name)
 
@@ -657,7 +658,8 @@ def import_catalog():
         return jsonify(result)
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Import failed: {str(e)}"}), 400
+        current_app.logger.exception("Catalog import failed: %s", e)
+        return jsonify({"error": "Import failed. Check the file matches the template format."}), 400
     finally:
         os.unlink(tmp.name)
 

@@ -16,6 +16,20 @@ services:
       timeout: 3s
       retries: 5
 
+  # Shared rate-limit store for flask-limiter. With >1 gunicorn worker, an
+  # in-memory limiter is per-worker (limits bite at ~workers×rate); Redis makes
+  # them exact and shared across workers.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]  # ephemeral; rate-limit counters don't need persistence
+    # Not published to the host — only the sizer container reaches it over the
+    # internal compose network (redis:6379).
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   sizer:
     build: .
     ports:
@@ -23,10 +37,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql://sizer:sizer@db:5432/sizer
+      RATELIMIT_STORAGE_URI: redis://redis:6379
       # SECRET_KEY, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD come from .env (see
       # .env.template). SECRET_KEY must be set so logins persist across the two
       # gunicorn workers.
