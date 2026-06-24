@@ -1452,7 +1452,7 @@ function renderManualVmTable() {
     document.querySelectorAll('#manual-vm-table th.sortable').forEach(th => {
         const old = th.querySelector('.sort-arrow');
         if (old) old.remove();
-        const field = (th.getAttribute('onclick').match(/'(.+?)'/) || [])[1];
+        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
         if (field === manualVmSort.field) {
             const arrow = document.createElement('span');
             arrow.className = 'sort-arrow';
@@ -1829,7 +1829,7 @@ function renderVmTable() {
     });
     const headers = document.querySelectorAll('.vm-table th.sortable');
     headers.forEach(th => {
-        const field = th.getAttribute('onclick').match(/'(.+?)'/)?.[1];
+        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
         if (field === vmSortField) {
             const arrow = document.createElement('span');
             arrow.className = 'sort-arrow';
