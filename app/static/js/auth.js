@@ -75,11 +75,11 @@ function renderAccountBar() {
 
     // Left group: actions. Right group: identity (email · badge · sign out).
     const actions = [
-        `<button class="btn btn-sm btn-account" onclick="saveCurrentSizing()">Save sizing</button>`,
-        `<button class="btn btn-sm" onclick="openSizingsModal()">My Sizings</button>`,
+        `<button class="btn btn-sm btn-account" data-click='["saveCurrentSizing"]'>Save sizing</button>`,
+        `<button class="btn btn-sm" data-click='["openSizingsModal"]'>My Sizings</button>`,
     ];
     if (u.role === 'tenant_admin') {
-        actions.push(`<button class="btn btn-sm" onclick="openOrgModal()">Organization</button>`);
+        actions.push(`<button class="btn btn-sm" data-click='["openOrgModal"]'>Organization</button>`);
     }
     if (u.role === 'super_admin') {
         actions.push(`<a class="btn btn-sm" href="/admin/">Admin</a>`);
@@ -91,7 +91,7 @@ function renderAccountBar() {
         + `<div class="account-identity">`
         +   `<span class="account-email">${esc(u.email)}</span>`
         +   `<span class="account-badge ${badge.cls}">${badge.label}</span>`
-        +   `<button class="btn btn-sm btn-muted" onclick="doLogout()">Sign out</button>`
+        +   `<button class="btn btn-sm btn-muted" data-click='["doLogout"]'>Sign out</button>`
         + `</div>`;
 }
 
@@ -455,7 +455,7 @@ function renderSizings() {
     const sourceLabel = { owned: 'Mine', tenant: 'Team', scale: 'Scale', linked: 'By code' };
     body.innerHTML = rows.map(c => {
         const del = c.can_delete
-            ? `<button class="btn btn-sm btn-muted" onclick="deleteSizing(${c.id}, '${esc(c.source)}')">${c.source === 'linked' ? 'Remove' : 'Delete'}</button>`
+            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id},"${esc(c.source)}"]'>${c.source === 'linked' ? 'Remove' : 'Delete'}</button>`
             : '';
         return `<tr>
             <td>${esc(c.name)}</td>
@@ -463,7 +463,7 @@ function renderSizings() {
             <td><code class="sizing-code" title="Share this code">${esc(c.code)}</code></td>
             <td>${sourceLabel[c.source] || c.source}</td>
             <td>${fmtDate(c.updated_at)}</td>
-            <td><button class="btn btn-sm btn-primary" onclick="loadSizing(${c.id})">Load</button> ${del}</td>
+            <td><button class="btn btn-sm btn-primary" data-click='["loadSizing",${c.id}]'>Load</button> ${del}</td>
         </tr>`;
     }).join('');
 }
@@ -678,7 +678,7 @@ async function loadOrgUsers() {
         const isSelf = currentAccount && u.id === currentAccount.id;
         const canDisable = !isSelf && u.role !== 'super_admin';
         const action = canDisable
-            ? `<button class="btn btn-sm btn-muted" onclick="disableOrgUser(${u.id})">Disable</button>`
+            ? `<button class="btn btn-sm btn-muted" data-click='["disableOrgUser",${u.id}]'>Disable</button>`
             : (isSelf ? '<span class="muted">You</span>' : '');
         return `<tr>
             <td>${esc(u.email)}</td>
