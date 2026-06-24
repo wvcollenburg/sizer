@@ -218,6 +218,44 @@ select:focus, input:focus {
     font-weight: bold;
 }
 
+/* Live-validated rules (data-rule): the marker reflects the current disk/node
+   form. Pending = pale grey ✓, met = green ✓, violated = red ✗, n/a (e.g. a
+   hybrid rule on a single-tier config) = dimmed dash. Static advisory rules
+   (no data-rule) keep the neutral accent ✓ above. */
+.validated-rules li[data-rule] {
+    color: var(--text-muted);
+    transition: color 0.15s;
+}
+.validated-rules li[data-rule]::before {
+    content: "\2713  ";
+    color: #c4ccd6;
+}
+.validated-rules li[data-rule].met,
+.validated-rules li[data-rule].met::before {
+    color: #2a9d54;
+}
+.validated-rules li[data-rule].bad,
+.validated-rules li[data-rule].bad::before {
+    color: var(--red);
+}
+.validated-rules li[data-rule].bad::before {
+    content: "\2717  ";
+}
+.validated-rules li[data-rule].na {
+    opacity: 0.55;
+}
+.validated-rules li[data-rule].na::before {
+    content: "\2013  ";
+    color: var(--text-muted);
+}
+
+/* Calculate (and any button) disabled while hard rules are unmet. */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .disk-config {
     background: var(--bg);
     border: 1px solid var(--border);

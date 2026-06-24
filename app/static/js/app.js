@@ -51,6 +51,7 @@ function switchMode(mode) {
     document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
     document.getElementById('appliance-form').style.display = mode === 'appliance' ? 'block' : 'none';
     document.getElementById('validated-form').style.display = mode === 'validated' ? 'block' : 'none';
+    if (mode === 'validated') updateValidatedRules();
     document.getElementById('import-form').style.display = mode === 'import' ? 'block' : 'none';
     document.getElementById('manual-form').style.display = mode === 'manual' ? 'block' : 'none';
     document.getElementById('results').style.display = 'none';
@@ -364,6 +365,9 @@ async function calculate() {
 }
 
 async function calculateValidated() {
+    // Refresh the live rule indicators / button state (also covers the
+    // snapshot-restore path, which calls this directly).
+    updateValidatedRules();
     const nodeCount = parseInt(document.getElementById('val-node-count').value);
     const cores = parseInt(document.getElementById('val-cores').value);
     const threads = parseInt(document.getElementById('val-threads').value);
@@ -453,6 +457,60 @@ function validateDisks(disks) {
     return {errors, warnings};
 }
 
+// Client-side mirror of the hybrid_min_hdd_per_flash tunable (default 3). The
+// server is authoritative; this only drives the live rule indicators.
+const VALIDATED_MIN_HDD_PER_FLASH = 3;
+
+// Live state of the Validated Installer Rules that can be derived from the disk
+// + node form. Toggles the green/red/dimmed markers and disables Calculate while
+// any hard rule is violated. Hardware advisories (JBOD, internal-only, the
+// hybrid definition) aren't evaluated here — they stay as static notes.
+function updateValidatedRules() {
+    const list = document.getElementById('validated-rules-list');
+    if (!list) return;
+    const disks = collectValidatedDisks();
+    const nodeEl = document.getElementById('val-node-count');
+    const nodeCount = nodeEl ? (parseInt(nodeEl.value, 10) || 0) : 0;
+
+    const isSpin = t => ['SAS', 'NLSAS', 'SATA', 'HDD'].includes(t);
+    const isFlash = t => ['SSD', 'NVMe'].includes(t);
+    const hddN = disks.filter(d => isSpin(d.type)).length;
+    const flashN = disks.filter(d => isFlash(d.type)).length;
+    const isHybrid = hddN > 0 && flashN > 0;
+
+    let flashPct = null;
+    if (isHybrid) {
+        const total = disks.reduce((s, d) => s + d.size_tb, 0);
+        const flashCap = disks.filter(d => isFlash(d.type)).reduce((s, d) => s + d.size_tb, 0);
+        flashPct = total > 0 ? (flashCap / total) * 100 : 0;
+    }
+
+    // 'met' (green ✓), 'bad' (red ✗, blocks Calculate), or 'na' (dimmed —
+    // hybrid-only rules don't apply to a single-tier / non-hybrid config).
+    const states = {
+        disks: (disks.length === 0 || disks.length === 2) ? 'bad' : 'met',
+        nodes: nodeCount >= 2 ? 'met' : 'bad',
+        band: !isHybrid ? 'na' : (flashPct >= 7 && flashPct <= 24.3 ? 'met' : 'bad'),
+        ratio: !isHybrid ? 'na'
+            : (hddN >= VALIDATED_MIN_HDD_PER_FLASH * flashN ? 'met' : 'bad'),
+    };
+
+    let anyBad = false;
+    list.querySelectorAll('[data-rule]').forEach(li => {
+        const st = states[li.dataset.rule] || 'na';
+        li.classList.remove('met', 'bad', 'na');
+        li.classList.add(st);
+        if (st === 'bad') anyBad = true;
+    });
+
+    const btn = document.getElementById('val-calculate-btn');
+    if (btn) {
+        btn.disabled = anyBad;
+        btn.title = anyBad
+            ? 'Resolve the highlighted Validated Installer Rules to calculate' : '';
+    }
+}
+
 const DISK_SIZES = {
     spinning: [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24],
     SSD: [0.24, 0.48, 0.96, 1.92, 3.84, 7.68, 15.36, 30.72],
@@ -473,6 +531,7 @@ function populateDiskSizes(typeSelect) {
     const prev = sizeSelect.value;
     sizeSelect.innerHTML = sizes.map(s => `<option value="${s}">${s} TB</option>`).join('');
     if (sizes.map(String).includes(prev)) sizeSelect.value = prev;
+    updateValidatedRules();
 }
 
 function toggleValidatedStorageOnly() {
@@ -483,6 +542,7 @@ function toggleValidatedStorageOnly() {
 function setTierMode(mode) {
     document.getElementById('single-tier-config').style.display = mode === 'single' ? 'block' : 'none';
     document.getElementById('dual-tier-config').style.display = mode === 'dual' ? 'block' : 'none';
+    updateValidatedRules();
 }
 
 // Seed the size dropdowns and pick sensible defaults (single = all-flash NVMe,
