@@ -927,17 +927,26 @@ function renderDriveSelectList() {
     const allowed = allowedDriveTypes();
     const taken = new Set(selectedDrives.map(d => `${d.drive_type}|${d.size_tb}`));
     const avail = driveCatalog
-        .filter(d => allowed.includes(d.drive_type) && !taken.has(`${d.drive_type}|${d.size_tb}`))
-        .sort((a, b) => a.drive_type.localeCompare(b.drive_type) || a.size_tb - b.size_tb);
+        .filter(d => allowed.includes(d.drive_type) && !taken.has(`${d.drive_type}|${d.size_tb}`));
     if (!avail.length) {
         list.innerHTML = `<p class="drive-select-empty">${allowed.length
             ? 'All matching drives are already added.'
             : 'This storage type has no drive options.'}</p>`;
         return;
     }
-    list.innerHTML = avail.map(d =>
-        `<label><input type="checkbox" value="${d.id}"> ${esc(d.drive_type)} ${d.size_tb} TB</label>`
-    ).join('');
+    // One section per drive type (in the storage type's media order), sizes asc.
+    // The type is the section header, so each checkbox only needs its size.
+    list.innerHTML = allowed.map(type => {
+        const drives = avail.filter(d => d.drive_type === type)
+            .sort((a, b) => a.size_tb - b.size_tb);
+        if (!drives.length) return '';
+        const items = drives.map(d =>
+            `<label><input type="checkbox" value="${d.id}"> ${d.size_tb} TB</label>`
+        ).join('');
+        return `<div class="drive-select-group">`
+            + `<h4 class="drive-select-group-title">${esc(type)}</h4>`
+            + `<div class="drive-select-grid">${items}</div></div>`;
+    }).join('');
 }
 
 function toggleAllDriveSelect(el) {

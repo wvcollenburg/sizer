@@ -499,9 +499,17 @@ hr {
 #drive-select-modal { z-index: 1100; }
 .drive-select-toolbar { margin-bottom: 0.75rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
 .drive-select-all-lbl { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 600; }
+.drive-select-group + .drive-select-group { margin-top: 1rem; }
+.drive-select-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 0 0 0.4rem;
+}
 .drive-select-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 0.25rem 0.75rem;
 }
 .drive-select-grid label {
