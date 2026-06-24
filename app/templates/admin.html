@@ -495,6 +495,52 @@
             </div>
         </div>
 
+        <!-- Drive picker (opens over the model editor) -->
+        <div class="modal-overlay" id="drive-select-modal" style="display:none">
+            <div class="modal" style="max-width:560px">
+                <div class="modal-header">
+                    <h2>Add Drives</h2>
+                    <button class="modal-close" data-click='["closeDriveSelect"]'>&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="drive-select-toolbar">
+                        <label class="drive-select-all-lbl">
+                            <input type="checkbox" id="drive-select-all" data-change='["toggleAllDriveSelect","$this"]'>
+                            Select all
+                        </label>
+                    </div>
+                    <div id="drive-select-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-click='["closeDriveSelect"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmDriveSelect"]'>Add Selected</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CPU / NIC picker (opens over the model editor) -->
+        <div class="modal-overlay" id="item-select-modal" style="display:none">
+            <div class="modal" style="max-width:600px">
+                <div class="modal-header">
+                    <h2 id="item-select-title">Add</h2>
+                    <button class="modal-close" data-click='["closeItemSelect"]'>&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="drive-select-toolbar">
+                        <label class="drive-select-all-lbl">
+                            <input type="checkbox" id="item-select-all" data-change='["toggleAllItemSelect","$this"]'>
+                            Select all
+                        </label>
+                    </div>
+                    <div id="item-select-list" class="item-select-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-click='["closeItemSelect"]'>Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmItemSelect"]'>Add Selected</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══════════════════ MODEL EDIT MODAL ═══════════════════ -->
         <div class="modal-overlay" id="edit-modal" style="display:none">
             <div class="modal modal-wide">
@@ -586,10 +632,7 @@
                             <h3>CPU Options</h3>
                         </div>
                         <div class="picker-row">
-                            <select id="cpu-picker" class="picker-select">
-                                <option value="">Select a CPU to add...</option>
-                            </select>
-                            <button class="btn btn-small" data-click='["addCpuFromPicker"]'>Add</button>
+                            <button class="btn btn-small" data-click='["openItemSelect","cpu"]'>+ Add CPUs…</button>
                             <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","cpu",true]'>New CPU</button>
                         </div>
                         <div id="cpu-chips" class="chip-list"></div>
@@ -638,17 +681,16 @@
                                 <input type="number" id="edit-stor-nvme-count" min="1" value="1">
                             </div>
                         </div>
-                        <div class="sub-header" style="margin-top:0.5rem">
-                            <h4>Drive Size Options</h4>
+                        <div id="drive-options-wrap">
+                            <div class="sub-header" style="margin-top:0.5rem">
+                                <h4>Drive Size Options</h4>
+                            </div>
+                            <div class="picker-row">
+                                <button class="btn btn-small" data-click='["openDriveSelect"]'>+ Add Drives…</button>
+                                <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
+                            </div>
+                            <div id="drive-chips" class="chip-list"></div>
                         </div>
-                        <div class="picker-row">
-                            <select id="drive-picker" class="picker-select">
-                                <option value="">Select a drive to add...</option>
-                            </select>
-                            <button class="btn btn-small" data-click='["addDriveFromPicker"]'>Add</button>
-                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
-                        </div>
-                        <div id="drive-chips" class="chip-list"></div>
                     </div>
 
                     <!-- NIC Options (picker) -->
@@ -657,10 +699,7 @@
                             <h3>NIC Options</h3>
                         </div>
                         <div class="picker-row">
-                            <select id="nic-picker" class="picker-select">
-                                <option value="">Select a NIC to add...</option>
-                            </select>
-                            <button class="btn btn-small" data-click='["addNicFromPicker"]'>Add</button>
+                            <button class="btn btn-small" data-click='["openItemSelect","nic"]'>+ Add NICs…</button>
                             <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","nic",true]'>New NIC</button>
                         </div>
                         <div id="nic-chips" class="chip-list"></div>
