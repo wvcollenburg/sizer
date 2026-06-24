@@ -126,6 +126,18 @@ TUNABLE_DEFS = [
      "what": "The vCPU-to-physical-core consolidation ratio every new sizing starts from — the initial position of the ratio slider and the value used for the first recommendation, regardless of the source environment's measured ratio (which is still shown for reference).",
      "how": "Raise it to consolidate harder by default (fewer/denser nodes, less hardware). Lower it toward 1:1 to size more conservatively out of the box. Users can still override per-sizing with the slider.",
      "beware": "Set well above what the workloads tolerate and the default recommendation under-provisions CPU until the user notices and dials it back. Set to 1:1 and every sizing starts as large as the source estate, defeating the point of a consolidation default."},
+    {"key": "max_day_one_storage_pct", "default": 50, "type": "int", "group": "Sizing defaults",
+     "label": "Max day-one storage consumption (%)", "min": 1, "max": 100, "step": 1,
+     "help": "Cap on today's storage use as a % of full-cluster usable capacity. Sizes in extra headroom on top of growth/snapshots. 100 = no cap.",
+     "what": "The maximum share of full-cluster usable storage that today's (pre-growth) workload may consume. The engine adds nodes/disks until day-one use sits at or below this, on top of the growth + snapshot reserve. Measured against the full cluster because RF replication already covers a node loss, so storage capacity is the same at N-1.",
+     "how": "Lower it to demand more day-one storage headroom (bigger clusters, more breathing room before growth bites). Raise it toward 100 to size storage tight to projected demand only (100 disables the cap).",
+     "beware": "Low values inflate every recommendation's node/disk count and cost. At 100 the cap is off and a fast-filling workload can ship near-full on day one."},
+    {"key": "max_day_one_ram_pct", "default": 50, "type": "int", "group": "Sizing defaults",
+     "label": "Max day-one RAM consumption (%)", "min": 1, "max": 100, "step": 1,
+     "help": "Cap on today's RAM use as a % of N-1 available RAM. Sizes in headroom so the workload still fits with a node down, even at projected end-state. 100 = no cap.",
+     "what": "The maximum share of N-1 available RAM that today's (pre-growth) workload may consume. Measured against N-1 (one node down) so that even at the projected end-state — roughly 2× day-one over a typical 5-year growth — the workload still fits during a node failure. Because N-1 capacity is smaller than the full cluster, the on-card RAM bar (measured vs full cluster) reads lower than this percentage.",
+     "how": "Lower it to demand more RAM failover headroom. Raise it toward 100 to size RAM tight to projected demand only (100 disables the cap).",
+     "beware": "Low values noticeably enlarge RAM (more or larger DIMMs, more nodes) and cost. At 100 the cap is off and RAM is sized only to fit projected demand at N-1."},
 
     # ── Advisory thresholds ──────────────────────────────────────────────────
     {"key": "vm_density_warn_per_node", "default": 100, "type": "int", "group": "Advisory thresholds",

@@ -546,6 +546,22 @@
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
                                    data-change='["recalcRecommendations"]'>
                         </div>
+                        <div class="form-group">
+                            <label>Max Day-One Storage %
+                                <span class="info-icon" tabindex="0"
+                                      title="Cap on today's (pre-growth) storage use as a share of full-cluster usable capacity. The cluster is sized so day-one storage sits at or below this, adding headroom on top of growth + snapshots. Measured against the full cluster (RF replication already covers a node loss). 100 = no cap.">i</span>
+                            </label>
+                            <input type="number" id="max-day-one-storage" value="{{ max_day_one_storage_pct }}"
+                                   min="1" max="100" step="1" data-change='["recalcRecommendations"]'>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Day-One RAM %
+                                <span class="info-icon" tabindex="0"
+                                      title="Cap on today's (pre-growth) RAM use as a share of N-1 available RAM, so the workload still fits with a node down even at the projected end-state. Measured against N-1, so the on-card RAM bar (shown vs the full cluster) reads lower than this percentage. 100 = no cap.">i</span>
+                            </label>
+                            <input type="number" id="max-day-one-ram" value="{{ max_day_one_ram_pct }}"
+                                   min="1" max="100" step="1" data-change='["recalcRecommendations"]'>
+                        </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>

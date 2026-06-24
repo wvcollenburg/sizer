@@ -832,6 +832,8 @@ async function recalcRecommendations() {
     const allowStorageOnly = document.getElementById('allow-storage-only').checked;
     const targetModel = document.getElementById('sizing-model-select').value || null;
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
+    const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
+    const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -850,6 +852,8 @@ async function recalcRecommendations() {
                 allow_storage_only: allowStorageOnly,
                 target_model: targetModel,
                 include_eol_eos: includeEolEos,
+                max_day_one_storage_pct: maxDayOneStorage,
+                max_day_one_ram_pct: maxDayOneRam,
             }),
         });
         const data = await resp.json();
@@ -2162,9 +2166,9 @@ const SNAPSHOT_VERSION = 1;
 // Controls in the shared Sizing Options + Growth block — captured for BOTH the
 // import and manual flows (single source of truth, so they stay in lock-step).
 const _SHARED_SIZING_FIELDS = ['ratio-slider', 'growth-years', 'growth-pct',
-    'snapshot-pct', 'target-nodes', 'storage-pref', 'sizing-mode',
-    'size-full-cluster', 'allow-storage-only', 'sizing-model-select',
-    'sizing-include-eol'];
+    'snapshot-pct', 'max-day-one-storage', 'max-day-one-ram', 'target-nodes',
+    'storage-pref', 'sizing-mode', 'size-full-cluster', 'allow-storage-only',
+    'sizing-model-select', 'sizing-include-eol'];
 
 const SNAP_FIELDS = {
     appliance: ['status-filter', 'model-select', 'node-count', 'cpu-select',
