@@ -638,17 +638,20 @@
                                 <input type="number" id="edit-stor-nvme-count" min="1" value="1">
                             </div>
                         </div>
-                        <div class="sub-header" style="margin-top:0.5rem">
-                            <h4>Drive Size Options</h4>
+                        <div id="drive-options-wrap">
+                            <div class="sub-header" style="margin-top:0.5rem">
+                                <h4>Drive Size Options</h4>
+                                <span class="sub-hint">Ctrl/Cmd-click to select several</span>
+                            </div>
+                            <div class="picker-row picker-row-multi">
+                                <select id="drive-picker" class="picker-select" multiple size="6"></select>
+                                <div class="picker-row-actions">
+                                    <button class="btn btn-small" data-click='["addDrivesFromPicker"]'>Add Selected</button>
+                                    <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
+                                </div>
+                            </div>
+                            <div id="drive-chips" class="chip-list"></div>
                         </div>
-                        <div class="picker-row">
-                            <select id="drive-picker" class="picker-select">
-                                <option value="">Select a drive to add...</option>
-                            </select>
-                            <button class="btn btn-small" data-click='["addDriveFromPicker"]'>Add</button>
-                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
-                        </div>
-                        <div id="drive-chips" class="chip-list"></div>
                     </div>
 
                     <!-- NIC Options (picker) -->
