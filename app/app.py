@@ -715,6 +715,18 @@ def calculate_validated(data, node_count):
                     "error": f"Hybrid fast tier must be 7-24.3% of total capacity. Currently {flash_pct:.1f}%",
                     "flash_percentage": round(flash_pct, 1),
                 }
+        # HEAT best practice: enough HDD spindles per flash disk so the slow tier
+        # can absorb cold data evicted from flash (Certified appliances already
+        # encode this; enforce it on Validated configs too).
+        hdd_n = sum(1 for d in disks if d["type"] in ("SAS", "NLSAS", "SATA", "HDD"))
+        flash_n = sum(1 for d in disks if d["type"] in ("SSD", "NVMe"))
+        min_ratio = T.hybrid_min_hdd_per_flash
+        if flash_n > 0 and hdd_n < min_ratio * flash_n:
+            return {
+                "error": (f"Hybrid tiered layout needs at least {min_ratio} HDDs per "
+                          f"flash disk for HEAT down-tiering. Currently {hdd_n}× HDD : "
+                          f"{flash_n}× flash."),
+            }
 
     # Apply HyperCore OS overhead; OS RAM is tiered by the node's drive count.
     usable_cores = cores - T.os_core_overhead

@@ -186,6 +186,12 @@ TUNABLE_DEFS = [
      "what": "The maximum flash tier, as a percentage of raw capacity, before a configuration is treated as all-flash rather than hybrid.",
      "how": "Raise it to let hybrids carry more flash. Lower it to restrict hybrids to a thinner flash tier.",
      "beware": "Must stay above the floor — the engine rejects a floor greater than the ceiling. Extreme values distort the hybrid/all-flash boundary and can exclude valid designs."},
+    {"key": "hybrid_min_hdd_per_flash", "default": 3, "type": "int", "group": "Validated limits",
+     "label": "Min HDDs per flash disk (hybrid)", "min": 1, "step": 1,
+     "help": "Validated hybrid: minimum slow-tier (HDD) disks required per fast-tier (SSD/NVMe) disk. Best practice is 3.",
+     "what": "The minimum ratio of slow-tier (HDD) to fast-tier (SSD/NVMe) disks in a Validated hybrid node. At the default of 3, every flash disk must be backed by at least 3 HDDs. Certified appliances already encode this in their fixed disk layouts; this enforces it on Validated configs, where disk counts can flex.",
+     "how": "Raise it to demand even more spinning capacity behind each flash disk. Lower it toward 1 to only require more HDDs than flash. Set to 1 to effectively disable the best-practice floor.",
+     "beware": "This guards HEAT down-tiering: too few HDDs and the spinning tier can't absorb cold data evicted from flash, so the HDDs bottleneck under tiering pressure. Raising it can make some Validated hybrids infeasible (more disks/nodes needed)."},
 ]
 
 DEFAULTS = {d["key"]: d["default"] for d in TUNABLE_DEFS}

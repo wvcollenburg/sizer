@@ -1036,6 +1036,12 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                         total = h + f
                         if total < 3 or total * max_cluster_nodes > T.max_cluster_disks:
                             continue
+                        # HEAT best practice: the slow (HDD) tier must have enough
+                        # spindles to absorb cold data evicted from flash, so keep
+                        # at least N HDDs per flash disk. Certified models already
+                        # encode this; Validated flexes counts, so enforce it here.
+                        if h < T.hybrid_min_hdd_per_flash * f:
+                            continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
                     # The 7-24.3% flash-capacity band is a hybrid architecture
                     # requirement, not a validated-only one: a fixed certified

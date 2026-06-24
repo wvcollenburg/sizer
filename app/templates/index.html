@@ -120,20 +120,22 @@
         <section id="validated-form" class="config-form" style="display:none">
             <div class="validated-rules">
                 <h3>Validated Installer Rules</h3>
-                <ul>
-                    <li>1 or 3+ disks per node (no 2-disk configs)</li>
-                    <li>Hybrid: fast tier must be 7-24.3% of total capacity</li>
+                <ul id="validated-rules-list">
+                    <li data-rule="disks">1 or 3+ disks per node (no 2-disk configs)</li>
+                    <li data-rule="band">Hybrid: fast tier must be 7-24.3% of total capacity</li>
+                    <li data-rule="ratio">Hybrid: at least 3 HDDs per flash disk (HEAT down-tiering)</li>
                     <li>Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
                     <li>JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
                     <li>Internal storage only &mdash; no SAN or DAS</li>
-                    <li>Minimum 2 nodes (2-node clusters require a witness device)</li>
+                    <li data-rule="nodes">Minimum 2 nodes (2-node clusters require a witness device)</li>
                 </ul>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label>Node Count</label>
-                    <input type="number" id="val-node-count" value="3" min="2" max="99">
+                    <input type="number" id="val-node-count" value="3" min="2" max="99"
+                           data-input='["updateValidatedRules"]'>
                 </div>
                 <div class="form-group">
                     <label>CPU Cores per Node</label>
@@ -199,8 +201,9 @@
                             <option value="SSD">SSD (Flash)</option>
                             <option value="NVMe">NVMe (Flash)</option>
                         </select>
-                        <select id="st-size" class="disk-size"></select>
-                        <input type="number" id="st-qty" class="disk-qty" value="4" min="1" max="48">
+                        <select id="st-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
+                        <input type="number" id="st-qty" class="disk-qty" value="4" min="1" max="48"
+                               data-input='["updateValidatedRules"]'>
                         <span class="qty-label">drives</span>
                     </div>
                 </div>
@@ -213,8 +216,9 @@
                             <option value="NLSAS">NLSAS (Spinning)</option>
                             <option value="SATA">SATA (Spinning)</option>
                         </select>
-                        <select id="dt-cap-size" class="disk-size"></select>
-                        <input type="number" id="dt-cap-qty" class="disk-qty" value="6" min="1" max="48">
+                        <select id="dt-cap-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
+                        <input type="number" id="dt-cap-qty" class="disk-qty" value="6" min="1" max="48"
+                               data-input='["updateValidatedRules"]'>
                         <span class="qty-label">drives</span>
                     </div>
                     <div class="tier-row">
@@ -223,8 +227,9 @@
                             <option value="SSD">SSD (Flash)</option>
                             <option value="NVMe">NVMe (Flash)</option>
                         </select>
-                        <select id="dt-fast-size" class="disk-size"></select>
-                        <input type="number" id="dt-fast-qty" class="disk-qty" value="2" min="1" max="48">
+                        <select id="dt-fast-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
+                        <input type="number" id="dt-fast-qty" class="disk-qty" value="2" min="1" max="48"
+                               data-input='["updateValidatedRules"]'>
                         <span class="qty-label">drives</span>
                     </div>
                 </div>
@@ -265,7 +270,7 @@
                 </div>
             </div>
 
-            <button class="btn btn-primary" data-click='["calculateValidated"]'>Calculate</button>
+            <button class="btn btn-primary" id="val-calculate-btn" data-click='["calculateValidated"]'>Calculate</button>
         </section>
 
         <!-- IMPORT MODE -->
