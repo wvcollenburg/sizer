@@ -585,29 +585,10 @@ function downloadCatalogTemplate() {
 
 // ── Model Edit Modal ───────────────────────────────────────────────────────
 
-function populatePickers() {
-    const cpuPicker = document.getElementById('cpu-picker');
-    cpuPicker.innerHTML = '<option value="">Select a CPU to add...</option>';
-    cpuCatalog.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = `${c.desc} (${c.cores}C/${c.threads}T ${c.ghz}GHz)`;
-        cpuPicker.appendChild(opt);
-    });
-
-    const nicPicker = document.getElementById('nic-picker');
-    nicPicker.innerHTML = '<option value="">Select a NIC to add...</option>';
-    nicCatalog.forEach(n => {
-        const opt = document.createElement('option');
-        opt.value = n.id;
-        opt.textContent = `${n.desc} (${n.ports}p ${n.speed})`;
-        nicPicker.appendChild(opt);
-    });
-}
-
-function refreshPickersAfterCatalogChange(type) {
-    populatePickers();
-}
+// CPU/NIC/drive selection now happens in on-demand modals built from the live
+// catalog arrays, which loadCatalogs() refreshes after any catalog edit — so
+// there are no standing picker controls left to repopulate here.
+function refreshPickersAfterCatalogChange(type) {}
 
 function openAddModel() {
     document.getElementById('edit-id').value = '';
@@ -642,7 +623,6 @@ function openAddModel() {
 
     updateStorageFields();
     addRamInput();
-    populatePickers();
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -704,7 +684,6 @@ async function openEditModel(id) {
     });
     renderNicChips();
 
-    populatePickers();
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -712,31 +691,87 @@ function closeEdit() {
     document.getElementById('edit-modal').style.display = 'none';
 }
 
-// ── Picker: Add from dropdown ──────────────────────────────────────────────
+// ── CPU / NIC picker modal ─────────────────────────────────────────────────
+// A shared scrolling checkbox modal (long descriptions), mirroring the grouped
+// drive picker. Per-kind config drives the title, ordering, label, dedup key and
+// how a checked item is added. NICs sort fastest-first; CPUs biggest-first.
 
-function addCpuFromPicker() {
-    const sel = document.getElementById('cpu-picker');
-    const id = parseInt(sel.value);
-    if (!id) return;
-    const cat = cpuCatalog.find(c => c.id === id);
-    if (cat) {
-        const flags = parseModelName(document.getElementById('edit-name').value.trim());
-        selectedCpus.push({ ...cat, qty: flags.isDual ? 2 : 1 });
-        renderCpuChips();
-    }
-    sel.value = '';
+function nicSpeedVal(speed) {
+    // "25GbE" -> 25, "1GbE" -> 1; unparseable -> 0 so it sorts last.
+    const m = /([\d.]+)/.exec(speed || '');
+    return m ? parseFloat(m[1]) : 0;
 }
 
-function addNicFromPicker() {
-    const sel = document.getElementById('nic-picker');
-    const id = parseInt(sel.value);
-    if (!id) return;
-    const cat = nicCatalog.find(n => n.id === id);
-    if (cat) {
-        selectedNics.push({ ...cat, qty: 1 });
-        renderNicChips();
+const ITEM_SELECT = {
+    cpu: {
+        title: 'Add CPUs',
+        noun: 'CPUs',
+        catalog: () => cpuCatalog,
+        selected: () => selectedCpus,
+        key: c => c.desc,
+        label: c => `${esc(c.desc)}<span class="item-select-meta">${c.cores}C / ${c.threads}T · ${c.ghz} GHz</span>`,
+        sort: (a, b) => b.cores - a.cores || b.ghz - a.ghz || a.desc.localeCompare(b.desc),
+        add: c => {
+            const flags = parseModelName(document.getElementById('edit-name').value.trim());
+            selectedCpus.push({ ...c, qty: flags.isDual ? 2 : 1 });
+        },
+        renderChips: () => renderCpuChips(),
+    },
+    nic: {
+        title: 'Add NICs',
+        noun: 'NICs',
+        catalog: () => nicCatalog,
+        selected: () => selectedNics,
+        key: n => n.desc,
+        label: n => `${esc(n.desc)}<span class="item-select-meta">${n.ports}-port · ${esc(n.speed)}</span>`,
+        sort: (a, b) => nicSpeedVal(b.speed) - nicSpeedVal(a.speed) || a.desc.localeCompare(b.desc),
+        add: n => { selectedNics.push({ ...n, qty: 1 }); },
+        renderChips: () => renderNicChips(),
+    },
+};
+
+let itemSelectKind = null;
+
+function openItemSelect(kind) {
+    itemSelectKind = kind;
+    document.getElementById('item-select-title').textContent = ITEM_SELECT[kind].title;
+    renderItemSelectList();
+    document.getElementById('item-select-all').checked = false;
+    document.getElementById('item-select-modal').style.display = 'flex';
+}
+
+function closeItemSelect() {
+    document.getElementById('item-select-modal').style.display = 'none';
+    itemSelectKind = null;
+}
+
+function renderItemSelectList() {
+    const cfg = ITEM_SELECT[itemSelectKind];
+    const list = document.getElementById('item-select-list');
+    const taken = new Set(cfg.selected().map(cfg.key));
+    const avail = cfg.catalog().filter(it => !taken.has(cfg.key(it))).sort(cfg.sort);
+    if (!avail.length) {
+        list.innerHTML = `<p class="drive-select-empty">All ${cfg.noun} are already added.</p>`;
+        return;
     }
-    sel.value = '';
+    list.innerHTML = avail.map(it =>
+        `<label class="item-select-row"><input type="checkbox" value="${it.id}"> ${cfg.label(it)}</label>`
+    ).join('');
+}
+
+function toggleAllItemSelect(el) {
+    document.querySelectorAll('#item-select-list input[type=checkbox]')
+        .forEach(cb => { cb.checked = el.checked; });
+}
+
+function confirmItemSelect() {
+    const cfg = ITEM_SELECT[itemSelectKind];
+    document.querySelectorAll('#item-select-list input[type=checkbox]:checked').forEach(cb => {
+        const it = cfg.catalog().find(x => x.id === parseInt(cb.value));
+        if (it && !cfg.selected().some(s => cfg.key(s) === cfg.key(it))) cfg.add(it);
+    });
+    cfg.renderChips();
+    closeItemSelect();
 }
 
 // ── Chip Rendering ─────────────────────────────────────────────────────────
