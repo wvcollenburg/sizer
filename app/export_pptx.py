@@ -501,7 +501,7 @@ def _slide_current_env(prs, s):
     _add_title(slide, "Current Environment",
                f"{s.get('current_platform', '')}  —  {s.get('cluster_name', '')}")
 
-    y = 2.6
+    y = 2.35
     cards = [
         ("Hosts", s.get("host_count", 0)),
         ("Total Cores", _fmt_num(s.get("total_host_cores", 0))),
@@ -512,7 +512,7 @@ def _slide_current_env(prs, s):
     for i, (label, val) in enumerate(cards):
         _add_card(slide, 0.6 + i * 2.5, y, 2.3, 0.9, label, val)
 
-    y2 = 3.8
+    y2 = 3.55
     perf = [
         ("Peak CPU %", f"{s.get('peak_cpu_pct', 0)}%"),
         ("Avg CPU %", f"{s.get('avg_cpu_pct', 0)}%"),
@@ -522,7 +522,7 @@ def _slide_current_env(prs, s):
     for i, (label, val) in enumerate(perf):
         _add_card(slide, 0.6 + i * 2.5, y2, 2.3, 0.9, label, val)
 
-    y3 = 5.0
+    y3 = 4.75
     iops = [
         ("Avg IOPS", _fmt_num(s.get("total_avg_iops", 0))),
         ("Peak IOPS", _fmt_num(s.get("total_peak_iops", 0))),
