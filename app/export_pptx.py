@@ -701,7 +701,7 @@ def _slide_sizing(prs, r, s):
     binding = det.get("resource", "")
     rows, any_ha = util_rows(u)
 
-    top = 1.7
+    top = 2.7   # bars + derivation sit lower, clear of the title rule
     if rows:
         png = render_util_bars(rows, limiting_key=binding, any_ha=any_ha)
         iw, ih = Image.open(io.BytesIO(png)).size
