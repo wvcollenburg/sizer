@@ -46,7 +46,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Seed the tier defaults only after the disk-size catalog has loaded.
     loadValidatedNics().then(initDiskTiers);
     populateSizingModelDropdown('sizing-model-select', false);
+    // A page switch with unsaved data reloads to a clean slate; resume on the
+    // page the user was switching to.
+    let pending = null;
+    try { pending = sessionStorage.getItem('sizerPendingMode'); } catch (e) { /* ignore */ }
+    if (pending) {
+        try { sessionStorage.removeItem('sizerPendingMode'); } catch (e) { /* ignore */ }
+        if (pending !== currentMode) switchMode(pending);
+    }
 });
+
+// User-initiated page switch (the four mode buttons). Switching pages discards
+// all unsaved data so nothing bleeds across modes — e.g. a prior import's
+// source CPUs must never feed a Manual-Input sizing. We confirm first, then
+// hard-reset via reload to the target page so it starts completely clean.
+// Programmatic switches (config load, restore) call switchMode() directly and
+// skip this.
+function requestSwitchMode(mode) {
+    if (mode === currentMode) return;
+    if (hasUnsavedWork()) {
+        if (!confirm('Leaving this page will discard all unsaved data on it. Continue?')) return;
+        try { sessionStorage.setItem('sizerPendingMode', mode); } catch (e) { /* private mode */ }
+        location.reload();
+        return;
+    }
+    switchMode(mode);
+}
+
+// Is there entered or loaded work that a page switch would throw away?
+function hasUnsavedWork() {
+    if (window.hasSizingToSave && window.hasSizingToSave()) return true;
+    if (currentMode === 'manual') {           // figures typed but not yet sized
+        const v = document.getElementById('man-vcpus');
+        if (v && v.value) return true;
+    }
+    return false;
+}
 
 function switchMode(mode) {
     currentMode = mode;
