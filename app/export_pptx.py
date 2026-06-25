@@ -501,7 +501,7 @@ def _slide_current_env(prs, s):
     _add_title(slide, "Current Environment",
                f"{s.get('current_platform', '')}  —  {s.get('cluster_name', '')}")
 
-    y = 1.6
+    y = 2.6
     cards = [
         ("Hosts", s.get("host_count", 0)),
         ("Total Cores", _fmt_num(s.get("total_host_cores", 0))),
@@ -512,7 +512,7 @@ def _slide_current_env(prs, s):
     for i, (label, val) in enumerate(cards):
         _add_card(slide, 0.6 + i * 2.5, y, 2.3, 0.9, label, val)
 
-    y2 = 2.8
+    y2 = 3.8
     perf = [
         ("Peak CPU %", f"{s.get('peak_cpu_pct', 0)}%"),
         ("Avg CPU %", f"{s.get('avg_cpu_pct', 0)}%"),
@@ -522,7 +522,7 @@ def _slide_current_env(prs, s):
     for i, (label, val) in enumerate(perf):
         _add_card(slide, 0.6 + i * 2.5, y2, 2.3, 0.9, label, val)
 
-    y3 = 4.0
+    y3 = 5.0
     iops = [
         ("Avg IOPS", _fmt_num(s.get("total_avg_iops", 0))),
         ("Peak IOPS", _fmt_num(s.get("total_peak_iops", 0))),
@@ -535,7 +535,7 @@ def _slide_current_env(prs, s):
     for i, (label, val) in enumerate(iops):
         _add_card(slide, 0.6 + i * 2.5, y3, 2.3, 0.9, label, val)
 
-    y4 = 5.2
+    y4 = 6.2
     ratio = s.get("vcpu_per_core_ratio", 0)
     if ratio > 0:
         _add_card(slide, 0.6, y4, 2.3, 0.9, "vCPU : Core Ratio",
@@ -549,7 +549,7 @@ def _slide_workload(prs, s):
     _add_title(slide, "Workload Analysis",
                f"{s.get('active_vms', 0)} active VMs of {s.get('total_vms', 0)} total")
 
-    y = 1.6
+    y = 2.6
     compute = [
         ("Total vCPUs", _fmt_num(s.get("total_vcpus", 0)), True),
         ("Provisioned RAM", _fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)), True),
@@ -558,7 +558,7 @@ def _slide_workload(prs, s):
     for i, (label, val, accent) in enumerate(compute):
         _add_card(slide, 0.6 + i * 4.0, y, 3.7, 1.0, label, val, accent)
 
-    y2 = 2.9
+    y2 = 3.9
     storage = [
         ("Provisioned Storage", f"{s.get('total_vm_provisioned_storage_tb', 0)} TiB", False),
         ("Datastore Used", f"{s.get('datastore_used_tb', 0)} TiB", True),
@@ -567,7 +567,7 @@ def _slide_workload(prs, s):
     for i, (label, val, accent) in enumerate(storage):
         _add_card(slide, 0.6 + i * 4.0, y2, 3.7, 1.0, label, val, accent)
 
-    y3 = 4.4
+    y3 = 5.4
     ratio = s.get("vcpu_per_core_ratio", 0)
     if ratio > 0:
         _add_card(slide, 0.6, y3, 5.5, 1.0,
@@ -610,7 +610,7 @@ def _slide_proposal(prs, r, projection=None):
     ]
     if iops:
         node_rows.append(["Net IOPS", f"{iops['per_node']:,}"])
-    _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
+    _add_table(slide, 0.6, 2.6, 4.0, node_rows, [1.5, 2.5])
 
     t = r["totals"]
     total_rows = [
@@ -624,7 +624,7 @@ def _slide_proposal(prs, r, projection=None):
     ]
     if iops:
         total_rows.append(["Net IOPS", f"{iops['total']:,}"])
-    _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
+    _add_table(slide, 4.8, 2.6, 4.0, total_rows, [1.5, 2.5])
 
     n = r["n_minus_1"]
     n1_label = f"N-1 ({num_cl} spare{'s' if num_cl > 1 else ''})" if num_cl > 1 else "N-1 Available"
@@ -638,12 +638,12 @@ def _slide_proposal(prs, r, projection=None):
     ]
     if iops:
         n1_rows.append(["Net IOPS", f"{iops['n_minus_1']:,}"])
-    _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
+    _add_table(slide, 9.0, 2.6, 4.0, n1_rows, [1.5, 2.5])
 
     if so:
-        _add_storage_only_note(slide, so, 4.5)
+        _add_storage_only_note(slide, so, 5.5)
 
-    _add_card(slide, 0.6, 5.4, 3.5, 0.9,
+    _add_card(slide, 0.6, 5.75, 3.5, 0.9,
               "vCPU : Core Ratio at N-1",
               f"{r['vcpu_ratio']:.2f} : 1", accent=True)
 
@@ -653,7 +653,7 @@ def _slide_proposal(prs, r, projection=None):
         metric = "P95" if demand.get("p95") else "Avg"
         value = demand.get("p95") or demand.get("avg")
         ratio = iops["total"] / value if value else 0
-        _add_card(slide, 4.3, 5.4, 4.0, 0.9,
+        _add_card(slide, 4.3, 5.75, 4.0, 0.9,
                   f"Net IOPS Headroom vs {metric}",
                   f"{ratio:.1f}x  ({iops['total']:,} net / {value:,} demand)")
 
@@ -664,7 +664,7 @@ def _slide_proposal(prs, r, projection=None):
                 f"− {iops['derating_pct']:.0f}% derating "
                 f"= {iops['derated_per_node']:,} ÷ {iops['write_amp']}× RF write-amp "
                 f"= {iops['per_node']:,}/node, × {r['node_count']} nodes.")
-        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.5), Inches(11.2), Inches(0.5))
+        box = slide.shapes.add_textbox(Inches(0.6), Inches(6.75), Inches(11.2), Inches(0.5))
         p = box.text_frame.paragraphs[0]
         run = p.add_run()
         run.text = note
@@ -748,7 +748,7 @@ def _slide_benchmark(prs, r, source_perf):
     src_total = source_perf["total_specrate"]
     ratio = tgt / src_total if src_total else 0
 
-    _add_textbox(slide, 0.6, 1.55, 7.0, 0.4,
+    _add_textbox(slide, 0.6, 2.55, 7.0, 0.4,
                  [("Where you are now", 13, SC_DARK_BLUE, True)])
     src_rows = [["Your current CPUs", "Sockets", "Score", "SPECrate"]]
     used_pm = False
@@ -759,21 +759,21 @@ def _slide_benchmark(prs, r, source_perf):
         src_rows.append([c.get("model", ""), str(c.get("sockets", "")),
                          score_lbl, _fmt_num(c.get("total", 0))])
     src_rows.append(["Total environment", "", "", _fmt_num(src_total)])
-    _add_table(slide, 0.6, 2.0, 7.0, src_rows, [3.4, 1.0, 1.6, 1.0])
+    _add_table(slide, 0.6, 3.0, 7.0, src_rows, [3.4, 1.0, 1.6, 1.0])
 
-    _add_textbox(slide, 8.0, 1.55, 4.7, 0.4,
+    _add_textbox(slide, 8.0, 2.55, 4.7, 0.4,
                  [("Where you're going", 13, SC_DARK_BLUE, True)])
     used_pm = used_pm or bool(r.get("cpu_perf_is_passmark"))
     tgt_rows = [["Recommended cluster", ""],
                 ["CPU per node", r.get("cpu", "")],
                 ["Nodes", str(r.get("node_count", ""))],
                 ["Cluster SPECrate2017", _fmt_num(tgt)]]
-    _add_table(slide, 8.0, 2.0, 4.7, tgt_rows, [2.3, 2.4])
+    _add_table(slide, 8.0, 3.0, 4.7, tgt_rows, [2.3, 2.4])
 
     verdict = (f"{ratio:.1f}× the compute throughput of your current environment"
                if ratio >= 1 else
                f"{round(ratio * 100)}% of your current environment's compute throughput")
-    _add_card(slide, 0.6, 4.9, 6.2, 0.95, "In a benchmark, this should deliver",
+    _add_card(slide, 0.6, 5.4, 6.2, 0.95, "In a benchmark, this should deliver",
               verdict, accent=True)
 
     foot = [("SPECrate2017_int measures total CPU throughput across all cores — the right "
@@ -786,7 +786,7 @@ def _slide_benchmark(prs, r, source_perf):
     foot.append(("Disclaimer: benchmark data is externally sourced (public SPEC and "
                  "PassMark results); provided for guidance only — no rights can be derived "
                  "from these figures.", 10, MID_GRAY, False))
-    _add_textbox(slide, 0.6, 6.1, 12.1, 1.2, foot)
+    _add_textbox(slide, 0.6, 6.5, 12.1, 1.2, foot)
 
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────
@@ -830,10 +830,10 @@ def _slide_projection(prs, s, r, p):
          f"+{round(stor_headroom, 2)} TB"],
     ]
 
-    table_shape = _add_table(slide, 0.6, 1.6, 12.1, rows,
+    table_shape = _add_table(slide, 0.6, 2.6, 12.1, rows,
                               [1.5, 2.2, 3.0, 3.0, 2.4])
 
-    y = 4.2
+    y = 4.9
     params = [
         ("Growth Rate", f"{p['growth_pct']}% per year"),
         ("Growth Factor", f"{p['growth_factor']}x over {p['years']} years"),
@@ -851,7 +851,7 @@ def _slide_projection(prs, s, r, p):
         verdict_text = (f"Based on current projections, some resources may need to be expanded "
                         f"before year {p['years']}.")
 
-    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.5), Inches(11.2), Inches(0.5))
+    txBox = slide.shapes.add_textbox(Inches(0.6), Inches(5.9), Inches(11.2), Inches(0.5))
     tf = txBox.text_frame
     pr = tf.paragraphs[0]
     run = pr.add_run()
@@ -861,7 +861,7 @@ def _slide_projection(prs, s, r, p):
     run.font.color.rgb = GREEN if all_ok else SC_BLUE
 
     if full_cluster:
-        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.05), Inches(11.2), Inches(0.4))
+        cpu_note = slide.shapes.add_textbox(Inches(0.6), Inches(6.45), Inches(11.2), Inches(0.4))
         ctf = cpu_note.text_frame
         ctf.word_wrap = True
         cp = ctf.paragraphs[0]
@@ -871,7 +871,7 @@ def _slide_projection(prs, s, r, p):
         cr.font.size = Pt(10.5)
         cr.font.color.rgb = CHARCOAL
 
-    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.6), Inches(11.2), Inches(0.7))
+    disclaimer = slide.shapes.add_textbox(Inches(0.6), Inches(6.9), Inches(11.2), Inches(0.7))
     dtf = disclaimer.text_frame
     dtf.word_wrap = True
     dp = dtf.paragraphs[0]
