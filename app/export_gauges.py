@@ -128,7 +128,7 @@ def render_util_bars(rows, limiting_key="", any_ha=True):
     top = title_h + 14 * _SS
     H = top + len(rows) * (row_h + row_gap) + pad
 
-    img = Image.new("RGB", (W, H), "white")
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))   # transparent — sits on the slide gradient
     d = ImageDraw.Draw(img)
 
     f_title = _font("MartelSans-SemiBold.ttf", 17 * _SS)
@@ -204,5 +204,8 @@ if __name__ == "__main__":  # quick visual check
             {"label": "RAM", "now": 38, "sized": 61, "ha": 39},
             {"label": "Storage", "now": 29, "sized": 63, "ha": 0}]
     png = render_util_bars(rows, limiting_key="CPU", any_ha=True)
-    open("/tmp/gauge_sample.png", "wb").write(png)
-    print("wrote /tmp/gauge_sample.png")
+    g = Image.open(io.BytesIO(png))
+    bg = Image.new("RGB", g.size, (224, 230, 238))   # mock the slide's light gradient
+    bg.paste(g, (0, 0), g)                            # composite using alpha
+    bg.save("/tmp/gauge_sample.png")
+    print("wrote /tmp/gauge_sample.png (transparent block on mock gradient)")

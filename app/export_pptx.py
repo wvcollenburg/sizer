@@ -735,9 +735,6 @@ def _slide_sizing(prs, r, s):
                   "workload with one node down (N-1).", 11, MID_GRAY, False))
     _add_textbox(slide, 0.6, top, 12.1, 1.8, lines)
 
-    _add_card(slide, 0.6, 6.6, 3.6, 0.85, "vCPU : Core Ratio at N-1",
-              f"{r.get('vcpu_ratio', 0):.2f} : 1", accent=True)
-
 
 # ── Benchmark performance: current environment vs recommended cluster ────────
 
