@@ -1853,9 +1853,26 @@ body.auth-required footer { display: none; }
 /* Right-aligned Cancel / Save row for small form modals. */
 .modal-btn-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    align-items: stretch;
     gap: 0.5rem;
     margin-top: 1.25rem;
+}
+/* Buttons in a row must stay uniform — reset the full-width / margin-top that
+   .btn-primary carries for stacked vertical forms. */
+.modal-btn-row .btn {
+    flex: 0 0 auto;
+    width: auto;
+    margin-top: 0;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+.btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
 }
 #name-sizing-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
 #name-sizing-form .form-group { margin-bottom: 0; }
