@@ -912,21 +912,20 @@ function updateRatioDisplay() {
 // Single recalc path shared by both the VMware Import and Manual Input flows.
 // The active workload summary is chosen by activeMode; every sizing control is
 // read from the one shared block, so the two flows can't diverge.
-// Per-recommendation CPU-performance comparison line (advisory; never changes
-// the sizing — active scaling is gated server-side by perf_scaling, default off).
-// Compares THIS config's cluster throughput to the source environment, using the
-// source context captured in lastPerfSource. Empty when no source score entered
-// or this config's CPU has no perf data.
-function formatPerfCompare(r) {
+// Per-recommendation CPU-performance comparison, as a compact header badge
+// (advisory; never changes the sizing — active scaling is gated server-side by
+// perf_scaling, default off). Compares THIS config's cluster throughput to the
+// source environment (lastPerfSource); full detail on hover. Empty when no
+// source score is entered or this config's CPU has no perf data.
+function formatPerfBadge(r) {
     const src = lastPerfSource;
     const tgt = r.totals && r.totals.perf_index;
     if (!src || !src.source_index_specrate || !tgt) return '';
     const ratio = tgt / src.source_index_specrate;
-    const verdict = ratio >= 1
-        ? `<strong>${ratio.toFixed(2)}×</strong> your source environment`
-        : `<strong>${Math.round(ratio * 100)}%</strong> of your source environment`;
-    return `<div class="rec-perf-compare" title="${esc(src.note || '')}">`
-        + `CPU throughput ~${tgt} SPECrate2017 — ${verdict} (~${src.source_index_specrate})</div>`;
+    const label = ratio >= 1 ? `${ratio.toFixed(2)}× source` : `${Math.round(ratio * 100)}% of source`;
+    const tip = `CPU throughput ~${tgt} SPECrate2017 vs your source environment `
+        + `~${src.source_index_specrate}. ${src.note || ''}`;
+    return `<span class="rec-perf-badge" title="${esc(tip)}">${label}</span>`;
 }
 
 // Render the source CPUs detected from the import (Environment Summary), each
@@ -1322,11 +1321,11 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-model">${modelLabel}</span>
                 <span class="rec-category">${r.category}</span>
                 ${ratioBadge}
+                ${formatPerfBadge(r)}
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
             ${formatDeterminant(r.determinant)}
-            ${formatPerfCompare(r)}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>Per Node</h4>

@@ -2022,10 +2022,14 @@ body.auth-required footer { display: none; }
 .source-cpu-score { flex: 0 0 130px; }
 .source-cpu-status { flex: 0 0 auto; }
 
-/* Per-recommendation CPU-performance comparison line (inside each card). */
-.rec-perf-compare {
-    margin: 0.1rem 0 0.4rem;
-    font-size: 0.88rem;
-    color: var(--text-muted);
+/* Per-recommendation CPU-performance comparison badge (in the card header). */
+.rec-perf-badge {
+    background: var(--accent-light, #e8f0f8);
+    color: var(--accent-dark, #005fa3);
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: help;
 }
-.rec-perf-compare strong { color: var(--accent, #0076CE); }
