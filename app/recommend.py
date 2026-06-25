@@ -886,6 +886,11 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "cpu_index": cpu_idx,
                 "cpu_generation": cpu.get("generation"),
                 "cpu_perf_index": cpu.get("perf_index"),
+                # True when this config's perf index came from PassMark (desktop
+                # CPU) rather than a native SPECrate — so the UI shows the
+                # conversion caveat only when it actually applies.
+                "cpu_perf_is_passmark": (cpu.get("specrate_int") is None
+                                         and cpu.get("perf_index") is not None),
                 "cores_per_node": cores_per_node,
                 "usable_cores_per_node": usable_cores,
                 "threads_per_node": threads_per_node,

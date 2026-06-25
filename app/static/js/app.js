@@ -923,9 +923,28 @@ function formatPerfBadge(r) {
     if (!src || !src.source_index_specrate || !tgt) return '';
     const ratio = tgt / src.source_index_specrate;
     const label = ratio >= 1 ? `${ratio.toFixed(2)}× source` : `${Math.round(ratio * 100)}% of source`;
-    const tip = `CPU throughput ~${tgt} SPECrate2017 vs your source environment `
-        + `~${src.source_index_specrate}. ${src.note || ''}`;
+    let tip = `CPU throughput ~${tgt} SPECrate2017 vs your source environment `
+        + `~${src.source_index_specrate} (SPECrate2017_int scale).`;
+    // The PassMark conversion caveat only applies when a PassMark score was
+    // actually used — a desktop source CPU entered as PassMark, or an edge
+    // appliance whose CPU we only have a PassMark figure for.
+    if (sourceUsedPassmark() || r.cpu_perf_is_passmark) {
+        tip += ' Includes a PassMark score converted to the SPECrate scale '
+            + '(~0.00386 per CPU Mark, roughly ±20%).';
+    }
     return `<span class="rec-perf-badge" title="${esc(tip)}">${label}</span>`;
+}
+
+// Whether any entered source CPU used a PassMark (rather than SPECrate) score —
+// gates the conversion caveat in the comparison tooltip.
+function sourceUsedPassmark() {
+    let used = false;
+    document.querySelectorAll('#source-cpu-panel .source-cpu-score').forEach(inp => {
+        if (!parseFloat(inp.value)) return;
+        const t = document.querySelector(`#source-cpu-panel .source-cpu-type[data-srcidx="${inp.dataset.srcidx}"]`);
+        if (t && t.value === 'passmark') used = true;
+    });
+    return used;
 }
 
 // Render the source CPUs detected from the import (Environment Summary), each
