@@ -252,6 +252,10 @@ def create_app():
         include_eol_eos = data.get("include_eol_eos", False)
         max_day_one_storage_pct = data.get("max_day_one_storage_pct")
         max_day_one_ram_pct = data.get("max_day_one_ram_pct")
+        # Optional source-environment CPU benchmark for the perf comparison
+        # (SPECrate2017 or PassMark, per the detected source CPU class).
+        source_perf_index = data.get("source_perf_index")
+        source_perf_type = data.get("source_perf_type")
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
@@ -262,8 +266,49 @@ def create_app():
                                           target_model=target_model,
                                           include_eol_eos=include_eol_eos,
                                           max_day_one_storage_pct=max_day_one_storage_pct,
-                                          max_day_one_ram_pct=max_day_one_ram_pct)
+                                          max_day_one_ram_pct=max_day_one_ram_pct,
+                                          source_perf_index=source_perf_index,
+                                          source_perf_type=source_perf_type)
         return jsonify(result)
+
+    @app.route("/api/cpu-perf")
+    def cpu_perf():
+        """Look up a CPU's benchmark score by (fuzzy) description, to auto-fill
+        the source-benchmark field on import/manual. Per-CPU/socket value — the
+        caller scales by the source socket count. Tries our curated appliance
+        catalog first (precise), then the broad SPECrate2017 lookup (~625 CPUs
+        averaged from all published SPEC CPU 2017 int-rate results) so arbitrary
+        SOURCE CPUs resolve too. found=false only when neither knows it."""
+        import cpu_benchmarks
+        from cpu_specs import CPU_SPECS, cpu_model_key, perf_index as _perf_index
+        q = request.args.get("q", "")
+        spec = CPU_SPECS.get(cpu_model_key(q) or "")
+        if spec:
+            ptype = "specrate" if spec.get("specrate_int") is not None else "passmark"
+            return jsonify({
+                "found": True,
+                "model": spec["model"],
+                "perf_type": ptype,
+                "perf_index": _perf_index(spec),
+                "specrate_int": spec.get("specrate_int"),
+                "passmark_cpu_mark": spec.get("passmark_cpu_mark"),
+                "passmark_single": spec.get("passmark_single"),
+                "source": "catalog",
+            })
+        hit = cpu_benchmarks.lookup(q)
+        if hit:
+            return jsonify({
+                "found": True,
+                "model": hit["model"],
+                "perf_type": "specrate",
+                "perf_index": hit["specrate_int"],
+                "specrate_int": hit["specrate_int"],
+                "passmark_cpu_mark": None,
+                "passmark_single": None,
+                "source": "spec-cpu2017",
+                "samples": hit["samples"],
+            })
+        return jsonify({"found": False})
 
     @app.route("/api/export-config", methods=["POST"])
     def export_config():

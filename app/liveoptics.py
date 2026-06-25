@@ -1,5 +1,6 @@
 from openpyxl import load_workbook
-from xlsx_utils import sheet_rows as _sheet_rows, to_float as _float, to_int as _int
+from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
+                        to_int as _int, source_cpus as _source_cpus)
 
 
 def parse_liveoptics(file_path):
@@ -506,6 +507,7 @@ def _build_summary(data):
         "host_count": len(hosts),
         "cluster_name": hosts[0]["cluster"] if hosts else "",
         "current_platform": f"{hosts[0]['manufacturer']} {hosts[0]['model']}" if hosts else "",
+        "source_cpus": _source_cpus(hosts),
 
         "total_host_cores": total_host_cores,
         "total_host_threads": total_host_threads,

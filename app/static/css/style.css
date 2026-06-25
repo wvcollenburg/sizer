@@ -1652,6 +1652,7 @@ body { padding-bottom: 64px; }
 /* Manual VM table: short name, wide Power, fixed layout so the widths hold.
    Names are short (DC01); the form fields need the room more than the name. */
 #manual-vm-modal .modal-content { max-width: min(740px, 95vw); }
+#source-cpu-modal .modal-content { max-width: min(640px, 95vw); }
 #manual-vm-table { table-layout: fixed; }
 #manual-vm-table th:nth-child(1), #manual-vm-table td:nth-child(1) { width: 24%; }  /* VM Name */
 #manual-vm-table th:nth-child(2), #manual-vm-table td:nth-child(2) { width: 20%; }  /* Power */
@@ -1853,16 +1854,35 @@ body.auth-required footer { display: none; }
 /* Right-aligned Cancel / Save row for small form modals. */
 .modal-btn-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    align-items: stretch;
     gap: 0.5rem;
     margin-top: 1.25rem;
 }
-#name-sizing-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+/* Buttons in a row must stay uniform — reset the full-width / margin-top that
+   .btn-primary carries for stacked vertical forms. */
+.modal-btn-row .btn {
+    flex: 0 0 auto;
+    width: auto;
+    margin-top: 0;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+.btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+#name-sizing-modal .modal-body,
+#leave-page-modal .modal-body,
+#source-cpu-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
 #name-sizing-form .form-group { margin-bottom: 0; }
 
 /* Info / confirmation modal */
 #info-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
-.info-modal-msg { font-size: 0.92rem; line-height: 1.5; margin: 0; }
+.info-modal-msg { font-size: 0.92rem; line-height: 1.5; margin: 0; white-space: pre-line; }
 .info-code-row {
     display: flex;
     align-items: center;
@@ -1984,3 +2004,62 @@ body.auth-required footer { display: none; }
     letter-spacing: 0.5px;
 }
 .muted { color: var(--text-muted); font-size: 0.82rem; }
+
+/* Source CPU benchmark field + advisory perf comparison (import/manual sizing). */
+.perf-input-row { display: flex; gap: 0.5rem; }
+.perf-input-row select { flex: 0 0 auto; }
+.perf-input-row input { flex: 1; min-width: 0; }
+.perf-comparison {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    background: var(--accent-light, #eef4fb);
+    border: 1px solid var(--border, #cfe0f0);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+
+/* Source CPU performance panel (inside the Source CPU modal). */
+.card-edit-link {
+    margin-left: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--accent, #0076CE);
+    text-decoration: underline;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.source-cpu-head { margin-bottom: 0.75rem; }
+.source-cpu-head .muted { font-weight: 400; }
+.source-cpu-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    flex-wrap: wrap;
+}
+.source-cpu-name { flex: 1 1 240px; min-width: 0; }
+.source-cpu-type { flex: 0 0 auto; }
+.source-cpu-score { flex: 0 0 130px; }
+.source-cpu-status { flex: 0 0 auto; }
+
+/* Per-recommendation CPU-performance comparison line (under the card header). */
+.rec-perf-line {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+}
+.rec-perf-line strong { color: var(--accent, #0076CE); }
+.rec-perf-explain {
+    margin-left: 0.4rem;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--accent, #0076CE);
+    font: inherit;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+}

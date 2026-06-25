@@ -37,3 +37,20 @@ def to_int(v):
         return int(v) if v else 0
     except (ValueError, TypeError):
         return 0
+
+
+def source_cpus(hosts):
+    """Aggregate the distinct source CPU models across the imported hosts, with
+    total socket and host counts. Lets the UI show what the customer runs today
+    and look up / let them enter a benchmark score per distinct CPU. Sorted by
+    socket count (the dominant CPU first). Hosts with no CPU model are skipped.
+    """
+    agg = {}
+    for h in hosts:
+        desc = (h.get("cpu_desc") or "").strip()
+        if not desc:
+            continue
+        entry = agg.setdefault(desc, {"model": desc, "sockets": 0, "hosts": 0})
+        entry["sockets"] += h.get("cpu_sockets") or 0
+        entry["hosts"] += 1
+    return sorted(agg.values(), key=lambda x: x["sockets"], reverse=True)

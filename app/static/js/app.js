@@ -18,6 +18,9 @@ let currentModel = null;
 let lastRecommendations = {};
 let lastProjection = {};
 let lastSummary = {};
+// Source-environment perf context (from the last /api/recommend response), used
+// to render a per-card CPU-performance comparison inside each recommendation.
+let lastPerfSource = null;
 let lastConfigResult = null;
 
 let importVms = [];
@@ -43,7 +46,66 @@ document.addEventListener('DOMContentLoaded', () => {
     // Seed the tier defaults only after the disk-size catalog has loaded.
     loadValidatedNics().then(initDiskTiers);
     populateSizingModelDropdown('sizing-model-select', false);
+    // A page switch with unsaved data reloads to a clean slate; resume on the
+    // page the user was switching to.
+    let pending = null;
+    try { pending = sessionStorage.getItem('sizerPendingMode'); } catch (e) { /* ignore */ }
+    if (pending) {
+        try { sessionStorage.removeItem('sizerPendingMode'); } catch (e) { /* ignore */ }
+        if (pending !== currentMode) switchMode(pending);
+    }
 });
+
+// User-initiated page switch (the four mode buttons). Switching pages discards
+// all unsaved data so nothing bleeds across modes — e.g. a prior import's
+// source CPUs must never feed a Manual-Input sizing. We confirm first, then
+// hard-reset via reload to the target page so it starts completely clean.
+// Programmatic switches (config load, restore) call switchMode() directly and
+// skip this.
+async function requestSwitchMode(mode) {
+    if (mode === currentMode) return;
+    if (hasUnsavedWork()) {
+        const choice = await confirmLeavePage();
+        if (choice === 'cancel') return;
+        if (choice === 'save') {
+            // Only proceed once the save actually completes — the user may
+            // cancel the name prompt, or not be signed in.
+            const saved = await window.saveCurrentSizing();
+            if (!saved) return;
+        }
+        try { sessionStorage.setItem('sizerPendingMode', mode); } catch (e) { /* private mode */ }
+        location.reload();
+        return;
+    }
+    switchMode(mode);
+}
+
+// Styled "discard / save / stay" prompt shown before a page switch that would
+// lose data. Resolves to 'cancel' | 'discard' | 'save'.
+let _leaveResolver = null;
+function confirmLeavePage() {
+    return new Promise(resolve => {
+        _leaveResolver = resolve;
+        document.getElementById('leave-page-modal').style.display = 'flex';
+    });
+}
+function chooseLeave(choice) {
+    document.getElementById('leave-page-modal').style.display = 'none';
+    const r = _leaveResolver;
+    _leaveResolver = null;
+    if (r) r(choice);
+}
+function closeLeavePage() { chooseLeave('cancel'); }
+
+// Is there entered or loaded work that a page switch would throw away?
+function hasUnsavedWork() {
+    if (window.hasSizingToSave && window.hasSizingToSave()) return true;
+    if (currentMode === 'manual') {           // figures typed but not yet sized
+        const v = document.getElementById('man-vcpus');
+        if (v && v.value) return true;
+    }
+    return false;
+}
 
 function switchMode(mode) {
     currentMode = mode;
@@ -909,6 +971,137 @@ function updateRatioDisplay() {
 // Single recalc path shared by both the VMware Import and Manual Input flows.
 // The active workload summary is chosen by activeMode; every sizing control is
 // read from the one shared block, so the two flows can't diverge.
+// Per-recommendation CPU-performance comparison, as a readable line under the
+// card header with an "Explanation" button (opens a plain-language modal).
+// Advisory only — it never changes the sizing (active scaling is gated
+// server-side by perf_scaling, default off). Empty when no source score is
+// entered or this config's CPU has no perf data.
+function formatPerfLine(r) {
+    const src = lastPerfSource;
+    const tgt = r.totals && r.totals.perf_index;
+    if (!src || !src.source_index_specrate || !tgt) return '';
+    const ratio = tgt / src.source_index_specrate;
+    const phrase = ratio >= 1
+        ? `perform about <strong>${ratio.toFixed(1)}× better</strong> than`
+        : `perform at about <strong>${Math.round(ratio * 100)}%</strong> of`;
+    const usesPM = (sourceUsedPassmark() || r.cpu_perf_is_passmark) ? 1 : 0;
+    return `<div class="rec-perf-line">In a benchmark, this should ${phrase} your current environment.`
+        + ` <button type="button" class="rec-perf-explain"`
+        + ` data-click='["explainPerf",${ratio.toFixed(3)},${tgt},${src.source_index_specrate},${usesPM}]'>`
+        + `Explanation</button></div>`;
+}
+
+// Plain-language modal explaining a recommendation's CPU-performance comparison.
+function explainPerf(ratio, tgt, src, usesPM) {
+    const delivers = ratio >= 1
+        ? `about ${(+ratio).toFixed(1)}× the compute throughput of your current environment`
+        : `about ${Math.round(ratio * 100)}% of your current environment's compute throughput`;
+    let msg =
+`We compare the raw CPU horsepower of the recommended cluster against your current environment using SPECrate2017 — an industry-standard benchmark that measures how much total work all the CPU cores can do at once. That is the right yardstick for running lots of VMs.
+
+Your current environment scores about ${src}; the recommended cluster scores about ${tgt}. So on paper it delivers ${delivers}.
+
+Why not just compare GHz and core counts? Because newer CPUs do far more work per clock cycle than older ones — one modern core can be worth roughly 1.5 to 2 older cores. Comparing GHz × cores misses that, which is why an apparently "smaller" new cluster can comfortably outperform a larger old one.`;
+    if (usesPM) {
+        msg += `
+
+Note: part of this comparison used PassMark (a different benchmark) translated onto the SPECrate scale, so treat this particular figure as roughly ±20% approximate.`;
+    }
+    msg += `
+
+This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.
+
+Disclaimer: although compiled with the greatest of care, these figures rely on externally acquired benchmark data (public SPEC and PassMark results) and real-world performance varies. They are provided for guidance only — no rights can be derived from them.`;
+    showInfoModal('CPU performance comparison', msg);
+}
+
+// Whether any entered source CPU used a PassMark (rather than SPECrate) score —
+// gates the conversion caveat in the comparison tooltip.
+function sourceUsedPassmark() {
+    let used = false;
+    document.querySelectorAll('#source-cpu-panel .source-cpu-score').forEach(inp => {
+        if (!parseFloat(inp.value)) return;
+        const t = document.querySelector(`#source-cpu-panel .source-cpu-type[data-srcidx="${inp.dataset.srcidx}"]`);
+        if (t && t.value === 'passmark') used = true;
+    });
+    return used;
+}
+
+// Render the source CPUs detected from the import (Environment Summary), each
+// with a per-CPU benchmark input. Auto-fills the score where we recognise the
+// part (limited to our catalog SKUs — most old source CPUs are unknown and need
+// manual entry). computeSourcePerf() sums these (socket-weighted, normalised to
+// SPECrate) to feed the comparison shown above the recommendations.
+async function renderSourceCpus(sourceCpus) {
+    const panel = document.getElementById('source-cpu-panel');
+    if (!panel) return;
+    if (!sourceCpus || !sourceCpus.length) { panel.innerHTML = ''; return; }
+    panel.innerHTML = `<div class="source-cpu-head">
+        <span class="muted">Per-CPU benchmark used to compare your current environment to the recommendation. Auto-filled where known; otherwise enter each CPU's SPECrate2017 (server) or PassMark (desktop) score — look up at spec.org or cpubenchmark.net.</span></div>`
+        + sourceCpus.map((c, i) => `
+        <div class="source-cpu-row">
+            <div class="source-cpu-name">${esc(c.model)} <span class="muted">× ${c.sockets} socket${c.sockets !== 1 ? 's' : ''}</span></div>
+            <select class="source-cpu-type" data-srcidx="${i}" data-change='["recalcRecommendations"]'>
+                <option value="specrate">SPECrate2017</option>
+                <option value="passmark">PassMark</option>
+            </select>
+            <input type="number" class="source-cpu-score" data-srcidx="${i}" data-sockets="${c.sockets}"
+                   min="0" step="1" placeholder="per-CPU score" data-change='["recalcRecommendations"]'>
+            <span class="source-cpu-status muted" id="src-cpu-status-${i}"></span>
+        </div>`).join('');
+    await Promise.all(sourceCpus.map(async (c, i) => {
+        const status = document.getElementById('src-cpu-status-' + i);
+        try {
+            const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(c.model));
+            const d = await resp.json();
+            if (!d.found) { if (status) status.textContent = 'not in SPEC2017 — enter manually'; return; }
+            panel.querySelector(`.source-cpu-type[data-srcidx="${i}"]`).value = d.perf_type;
+            panel.querySelector(`.source-cpu-score[data-srcidx="${i}"]`).value = d.perf_index;
+            if (status) status.textContent = d.source === 'spec-cpu2017'
+                ? `auto · SPEC avg of ${d.samples}`
+                : 'auto · catalog';
+        } catch (e) { /* best-effort */ }
+    }));
+    updateSourcePerfCard();
+}
+
+// The Environment-Summary card shows the summed source SPECrate; the per-CPU
+// inputs live in the modal it opens. Keep the card in sync as scores change.
+function updateSourcePerfCard() {
+    const el = document.getElementById('source-perf-total');
+    if (!el) return;
+    const total = computeSourcePerf();
+    el.textContent = total != null ? Math.round(total).toLocaleString() : '—';
+}
+
+function openSourceCpuModal() {
+    const m = document.getElementById('source-cpu-modal');
+    if (m) m.style.display = 'flex';
+}
+
+function closeSourceCpuModal() {
+    const m = document.getElementById('source-cpu-modal');
+    if (m) m.style.display = 'none';
+    updateSourcePerfCard();
+}
+
+// Total source-environment throughput on the SPECrate scale (per-CPU score x
+// sockets, PassMark normalised at 0.00386), summed across detected CPUs. null
+// when nothing is entered.
+function computeSourcePerf() {
+    let total = 0, any = false;
+    document.querySelectorAll('#source-cpu-panel .source-cpu-score').forEach(inp => {
+        const v = parseFloat(inp.value);
+        if (!v) return;
+        const i = inp.dataset.srcidx;
+        const typeEl = document.querySelector(`#source-cpu-panel .source-cpu-type[data-srcidx="${i}"]`);
+        const sockets = parseInt(inp.dataset.sockets, 10) || 1;
+        total += (typeEl && typeEl.value === 'passmark' ? v * 0.00386 : v) * sockets;
+        any = true;
+    });
+    return any ? Math.round(total * 10) / 10 : null;
+}
+
 async function recalcRecommendations() {
     const summary = activeMode === 'manual' ? manualSummary : importSummary;
     if (!summary) return;
@@ -926,6 +1119,11 @@ async function recalcRecommendations() {
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
     const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
     const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
+    // Source-environment CPU benchmark (from the detected-CPU inputs in the
+    // Source CPU modal), summed socket-weighted and normalised to SPECrate.
+    const sourcePerfIndex = computeSourcePerf();
+    const sourcePerfType = 'specrate';
+    updateSourcePerfCard();
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -946,12 +1144,15 @@ async function recalcRecommendations() {
                 include_eol_eos: includeEolEos,
                 max_day_one_storage_pct: maxDayOneStorage,
                 max_day_one_ram_pct: maxDayOneRam,
+                source_perf_index: sourcePerfIndex,
+                source_perf_type: sourcePerfType,
             }),
         });
         const data = await resp.json();
         // Store projection first: renderRecommendationsTo reads lastProjection
         // for the IOPS demand/headroom line.
         if (data.projection) lastProjection[activeMode] = data.projection;
+        lastPerfSource = data.perf_comparison || null;
         if (data.recommendations) {
             lastRecommendations[activeMode] = data.recommendations;
             lastSummary[activeMode] = summary;
@@ -1116,6 +1317,12 @@ function displayImportResults(data) {
                        data-change='["updateP95Display"]'>
             </div>
         </div>
+        ${(s.source_cpus && s.source_cpus.length) ? `
+        <div class="summary-card">
+            <div class="summary-label">Source CPU · SPECrate2017</div>
+            <div class="summary-value"><span id="source-perf-total">—</span>
+                <a class="card-edit-link" data-click='["openSourceCpuModal"]'>edit / add</a></div>
+        </div>` : ''}
     `;
 
     document.getElementById('workload-summary').innerHTML = `
@@ -1150,6 +1357,12 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
+    lastPerfSource = data.perf_comparison || null;
+    // Show the detected source CPUs + benchmark inputs (auto-filled where known),
+    // then re-run sizing so the comparison reflects any auto-filled scores.
+    renderSourceCpus(data.summary && data.summary.source_cpus).then(() => {
+        if (computeSourcePerf() != null) recalcRecommendations();
+    });
     renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
@@ -1239,6 +1452,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
+            ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
             <div class="rec-details">
                 <div class="rec-col">

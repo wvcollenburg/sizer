@@ -19,22 +19,22 @@
 
     <main>
         <section class="mode-selector">
-            <button class="mode-btn active" data-mode="appliance" data-click='["switchMode","appliance"]'>
+            <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
                 <span class="mode-label">Appliance (Certified)</span>
                 <span class="mode-desc">Fixed hardware configurations</span>
             </button>
-            <button class="mode-btn" data-mode="validated" data-click='["switchMode","validated"]'>
+            <button class="mode-btn" data-mode="validated" data-click='["requestSwitchMode","validated"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="mode-label">Software Only (Validated)</span>
                 <span class="mode-desc">Flexible configurations with rules</span>
             </button>
-            <button class="mode-btn" data-mode="import" data-click='["switchMode","import"]'>
+            <button class="mode-btn" data-mode="import" data-click='["requestSwitchMode","import"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
                 <span class="mode-label">VMware Import</span>
                 <span class="mode-desc">Import Live Optics or RVTools export</span>
             </button>
-            <button class="mode-btn" data-mode="manual" data-click='["switchMode","manual"]'>
+            <button class="mode-btn" data-mode="manual" data-click='["requestSwitchMode","manual"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
                 <span class="mode-label">Manual Input</span>
                 <span class="mode-desc">Enter workload requirements manually</span>
@@ -701,6 +701,25 @@
     </div>
 
     <!-- Cluster network diagram (per recommendation) -->
+    <!-- Source CPU benchmark scores (opened from the Environment Summary card) -->
+    <div class="modal-overlay" id="source-cpu-modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Source CPU performance</h2>
+                <button class="modal-close" data-click='["closeSourceCpuModal"]'>&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="source-cpu-panel"></div>
+            </div>
+            <div class="modal-footer">
+                <div></div>
+                <div class="modal-footer-actions">
+                    <button class="btn btn-primary" data-click='["closeSourceCpuModal"]'>Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="diagram-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
@@ -930,6 +949,24 @@
     </div>
 
     <!-- Save choice modal (update loaded sizing vs save as new) -->
+    <!-- Confirm + offer-to-save when switching pages discards unsaved data -->
+    <div class="modal-overlay" id="leave-page-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Unsaved sizing</h2>
+                <button class="modal-close" data-click='["closeLeavePage"]'>&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="info-modal-msg">Switching pages will discard the data on this page. Would you like to save this configuration first?</p>
+                <div class="modal-btn-row">
+                    <button type="button" class="btn btn-muted" data-click='["chooseLeave","cancel"]'>Stay here</button>
+                    <button type="button" class="btn btn-secondary" data-click='["chooseLeave","discard"]'>Discard &amp; switch</button>
+                    <button type="button" class="btn btn-primary" data-click='["chooseLeave","save"]'>Save &amp; switch</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="save-choice-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">

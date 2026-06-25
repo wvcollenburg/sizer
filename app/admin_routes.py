@@ -76,6 +76,34 @@ def list_cpus():
     return jsonify(result)
 
 
+def _cpu_num(v):
+    try:
+        return float(v) if v is not None and v != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _cpu_int(v):
+    try:
+        return int(v) if v is not None and v != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_cpu_specs(cpu, data):
+    """Set the optional generation/clock/core/benchmark columns from a
+    create or update payload. Only touches keys actually present, so a partial
+    update never wipes columns it didn't send."""
+    if "generation" in data:
+        cpu.generation = (data["generation"] or None)
+    for key in ("p_cores", "e_cores", "passmark_cpu_mark"):
+        if key in data:
+            setattr(cpu, key, _cpu_int(data[key]))
+    for key in ("base_ghz", "all_core_turbo_ghz", "max_turbo_ghz", "specrate_int"):
+        if key in data:
+            setattr(cpu, key, _cpu_num(data[key]))
+
+
 @admin_bp.route("/api/cpus", methods=["POST"])
 def create_cpu():
     data = request.json
@@ -85,6 +113,7 @@ def create_cpu():
         return jsonify({"error": "CPU already exists"}), 409
     cpu = CpuCatalog(description=data["desc"], cores=int(data.get("cores", 0)),
                      threads=int(data.get("threads", 0)), ghz=float(data.get("ghz", 0)))
+    _apply_cpu_specs(cpu, data)
     db.session.add(cpu)
     db.session.commit()
     return jsonify({"id": cpu.id, **cpu.to_dict()}), 201
@@ -101,6 +130,7 @@ def update_cpu(cpu_id):
     cpu.cores = int(data.get("cores", cpu.cores))
     cpu.threads = int(data.get("threads", cpu.threads))
     cpu.ghz = float(data.get("ghz", cpu.ghz))
+    _apply_cpu_specs(cpu, data)
     db.session.commit()
     return jsonify({"id": cpu.id, **cpu.to_dict()})
 

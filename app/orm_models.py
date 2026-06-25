@@ -2,16 +2,44 @@ from database import db
 from storage_only import certified_single_cpu_options, sibling_single_socket_name
 
 
+def cpu_perf_index(cpu):
+    """Unified throughput index for one CpuCatalog row, on the SPECrate2017_int
+    (per-socket) scale. Server parts use native SPECrate; desktop parts convert
+    from PassMark CPU Mark via the anchor fit. None if neither is known. Mirrors
+    cpu_specs.perf_index but reads the catalog columns."""
+    if cpu.specrate_int is not None:
+        return cpu.specrate_int
+    if cpu.passmark_cpu_mark is not None:
+        return round(cpu.passmark_cpu_mark * 0.00386, 1)
+    return None
+
+
 def _cpu_options_from_links(cpu_links):
-    return [
-        {
-            "desc": f"{link.quantity} x {link.cpu.description}",
-            "cores": link.cpu.cores * link.quantity,
-            "threads": link.cpu.threads * link.quantity,
-            "ghz": link.cpu.ghz,
-        }
-        for link in cpu_links
-    ]
+    opts = []
+    for link in cpu_links:
+        c = link.cpu
+        pi = cpu_perf_index(c)
+        opts.append({
+            "desc": f"{link.quantity} x {c.description}",
+            "cores": c.cores * link.quantity,
+            "threads": c.threads * link.quantity,
+            # Real P/E split (x sockets) — the engine derives the effective
+            # licensable core count from these via the w_pcore/w_ecore tunables.
+            "p_cores": (c.p_cores * link.quantity) if c.p_cores is not None else None,
+            "e_cores": (c.e_cores * link.quantity) if c.e_cores is not None else None,
+            "ghz": c.ghz,
+            # Presentation + perf-index fields (per the link's quantity = sockets).
+            "generation": c.generation,
+            "model": c.model,
+            "base_ghz": c.base_ghz,
+            "all_core_turbo_ghz": c.all_core_turbo_ghz,
+            "max_turbo_ghz": c.max_turbo_ghz,
+            "specrate_int": (c.specrate_int * link.quantity) if c.specrate_int is not None else None,
+            "passmark_cpu_mark": (c.passmark_cpu_mark * link.quantity) if c.passmark_cpu_mark is not None else None,
+            "passmark_single": c.passmark_single,
+            "perf_index": (pi * link.quantity) if pi is not None else None,
+        })
+    return opts
 
 
 # ── Catalog tables (shared reference data) ───────────────────────────────────
@@ -23,7 +51,29 @@ class CpuCatalog(db.Model):
     description = db.Column(db.String(200), nullable=False, unique=True)
     cores = db.Column(db.Integer, nullable=False)
     threads = db.Column(db.Integer, nullable=False)
+    # `ghz` is the engine's SIZING clock. For recognised catalog CPUs it is
+    # back-filled to the all-core turbo (sustained full-load freq); base/all-core/
+    # max below are the factual ARK clocks kept for presentation.
     ghz = db.Column(db.Float, nullable=False)
+
+    # Authoritative spec fields back-filled from cpu_specs.py (all nullable; only
+    # populated for recognised SKUs). See seed._backfill_cpu_specs.
+    make = db.Column(db.String(20))
+    family = db.Column(db.String(40))
+    generation = db.Column(db.String(60))
+    model = db.Column(db.String(80))
+    p_cores = db.Column(db.Integer)
+    e_cores = db.Column(db.Integer)
+    base_ghz = db.Column(db.Float)
+    all_core_turbo_ghz = db.Column(db.Float)
+    max_turbo_ghz = db.Column(db.Float)
+    ecore_base_ghz = db.Column(db.Float)
+    ecore_turbo_ghz = db.Column(db.Float)
+    # Performance index: SPECrate2017_int_base (per socket) for server parts;
+    # PassMark CPU Mark + Single-Thread for desktop parts (and as anchors).
+    specrate_int = db.Column(db.Float)
+    passmark_cpu_mark = db.Column(db.Integer)
+    passmark_single = db.Column(db.Integer)
 
     def to_dict(self):
         return {
@@ -31,6 +81,20 @@ class CpuCatalog(db.Model):
             "cores": self.cores,
             "threads": self.threads,
             "ghz": self.ghz,
+            "make": self.make,
+            "family": self.family,
+            "generation": self.generation,
+            "model": self.model,
+            "p_cores": self.p_cores,
+            "e_cores": self.e_cores,
+            "base_ghz": self.base_ghz,
+            "all_core_turbo_ghz": self.all_core_turbo_ghz,
+            "max_turbo_ghz": self.max_turbo_ghz,
+            "ecore_base_ghz": self.ecore_base_ghz,
+            "ecore_turbo_ghz": self.ecore_turbo_ghz,
+            "specrate_int": self.specrate_int,
+            "passmark_cpu_mark": self.passmark_cpu_mark,
+            "passmark_single": self.passmark_single,
         }
 
 
