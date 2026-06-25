@@ -912,27 +912,46 @@ function updateRatioDisplay() {
 // Single recalc path shared by both the VMware Import and Manual Input flows.
 // The active workload summary is chosen by activeMode; every sizing control is
 // read from the one shared block, so the two flows can't diverge.
-// Per-recommendation CPU-performance comparison, as a compact header badge
-// (advisory; never changes the sizing — active scaling is gated server-side by
-// perf_scaling, default off). Compares THIS config's cluster throughput to the
-// source environment (lastPerfSource); full detail on hover. Empty when no
-// source score is entered or this config's CPU has no perf data.
-function formatPerfBadge(r) {
+// Per-recommendation CPU-performance comparison, as a readable line under the
+// card header with an "Explanation" button (opens a plain-language modal).
+// Advisory only — it never changes the sizing (active scaling is gated
+// server-side by perf_scaling, default off). Empty when no source score is
+// entered or this config's CPU has no perf data.
+function formatPerfLine(r) {
     const src = lastPerfSource;
     const tgt = r.totals && r.totals.perf_index;
     if (!src || !src.source_index_specrate || !tgt) return '';
     const ratio = tgt / src.source_index_specrate;
-    const label = ratio >= 1 ? `${ratio.toFixed(2)}× source` : `${Math.round(ratio * 100)}% of source`;
-    let tip = `CPU throughput ~${tgt} SPECrate2017 vs your source environment `
-        + `~${src.source_index_specrate} (SPECrate2017_int scale).`;
-    // The PassMark conversion caveat only applies when a PassMark score was
-    // actually used — a desktop source CPU entered as PassMark, or an edge
-    // appliance whose CPU we only have a PassMark figure for.
-    if (sourceUsedPassmark() || r.cpu_perf_is_passmark) {
-        tip += ' Includes a PassMark score converted to the SPECrate scale '
-            + '(~0.00386 per CPU Mark, roughly ±20%).';
+    const phrase = ratio >= 1
+        ? `perform about <strong>${ratio.toFixed(1)}× better</strong> than`
+        : `perform at about <strong>${Math.round(ratio * 100)}%</strong> of`;
+    const usesPM = (sourceUsedPassmark() || r.cpu_perf_is_passmark) ? 1 : 0;
+    return `<div class="rec-perf-line">In a benchmark, this should ${phrase} your current environment.`
+        + ` <button type="button" class="rec-perf-explain"`
+        + ` data-click='["explainPerf",${ratio.toFixed(3)},${tgt},${src.source_index_specrate},${usesPM}]'>`
+        + `Explanation</button></div>`;
+}
+
+// Plain-language modal explaining a recommendation's CPU-performance comparison.
+function explainPerf(ratio, tgt, src, usesPM) {
+    const delivers = ratio >= 1
+        ? `about ${(+ratio).toFixed(1)}× the compute throughput of your current environment`
+        : `about ${Math.round(ratio * 100)}% of your current environment's compute throughput`;
+    let msg =
+`We compare the raw CPU horsepower of the recommended cluster against your current environment using SPECrate2017 — an industry-standard benchmark that measures how much total work all the CPU cores can do at once. That is the right yardstick for running lots of VMs.
+
+Your current environment scores about ${src}; the recommended cluster scores about ${tgt}. So on paper it delivers ${delivers}.
+
+Why not just compare GHz and core counts? Because newer CPUs do far more work per clock cycle than older ones — one modern core can be worth roughly 1.5 to 2 older cores. Comparing GHz × cores misses that, which is why an apparently "smaller" new cluster can comfortably outperform a larger old one.`;
+    if (usesPM) {
+        msg += `
+
+Note: part of this comparison used PassMark (a different benchmark) translated onto the SPECrate scale, so treat this particular figure as roughly ±20% approximate.`;
     }
-    return `<span class="rec-perf-badge" title="${esc(tip)}">${label}</span>`;
+    msg += `
+
+This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.`;
+    showInfoModal('CPU performance comparison', msg);
 }
 
 // Whether any entered source CPU used a PassMark (rather than SPECrate) score —
@@ -1342,10 +1361,10 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-model">${modelLabel}</span>
                 <span class="rec-category">${r.category}</span>
                 ${ratioBadge}
-                ${formatPerfBadge(r)}
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
+            ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
             <div class="rec-details">
                 <div class="rec-col">

@@ -1862,7 +1862,7 @@ body.auth-required footer { display: none; }
 
 /* Info / confirmation modal */
 #info-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
-.info-modal-msg { font-size: 0.92rem; line-height: 1.5; margin: 0; }
+.info-modal-msg { font-size: 0.92rem; line-height: 1.5; margin: 0; white-space: pre-line; }
 .info-code-row {
     display: flex;
     align-items: center;
@@ -2022,14 +2022,22 @@ body.auth-required footer { display: none; }
 .source-cpu-score { flex: 0 0 130px; }
 .source-cpu-status { flex: 0 0 auto; }
 
-/* Per-recommendation CPU-performance comparison badge (in the card header). */
-.rec-perf-badge {
-    background: var(--accent-light, #e8f0f8);
-    color: var(--accent-dark, #005fa3);
-    padding: 2px 9px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: help;
+/* Per-recommendation CPU-performance comparison line (under the card header). */
+.rec-perf-line {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+}
+.rec-perf-line strong { color: var(--accent, #0076CE); }
+.rec-perf-explain {
+    margin-left: 0.4rem;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--accent, #0076CE);
+    font: inherit;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
 }
