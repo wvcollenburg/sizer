@@ -1652,6 +1652,7 @@ body { padding-bottom: 64px; }
 /* Manual VM table: short name, wide Power, fixed layout so the widths hold.
    Names are short (DC01); the form fields need the room more than the name. */
 #manual-vm-modal .modal-content { max-width: min(740px, 95vw); }
+#source-cpu-modal .modal-content { max-width: min(640px, 95vw); }
 #manual-vm-table { table-layout: fixed; }
 #manual-vm-table th:nth-child(1), #manual-vm-table td:nth-child(1) { width: 24%; }  /* VM Name */
 #manual-vm-table th:nth-child(2), #manual-vm-table td:nth-child(2) { width: 20%; }  /* Power */
