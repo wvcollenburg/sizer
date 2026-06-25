@@ -18,6 +18,9 @@ let currentModel = null;
 let lastRecommendations = {};
 let lastProjection = {};
 let lastSummary = {};
+// Source-environment perf context (from the last /api/recommend response), used
+// to render a per-card CPU-performance comparison inside each recommendation.
+let lastPerfSource = null;
 let lastConfigResult = null;
 
 let importVms = [];
@@ -909,23 +912,21 @@ function updateRatioDisplay() {
 // Single recalc path shared by both the VMware Import and Manual Input flows.
 // The active workload summary is chosen by activeMode; every sizing control is
 // read from the one shared block, so the two flows can't diverge.
-// Show the advisory source-vs-target CPU performance comparison (SPECrate scale).
-// Display only — it never changes the recommendation (active scaling is gated
-// server-side by the perf_scaling tunable, default off).
-function renderPerfComparison(pc) {
-    const el = document.getElementById('perf-comparison');
-    if (!el) return;
-    if (!pc || !pc.ratio) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    const verdict = pc.ratio >= 1
-        ? `${pc.ratio}× the source environment's throughput`
-        : `${Math.round(pc.ratio * 100)}% of the source environment's throughput`;
-    const srcLabel = pc.source_type === 'passmark'
-        ? `${pc.source_index_raw} PassMark (~${pc.source_index_specrate} SPECrate-equiv)`
-        : `${pc.source_index_specrate} SPECrate2017`;
-    el.style.display = '';
-    el.innerHTML = `<strong>CPU performance check:</strong> source ~${srcLabel} → `
-        + `recommended cluster ~${pc.target_index} SPECrate2017 `
-        + `(${verdict}). <span class="perf-note">${pc.note}</span>`;
+// Per-recommendation CPU-performance comparison line (advisory; never changes
+// the sizing — active scaling is gated server-side by perf_scaling, default off).
+// Compares THIS config's cluster throughput to the source environment, using the
+// source context captured in lastPerfSource. Empty when no source score entered
+// or this config's CPU has no perf data.
+function formatPerfCompare(r) {
+    const src = lastPerfSource;
+    const tgt = r.totals && r.totals.perf_index;
+    if (!src || !src.source_index_specrate || !tgt) return '';
+    const ratio = tgt / src.source_index_specrate;
+    const verdict = ratio >= 1
+        ? `<strong>${ratio.toFixed(2)}×</strong> your source environment`
+        : `<strong>${Math.round(ratio * 100)}%</strong> of your source environment`;
+    return `<div class="rec-perf-compare" title="${esc(src.note || '')}">`
+        + `CPU throughput ~${tgt} SPECrate2017 — ${verdict} (~${src.source_index_specrate})</div>`;
 }
 
 // Render the source CPUs detected from the import (Environment Summary), each
@@ -1030,7 +1031,7 @@ async function recalcRecommendations() {
         // Store projection first: renderRecommendationsTo reads lastProjection
         // for the IOPS demand/headroom line.
         if (data.projection) lastProjection[activeMode] = data.projection;
-        renderPerfComparison(data.perf_comparison);
+        lastPerfSource = data.perf_comparison || null;
         if (data.recommendations) {
             lastRecommendations[activeMode] = data.recommendations;
             lastSummary[activeMode] = summary;
@@ -1229,7 +1230,7 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
-    renderPerfComparison(data.perf_comparison);
+    lastPerfSource = data.perf_comparison || null;
     // Show the detected source CPUs + benchmark inputs (auto-filled where known),
     // then re-run sizing so the comparison reflects any auto-filled scores.
     renderSourceCpus(data.summary && data.summary.source_cpus).then(() => {
@@ -1325,6 +1326,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
             </div>
             ${formatDeterminant(r.determinant)}
+            ${formatPerfCompare(r)}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>Per Node</h4>

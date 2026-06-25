@@ -2021,3 +2021,11 @@ body.auth-required footer { display: none; }
 .source-cpu-type { flex: 0 0 auto; }
 .source-cpu-score { flex: 0 0 130px; }
 .source-cpu-status { flex: 0 0 auto; }
+
+/* Per-recommendation CPU-performance comparison line (inside each card). */
+.rec-perf-compare {
+    margin: 0.1rem 0 0.4rem;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+.rec-perf-compare strong { color: var(--accent, #0076CE); }
