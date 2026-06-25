@@ -476,24 +476,26 @@ function fmtDate(iso) {
 
 // Invoked from the header button or the My Sizings modal. All feedback goes
 // through the in-app info modal (no native alerts).
+// Returns true only when a sizing was actually persisted (so callers can chain
+// a "save then continue" flow); false if it was cancelled or failed.
 async function saveCurrentSizing() {
-    if (!currentAccount) { openAuthModal(); return; }
+    if (!currentAccount) { openAuthModal(); return false; }
     const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
 
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
         showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
-        return;
+        return false;
     }
     const snap = window.captureSizingState();
     if (!snap) {
         showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
-        return;
+        return false;
     }
     // If a sizing we own is loaded, offer to update it in place.
     let action = 'new';
     if (loadedConfig && loadedConfig.canUpdate) {
         action = await askSaveChoice(loadedConfig.name);
-        if (!action) return;
+        if (!action) return false;
     }
 
     if (action === 'update') {
@@ -504,16 +506,16 @@ async function saveCurrentSizing() {
         });
         if (!ok) {
             showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
-            return;
+            return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
         showInfoModal('Sizing updated', `Updated "${data.name}".`, data.code);
         if (modalOpen) loadSizingsList();
-        return;
+        return true;
     }
 
     const name = await promptSizingName();
-    if (!name) return;
+    if (!name) return false;
 
     const { ok, data } = await apiJson('/api/configs/', {
         method: 'POST',
@@ -522,11 +524,12 @@ async function saveCurrentSizing() {
     });
     if (!ok) {
         showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
-        return;
+        return false;
     }
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
     showInfoModal('Sizing saved', `Saved "${data.name}".`, data.code);
     if (modalOpen) loadSizingsList();
+    return true;
 }
 
 // ── Save-choice modal (update loaded sizing vs save as new) ───────────────────

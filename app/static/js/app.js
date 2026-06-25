@@ -62,16 +62,40 @@ document.addEventListener('DOMContentLoaded', () => {
 // hard-reset via reload to the target page so it starts completely clean.
 // Programmatic switches (config load, restore) call switchMode() directly and
 // skip this.
-function requestSwitchMode(mode) {
+async function requestSwitchMode(mode) {
     if (mode === currentMode) return;
     if (hasUnsavedWork()) {
-        if (!confirm('Leaving this page will discard all unsaved data on it. Continue?')) return;
+        const choice = await confirmLeavePage();
+        if (choice === 'cancel') return;
+        if (choice === 'save') {
+            // Only proceed once the save actually completes — the user may
+            // cancel the name prompt, or not be signed in.
+            const saved = await window.saveCurrentSizing();
+            if (!saved) return;
+        }
         try { sessionStorage.setItem('sizerPendingMode', mode); } catch (e) { /* private mode */ }
         location.reload();
         return;
     }
     switchMode(mode);
 }
+
+// Styled "discard / save / stay" prompt shown before a page switch that would
+// lose data. Resolves to 'cancel' | 'discard' | 'save'.
+let _leaveResolver = null;
+function confirmLeavePage() {
+    return new Promise(resolve => {
+        _leaveResolver = resolve;
+        document.getElementById('leave-page-modal').style.display = 'flex';
+    });
+}
+function chooseLeave(choice) {
+    document.getElementById('leave-page-modal').style.display = 'none';
+    const r = _leaveResolver;
+    _leaveResolver = null;
+    if (r) r(choice);
+}
+function closeLeavePage() { chooseLeave('cancel'); }
 
 // Is there entered or loaded work that a page switch would throw away?
 function hasUnsavedWork() {
