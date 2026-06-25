@@ -950,7 +950,9 @@ Note: part of this comparison used PassMark (a different benchmark) translated o
     }
     msg += `
 
-This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.`;
+This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.
+
+Disclaimer: although compiled with the greatest of care, these figures rely on externally acquired benchmark data (public SPEC and PassMark results) and real-world performance varies. They are provided for guidance only — no rights can be derived from them.`;
     showInfoModal('CPU performance comparison', msg);
 }
 
