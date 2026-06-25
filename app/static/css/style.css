@@ -1984,3 +1984,18 @@ body.auth-required footer { display: none; }
     letter-spacing: 0.5px;
 }
 .muted { color: var(--text-muted); font-size: 0.82rem; }
+
+/* Source CPU benchmark field + advisory perf comparison (import/manual sizing). */
+.perf-input-row { display: flex; gap: 0.5rem; }
+.perf-input-row select { flex: 0 0 auto; }
+.perf-input-row input { flex: 1; min-width: 0; }
+.perf-comparison {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    background: var(--accent-light, #eef4fb);
+    border: 1px solid var(--border, #cfe0f0);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }

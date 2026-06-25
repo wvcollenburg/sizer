@@ -909,6 +909,42 @@ function updateRatioDisplay() {
 // Single recalc path shared by both the VMware Import and Manual Input flows.
 // The active workload summary is chosen by activeMode; every sizing control is
 // read from the one shared block, so the two flows can't diverge.
+// Show the advisory source-vs-target CPU performance comparison (SPECrate scale).
+// Display only — it never changes the recommendation (active scaling is gated
+// server-side by the perf_scaling tunable, default off).
+function renderPerfComparison(pc) {
+    const el = document.getElementById('perf-comparison');
+    if (!el) return;
+    if (!pc || !pc.ratio) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const verdict = pc.ratio >= 1
+        ? `${pc.ratio}× the source environment's throughput`
+        : `${Math.round(pc.ratio * 100)}% of the source environment's throughput`;
+    const srcLabel = pc.source_type === 'passmark'
+        ? `${pc.source_index_raw} PassMark (~${pc.source_index_specrate} SPECrate-equiv)`
+        : `${pc.source_index_specrate} SPECrate2017`;
+    el.style.display = '';
+    el.innerHTML = `<strong>CPU performance check:</strong> source ~${srcLabel} → `
+        + `recommended cluster ~${pc.target_index} SPECrate2017 `
+        + `(${verdict}). <span class="perf-note">${pc.note}</span>`;
+}
+
+// Best-effort auto-lookup: prefill the source benchmark from a detected source
+// CPU description. Coverage is limited to known catalog SKUs (returns nothing
+// otherwise); the value is per-CPU, the user scales by their source socket count.
+async function autofillSourcePerf(cpuDesc) {
+    const scoreEl = document.getElementById('source-perf-score');
+    if (!cpuDesc || !scoreEl || scoreEl.value) return;
+    try {
+        const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(cpuDesc));
+        const d = await resp.json();
+        if (!d.found) return;
+        const typeEl = document.getElementById('source-perf-type');
+        if (typeEl) typeEl.value = d.perf_type;
+        scoreEl.value = d.perf_index;
+        scoreEl.placeholder = `auto: ${d.model} (per CPU)`;
+    } catch (e) { /* best-effort */ }
+}
+
 async function recalcRecommendations() {
     const summary = activeMode === 'manual' ? manualSummary : importSummary;
     if (!summary) return;
@@ -926,6 +962,10 @@ async function recalcRecommendations() {
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
     const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
     const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
+    // Optional source-environment CPU benchmark for the perf comparison.
+    const srcPerfRaw = document.getElementById('source-perf-score')?.value;
+    const sourcePerfIndex = srcPerfRaw ? parseFloat(srcPerfRaw) : null;
+    const sourcePerfType = document.getElementById('source-perf-type')?.value || 'specrate';
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -946,12 +986,15 @@ async function recalcRecommendations() {
                 include_eol_eos: includeEolEos,
                 max_day_one_storage_pct: maxDayOneStorage,
                 max_day_one_ram_pct: maxDayOneRam,
+                source_perf_index: sourcePerfIndex,
+                source_perf_type: sourcePerfType,
             }),
         });
         const data = await resp.json();
         // Store projection first: renderRecommendationsTo reads lastProjection
         // for the IOPS demand/headroom line.
         if (data.projection) lastProjection[activeMode] = data.projection;
+        renderPerfComparison(data.perf_comparison);
         if (data.recommendations) {
             lastRecommendations[activeMode] = data.recommendations;
             lastSummary[activeMode] = summary;
@@ -1150,6 +1193,9 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
+    renderPerfComparison(data.perf_comparison);
+    // Best-effort: prefill the source benchmark from a detected source CPU model.
+    autofillSourcePerf(data.summary && (data.summary.cpu_model || data.summary.host_cpu));
     renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});

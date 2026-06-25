@@ -252,6 +252,10 @@ def create_app():
         include_eol_eos = data.get("include_eol_eos", False)
         max_day_one_storage_pct = data.get("max_day_one_storage_pct")
         max_day_one_ram_pct = data.get("max_day_one_ram_pct")
+        # Optional source-environment CPU benchmark for the perf comparison
+        # (SPECrate2017 or PassMark, per the detected source CPU class).
+        source_perf_index = data.get("source_perf_index")
+        source_perf_type = data.get("source_perf_type")
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
@@ -262,8 +266,31 @@ def create_app():
                                           target_model=target_model,
                                           include_eol_eos=include_eol_eos,
                                           max_day_one_storage_pct=max_day_one_storage_pct,
-                                          max_day_one_ram_pct=max_day_one_ram_pct)
+                                          max_day_one_ram_pct=max_day_one_ram_pct,
+                                          source_perf_index=source_perf_index,
+                                          source_perf_type=source_perf_type)
         return jsonify(result)
+
+    @app.route("/api/cpu-perf")
+    def cpu_perf():
+        """Look up a CPU's benchmark score by (fuzzy) description, to auto-fill
+        the source-benchmark field on import/manual. perf_type is 'specrate' for
+        server parts, 'passmark' for desktop. Per-CPU/socket value — the caller
+        scales by the source socket count. found=false for unknown SKUs."""
+        from cpu_specs import CPU_SPECS, cpu_model_key, perf_index as _perf_index
+        spec = CPU_SPECS.get(cpu_model_key(request.args.get("q", "")) or "")
+        if not spec:
+            return jsonify({"found": False})
+        ptype = "specrate" if spec.get("specrate_int") is not None else "passmark"
+        return jsonify({
+            "found": True,
+            "model": spec["model"],
+            "perf_type": ptype,
+            "perf_index": _perf_index(spec),
+            "specrate_int": spec.get("specrate_int"),
+            "passmark_cpu_mark": spec.get("passmark_cpu_mark"),
+            "passmark_single": spec.get("passmark_single"),
+        })
 
     @app.route("/api/export-config", methods=["POST"])
     def export_config():

@@ -330,11 +330,24 @@ function renderCpuCatalog() {
     tbody.innerHTML = '';
     cpuCatalog.forEach(c => {
         const tr = document.createElement('tr');
+        // Clocks: sizing clock (ghz = all-core turbo for known CPUs) + factual
+        // base/all-core/max where back-filled. Perf: native SPECrate (server) or
+        // PassMark CPU Mark (desktop).
+        const clocks = (c.base_ghz != null)
+            ? `<strong>${c.ghz}</strong> <span class="muted">${c.base_ghz}/${c.all_core_turbo_ghz != null ? c.all_core_turbo_ghz : '–'}/${c.max_turbo_ghz}</span>`
+            : `${c.ghz}`;
+        const perf = (c.specrate_int != null)
+            ? `${c.specrate_int} <span class="muted">SPECrate</span>`
+            : (c.passmark_cpu_mark != null
+                ? `${c.passmark_cpu_mark} <span class="muted">PassMark</span>`
+                : '<span class="muted">–</span>');
         tr.innerHTML = `
             <td>${esc(c.desc)}</td>
+            <td>${c.generation ? esc(c.generation) : '<span class="muted">–</span>'}</td>
             <td>${c.cores}</td>
             <td>${c.threads}</td>
-            <td>${c.ghz}</td>
+            <td>${clocks}</td>
+            <td>${perf}</td>
             <td><span class="count-pill">${c.used_by}</span></td>
             <td class="col-actions">
                 <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","cpu",${c.id}]'>

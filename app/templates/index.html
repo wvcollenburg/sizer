@@ -510,7 +510,22 @@
                                       title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
                             </div>
                         </div>
+                        <div class="form-group">
+                            <label>Source CPU benchmark
+                                <span class="info-icon" tabindex="0"
+                                      title="Optional. The source environment's CPU benchmark so the recommendation can be compared like-for-like across CPU generations (GHz x cores alone misses IPC gains). Use SPECrate2017 for server CPUs, PassMark for desktop. Enter the total across all source sockets (or one socket's score). Auto-fills from a detected CPU where known. Leave blank to skip the comparison.">i</span>
+                            </label>
+                            <div class="perf-input-row">
+                                <select id="source-perf-type" data-change='["recalcRecommendations"]'>
+                                    <option value="specrate">SPECrate2017</option>
+                                    <option value="passmark">PassMark</option>
+                                </select>
+                                <input type="number" id="source-perf-score" min="0" step="1"
+                                       placeholder="optional" data-change='["recalcRecommendations"]'>
+                            </div>
+                        </div>
                     </div>
+                    <div id="perf-comparison" class="perf-comparison" style="display:none"></div>
 
                 </div>
 

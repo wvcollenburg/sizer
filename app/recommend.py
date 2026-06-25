@@ -39,7 +39,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              storage_pref=None, size_full_cluster=False,
                              sizing_mode="certified", allow_storage_only=False,
                              target_model=None, include_eol_eos=False,
-                             max_day_one_storage_pct=None, max_day_one_ram_pct=None):
+                             max_day_one_storage_pct=None, max_day_one_ram_pct=None,
+                             source_perf_index=None, source_perf_type=None):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -142,6 +143,15 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         # only appear when the target is infeasible.
         "target_nodes": target_nodes,
     }
+
+    # Source-environment throughput floor (SPECrate scale), grown to the horizon.
+    # Only consumed when the perf_scaling tunable is on (default off); otherwise
+    # purely informational. A PassMark source score is converted to SPECrate.
+    if source_perf_index:
+        _src_perf = float(source_perf_index)
+        if (source_perf_type or "").lower() == "passmark":
+            _src_perf *= 0.00386
+        needs["required_perf_index"] = _src_perf * growth_factor
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
 
@@ -366,7 +376,32 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         c.pop("_nodes_for_storage", None)
         c["network_svg"] = _rec_network_svg(c)
 
-    return {"recommendations": top, "projection": projection, "warnings": warnings}
+    # Advisory CPU-performance comparison (display-only; it does NOT change the
+    # recommendation — active perf scaling is a separate, default-off path gated
+    # by the `perf_scaling` tunable). Lets the user see how the source
+    # environment's measured throughput compares to the recommended cluster's,
+    # instead of trusting raw core counts across CPU generations. A PassMark
+    # source score is normalised onto the SPECrate scale so the two are
+    # like-for-like.
+    perf_comparison = None
+    if source_perf_index and top and top[0]["totals"].get("perf_index"):
+        src = float(source_perf_index)
+        if (source_perf_type or "").lower() == "passmark":
+            src *= 0.00386  # PassMark CPU Mark -> SPECrate-equivalent
+        tgt = top[0]["totals"]["perf_index"]
+        perf_comparison = {
+            "source_index_raw": round(float(source_perf_index), 1),
+            "source_type": (source_perf_type or "specrate").lower(),
+            "source_index_specrate": round(src, 1),
+            "target_index": tgt,
+            "target_model": top[0].get("model"),
+            "ratio": round(tgt / src, 2) if src else None,
+            "note": "Throughput on the SPECrate2017_int scale; PassMark inputs "
+                    "converted at 0.00386/mark (~20% approximate).",
+        }
+
+    return {"recommendations": top, "projection": projection,
+            "warnings": warnings, "perf_comparison": perf_comparison}
 
 
 # ── Right-sizing score ───────────────────────────────────────────────────────
@@ -498,6 +533,20 @@ def _hci_split(usable_cores, required_cores, viable_ram_options, ram_need,
     return node_count, None
 
 
+def _effective_cores(cpu):
+    """Licensable/effective core count for a cpu_options entry: P-cores and
+    E-cores weighted by the w_pcore/w_ecore tunables (E-cores carry no weight by
+    default — only P-cores are licensed today). Falls back to the raw total core
+    count for CPUs with no P/E split (non-hybrid or un-recognised). The catalog
+    stores the true TOTAL cores; this is what drives node sizing/licensing."""
+    p = cpu.get("p_cores")
+    if p is None:
+        return cpu["cores"]
+    e = cpu.get("e_cores") or 0
+    eff = p * getattr(T, "w_pcore", 1.0) + e * getattr(T, "w_ecore", 0.0)
+    return int(eff) if eff == int(eff) else round(eff, 1)
+
+
 def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
                iops_cfg=None, allow_storage_only=False):
     results = []
@@ -548,12 +597,13 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
 
     cpus_by_cores = sorted(
         enumerate(model["cpu_options"]),
-        key=lambda x: x[1]["cores"],
+        key=lambda x: _effective_cores(x[1]),
         reverse=True,
     )
 
     for cpu_idx, cpu in cpus_by_cores:
-        cores_per_node = cpu["cores"]
+        # Effective (licensable) cores — P/E weighted; E-cores weight 0 by default.
+        cores_per_node = _effective_cores(cpu)
         threads_per_node = cpu["threads"]
         ghz_per_node = cpu["ghz"] * cores_per_node
         usable_cores = cores_per_node - T.os_core_overhead
@@ -580,8 +630,25 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 needed_nodes_cpu = n
                 break
 
+        # Optional perf-throughput floor — gated by the `perf_scaling` tunable
+        # (default 0 -> NO effect, so live sizing is unchanged until enabled).
+        # When on and a source benchmark score is supplied, require the cluster's
+        # compute nodes to deliver at least the source environment's (grown)
+        # throughput, so generational IPC is sized for rather than raw cores.
+        # VALIDATE before enabling in production.
+        needed_nodes_perf = 0
+        node_perf = cpu.get("perf_index")
+        req_perf = needs.get("required_perf_index", 0)
+        if getattr(T, "perf_scaling", 0) and req_perf > 0 and node_perf:
+            for n in range(min_nodes, 200):
+                perf_nodes = n if full_cluster else (n - len(_cluster_layout(n)))
+                if node_perf * perf_nodes >= req_perf:
+                    needed_nodes_perf = n
+                    break
+
         start_nodes = max(min_nodes, needed_nodes_cpu,
-                          needed_nodes_storage, needed_nodes_ram)
+                          needed_nodes_storage, needed_nodes_ram,
+                          needed_nodes_perf)
 
         # Exact node-count target: when the user asks for N nodes and this CPU
         # can serve the workload in exactly N (N >= the minimum feasible), size
@@ -817,6 +884,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "cluster_layout": layout,
                 "cpu": cpu["desc"],
                 "cpu_index": cpu_idx,
+                "cpu_generation": cpu.get("generation"),
+                "cpu_perf_index": cpu.get("perf_index"),
                 "cores_per_node": cores_per_node,
                 "usable_cores_per_node": usable_cores,
                 "threads_per_node": threads_per_node,
@@ -839,6 +908,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                     "ram_gb": round(usable_ram_per_node * hci_nodes, 1),
                     "raw_storage_tb": round(total_raw, 2),
                     "usable_storage_tb": round(usable, 2),
+                    # Cluster compute throughput (perf index summed over HCI nodes
+                    # that run VMs). None when the chosen CPU has no perf data.
+                    "perf_index": (round(cpu["perf_index"] * hci_nodes, 1)
+                                   if cpu.get("perf_index") is not None else None),
                 },
                 "n_minus_1": {
                     "cores": n1_usable_cores,

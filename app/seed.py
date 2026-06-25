@@ -116,6 +116,22 @@ def _migrate_schema():
         "reset_sent_at TIMESTAMP WITH TIME ZONE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "privacy_accepted_at TIMESTAMP WITH TIME ZONE",
+        # Authoritative CPU spec columns (feature/add-real-cpu-details). Additive,
+        # nullable; back-filled from cpu_specs.py by _backfill_cpu_specs().
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS make VARCHAR(20)",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS family VARCHAR(40)",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS generation VARCHAR(60)",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS model VARCHAR(80)",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS p_cores INTEGER",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS e_cores INTEGER",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS base_ghz DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS all_core_turbo_ghz DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS max_turbo_ghz DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS ecore_base_ghz DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS ecore_turbo_ghz DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS specrate_int DOUBLE PRECISION",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS passmark_cpu_mark INTEGER",
+        "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS passmark_single INTEGER",
     ]
     for sql in stmts:
         db.session.execute(text(sql))
@@ -147,8 +163,54 @@ def _migrate_schema():
             db.session.add(SizingSetting(key=key, value=value))
     db.session.commit()
 
+    _backfill_cpu_specs()
     _bootstrap_super_admin()
     _purge_on_boot()
+
+
+def _backfill_cpu_specs():
+    """Populate the authoritative CPU spec columns from cpu_specs.py for every
+    recognised catalog CPU, and flip its `ghz` (the engine's sizing clock) to the
+    all-core turbo. Runs once per row (guarded on `make IS NULL`) so later admin
+    edits are never clobbered on reboot. Logs a catalog-vs-spec discrepancy
+    report — cores/threads are NOT auto-corrected (that would move sizing beyond
+    the clock change), only surfaced for review."""
+    from cpu_specs import CPU_SPECS, cpu_model_key, sizing_ghz
+    matched, unmatched, discrepancies = 0, [], []
+    for cpu in CpuCatalog.query.all():
+        if cpu.make is not None:
+            continue  # already back-filled; respect later admin edits
+        spec = CPU_SPECS.get(cpu_model_key(cpu.description) or "")
+        if not spec:
+            unmatched.append(cpu.description)
+            continue
+        if cpu.cores != spec["cores"] or cpu.threads != spec["threads"]:
+            discrepancies.append(
+                f"{cpu.description!r}: cores/threads {cpu.cores}C/{cpu.threads}T -> "
+                f"{spec['cores']}C/{spec['threads']}T (corrected to total incl. "
+                f"E-cores; licensing handled by P/E core weights, not undercounting)")
+        sizing = sizing_ghz(spec)
+        if abs((cpu.ghz or 0) - sizing) >= 0.05:
+            discrepancies.append(
+                f"{cpu.description!r}: sizing ghz {cpu.ghz} -> {sizing} (all-core turbo)")
+        # cores/threads corrected to the authoritative TOTAL; the engine licenses
+        # via the w_pcore/w_ecore tunables (E-cores weight 0 by default), so this
+        # no longer needs to be undercounted to P-cores.
+        for col in ("make", "family", "generation", "model", "cores", "threads",
+                    "p_cores", "e_cores", "base_ghz", "all_core_turbo_ghz",
+                    "max_turbo_ghz", "ecore_base_ghz", "ecore_turbo_ghz",
+                    "specrate_int", "passmark_cpu_mark", "passmark_single"):
+            setattr(cpu, col, spec[col])
+        cpu.ghz = sizing  # all-core clock LIVE
+        matched += 1
+    db.session.commit()
+    print(f"  CPU specs back-filled: {matched} matched, {len(unmatched)} unmatched")
+    if unmatched:
+        print(f"    unmatched (kept as-is): {unmatched}")
+    if discrepancies:
+        print(f"  CPU catalog-vs-authoritative discrepancies ({len(discrepancies)}):")
+        for d in discrepancies:
+            print(f"    - {d}")
 
 
 def _bootstrap_super_admin():
