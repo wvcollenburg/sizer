@@ -1999,3 +1999,25 @@ body.auth-required footer { display: none; }
     line-height: 1.4;
 }
 .perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+
+/* Source CPU performance panel (Environment Summary). */
+.source-cpu-panel {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.source-cpu-head { font-weight: 600; margin-bottom: 0.5rem; }
+.source-cpu-head .muted { font-weight: 400; }
+.source-cpu-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    flex-wrap: wrap;
+}
+.source-cpu-name { flex: 1 1 240px; min-width: 0; }
+.source-cpu-type { flex: 0 0 auto; }
+.source-cpu-score { flex: 0 0 130px; }
+.source-cpu-status { flex: 0 0 auto; }

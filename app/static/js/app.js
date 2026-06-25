@@ -928,21 +928,57 @@ function renderPerfComparison(pc) {
         + `(${verdict}). <span class="perf-note">${pc.note}</span>`;
 }
 
-// Best-effort auto-lookup: prefill the source benchmark from a detected source
-// CPU description. Coverage is limited to known catalog SKUs (returns nothing
-// otherwise); the value is per-CPU, the user scales by their source socket count.
-async function autofillSourcePerf(cpuDesc) {
-    const scoreEl = document.getElementById('source-perf-score');
-    if (!cpuDesc || !scoreEl || scoreEl.value) return;
-    try {
-        const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(cpuDesc));
-        const d = await resp.json();
-        if (!d.found) return;
-        const typeEl = document.getElementById('source-perf-type');
-        if (typeEl) typeEl.value = d.perf_type;
-        scoreEl.value = d.perf_index;
-        scoreEl.placeholder = `auto: ${d.model} (per CPU)`;
-    } catch (e) { /* best-effort */ }
+// Render the source CPUs detected from the import (Environment Summary), each
+// with a per-CPU benchmark input. Auto-fills the score where we recognise the
+// part (limited to our catalog SKUs — most old source CPUs are unknown and need
+// manual entry). computeSourcePerf() sums these (socket-weighted, normalised to
+// SPECrate) to feed the comparison shown above the recommendations.
+async function renderSourceCpus(sourceCpus) {
+    const panel = document.getElementById('source-cpu-panel');
+    if (!panel) return;
+    if (!sourceCpus || !sourceCpus.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+    panel.style.display = '';
+    panel.innerHTML = `<div class="source-cpu-head">Source CPU performance
+        <span class="muted">— for comparison against the recommendation. Auto-filled where known; otherwise enter each CPU's SPECrate2017 (server) or PassMark (desktop) score. Look up at spec.org or cpubenchmark.net.</span></div>`
+        + sourceCpus.map((c, i) => `
+        <div class="source-cpu-row">
+            <div class="source-cpu-name">${esc(c.model)} <span class="muted">× ${c.sockets} socket${c.sockets !== 1 ? 's' : ''}</span></div>
+            <select class="source-cpu-type" data-srcidx="${i}" data-change='["recalcRecommendations"]'>
+                <option value="specrate">SPECrate2017</option>
+                <option value="passmark">PassMark</option>
+            </select>
+            <input type="number" class="source-cpu-score" data-srcidx="${i}" data-sockets="${c.sockets}"
+                   min="0" step="1" placeholder="per-CPU score" data-change='["recalcRecommendations"]'>
+            <span class="source-cpu-status muted" id="src-cpu-status-${i}"></span>
+        </div>`).join('');
+    await Promise.all(sourceCpus.map(async (c, i) => {
+        const status = document.getElementById('src-cpu-status-' + i);
+        try {
+            const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(c.model));
+            const d = await resp.json();
+            if (!d.found) { if (status) status.textContent = 'unknown — enter manually'; return; }
+            panel.querySelector(`.source-cpu-type[data-srcidx="${i}"]`).value = d.perf_type;
+            panel.querySelector(`.source-cpu-score[data-srcidx="${i}"]`).value = d.perf_index;
+            if (status) status.textContent = `auto (${d.perf_type})`;
+        } catch (e) { /* best-effort */ }
+    }));
+}
+
+// Total source-environment throughput on the SPECrate scale (per-CPU score x
+// sockets, PassMark normalised at 0.00386), summed across detected CPUs. null
+// when nothing is entered.
+function computeSourcePerf() {
+    let total = 0, any = false;
+    document.querySelectorAll('#source-cpu-panel .source-cpu-score').forEach(inp => {
+        const v = parseFloat(inp.value);
+        if (!v) return;
+        const i = inp.dataset.srcidx;
+        const typeEl = document.querySelector(`#source-cpu-panel .source-cpu-type[data-srcidx="${i}"]`);
+        const sockets = parseInt(inp.dataset.sockets, 10) || 1;
+        total += (typeEl && typeEl.value === 'passmark' ? v * 0.00386 : v) * sockets;
+        any = true;
+    });
+    return any ? Math.round(total * 10) / 10 : null;
 }
 
 async function recalcRecommendations() {
@@ -962,10 +998,10 @@ async function recalcRecommendations() {
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
     const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
     const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
-    // Optional source-environment CPU benchmark for the perf comparison.
-    const srcPerfRaw = document.getElementById('source-perf-score')?.value;
-    const sourcePerfIndex = srcPerfRaw ? parseFloat(srcPerfRaw) : null;
-    const sourcePerfType = document.getElementById('source-perf-type')?.value || 'specrate';
+    // Source-environment CPU benchmark (from the detected-CPU inputs in the
+    // Environment Summary), summed socket-weighted and normalised to SPECrate.
+    const sourcePerfIndex = computeSourcePerf();
+    const sourcePerfType = 'specrate';
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -1194,8 +1230,11 @@ function displayImportResults(data) {
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
     renderPerfComparison(data.perf_comparison);
-    // Best-effort: prefill the source benchmark from a detected source CPU model.
-    autofillSourcePerf(data.summary && (data.summary.cpu_model || data.summary.host_cpu));
+    // Show the detected source CPUs + benchmark inputs (auto-filled where known),
+    // then re-run sizing so the comparison reflects any auto-filled scores.
+    renderSourceCpus(data.summary && data.summary.source_cpus).then(() => {
+        if (computeSourcePerf() != null) recalcRecommendations();
+    });
     renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
     document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
