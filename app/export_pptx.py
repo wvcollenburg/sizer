@@ -10,12 +10,15 @@ break.
 import io
 import os
 import re
+from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
+
+from export_gauges import render_util_bars, util_rows
 
 # Brand palette taken from the template theme (resources/template.pptx):
 #   dk1 272727 · dk2 113859 · lt2 E9EAF0 · accent1 009ADE · accent2 194F90
@@ -131,12 +134,14 @@ def _slide_network(prs, recommendation):
                              Inches(bw), Inches(bh))
 
 
-def generate_proposal(summary, recommendation, projection):
+def generate_proposal(summary, recommendation, projection, source_perf=None):
     prs = _new_deck()
 
     _slide_current_env(prs, summary)
     _slide_workload(prs, summary)
     _slide_proposal(prs, recommendation, projection)
+    _slide_sizing(prs, recommendation, summary)
+    _slide_benchmark(prs, recommendation, source_perf)
     _slide_network(prs, recommendation)
     _slide_projection(prs, summary, recommendation, projection)
 
@@ -665,6 +670,126 @@ def _slide_proposal(prs, r, projection=None):
         run.text = note
         run.font.size = Pt(9)
         run.font.color.rgb = MID_GRAY
+
+
+def _add_textbox(slide, left, top, width, height, lines):
+    """lines: list of (text, size_pt, color, bold). Each becomes a paragraph."""
+    box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    tf = box.text_frame
+    tf.word_wrap = True
+    for i, (text, size, color, bold) in enumerate(lines):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        run = p.add_run()
+        run.text = text
+        run.font.size = Pt(size)
+        run.font.color.rgb = color
+        run.font.bold = bold
+        p.space_after = Pt(4)
+    return box
+
+
+# ── Sizing rationale: utilization bars + how the node count was reached ──────
+
+def _slide_sizing(prs, r, s):
+    u = r.get("utilization")
+    if not u:
+        return
+    slide = _add_slide(prs)
+    _add_title(slide, "Sizing Rationale", r.get("model", ""))
+
+    det = r.get("determinant") or {}
+    binding = det.get("resource", "")
+    rows, any_ha = util_rows(u)
+
+    top = 1.7
+    if rows:
+        png = render_util_bars(rows, limiting_key=binding, any_ha=any_ha)
+        iw, ih = Image.open(io.BytesIO(png)).size
+        disp_w = 12.1
+        disp_h = disp_w * ih / iw
+        slide.shapes.add_picture(io.BytesIO(png), Inches(0.6), Inches(top),
+                                 Inches(disp_w), Inches(disp_h))
+        top += disp_h + 0.35
+
+    lines = [("How this was sized", 14, SC_DARK_BLUE, True)]
+    res = det.get("resource")
+    hr = det.get("headroom_pct")
+    if res == "CPU":
+        ratio = r.get("vcpu_ratio") or 0
+        vcpus = s.get("total_vcpus")
+        lines.append((f"Determined by CPU — {vcpus} vCPUs ÷ {ratio:.2f}:1 overcommit "
+                      f"= {det.get('required'):.0f} cores required, vs "
+                      f"{det.get('achieved'):.0f} usable cores available at N-1 "
+                      f"({hr:.1f}% headroom).", 12, CHARCOAL, False))
+    elif res in ("RAM", "Storage"):
+        unit = det.get("unit", "")
+        lines.append((f"Determined by {res} — {det.get('required')} {unit} required, vs "
+                      f"{det.get('achieved')} {unit} available at N-1 "
+                      f"({hr:.1f}% headroom).", 12, CHARCOAL, False))
+    else:
+        lines.append(("Sized to the minimum supported configuration for this model.",
+                      12, CHARCOAL, False))
+    lines.append(("Each bar is 100% of the full cluster: solid = today's load, light "
+                  "hatch = growth + snapshot reserve the workload is sized to, dark hatch "
+                  "= HA failover capacity held back so the cluster still meets the "
+                  "workload with one node down (N-1).", 11, MID_GRAY, False))
+    _add_textbox(slide, 0.6, top, 12.1, 1.8, lines)
+
+    _add_card(slide, 0.6, 6.6, 3.6, 0.85, "vCPU : Core Ratio at N-1",
+              f"{r.get('vcpu_ratio', 0):.2f} : 1", accent=True)
+
+
+# ── Benchmark performance: current environment vs recommended cluster ────────
+
+def _slide_benchmark(prs, r, source_perf):
+    tgt = (r.get("totals") or {}).get("perf_index")
+    if not source_perf or not source_perf.get("total_specrate") or not tgt:
+        return
+    slide = _add_slide(prs)
+    _add_title(slide, "Performance vs Current Environment", r.get("model", ""))
+
+    src_total = source_perf["total_specrate"]
+    ratio = tgt / src_total if src_total else 0
+
+    _add_textbox(slide, 0.6, 1.55, 7.0, 0.4,
+                 [("Where you are now", 13, SC_DARK_BLUE, True)])
+    src_rows = [["Your current CPUs", "Sockets", "Score", "SPECrate"]]
+    used_pm = False
+    for c in source_perf.get("cpus", []):
+        is_pm = c.get("type") == "passmark"
+        used_pm = used_pm or is_pm
+        score_lbl = f"{_fmt_num(c['score'])} {'PassMark' if is_pm else 'SPECrate'}"
+        src_rows.append([c.get("model", ""), str(c.get("sockets", "")),
+                         score_lbl, _fmt_num(c.get("total", 0))])
+    src_rows.append(["Total environment", "", "", _fmt_num(src_total)])
+    _add_table(slide, 0.6, 2.0, 7.0, src_rows, [3.4, 1.0, 1.6, 1.0])
+
+    _add_textbox(slide, 8.0, 1.55, 4.7, 0.4,
+                 [("Where you're going", 13, SC_DARK_BLUE, True)])
+    used_pm = used_pm or bool(r.get("cpu_perf_is_passmark"))
+    tgt_rows = [["Recommended cluster", ""],
+                ["CPU per node", r.get("cpu", "")],
+                ["Nodes", str(r.get("node_count", ""))],
+                ["Cluster SPECrate2017", _fmt_num(tgt)]]
+    _add_table(slide, 8.0, 2.0, 4.7, tgt_rows, [2.3, 2.4])
+
+    verdict = (f"{ratio:.1f}× the compute throughput of your current environment"
+               if ratio >= 1 else
+               f"{round(ratio * 100)}% of your current environment's compute throughput")
+    _add_card(slide, 0.6, 4.9, 6.2, 0.95, "In a benchmark, this should deliver",
+              verdict, accent=True)
+
+    foot = [("SPECrate2017_int measures total CPU throughput across all cores — the right "
+             "yardstick for consolidating VMs. Newer CPUs do more work per core, so a "
+             "smaller new cluster can comfortably outperform a larger old one.",
+             11, MID_GRAY, False)]
+    if used_pm:
+        foot.append(("Figures marked PassMark are converted to the SPECrate scale "
+                     "(~0.00386 per CPU Mark, roughly ±20%).", 10, MID_GRAY, False))
+    foot.append(("Disclaimer: benchmark data is externally sourced (public SPEC and "
+                 "PassMark results); provided for guidance only — no rights can be derived "
+                 "from these figures.", 10, MID_GRAY, False))
+    _add_textbox(slide, 0.6, 6.1, 12.1, 1.2, foot)
 
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────

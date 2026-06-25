@@ -354,13 +354,14 @@ def create_app():
         summary = data.get("summary")
         recommendation = data.get("recommendation")
         projection = data.get("projection")
+        source_perf = data.get("source_perf")
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         if not _can_export_editable():
             return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
 
         try:
-            buf = generate_proposal(summary, recommendation, projection)
+            buf = generate_proposal(summary, recommendation, projection, source_perf)
             model_name = recommendation.get("model", "proposal")
             filename = f"SC_Proposal_{model_name}_{recommendation.get('node_count', '')}N.pptx"
             return send_file(buf, as_attachment=True, download_name=filename,
@@ -371,7 +372,8 @@ def create_app():
 
     def _proposal_payload():
         data = request.json or {}
-        return data.get("summary"), data.get("recommendation"), data.get("projection")
+        return (data.get("summary"), data.get("recommendation"),
+                data.get("projection"), data.get("source_perf"))
 
     def _can_export_editable():
         # Editable source files (Word, PPTX) are limited to Scale users and super
@@ -381,13 +383,13 @@ def create_app():
 
     @app.route("/api/export-docx", methods=["POST"])
     def export_docx_route():
-        summary, recommendation, projection = _proposal_payload()
+        summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         if not _can_export_editable():
             return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
         try:
-            buf = build_proposal_docx(summary, recommendation, projection)
+            buf = build_proposal_docx(summary, recommendation, projection, source_perf)
             fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
             return send_file(buf, as_attachment=True, download_name=fn,
                              mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
@@ -397,11 +399,11 @@ def create_app():
 
     @app.route("/api/export-pdf", methods=["POST"])
     def export_pdf_route():
-        summary, recommendation, projection = _proposal_payload()
+        summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         try:
-            docx_buf = build_proposal_docx(summary, recommendation, projection)
+            docx_buf = build_proposal_docx(summary, recommendation, projection, source_perf)
             pdf = convert_docx_to_pdf(docx_buf.getvalue())
             if not pdf:
                 return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
@@ -414,11 +416,11 @@ def create_app():
 
     @app.route("/api/export-presentation-pdf", methods=["POST"])
     def export_presentation_pdf_route():
-        summary, recommendation, projection = _proposal_payload()
+        summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         try:
-            pptx_buf = generate_proposal(summary, recommendation, projection)
+            pptx_buf = generate_proposal(summary, recommendation, projection, source_perf)
             pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
             if not pdf:
                 return jsonify({"error": "PDF conversion is unavailable on this server."}), 503

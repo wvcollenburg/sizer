@@ -1015,6 +1015,34 @@ Disclaimer: although compiled with the greatest of care, these figures rely on e
     showInfoModal('CPU performance comparison', msg);
 }
 
+// Per-CPU source benchmark breakdown for the exportables (the "where you are
+// now" side of the performance slide). Mirrors computeSourcePerf()'s maths but
+// keeps the line items. Returns null when nothing is entered.
+function buildSourcePerfExport() {
+    const cpus = [];
+    let total = 0;
+    document.querySelectorAll('#source-cpu-panel .source-cpu-row').forEach(row => {
+        const scoreEl = row.querySelector('.source-cpu-score');
+        const v = scoreEl ? parseFloat(scoreEl.value) : NaN;
+        if (!v) return;
+        const sockets = parseInt(scoreEl.dataset.sockets, 10) || 1;
+        const typeEl = row.querySelector('.source-cpu-type');
+        const type = typeEl ? typeEl.value : 'specrate';
+        const nameEl = row.querySelector('.source-cpu-name');
+        const model = nameEl ? (nameEl.childNodes[0].textContent || '').trim() : '';
+        const specrate = type === 'passmark' ? v * 0.00386 : v;
+        const contrib = specrate * sockets;
+        total += contrib;
+        cpus.push({
+            model, sockets, type, score: v,
+            specrate: Math.round(specrate * 10) / 10,
+            total: Math.round(contrib * 10) / 10,
+        });
+    });
+    if (!cpus.length) return null;
+    return { total_specrate: Math.round(total * 10) / 10, cpus };
+}
+
 // Whether any entered source CPU used a PassMark (rather than SPECrate) score —
 // gates the conversion caveat in the comparison tooltip.
 function sourceUsedPassmark() {
@@ -1979,6 +2007,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
                 summary: summary,
                 recommendation: recs[recIndex],
                 projection: projection,
+                source_perf: buildSourcePerfExport(),
             }),
         });
 

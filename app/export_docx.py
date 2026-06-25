@@ -25,6 +25,7 @@ from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
+from export_gauges import render_util_bars, util_rows
 
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
                          "TMPL - Generic Document Template_2025.docx")
@@ -212,7 +213,7 @@ def _para(doc, text, italic=False, color=None, size=None):
     return p
 
 
-def build_proposal_docx(summary, recommendation, projection):
+def build_proposal_docx(summary, recommendation, projection, source_perf=None):
     doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
     _clear_body(doc)
     # The template ships with tight 0.75" (~1.9 cm) side margins, which leaves the
@@ -329,6 +330,71 @@ def build_proposal_docx(summary, recommendation, projection):
             doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             _spacer(doc)
+
+    # ── Sizing rationale (utilization bars + how the node count was reached) ──
+    u = r.get("utilization")
+    if u:
+        rows_u, any_ha = util_rows(u)
+        if rows_u:
+            doc.add_heading("Sizing Rationale", level=1)
+            png = render_util_bars(
+                rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
+                any_ha=any_ha)
+            doc.add_picture(io.BytesIO(png), width=Inches(cw))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _spacer(doc, 4)
+            det = r.get("determinant") or {}
+            res, hr = det.get("resource"), det.get("headroom_pct")
+            if res == "CPU":
+                _para(doc, f"Determined by CPU — {s.get('total_vcpus')} vCPUs ÷ "
+                           f"{r.get('vcpu_ratio', 0):.2f}:1 overcommit = {det.get('required'):.0f} "
+                           f"cores required, vs {det.get('achieved'):.0f} usable cores available at "
+                           f"N-1 ({hr:.1f}% headroom).")
+            elif res in ("RAM", "Storage"):
+                unit = det.get("unit", "")
+                _para(doc, f"Determined by {res} — {det.get('required')} {unit} required, vs "
+                           f"{det.get('achieved')} {unit} available at N-1 ({hr:.1f}% headroom).")
+            _para(doc, "Each bar is 100% of the full cluster: solid = today's load, light hatch = "
+                       "growth + snapshot reserve the workload is sized to, dark hatch = HA failover "
+                       "capacity held back so the cluster still meets the workload with one node down "
+                       "(N-1).", italic=True, size=9)
+            _spacer(doc)
+
+    # ── Performance vs current environment (benchmark comparison) ─────────────
+    tgt = t.get("perf_index")
+    if source_perf and source_perf.get("total_specrate") and tgt:
+        doc.add_heading("Performance vs Current Environment", level=1)
+        src_total = source_perf["total_specrate"]
+        ratio = tgt / src_total if src_total else 0
+        used_pm = False
+        grid_rows = []
+        for c in source_perf.get("cpus", []):
+            is_pm = c.get("type") == "passmark"
+            used_pm = used_pm or is_pm
+            grid_rows.append([c.get("model", ""), str(c.get("sockets", "")),
+                              f"{_fmt_num(c.get('score', 0))} {'PassMark' if is_pm else 'SPECrate'}",
+                              _fmt_num(c.get("total", 0))])
+        grid_rows.append(["Total environment", "", "", _fmt_num(src_total)])
+        _grid_table(doc, ["Your current CPUs", "Sockets", "Score", "SPECrate"],
+                    grid_rows, total_w=cw, weights=[3.4, 1.0, 1.6, 1.0])
+        _spacer(doc, 4)
+        used_pm = used_pm or bool(r.get("cpu_perf_is_passmark"))
+        verdict = (f"{ratio:.1f}× the compute throughput of your current environment"
+                   if ratio >= 1 else
+                   f"{round(ratio * 100)}% of your current environment's compute throughput")
+        _spec_table(doc, [
+            ("Recommended cluster", f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
+            ("Cluster SPECrate2017", _fmt_num(tgt)),
+            ("In a benchmark, this should deliver", verdict),
+        ], total_w=cw, label_w=2.6)
+        _spacer(doc, 4)
+        if used_pm:
+            _para(doc, "Figures marked PassMark are converted to the SPECrate scale "
+                       "(~0.00386 per CPU Mark, roughly ±20%).", italic=True, size=9)
+        _para(doc, "Disclaimer: benchmark data is externally sourced (public SPEC and PassMark "
+                   "results); provided for guidance only — no rights can be derived from these "
+                   "figures.", italic=True, size=9)
+        _spacer(doc)
 
     # ── Management & operations ──────────────────────────────────────────────
     doc.add_heading("Management & Operations", level=1)
