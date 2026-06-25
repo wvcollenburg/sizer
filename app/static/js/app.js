@@ -976,10 +976,9 @@ function sourceUsedPassmark() {
 async function renderSourceCpus(sourceCpus) {
     const panel = document.getElementById('source-cpu-panel');
     if (!panel) return;
-    if (!sourceCpus || !sourceCpus.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
-    panel.style.display = '';
-    panel.innerHTML = `<div class="source-cpu-head">Source CPU performance
-        <span class="muted">— for comparison against the recommendation. Auto-filled where known; otherwise enter each CPU's SPECrate2017 (server) or PassMark (desktop) score. Look up at spec.org or cpubenchmark.net.</span></div>`
+    if (!sourceCpus || !sourceCpus.length) { panel.innerHTML = ''; return; }
+    panel.innerHTML = `<div class="source-cpu-head">
+        <span class="muted">Per-CPU benchmark used to compare your current environment to the recommendation. Auto-filled where known; otherwise enter each CPU's SPECrate2017 (server) or PassMark (desktop) score — look up at spec.org or cpubenchmark.net.</span></div>`
         + sourceCpus.map((c, i) => `
         <div class="source-cpu-row">
             <div class="source-cpu-name">${esc(c.model)} <span class="muted">× ${c.sockets} socket${c.sockets !== 1 ? 's' : ''}</span></div>
@@ -1004,6 +1003,27 @@ async function renderSourceCpus(sourceCpus) {
                 : 'auto · catalog';
         } catch (e) { /* best-effort */ }
     }));
+    updateSourcePerfCard();
+}
+
+// The Environment-Summary card shows the summed source SPECrate; the per-CPU
+// inputs live in the modal it opens. Keep the card in sync as scores change.
+function updateSourcePerfCard() {
+    const el = document.getElementById('source-perf-total');
+    if (!el) return;
+    const total = computeSourcePerf();
+    el.textContent = total != null ? Math.round(total).toLocaleString() : '—';
+}
+
+function openSourceCpuModal() {
+    const m = document.getElementById('source-cpu-modal');
+    if (m) m.style.display = 'flex';
+}
+
+function closeSourceCpuModal() {
+    const m = document.getElementById('source-cpu-modal');
+    if (m) m.style.display = 'none';
+    updateSourcePerfCard();
 }
 
 // Total source-environment throughput on the SPECrate scale (per-CPU score x
@@ -1041,9 +1061,10 @@ async function recalcRecommendations() {
     const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
     const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
     // Source-environment CPU benchmark (from the detected-CPU inputs in the
-    // Environment Summary), summed socket-weighted and normalised to SPECrate.
+    // Source CPU modal), summed socket-weighted and normalised to SPECrate.
     const sourcePerfIndex = computeSourcePerf();
     const sourcePerfType = 'specrate';
+    updateSourcePerfCard();
 
     try {
         const resp = await fetch('/api/recommend', {
@@ -1237,6 +1258,12 @@ function displayImportResults(data) {
                        data-change='["updateP95Display"]'>
             </div>
         </div>
+        ${(s.source_cpus && s.source_cpus.length) ? `
+        <div class="summary-card">
+            <div class="summary-label">Source CPU · SPECrate2017</div>
+            <div class="summary-value"><span id="source-perf-total">—</span>
+                <a class="card-edit-link" data-click='["openSourceCpuModal"]'>edit / add</a></div>
+        </div>` : ''}
     `;
 
     document.getElementById('workload-summary').innerHTML = `

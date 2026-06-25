@@ -2000,15 +2000,17 @@ body.auth-required footer { display: none; }
 }
 .perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
 
-/* Source CPU performance panel (Environment Summary). */
-.source-cpu-panel {
-    margin-top: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+/* Source CPU performance panel (inside the Source CPU modal). */
+.card-edit-link {
+    margin-left: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--accent, #0076CE);
+    text-decoration: underline;
+    cursor: pointer;
+    white-space: nowrap;
 }
-.source-cpu-head { font-weight: 600; margin-bottom: 0.5rem; }
+.source-cpu-head { margin-bottom: 0.75rem; }
 .source-cpu-head .muted { font-weight: 400; }
 .source-cpu-row {
     display: flex;
