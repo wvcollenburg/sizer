@@ -276,7 +276,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         warnings.append(
             "No Validated configuration fits the software-only constraints "
             "(≤100 disks/cluster, 1-or-3+ disks per node, hybrid flash "
-            "7–24.3%). Try Certified mode or raise the target node count."
+            "7–25%). Try Certified mode or raise the target node count."
         )
 
     # Empty result with no more specific reason: usually a single VM too large
@@ -1097,7 +1097,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
 
     # Certified: fixed tier counts. Validated: flex both tiers down (never above
     # certified), keeping total disks valid (3+), the cluster cap, and the
-    # 7-24.3% flash-capacity band.
+    # 7-25% flash-capacity band.
     if validated:
         hdd_counts = list(range(1, hdd_count + 1))
         flash_counts = list(range(1, flash_count + 1))
@@ -1121,7 +1121,7 @@ def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=Fa
                         if h < T.hybrid_min_hdd_per_flash * f:
                             continue
                     raw_per_node = (hdd_tb * h) + (flash_tb * f)
-                    # The 7-24.3% flash-capacity band is a hybrid architecture
+                    # The 7-25% flash-capacity band is a hybrid architecture
                     # requirement, not a validated-only one: a fixed certified
                     # tier-count paired with a freely-chosen drive size can still
                     # land out of band (e.g. small HDD + large NVMe -> 56% flash),

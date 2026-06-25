@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to Size a Scale Computing Cluster</title>
+<style>
+  :root{
+    --blue:#0076CE; --blue-dk:#005fa3; --navy:#113859; --ink:#243240; --muted:#5f6b78;
+    --line:#dce3ec; --bg:#f4f7fb; --card:#ffffff; --green:#2e7d32; --amber:#e67e22;
+    --hatch:#cfe0f4; --code-bg:#0f2233;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.65;
+       -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{ size:A4; margin:13mm }
+  @media print{
+    body{background:#fff}
+    .wrap{max-width:100%;padding:0 0 12mm}
+    header.hero{margin-bottom:20px}
+    .toc ol{columns:1}
+    .card,.callout,.example,.analogy,.formula,.breakdown,table,.mini,.grid{break-inside:avoid}
+    h2,h3{break-after:avoid}
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 22px 96px}
+  header.hero{background:linear-gradient(135deg,#0a2540,#0076CE);color:#fff;padding:54px 22px 40px;margin-bottom:34px}
+  header.hero .inner{max-width:920px;margin:0 auto}
+  header.hero .kicker{text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;opacity:.8;font-weight:600}
+  header.hero h1{margin:.3em 0 .25em;font-size:2.1rem;font-weight:700;line-height:1.15}
+  header.hero p{margin:0;font-size:1.05rem;opacity:.92;max-width:700px}
+  h2{font-size:1.5rem;margin:2.4em 0 .5em;color:var(--navy);border-bottom:2px solid var(--line);padding-bottom:.25em}
+  h2 .num{display:inline-block;background:var(--blue);color:#fff;border-radius:8px;width:1.5em;height:1.5em;
+          line-height:1.5em;text-align:center;font-size:.85em;margin-right:.45em;vertical-align:2px}
+  h3{font-size:1.14rem;margin:1.7em 0 .4em;color:var(--blue-dk)}
+  p{margin:.6em 0}
+  code{background:#eef3f9;border:1px solid var(--line);border-radius:4px;padding:.05em .4em;font-size:.92em;
+       font-family:"SF Mono",Menlo,Consolas,monospace}
+  .lead{font-size:1.06rem;color:var(--muted)}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 24px;margin:0 0 8px}
+  .toc h4{margin:.2em 0 .6em;text-transform:uppercase;letter-spacing:.08em;font-size:.74rem;color:var(--muted)}
+  .toc ol{margin:0;padding-left:1.3em;columns:2;column-gap:34px}
+  .toc a{color:var(--blue-dk);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .toc-pre{font-weight:600;margin:.1em 0 .7em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 24px;margin:14px 0;
+        box-shadow:0 1px 3px rgba(10,40,80,.05)}
+  .formula{background:var(--code-bg);color:#e7eef6;border-radius:10px;padding:16px 20px;margin:14px 0;
+           font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.92rem;overflow-x:auto;line-height:1.7}
+  .formula .c{color:#8aa6c4}            /* comment */
+  .formula .k{color:#7fd1b9}            /* key term */
+  .formula .n{color:#f0b86e}            /* number */
+  .callout{border-left:4px solid var(--blue);background:#eef5fc;border-radius:0 8px 8px 0;padding:12px 18px;margin:14px 0}
+  .callout.rule{border-color:var(--green);background:#eef7ef}
+  .callout.warn{border-color:var(--amber);background:#fdf3e9}
+  .callout .t{font-weight:700;display:block;margin-bottom:.15em}
+  .example{border-left:4px solid var(--navy);background:#eef2f7;border-radius:0 8px 8px 0;padding:12px 18px;margin:16px 0}
+  .example .t{font-weight:700;display:block;margin-bottom:.25em;color:var(--navy)}
+  .example .t::before{content:"\1F9EE  ";}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.94rem}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#eef3f9;color:var(--navy);font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+  td code{white-space:nowrap}
+  .pill{display:inline-block;background:#eef3f9;border:1px solid var(--line);border-radius:20px;padding:1px 10px;
+        font-size:.78rem;color:var(--muted);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:14px 0}
+  .mini{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .mini h4{margin:0 0 .3em;color:var(--blue-dk);font-size:1rem}
+  .mini p{margin:0;font-size:.9rem;color:var(--muted)}
+  .step-bar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+  .step-bar .s{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--blue);
+               border-radius:8px;padding:10px 12px;font-size:.86rem}
+  .step-bar .s b{display:block;color:var(--navy)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.86rem;margin:8px 0}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:16px;height:12px;border-radius:3px;display:inline-block}
+  dl.terms{margin:14px 0;padding:2px 0}
+  dl.terms dt{font-weight:700;color:var(--navy);margin-top:1em;font-size:1rem}
+  dl.terms dt .pron{font-weight:400;color:var(--muted);font-size:.85rem;font-style:italic}
+  dl.terms dd{margin:.2em 0 0;color:var(--ink)}
+  .breakdown{margin:14px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .breakdown .row{display:flex;gap:0;border-bottom:1px solid var(--line)}
+  .breakdown .row:last-child{border-bottom:none}
+  .breakdown .name{flex:0 0 200px;background:#f3f7fc;padding:9px 14px;font-family:"SF Mono",Menlo,Consolas,monospace;
+                   font-size:.86rem;color:var(--blue-dk);font-weight:600}
+  .breakdown .desc{padding:9px 14px;font-size:.93rem}
+  .analogy{color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 16px;margin:12px 0}
+  .analogy::before{content:"\1F4A1  ";}
+  footer{color:var(--muted);font-size:.85rem;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<header class="hero"><div class="inner">
+  <div class="kicker">SC// Infrastructure Sizing — Field Guide for Beginners</div>
+  <h1>How to Size a Scale Computing Cluster</h1>
+  <p>A from-scratch walkthrough: what each number means, every formula explained term by term, and a worked example at each step. No prior infrastructure knowledge assumed.</p>
+</div></header>
+
+<div class="wrap">
+
+<p class="lead">"Sizing" means working out exactly how much hardware a customer needs to run their software — not too little (it falls over), not too much (they overpay). This guide builds that skill from the ground up. We'll define every word before we use it in a formula, and every formula comes with a plain-English breakdown and an example you can follow on a calculator.</p>
+
+<div class="toc">
+  <h4>What's inside</h4>
+  <p class="toc-pre"><a href="#vocab">Start here — the vocabulary</a></p>
+  <ol>
+    <li><a href="#inputs">Gather the inputs</a></li>
+    <li><a href="#rules">Ground rules &amp; reservations</a></li>
+    <li><a href="#growth">Growth, snapshots &amp; day-one caps</a></li>
+    <li><a href="#cpu">Sizing CPU</a></li>
+    <li><a href="#ram">Sizing RAM</a></li>
+    <li><a href="#storage">Sizing storage</a></li>
+    <li><a href="#iops">Sizing IOPS</a></li>
+    <li><a href="#network">Sizing the network</a></li>
+    <li><a href="#determinant">N-1 &amp; the determinant</a></li>
+    <li><a href="#quorum">Small clusters, quorum &amp; SNS</a></li>
+    <li><a href="#benchmark">Benchmark intelligence</a></li>
+    <li><a href="#pick">Picking the winner</a></li>
+    <li><a href="#worked">Full worked example</a></li>
+    <li><a href="#sanity">Sanity-check your answer</a></li>
+    <li><a href="#cheat">Constants cheat-sheet</a></li>
+  </ol>
+</div>
+
+<!-- VOCAB -->
+<h2 id="vocab">Start here — the vocabulary</h2>
+<p>Every formula later is just these building blocks combined. Read this once and the rest will click.</p>
+
+<dl class="terms">
+  <dt>Server / Node</dt>
+  <dd>A single physical computer in a rack. In a Scale Computing cluster we call each server a <b>node</b>. A cluster is built from several identical nodes.</dd>
+
+  <dt>Cluster</dt>
+  <dd>A group of nodes that work together as one system. If one node fails, the others keep the workload running. The whole point of sizing is deciding <em>how many nodes</em> and <em>how big each one</em> needs to be.</dd>
+
+  <dt>HCI <span class="pron">(Hyper-Converged Infrastructure)</span></dt>
+  <dd>An architecture where every node provides compute (CPU + memory) <em>and</em> storage at the same time, instead of having separate servers and a separate storage array. Scale Computing HyperCore is HCI. "HCI node" just means a node that runs virtual machines.</dd>
+
+  <dt>CPU, Core, Thread, Socket</dt>
+  <dd>The <b>CPU</b> is the processor chip that does the computing. Each CPU contains several <b>cores</b> — independent worker units; a "24-core" CPU has 24 of them. A <b>socket</b> is the slot a CPU plugs into; a "dual-socket" server holds 2 CPU chips. A <b>thread</b> is a logical worker: with Intel Hyper-Threading, each core presents as 2 threads, so a 24-core CPU shows 48 threads. <em>Cores</em> are what we size and license against; <em>threads</em> matter for fitting a single big VM.</dd>
+
+  <dt>GHz <span class="pron">(gigahertz — clock speed)</span></dt>
+  <dd>How fast a core runs, in billions of cycles per second. A 3.0 GHz core does 3 billion ticks a second. More GHz = faster per core, but (as we'll see in §11) GHz alone doesn't tell you how much <em>work</em> a core does.</dd>
+
+  <dt>RAM <span class="pron">(memory)</span></dt>
+  <dd>Fast, temporary working memory, measured in gigabytes (GB). Every running program and VM holds its live data here. Unlike storage, RAM can't be safely over-allocated — if a VM needs 16 GB, it really needs 16 GB.</dd>
+
+  <dt>Storage <span class="pron">(disk capacity)</span></dt>
+  <dd>Permanent space for files and virtual machines, on drives (HDD = spinning hard disk, SSD/NVMe = flash). Measured in terabytes (TB).</dd>
+
+  <dt>VM <span class="pron">(Virtual Machine)</span></dt>
+  <dd>A complete computer running in software on top of a node — its own OS, apps, CPU, and memory. One physical node runs many VMs at once. The customer's "workload" is just their collection of VMs.</dd>
+
+  <dt>vCPU <span class="pron">(virtual CPU)</span></dt>
+  <dd>A virtual core handed to a VM. A VM configured with "4 vCPUs" believes it has a 4-core processor. The clever part: because most VMs are idle most of the time, you can hand out <em>more</em> vCPUs than you have physical cores — this is <b>overcommitment</b> (see §4).</dd>
+
+  <dt>Raw vs. Usable capacity</dt>
+  <dd><b>Raw</b> = the total capacity printed on the drives. <b>Usable</b> = what's actually available to VMs after the system keeps copies for safety and holds some back for repairs. Usable is always smaller than raw — and the gap is not waste, it's protection.</dd>
+
+  <dt>Provisioned vs. Used</dt>
+  <dd><b>Provisioned</b> = how much was <em>promised/allocated</em> to the VMs. <b>Used</b> = how much is <em>actually consumed</em> right now. They differ because of <b>thin provisioning</b> — allocating a 100 GB disk to a VM that has only written 12 GB. You size to <em>used</em>, because that's the real demand.</dd>
+
+  <dt>IOPS <span class="pron">(I-O-P-S)</span></dt>
+  <dd><b>I</b>nput/<b>O</b>utput <b>O</b>perations <b>P</b>er <b>S</b>econd — how many individual read or write requests the storage can satisfy each second. It's a measure of storage <em>speed</em>, separate from storage <em>capacity</em>. A database hammering small reads needs high IOPS even if it stores little data.</dd>
+
+  <dt>Snapshot</dt>
+  <dd>A point-in-time state of a VM that stores only the <em>changes</em> since it was taken (a "delta"), so it depends entirely on the original VM. It's a quick-rollback tool — <b>not</b> a standalone backup (see §3). Keeping snapshots consumes extra storage, so we reserve room for them.</dd>
+
+  <dt>N-1 <span class="pron">("N minus one")</span></dt>
+  <dd>The redundancy rule: design the cluster so it still runs the <em>entire</em> workload with <b>one node removed</b> (failed or being updated). "N" is the node count; "N-1" is what's left when one is gone. This is why you always buy a bit more than you strictly need.</dd>
+</dl>
+
+<div class="analogy"><b>Hold this picture:</b> a cluster is a small team of identical servers (nodes). Each runs many virtual computers (VMs). You're deciding how many team members to hire and how strong each must be — so the team still finishes the job even if one member calls in sick (N-1).</div>
+
+<div class="step-bar">
+  <div class="s"><b>1 · Measure</b>what the VMs really use</div>
+  <div class="s"><b>2 · Reserve</b>OS, copies, one-node-down</div>
+  <div class="s"><b>3 · Project</b>growth + snapshots</div>
+  <div class="s"><b>4 · Fit</b>CPU · RAM · storage · IOPS</div>
+  <div class="s"><b>5 · Rank</b>cheapest tight fit wins</div>
+</div>
+
+<!-- 1 -->
+<h2 id="inputs"><span class="num">1</span>Gather the inputs</h2>
+<p>You can't size what you haven't measured. So the first job is to capture what the existing environment really runs — usually from a discovery scan (a <b>Live Optics</b> or <b>RVTools</b> report, for example). Here's what each measurement is and why it matters:</p>
+
+<table>
+  <tr><th>Input</th><th>What it is, in plain terms</th></tr>
+  <tr><td><b>Total vCPUs</b></td><td>Add up the vCPUs across every VM. If 50 VMs each have 4 vCPUs, that's 200 vCPUs of demand. This is the raw compute appetite.</td></tr>
+  <tr><td><b>Used RAM</b><br>(not provisioned)</td><td>How much memory the VMs <em>actually</em> consume. We size to this, not to the larger "provisioned" figure, which is just the ceiling they were allowed.</td></tr>
+  <tr><td><b>Datastore used</b><br>(not provisioned)</td><td>How many TB of storage are <em>actually written</em>. Thin provisioning means VMs are often "allocated" far more than they've used.</td></tr>
+  <tr><td><b>Total &amp; active VMs</b></td><td>"Active" = powered-on. A powered-off VM uses storage but no CPU/RAM, so active VMs drive the density check (§9).</td></tr>
+  <tr><td><b>Largest single VM</b><br>(its vCPUs &amp; RAM)</td><td>Crucial: one VM runs entirely on <em>one</em> node — it can't be split across nodes. So the biggest VM must fit inside a single node's usable capacity.</td></tr>
+  <tr><td><b>IOPS — avg, peak, P95</b></td><td>Storage speed demand. <b>P95</b> means "the 95th-percentile" — the level the workload stays under 95% of the time. We aim at P95 rather than the rare peak, so we don't over-buy for a once-a-month spike.</td></tr>
+  <tr><td><b>Network throughput &amp; NIC speed</b></td><td>How much data moves in and out of the hosts today, plus the speed of the existing NICs (e.g. 10 or 25 GbE). This sets the east-west bandwidth the new cluster has to carry (§8) — and flags whether the current links are already a bottleneck.</td></tr>
+  <tr><td><b>Source CPUs</b><br>(model &amp; socket count)</td><td>Which processors the customer runs today. Used to compare raw <em>throughput</em>, not just core counts (§11).</td></tr>
+</table>
+
+<div class="callout"><span class="t">The golden rule of inputs</span>Size to <b>used</b> and <b>active</b> — never to provisioned and total. Provisioned numbers are promises; powered-off VMs are dormant. Sizing to them buys hardware nobody is using.</div>
+
+<div class="example"><span class="t">Example</span>A scan reports 76 VMs, 59 powered on, totalling <b>148 vCPUs</b>, <b>423 GB used RAM</b> (but 600 GB provisioned), and <b>8.2 TB datastore used</b> (but 18 TB provisioned). We carry forward 148, 423 GB, and 8.2 TB — the <em>used/active</em> figures. The provisioned numbers just tell us the customer over-allocated, which is normal.</div>
+
+<h3>Know what you're sizing — workload archetypes</h3>
+<p>Before crunching numbers, recognise the <em>kind</em> of workload in front of you. Different applications lean on different resources, and knowing the shape tells you where to focus (and which advanced sections matter):</p>
+<table>
+  <tr><th>Workload</th><th>Leans hardest on</th><th>Watch out for</th></tr>
+  <tr><td><b>Databases</b> (SQL, Oracle)</td><td>IOPS + fast cores + RAM</td><td>Storage speed and NUMA (§5); hot paths are often single-threaded and want clock, not core count (§4).</td></tr>
+  <tr><td><b>VDI</b> (virtual desktops)</td><td>RAM + bursty IOPS + density</td><td>"Boot storms" — hundreds of desktops waking at once spike IOPS; watch VMs-per-node density (§9).</td></tr>
+  <tr><td><b>File / backup servers</b></td><td>Storage capacity</td><td>Lots of cheap TB; rarely CPU- or IOPS-bound. Hybrid storage often fits well.</td></tr>
+  <tr><td><b>Web / app tiers</b></td><td>CPU cores</td><td>Many lightweight, parallel VMs — classic consolidation; favour core count over clock (§4).</td></tr>
+  <tr><td><b>General mixed estate</b></td><td>Balanced</td><td>The common case — no single resource dominates; let the determinant (§9) reveal the binding one.</td></tr>
+</table>
+
+<!-- 2 -->
+<h2 id="rules"><span class="num">2</span>Ground rules &amp; reservations</h2>
+<p>Here's the idea beginners miss most: a node that says "96 cores, 768 GB RAM, 80 TB of drives" never gives all of that to VMs. The system reserves some for itself, keeps safety copies, and holds capacity back for a node failure. Let's go through each reservation and <em>why</em> it exists.</p>
+
+<h3>The operating system takes its cut</h3>
+<p>Every node runs the HyperCore OS, which needs some cores and RAM to do its job (running the hypervisor and the storage layer, called <b>SCRIBE</b>).</p>
+<div class="grid">
+  <div class="mini"><h4>OS cores</h4><p><b>1 core per node</b> is set aside for the OS before counting cores available to VMs.</p></div>
+  <div class="mini"><h4>OS RAM (tiered)</h4><p>SCRIBE uses more memory as you add drives, so OS RAM scales with drive-bay count:<br><b>4 GB</b> (1–4 bays) · <b>8 GB</b> (5–12) · <b>16 GB</b> (13+).</p></div>
+  <div class="mini"><h4>Safety buffer</h4><p>An extra <b>2 GB per node</b> of breathing room. So total usable-RAM overhead = OS RAM + 2 GB.</p></div>
+</div>
+<div class="example"><span class="t">Example</span>A node with 384 GB RAM and 10 drive bays reserves <code>8 GB (OS, 5–12 bay tier) + 2 GB (buffer) = 10 GB</code>. VMs get <b>374 GB</b>, not 384.</div>
+
+<h3>Data is mirrored — RF2</h3>
+<p><b>RF2</b> means <b>Replication Factor 2</b>: every block of data is written to <em>two different nodes</em>. If a node dies, a full copy of everything it held still exists elsewhere, so nothing is lost.</p>
+<div class="analogy">Think of RF2 as always keeping a photocopy of every document on a colleague's desk. Twice as safe — but you need twice the filing space. That's why <b>usable storage is roughly raw ÷ 2</b>.</div>
+
+<h3>A capacity reservation — for the cluster's own use</h3>
+<p>The cluster keeps a slice of capacity for itself — the OS, logging, metadata and similar internal overhead. Rather than guess a fixed amount, the reservation is sized to <b>the single biggest disk in the cluster</b> and subtracted <em>once</em> from the cluster's total raw capacity — <em>not</em> once per node. Reserving the largest disk is deliberately conservative, so the reservation is never too small whatever drives are fitted.</p>
+
+<h3>Survive a node loss — N-1</h3>
+<p>This is the big one. The cluster must run the <em>whole</em> workload even with one node gone. So when we check "does CPU fit?" or "does RAM fit?", we check it against the capacity of <b>all nodes minus one</b>.</p>
+<div class="analogy">A relay team of 4 that can still finish the race if one runner pulls up. You don't staff for the best case — you staff so a single absence doesn't lose the race.</div>
+<div class="callout rule"><span class="t">Why storage is different at N-1</span>Because RF2 already keeps a second copy of all data, losing a node doesn't shrink your usable storage — the surviving copy covers it. So <b>storage capacity is the same at N-1 as at full cluster</b>; only CPU and RAM need the one-node-down headroom.</div>
+
+<h3>Cluster size limits</h3>
+<div class="grid">
+  <div class="mini"><h4>Minimum 2 HCI nodes</h4><p>You need at least 2 VM-running nodes per cluster, or there's nothing to fail over to.</p></div>
+  <div class="mini"><h4>Maximum 8 nodes</h4><p>Past 8 nodes, a build splits into multiple clusters (each its own manageable unit).</p></div>
+  <div class="mini"><h4>Hybrid flash rules</h4><p>On mixed flash+HDD nodes: flash must be <b>7%–25%</b> of raw capacity, with at least <b>3 HDDs per flash disk</b> so the slow tier can absorb data pushed down from flash.</p></div>
+</div>
+
+<!-- 3 -->
+<h2 id="growth"><span class="num">3</span>Growth, snapshots &amp; day-one caps</h2>
+<p>A customer keeps hardware for years, and their workload grows the whole time. So you don't size for today — you size for the <b>horizon</b> (default <b>5 years</b>). Three adjustments turn today's demand into the future demand the cluster must hold.</p>
+
+<h3>Compound growth</h3>
+<p>If a workload grows 10% a year, year 2 grows on top of year 1's bigger number — like compound interest. Over 5 years that's not +50%, it's ×1.61.</p>
+<div class="formula">
+<span class="k">growth_factor</span> = (1 + growth_rate) ^ years
+              = (1 + <span class="n">0.10</span>) ^ <span class="n">5</span>
+              = 1.10 × 1.10 × 1.10 × 1.10 × 1.10
+              ≈ <span class="n">1.61</span>      <span class="c"># today's demand × 1.61 = 5-year demand</span>
+</div>
+<div class="breakdown">
+  <div class="row"><div class="name">growth_rate</div><div class="desc">The yearly growth as a decimal. 10% per year is <code>0.10</code>. (The "<code>^</code>" symbol means "to the power of" — multiply by itself that many times.)</div></div>
+  <div class="row"><div class="name">years</div><div class="desc">The planning horizon, default <code>5</code>.</div></div>
+  <div class="row"><div class="name">growth_factor</div><div class="desc">The multiplier you apply to every "today" number to get the "5-years-from-now" number.</div></div>
+</div>
+
+<h3>Snapshot overhead</h3>
+<p>On top of growth, storage carries extra weight for <b>snapshots</b>. The default reserve is <b>20%</b> more storage. CPU and RAM don't get a snapshot reserve — only storage does, because a snapshot is stored data.</p>
+<div class="callout warn"><span class="t">A snapshot is not a backup</span>A snapshot captures only the <em>changes</em> since it was taken — a "delta" — so it depends entirely on the original VM and its data. Delete the VM and its snapshots become worthless. On a single cluster, a snapshot is a <b>dependent point-in-time copy</b>: great for quick rollback, but no protection against losing the VM or the cluster.<br><br>HyperCore <em>does</em> use snapshots for <b>cluster-to-cluster replication</b>: with two clusters (production and DR) replicating to each other, the full VM <em>and</em> its snapshots live on <em>both</em> sites — and that pair can be treated as a rudimentary backup. The independence comes from the second cluster, not from the snapshot itself.</div>
+
+<div class="formula">
+projected_vcpus   = today_vcpus   × growth_factor
+projected_ram     = today_ram     × growth_factor
+projected_storage = today_storage × growth_factor × (1 + <span class="n">0.20</span>)   <span class="c"># the ×1.20 is snapshots</span>
+</div>
+
+<h3>Day-one caps — don't ship nearly full</h3>
+<p>Even after planning for growth, we don't want a brand-new cluster to arrive already 90% full. So two caps reserve extra headroom for <em>today</em>:</p>
+<table>
+  <tr><th>Cap</th><th>Default</th><th>Measured against</th><th>In plain terms</th></tr>
+  <tr><td>Max day-one <b>storage</b> use</td><td>50%</td><td>Full-cluster usable</td><td>On the day it ships, today's data should fill at most half the usable storage — leaving the other half for the 5 years of growth.</td></tr>
+  <tr><td>Max day-one <b>RAM</b> use</td><td>50%</td><td>N-1 available RAM</td><td>Today's memory should use at most half of what's available even with a node down — so there's room as it grows.</td></tr>
+</table>
+<p>If today's demand would already exceed a cap, you size up — add a node, or choose bigger components — until it fits under the cap. How much day-one headroom to reserve is a judgement call: reserve more and the cluster is roomier but costs more; reserve less and it ships closer to full on day one.</p>
+
+<!-- 4 -->
+<h2 id="cpu"><span class="num">4</span>Sizing CPU</h2>
+<p>CPU sizing answers: <em>how many physical cores, across how many nodes, do we need to satisfy all those vCPUs — even with a node down?</em></p>
+
+<h3>The key idea: overcommitment</h3>
+<p>Real VMs rarely use all their vCPUs at once — a 4-vCPU VM might average 10% busy. So you can safely hand out more virtual cores than you have physical ones. The <b>vCPU:core ratio</b> (default <b>3.0</b>) says how aggressively: at 3:1, each physical core backs 3 vCPUs.</p>
+<div class="analogy">Like a gym selling more memberships than it has treadmills, or a restaurant taking more reservations than tables — it works because not everyone shows up at once. Set the ratio too high and you get a queue (slow VMs); too low and you've bought treadmills nobody uses.</div>
+
+<div class="formula">
+<span class="c"># Step 1: how many physical cores does each node actually offer to VMs?</span>
+<span class="k">effective_cores</span>       = p_cores × w_pcore + e_cores × w_ecore   <span class="c"># normally just the core count</span>
+<span class="k">usable_cores_per_node</span> = effective_cores − <span class="n">1</span>                 <span class="c"># minus the OS core</span>
+
+<span class="c"># Step 2: how many cores does the workload demand?</span>
+<span class="k">required_cores</span> = ceil( projected_vcpus / vcpu_ratio )       <span class="c"># round UP to a whole core</span>
+
+<span class="c"># Step 3: the fit test — must pass with ONE node missing</span>
+usable_cores_per_node × (number_of_nodes − 1) ≥ required_cores
+</div>
+
+<div class="breakdown">
+  <div class="row"><div class="name">p_cores / e_cores</div><div class="desc">On modern Intel chips, "P-cores" are big performance cores and "E-cores" are small efficiency cores. On normal server CPUs they're all P-cores. (More in §11.)</div></div>
+  <div class="row"><div class="name">w_pcore / w_ecore</div><div class="desc">Weights — how much each core type counts. Defaults <code>1.0</code> and <code>0.0</code>: a P-core counts fully, an E-core counts as zero (because licensing only covers P-cores today). For a normal CPU this just gives back its core count.</div></div>
+  <div class="row"><div class="name">effective_cores</div><div class="desc">The core count we actually size and license against, after that weighting.</div></div>
+  <div class="row"><div class="name">− 1 (OS core)</div><div class="desc">One core per node handed to the operating system, leaving the rest for VMs.</div></div>
+  <div class="row"><div class="name">vcpu_ratio</div><div class="desc">The overcommit ratio, default <code>3.0</code>.</div></div>
+  <div class="row"><div class="name">ceil( )</div><div class="desc">"Round up." You can't buy 79.3 cores, so 79.3 becomes 80.</div></div>
+  <div class="row"><div class="name">required_cores</div><div class="desc">The physical cores the workload needs once overcommit is applied.</div></div>
+  <div class="row"><div class="name">(number_of_nodes − 1)</div><div class="desc">N-1 again — we test against all nodes but one, so a single failure is survivable.</div></div>
+</div>
+
+<div class="example"><span class="t">Example</span>The 5-year projected demand is <b>238 vCPUs</b>. At the 3:1 ratio: <code>238 ÷ 3 = 79.3 → round up to 80 cores required</code>. Each node is a dual-socket box with 48 physical cores; minus 1 for the OS gives <b>47 usable cores per node</b>. Can 2 nodes (that's 3 nodes minus one, for N-1) cover it? <code>47 × 2 = 94 usable cores ≥ 80</code> ✓ — with 94/80 = <b>17.5% headroom</b> to spare. So <b>3 nodes</b>.</div>
+
+<div class="callout warn"><span class="t">Two safety checks on top</span><b>Largest-VM fit:</b> since a VM can't span nodes, the biggest VM's vCPUs must fit within one node's threads. A 64-vCPU VM can't live on a node that only offers 48 threads. <b>GHz floor:</b> if a high overcommit ratio would leave the new cluster with far less total GHz than the old environment, that's your cue to push back toward more or faster cores so you don't under-power them.</div>
+
+<h3>Advanced: fast cores vs. many cores</h3>
+<p>Once you know <em>how many</em> cores a workload needs, there's still a choice of <em>what kind</em> of CPU — many cores at a moderate clock, or fewer cores at a high clock. The right answer depends on the shape of the workload, and the measurements you gathered in §1 will tell you which one you're holding.</p>
+<p><b>The tell-tale — saturated cores.</b> Don't just look at the average CPU figure; look at the individual cores. If overall usage seems modest but a <b>few cores sit pinned near 100%</b> while the rest idle, that's the fingerprint of a <b>single-threaded</b> application — a program that can only run on one core at a time. (Live Optics flags this directly in its dashboard; in an RVTools-style export the clue is a VM whose <em>max</em> CPU hits 100% even while its average stays low.)</p>
+<p>A single-threaded process gets <em>no</em> benefit from extra cores — it physically can't spread its work across them. The only thing that speeds it up is a <b>faster core</b>: high clock speed, the all-core turbo we met in §11. So a workload like that wants a CPU with a high clock even at the cost of a lower core count. Throwing more cores at a single-threaded bottleneck just buys capacity the application will never touch.</p>
+<div class="analogy">One chef who only works the grill won't cook any faster because you added twenty more stations — they can still only stand at one. A hotter, faster grill is what speeds them up. A restaurant with twenty <em>chefs</em>, on the other hand, loves twenty stations.</div>
+<p><b>The opposite case — consolidation hosts.</b> A node packed with many independent VMs is the mirror image. Each VM is its own small workload, so more <b>physical cores</b> means more real slots to run them side by side, and clock speed matters less. There's also a second reason cores win here, tied straight back to the overcommit ratio: with <em>fewer</em> cores you have to push the vCPU:core ratio <em>higher</em> to fit the same vCPUs — and past a point, that backfires.</p>
+<div class="callout warn"><span class="t">When the ratio gets too high</span>Remember the CPU scheduler hands each vCPU its turn on a physical core. Overcommit modestly and it juggles smoothly. Overcommit too hard and VMs start spending real time <em>waiting</em> for a free core (often called "CPU ready time"), and bigger multi-vCPU VMs stall waiting for several cores to come free at the same moment. Beyond that point the scheduling overhead does more harm than the consolidation does good. More physical cores let you keep the ratio sane and the scheduler out of trouble.</div>
+<p><b>The takeaway:</b> let the measured shape steer the CPU choice. Saturated cores and single-threaded bottlenecks → favour <em>fewer, faster</em> cores (high clock), and don't try to fix them with core count. Broad, many-VM consolidation → favour <em>higher core counts</em>, which keep the overcommit ratio low and the scheduler happy.</p>
+
+<!-- 5 -->
+<h2 id="ram"><span class="num">5</span>Sizing RAM</h2>
+<p>RAM is simpler than CPU because you <em>can't</em> overcommit it safely — if VMs need 400 GB of memory, you must have 400 GB. The only twist is subtracting the OS reservation, and making sure the biggest VM fits on one node.</p>
+
+<div class="formula">
+<span class="k">usable_ram_per_node</span> = node_ram − ( os_ram_for_bays + <span class="n">2</span> GB buffer )
+
+<span class="c"># Must cover projected RAM with a node down, AND host the largest single VM</span>
+usable_ram_per_node × (number_of_nodes − 1) ≥ projected_ram
+usable_ram_per_node                          ≥ largest_VM_ram
+</div>
+<div class="breakdown">
+  <div class="row"><div class="name">node_ram</div><div class="desc">The physical RAM installed in one node, e.g. 384 GB.</div></div>
+  <div class="row"><div class="name">os_ram_for_bays</div><div class="desc">The tiered OS reservation from §2 (4 / 8 / 16 GB depending on drive bays).</div></div>
+  <div class="row"><div class="name">usable_ram_per_node</div><div class="desc">What's left for VMs after the OS and buffer.</div></div>
+  <div class="row"><div class="name">largest_VM_ram</div><div class="desc">The memory of the single biggest VM — it must fit on one node, since VMs don't split.</div></div>
+</div>
+<div class="example"><span class="t">Example</span>Projected RAM need is <b>680 GB</b>, and we're checking a 3-node cluster (so 2 nodes at N-1). Each node has 384 GB; usable after a 10 GB overhead is <b>374 GB</b>. Two nodes give <code>374 × 2 = 748 GB ≥ 680</code> ✓. And the largest VM (say 96 GB) easily fits in 374 GB ✓. RAM is fine on 3 nodes.</div>
+<p>Note: any node RAM option that can't hold the largest VM after overhead is thrown out before sizing even starts — there's no point offering a node that can't host the biggest guest.</p>
+
+<h3>Advanced: keeping memory local (NUMA)</h3>
+<p>This one is a finer point — virtualization tuning rather than basic sizing. You can build a perfectly good cluster without ever thinking about it, but in high-performance, latency-sensitive environments it's a real win when you get it right.</p>
+<p>A node with two physical CPUs doesn't have one big shared pool of RAM. Each CPU has its own memory banks wired directly to it. When a CPU reaches <em>its own</em> memory it's fast (local); when it has to reach the <em>other</em> CPU's memory, the request crosses the link between the two chips, which is slower (remote). This split is called <b>NUMA</b> — <em>Non-Uniform Memory Access</em> — and each "CPU plus the memory attached to it" is one NUMA node.</p>
+<div class="analogy">Picture a two-room office where each worker keeps a filing cabinet right beside their desk. Grabbing a file from your own cabinet is instant; walking to the other room for a colleague's cabinet costs time. You'd rather keep each person's work in their own cabinet — and you'd rather not give one person more files than their own cabinet can hold.</div>
+<p>The sizing implication: wherever you can, a single VM's memory should fit inside <em>one</em> CPU's share of the node — roughly <code>node_RAM ÷ number_of_sockets</code>. If a VM needs more than that, it spills across both NUMA nodes, and every time it touches the far memory it pays the remote-access penalty. In the worst cases the hypervisor ends up copying or shuffling memory to cope, so a badly-placed large VM can quietly waste capacity <em>and</em> speed at the same time.</p>
+<div class="callout"><span class="t">When to bother</span>For ordinary mixed workloads, don't lose sleep over it — the hypervisor places VMs sensibly on its own. But when you're sizing for databases, real-time systems, or anything chasing every microsecond, check that the big VMs fit within a single socket's worth of memory. If a critical 200 GB VM is destined for a node with only 128 GB per CPU, that's your cue to pick a node with more RAM per socket (or to plan fewer, larger VMs per node) — so the workload stays local and fast.</div>
+
+<!-- 6 -->
+<h2 id="storage"><span class="num">6</span>Sizing storage</h2>
+<p>Storage sizing turns the drives' <em>raw</em> capacity into <em>usable</em> capacity by applying the two reservations from §2 — the cluster reservation and RF2 mirroring — then checks it covers the projected need. Both are applied at the <em>cluster</em> level, not per node.</p>
+<div class="formula">
+<span class="c"># Per CLUSTER: total raw of every disk, minus ONE biggest-disk reservation,</span>
+<span class="c"># then halved for RF2 mirroring.</span>
+<span class="k">cluster_raw</span>    = raw_capacity_per_node × nodes_in_cluster
+<span class="k">usable</span>         = ( cluster_raw − biggest_disk ) / <span class="n">2</span>
+<span class="k">cluster_usable</span> = sum of usable across clusters       <span class="c"># usually just one cluster</span>
+
+<span class="c"># Must cover projected storage and stay under the 50% day-one cap</span>
+cluster_usable ≥ projected_storage
+today_used     ≤ <span class="n">0.50</span> × cluster_usable
+</div>
+<div class="breakdown">
+  <div class="row"><div class="name">cluster_raw</div><div class="desc">The printed size of <em>every</em> drive in the whole cluster, added together. Three nodes of ten 1.92 TB drives = <code>3 × 19.2 = 57.6 TB</code>.</div></div>
+  <div class="row"><div class="name">− biggest_disk</div><div class="desc">A single reservation per cluster (OS, logging, metadata), sized to the largest disk so it's never an under-reservation. Subtracted once — not once per node.</div></div>
+  <div class="row"><div class="name">/ 2</div><div class="desc">RF2: every block is mirrored to a second node, so usable is half of what remains.</div></div>
+  <div class="row"><div class="name">cluster_usable</div><div class="desc">Add up each cluster's usable figure (most sizings are a single cluster). Same value at N-1 — RF2 already covers a node loss.</div></div>
+</div>
+<div class="example"><span class="t">Example</span>Three nodes, each with ten 1.92 TB NVMe drives. Total cluster raw = <code>3 × 19.2 = 57.6 TB</code>. Subtract one biggest disk (<code>1.92 TB</code>) for the cluster reservation → <code>55.68 TB</code>. Halve for RF2 → <b>27.84 TB usable</b>. Projected need ~16 TB fits, and today's 8.2 TB is under the 50% cap (50% of 27.84 ≈ 13.9 TB). ✓</div>
+
+<!-- 7 -->
+<h2 id="iops"><span class="num">7</span>Sizing IOPS</h2>
+<p>An <b>IO</b> is one storage request (read a block, write a block). <b>IOPS</b> is how many of those per second the storage can handle — its speed. Drives have a rated IOPS number, but the workload never sees all of it: the storage software takes overhead, and mirroring multiplies writes. So when you size IOPS, you have to account for both losses.</p>
+
+<div class="formula">
+<span class="c"># Writes get multiplied by replication; reads don't. This is "write amplification".</span>
+<span class="k">write_amp</span> = read_frac + (1 − read_frac) × RF
+          = <span class="n">0.70</span>    + (1 − 0.70)   × <span class="n">2</span>
+          = 0.70 + 0.60 = <span class="n">1.30</span>
+
+raw_iops_per_node     = sum of (drive_count × each drive's rated IOPS)
+derated_iops_per_node = raw_iops_per_node × (1 − <span class="n">0.35</span>)   <span class="c"># 35% software overhead</span>
+<span class="k">net_iops_per_node</span>     = derated_iops_per_node / write_amp
+
+cluster_net_iops = net_iops_per_node × number_of_nodes
+n1_net_iops      = net_iops_per_node × (number_of_nodes − 1)   <span class="c"># speed with a node down</span>
+</div>
+<div class="breakdown">
+  <div class="row"><div class="name">read_frac</div><div class="desc">The fraction of IO that is reads, default <code>0.70</code> (70% reads, 30% writes — typical mixed workload).</div></div>
+  <div class="row"><div class="name">RF</div><div class="desc">Replication factor, <code>2</code>. Each write happens on 2 nodes, so writes count double.</div></div>
+  <div class="row"><div class="name">write_amp</div><div class="desc">The average multiplier on IO once you account for mirrored writes. Reads stay 1×, writes become 2×; blended at 70/30 that's 1.30×.</div></div>
+  <div class="row"><div class="name">× (1 − 0.35)</div><div class="desc">A 35% "derating" for the storage stack (SCRIBE) overhead — you keep 65% of the drives' rated IOPS.</div></div>
+  <div class="row"><div class="name">net_iops_per_node</div><div class="desc">The real, usable IOPS one node delivers to workloads.</div></div>
+</div>
+<div class="callout"><span class="t">Then compare to demand</span>The net available IOPS is checked against the workload's measured <b>P95 demand</b>. Per-drive IOPS values are deliberately a tunable knob, because vendor-published drive numbers are optimistic — we trust the measured workload over the spec sheet.</div>
+<div class="example"><span class="t">Example</span>Suppose a node's drives are rated at 850,000 raw IOPS. Derated: <code>850,000 × 0.65 = 552,500</code>. After write-amp: <code>552,500 ÷ 1.30 ≈ 425,000 net IOPS/node</code>. Across 3 nodes ≈ 1.27M; even at N-1 (2 nodes) ≈ 850k — versus a measured P95 demand of ~16,000. IOPS is nowhere near the constraint here, which is common for all-flash.</div>
+
+<!-- 8 -->
+<h2 id="network"><span class="num">8</span>Sizing the network</h2>
+<p>Here's a resource beginners almost always forget: the <b>network</b>. In a hyper-converged cluster the storage isn't a separate box — it lives <em>across</em> the nodes, and the nodes constantly keep each other's copies in sync over the network. So the network <em>is</em> part of the storage system. Undersize it and a cluster full of fast flash will still crawl.</p>
+<p><b>Why HCI leans so hard on the network.</b> Remember RF2 from §2: every write is mirrored to a second node. That mirror copy doesn't travel by magic — it crosses the network between nodes. Traffic <em>between</em> nodes is called <b>east-west</b>; traffic in and out of the cluster (users reaching their VMs) is <b>north-south</b>. RF2 makes east-west the heavy one. Add node rebuilds after a failure, VM live-migrations, and replication to a DR site, and the inter-node network carries a <em>lot</em>.</p>
+<div class="analogy">If the disks are warehouses, the network is the road between them. The fastest warehouses in the world don't help if a single country lane connects them — the trucks queue, and everything waits on the road.</div>
+<p><b>What you actually size.</b> First, the <b>link speed</b> of each port. The supported speeds depend on the node type:</p>
+<div class="grid">
+  <div class="mini"><h4>Edge nodes</h4><p><b>1</b> or <b>2.5 GbE</b> (Base-T) or <b>10 GbE</b> (SFP+).</p></div>
+  <div class="mini"><h4>Rack nodes</h4><p><b>10 GbE</b> (Base-T or SFP28) or <b>25 GbE</b> (SFP28).</p></div>
+</div>
+<p><b>Base-T</b> is ordinary RJ45 copper cabling; <b>SFP+ / SFP28</b> are slots that take a fibre or direct-attach transceiver, used for the faster links. The busier the writes and the bigger the cluster, the faster the link should be — all-flash and high-IOPS workloads push the most east-west traffic and earn the fastest available. Second, the <b>number of NICs per node</b>, which on a Scale node is always <b>1, 2 or 4</b> — and that choice decides your redundancy and whether the storage backplane shares the wire with the LAN or gets its own:</p>
+<table>
+  <tr><th>NICs / node</th><th>LAN &amp; backplane</th><th>Redundancy</th><th>Switch ports</th></tr>
+  <tr><td><b>1</b></td><td>Both ride one port; backplane kept apart by a <b>VLAN tag</b></td><td>None — the port is a single point of failure</td><td>Hybrid (tagged backplane + untagged LAN)</td></tr>
+  <tr><td><b>2</b></td><td>Still shared (backplane over VLAN), but <b>active/passive</b> — one live, one on standby</td><td>Yes — the standby takes over on a fault</td><td>Hybrid</td></tr>
+  <tr><td><b>4</b></td><td><b>Physically separated</b>: a LAN pair plus a dedicated backplane pair, each active/passive</td><td>Yes — on both LAN and backplane</td><td>LAN pair hybrid (VM VLANs + untagged management); backplane pair untagged</td></tr>
+</table>
+<p>The redundancy model is <b>active/passive</b> throughout — a standby port takes over on failure rather than both running at once. Extra NICs beyond these can be added, but for now they act as additional <b>passive LAN</b> ports. The sizing takeaway: more NICs buy redundancy, and at four you get a <em>dedicated</em> backplane that keeps heavy storage replication off the LAN — the right call for busy, all-flash clusters.</p>
+<div class="callout warn"><span class="t">The classic mistake</span>Speccing big, fast NVMe drives behind a slow or single-port network. The drives can serve hundreds of thousands of IOPS, but every mirrored write still has to fit down the link to the partner node — so the <em>network</em>, not the disk, becomes the ceiling. Match the network to the storage's appetite, not the other way round.</div>
+
+<!-- 9 -->
+<h2 id="determinant"><span class="num">9</span>N-1 &amp; the determinant</h2>
+<p>You've now sized four things independently — CPU, RAM, storage, IOPS — and each one suggests a node count at N-1. <b>The cluster needs the largest of those.</b> Whichever resource forces that number is called the <b>determinant</b> — the bottleneck that decided the size.</p>
+<div class="analogy">A chain is only as strong as its weakest link. If CPU needs 3 nodes but RAM needs 2 and storage needs 2, you build 3 — and CPU is the determinant.</div>
+<p>Naming the determinant is how you explain a sizing in one sentence — state the binding resource, what it needed, what's available at N-1, and the headroom between them:</p>
+<div class="callout"><span class="t">How to state it</span><em>"Determined by CPU — 80 cores required vs 94 usable cores available at N-1 (17.5% headroom)."</em> That's just the §4 result, narrated. If anyone questions the size, this is the sentence you defend it with.</div>
+
+<div class="callout warn"><span class="t">Watch VM density too</span>Node count isn't only about CPU, RAM and storage — keep an eye on how many VMs land on each node. As a rule of thumb, past roughly <b>100 active VMs on a single node</b>, scheduling and management get harder, and a single node loss takes more VMs down with it. If a design packs them that tightly, consider spreading across more nodes.</div>
+
+<!-- 10 -->
+<h2 id="quorum"><span class="num">10</span>Small clusters, quorum &amp; single-node systems</h2>
+<p>N-1 assumes you have a cluster of several nodes. The edges of that assumption — very small clusters, and a single node on its own — have their own rules worth understanding.</p>
+
+<h3>Why a cluster needs a tie-breaker (quorum)</h3>
+<p>Picture a 2-node cluster where the link between the two nodes breaks, but both nodes are still alive and running. Each one now thinks "the other died — I'd better take over." If both act on that, you end up with two copies of every VM running independently and writing different data — a corrupting mess called <b>split-brain</b>.</p>
+<p>The fix is <b>quorum</b>: a majority vote. A cluster only stays active if it can see <em>more than half</em> the votes. With an odd number of nodes there's always a majority. With an even number (like 2) you add a tiny external tie-breaker called a <b>witness</b> — a lightweight service (a small VM or a cloud endpoint) that holds the deciding vote, so exactly one side stays up and the other steps back. No drama, no split-brain.</p>
+<div class="analogy">Three people can always settle a vote two-to-one. Two people deadlock — so you bring in a referee (the witness) whose only job is to cast the tie-breaking vote.</div>
+
+<h3>Storage-only nodes</h3>
+<p>Sometimes a workload needs lots of <em>capacity</em> but not much <em>compute</em>. Rather than buy full VM-running nodes just for their disks, you can add <b>storage-only nodes</b> — nodes that join the cluster's storage pool but run no VMs. They add usable TB and IOPS without adding licensed compute cores: handy for capacity-heavy, compute-light designs.</p>
+
+<h3>Single-node systems (SNS) — not a cluster at all</h3>
+<p>At the far edge of "small" is a <b>single-node system (SNS)</b>: one node, on its own. Common at the edge — a retail store, a branch office, a remote site — where a full cluster is overkill.</p>
+<div class="callout warn"><span class="t">An SNS has no safety net — so backup or replication is mandatory</span>An SNS is <em>not a cluster</em>. There's no second node, so there's no N-1, no failover, no "the others carry on." If that one node dies, everything on it is down until it's repaired. That makes off-box <b>backup and/or replication a requirement, not an option</b> — typically replicating to another SNS or cluster at a second site (which, as with snapshots in §3, is also where you finally get a real, independent copy of the data).</div>
+<p><b>Sizing an SNS</b> follows the same storage rules as a cluster, with one exception: you <em>don't</em> subtract the biggest disk for the cluster reservation. On a single node that reservation would cost a painfully large share of the total — too expensive to justify — so it's dropped. And one special case is worth committing to memory:</p>
+<div class="callout"><span class="t">One disk: raw = net</span>With multiple disks an SNS still mirrors data across them (RF2), so usable ≈ raw ÷ 2. But an SNS with a <em>single</em> disk has nothing to mirror to — there's no second disk to hold the copy. So there's no halving and no reservation: <b>raw capacity is the usable capacity (RAW = NET)</b>. That single disk also means zero local redundancy, which is exactly why the backup/replication rule above is non-negotiable.</div>
+
+<!-- 11 -->
+<h2 id="benchmark"><span class="num">11</span>Benchmark intelligence — why core count alone lies</h2>
+<p>Here's a trap: an old server with 40 cores is <em>not</em> equal to a new server with 40 cores. Modern cores do far more work per clock tick — this is called <b>IPC</b> (Instructions Per Clock). Counting cores alone makes you buy a huge modern cluster just to "match" an old core count you don't actually need to match.</p>
+<div class="analogy">Old trucks vs. new trucks: ten old trucks might move the same freight as four new ones. If you only counted "trucks," you'd massively over-buy. You need to compare <em>how much each truck actually hauls</em> — that's a benchmark.</div>
+
+<h3>Step one: size each CPU honestly</h3>
+<table>
+  <tr><th>Idea</th><th>What it means &amp; how it's handled</th></tr>
+  <tr><td><b>Sizing clock</b></td><td>A CPU has several speeds. Server CPUs are sized on their <b>all-core turbo</b> — the speed they sustain with every core busy, in a cooled datacenter. Laptop-class chips are sized on their slower <b>base clock</b>, because their headline turbo can't be held for long on thin edge hardware.</td></tr>
+  <tr><td><b>P-cores vs E-cores</b></td><td>Modern Intel chips mix big "performance" and small "efficiency" cores. We store the true total but size on <code>P-cores × 1.0 + E-cores × 0.0</code> — E-cores count as zero because the software is licensed per P-core today.</td></tr>
+  <tr><td><b>Performance index</b></td><td>A single throughput score on the <b>SPECrate2017</b> scale (an industry CPU benchmark). Server chips use their native SPECrate score; desktop chips are converted from the <b>PassMark</b> benchmark by multiplying by <code>0.00386</code> (an approximate bridge between the two scales, good to about ±20%).</td></tr>
+</table>
+
+<h3>Step two: compare old vs. new</h3>
+<div class="formula">
+<span class="c"># Total throughput the customer runs today</span>
+<span class="k">source_throughput</span> = sum over each source CPU of ( per-socket score × number of sockets )
+
+<span class="c"># Total throughput the recommended cluster delivers</span>
+<span class="k">target_throughput</span> = per-node CPU score × number of VM-running nodes
+
+<span class="k">ratio</span> = target_throughput / source_throughput
+</div>
+<div class="breakdown">
+  <div class="row"><div class="name">per-socket score</div><div class="desc">The SPECrate value for one CPU chip. (A PassMark score is converted with ×0.00386 first.)</div></div>
+  <div class="row"><div class="name">number of sockets</div><div class="desc">How many of that CPU the customer has. Six dual-socket servers = 12 sockets of that chip.</div></div>
+  <div class="row"><div class="name">ratio</div><div class="desc">How many times more compute the new cluster delivers. 4.8 means "about 4.8× the throughput of what they run now."</div></div>
+</div>
+<div class="example"><span class="t">Example</span>The customer runs 6 sockets of an old Xeon Silver 4110 (SPECrate ≈ 37 each): <code>37 × 6 ≈ 222</code> total. The recommended 3-node cluster's CPUs total ≈ <code>1071</code>. Ratio = <code>1071 ÷ 222 ≈ 4.8×</code>. So you can tell the customer the new cluster delivers roughly <b>4.8× the throughput</b> of what they run today — a fair comparison, not a misleading core count.</div>
+<div class="callout"><span class="t">Two ways to use the comparison</span>You can treat throughput as <b>context</b> — size on cores and clock as usual, and show the benchmark gain as reassurance the new kit is amply powerful. Or you can treat it as a <b>rule</b> — require the new cluster to deliver at least the old environment's throughput (grown to the horizon) before it counts as a fit. The rule is powerful, but lean on it carefully: the SPECrate↔PassMark bridge is only ~20% accurate, so check it against a few known-good sizings before trusting it to set node counts.</div>
+
+<!-- 12 -->
+<h2 id="pick"><span class="num">12</span>Picking the winner</h2>
+<p>Usually several clusters "fit." Don't just grab the one with the fewest nodes — weigh every option and pick the best <em>overall</em>. The way to do that is to score each candidate with a <b>weighted sum</b> of the trade-offs that matter, where a lower score is better. Three forces pull on it:</p>
+<div class="formula">
+score =  <span class="k">cost</span>×fleet_cost  +  <span class="k">license</span>×total_cores  +  <span class="k">waste</span>×over_provisioning
+</div>
+<table>
+  <tr><th>Force</th><th>In plain terms</th><th>Default weight</th></tr>
+  <tr><td>Fleet cost</td><td>Total hardware spend = number of nodes × (the model's price + a fixed per-node overhead for switches, rack space, power, ops).</td><td>1.0</td></tr>
+  <tr><td>Core licensing</td><td>Software you pay for per CPU core (HyperCore, plus Windows/SQL/Oracle). Fewer total cores = lower recurring cost.</td><td>1.5</td></tr>
+  <tr><td>Wasted capacity</td><td>Buying far more CPU/RAM/storage than needed. Capped per resource so one wildly oversized dimension can't dominate the decision.</td><td>50</td></tr>
+</table>
+<p>The lesson: good sizing doesn't blindly minimize node count. A slightly bigger cluster can be the better answer when it's much cheaper to license and more tightly fitted. You're always balancing "does it fit" against "is it sensible to buy and run."</p>
+
+<!-- 13 -->
+<h2 id="worked"><span class="num">13</span>Full worked example</h2>
+<div class="card">
+<p><b>The starting point (from a discovery scan of the existing environment):</b> 148 vCPUs · 423 GB used RAM · 8.2 TB datastore used · 59 active VMs · ~16,000 P95 IOPS · today's CPUs = 6 sockets of Xeon Silver 4110.</p>
+<p><b>1 · Project 5 years (10%/yr, 20% snapshots):</b> growth_factor ≈ 1.61 → ~238 vCPUs, ~680 GB RAM, ~16 TB storage.</p>
+<p><b>2 · CPU:</b> <code>238 ÷ 3.0 = 79.3 → 80 cores</code> required. A 48-core node gives 47 usable; at N-1, two nodes = <code>94 ≥ 80</code> (17.5% headroom) → <b>3 nodes</b>.</p>
+<p><b>3 · RAM:</b> <code>680 ÷ 2 = 340 GB</code> needed per node at N-1; a 384 GB node (374 usable) clears it.</p>
+<p><b>4 · Storage:</b> 3 nodes × ten 1.92 TB NVMe = <code>57.6 TB</code> cluster raw; minus one biggest disk, ÷ 2 → <code>(57.6 − 1.92) ÷ 2 = </code><b>27.84 TB</b> usable, above 16 TB and under the 50% day-one cap.</p>
+<p><b>5 · IOPS:</b> ~425k net/node × 2 (N-1) ≈ 850k versus 16k demanded — not even close to a limit.</p>
+<p><b>6 · The determinant is CPU</b> — it forced the 3-node count; RAM, storage and IOPS all fit comfortably inside it.</p>
+<p style="margin-bottom:14px"><b>7 · Benchmark:</b> new ≈ 1071 vs old ≈ 222 → <b>~4.8× the throughput</b>. <b>Final answer:</b> a 3-node all-flash cluster, CPU-bound, with five years of growth and a node-failure cushion already built in — and nearly 5× the compute of the estate it replaces.</p>
+</div>
+
+<!-- 14 -->
+<h2 id="sanity"><span class="num">14</span>Sanity-check your answer</h2>
+<p>Whether you sized by hand or a tool did the arithmetic, never hand over a result you haven't sanity-checked. This is the step that lets you <em>catch</em> a bad number before a customer does — and the whole reason to understand the method rather than just trust the output. Run down this list:</p>
+<table>
+  <tr><th>Check</th><th>What you're looking for</th></tr>
+  <tr><td><b>Did I size to <em>used</em>, not provisioned?</b></td><td>The single most common error. If storage or RAM looks huge, make sure you sized to real consumption, not the thin-provisioned ceiling.</td></tr>
+  <tr><td><b>Is there enough raw compute?</b></td><td>Compare the new cluster's total GHz and benchmark throughput (§11) against the source. A "consolidated" cluster with far <em>less</em> compute than they run today is a red flag, not a win.</td></tr>
+  <tr><td><b>Is the headroom sensible?</b></td><td>A few percent means no room for growth or a bad day. Triple the need means you over-bought. Aim for <em>deliberate</em> slack, not accidental.</td></tr>
+  <tr><td><b>Does the largest VM actually fit?</b></td><td>Re-check the biggest VM against one node's cores, threads and RAM — and ideally one NUMA domain (§5). A VM that can't be placed sinks the whole design.</td></tr>
+  <tr><td><b>Did I forget the network?</b></td><td>Fast disks behind a slow link (§8) is a silent bottleneck. Confirm the NICs match the storage's appetite.</td></tr>
+  <tr><td><b>What's the determinant — and does it make sense?</b></td><td>Know which resource set the node count (§9). A database that came out "storage-bound" with idle CPU, or a web tier that came out "capacity-bound," is a sign something was mismeasured.</td></tr>
+  <tr><td><b>Is redundancy right for the site?</b></td><td>Multi-node gets N-1; a single node (§10) gets none — so confirm backup/replication is in the plan wherever there's no failover.</td></tr>
+</table>
+<div class="callout rule"><span class="t">The whole point</span>A sizing tool is a calculator, not an oracle. Understand the reasoning in this guide and its output becomes something you can read, question and correct — instead of a number you cross your fingers and quote.</div>
+
+<!-- 15 -->
+<h2 id="cheat"><span class="num">15</span>Constants cheat-sheet</h2>
+<p>The standard values in one place — sensible defaults, not laws of physics. Learn the reasoning behind each; they can be adjusted for a given product or situation, so always confirm the values in use before you commit to a design.</p>
+<table>
+  <tr><th>Constant</th><th>Default</th><th>What it controls</th></tr>
+  <tr><td>vCPU : core ratio</td><td><code>3.0</code></td><td>CPU overcommit (virtual cores per physical core)</td></tr>
+  <tr><td>OS cores / node</td><td><code>1</code></td><td>Cores reserved for the OS</td></tr>
+  <tr><td>OS RAM / node</td><td><code>4 / 8 / 16 GB</code></td><td>By drive bays (1–4 / 5–12 / 13+)</td></tr>
+  <tr><td>RAM safety buffer</td><td><code>2 GB</code></td><td>Extra reserved RAM per node</td></tr>
+  <tr><td>Replication factor</td><td><code>RF2</code></td><td>Usable storage ≈ raw ÷ 2</td></tr>
+  <tr><td>IOPS derating</td><td><code>35%</code></td><td>Storage-software overhead</td></tr>
+  <tr><td>IOPS read fraction</td><td><code>0.70</code></td><td>Gives write-amp 1.30×</td></tr>
+  <tr><td>Growth horizon</td><td><code>5 yr @ 10%</code></td><td>Growth factor ≈ 1.61</td></tr>
+  <tr><td>Snapshot overhead</td><td><code>20%</code></td><td>Extra storage for snapshots</td></tr>
+  <tr><td>Day-one caps</td><td><code>50% / 50%</code></td><td>Storage (vs full) · RAM (vs N-1)</td></tr>
+  <tr><td>Nodes / cluster</td><td><code>2–8</code></td><td>Min HCI · max before splitting</td></tr>
+  <tr><td>Hybrid flash</td><td><code>7–25%</code></td><td>Plus ≥3 HDDs per flash disk</td></tr>
+  <tr><td>VM density warning</td><td><code>100 / node</code></td><td>When to flag a dense cluster</td></tr>
+  <tr><td>PassMark → SPECrate</td><td><code>×0.00386</code></td><td>Benchmark scale conversion</td></tr>
+  <tr><td>P-core / E-core weight</td><td><code>1.0 / 0.0</code></td><td>Which cores count for sizing/licensing</td></tr>
+</table>
+
+<footer>
+  <p><b>The whole process in one breath:</b> measure what the VMs really use → reserve capacity for the OS, for mirrored copies, and for a node failure → project growth and snapshots over five years → check CPU, RAM, storage and IOPS each fit at N-1 → let the tightest resource (the determinant) set the node count → rank the options by cost, licensing and waste → and compare real CPU <em>throughput</em>, not just core counts, against what the customer runs today.</p>
+  <p>A sizing-fundamentals guide — the principles and the standard reservations behind a HyperCore cluster design. Understand the <em>why</em> here, and any sizing tool becomes something you can drive and double-check, not just trust.</p>
+</footer>
+
+</div>
+</body>
+</html>

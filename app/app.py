@@ -793,9 +793,9 @@ def calculate_validated(data, node_count):
         flash_cap = sum(d["size_tb"] for d in disks if d["type"] in ("SSD", "NVMe"))
         if total_cap > 0:
             flash_pct = (flash_cap / total_cap) * 100
-            if flash_pct < 7 or flash_pct > 24.3:
+            if flash_pct < 7 or flash_pct > 25:
                 return {
-                    "error": f"Hybrid fast tier must be 7-24.3% of total capacity. Currently {flash_pct:.1f}%",
+                    "error": f"Hybrid fast tier must be 7-25% of total capacity. Currently {flash_pct:.1f}%",
                     "flash_percentage": round(flash_pct, 1),
                 }
         # HEAT best practice: enough HDD spindles per flash disk so the slow tier

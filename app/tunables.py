@@ -180,7 +180,7 @@ TUNABLE_DEFS = [
      "what": "The minimum flash tier, as a percentage of raw capacity, for a Validated hybrid configuration to be considered valid.",
      "how": "Raise it to require more flash relative to spinning capacity (filtering out flash-light hybrids). Lower it to permit leaner flash.",
      "beware": "Too high eliminates most hybrid options, forcing all-flash or no fit. Too low allows hybrids with too little cache to perform as expected."},
-    {"key": "hybrid_flash_max_pct", "default": 24.3, "type": "float", "group": "Validated limits",
+    {"key": "hybrid_flash_max_pct", "default": 25.0, "type": "float", "group": "Validated limits",
      "label": "Hybrid flash ceiling (%)", "min": 0, "max": 100, "step": 0.1,
      "help": "Validated hybrid: maximum flash tier as a % of raw capacity.",
      "what": "The maximum flash tier, as a percentage of raw capacity, before a configuration is treated as all-flash rather than hybrid.",
