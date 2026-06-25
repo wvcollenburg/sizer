@@ -21,7 +21,8 @@ NOW_MID = "#e67e22"      # 70-90%
 NOW_HIGH = "#c0392b"     # > 90%
 RESERVE_HATCH = ("#8ca3c6", "#b9c7de")   # growth + snapshot, +45deg
 HA_HATCH = ("#5f7aa6", "#93a8cb")        # HA failover reserve, -45deg
-TRACK = "#eef1f5"        # free / unused
+TRACK = "#cfe0f4"        # free / unused — light blue, enough contrast to read
+HAIRLINE = "#9fb2cf"     # thin outline around each bar pill
 TEXT = "#2c3e50"
 MUTED = "#6b7a90"
 ORANGE = "#e67e22"
@@ -96,6 +97,9 @@ def _bar(img, x, y, w, h, now, sized, ha, color):
     mask = Image.new("L", (w, h), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius=h // 2, fill=255)
     img.paste(layer, (x, y), mask)
+    # hairline around the whole pill
+    ImageDraw.Draw(img).rounded_rectangle(
+        [x, y, x + w - 1, y + h - 1], radius=h // 2, outline=HAIRLINE, width=max(1, round(1.2 * _SS)))
 
 
 def _text(d, xy, s, font, fill, anchor="la"):
