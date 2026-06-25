@@ -440,11 +440,26 @@ function openEditCatalogItem(type, id) {
 function catalogFormHtml(type, item) {
     if (type === 'cpu') return `
         <div class="form-group"><label>Description *</label>
-            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="e.g. Xeon Gold 6442Y 24C/48T 2.6GHz"></div>
+            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="e.g. Xeon Gold 6442Y 24C/48T 2.6GHz" data-change='["autofillCpuBenchmark"]'></div>
+        <div class="muted cat-bench-status" id="cat-bench-status">Enter the description, then tab out — known benchmark scores fill in automatically.</div>
         <div class="form-row" style="margin-top:0.75rem">
             <div class="form-group"><label>Cores</label><input type="number" id="cat-cores" value="${item.cores || ''}" min="1"></div>
             <div class="form-group"><label>Threads</label><input type="number" id="cat-threads" value="${item.threads || ''}" min="1"></div>
-            <div class="form-group"><label>GHz</label><input type="number" id="cat-ghz" value="${item.ghz || ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>Generation</label><input type="text" id="cat-generation" value="${esc(item.generation || '')}" placeholder="e.g. 4th Gen (Sapphire Rapids)"></div>
+        </div>
+        <div class="form-row" style="margin-top:0.75rem">
+            <div class="form-group"><label title="Licensable performance cores — the engine sizes on these">P-cores</label><input type="number" id="cat-pcores" value="${item.p_cores != null ? item.p_cores : ''}" min="0"></div>
+            <div class="form-group"><label title="Efficiency cores (weight 0 by default)">E-cores</label><input type="number" id="cat-ecores" value="${item.e_cores != null ? item.e_cores : ''}" min="0"></div>
+        </div>
+        <div class="form-row" style="margin-top:0.75rem">
+            <div class="form-group"><label title="Clock used for sizing (all-core turbo for known server CPUs)">Sizing GHz</label><input type="number" id="cat-ghz" value="${item.ghz || ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>Base GHz</label><input type="number" id="cat-base-ghz" value="${item.base_ghz != null ? item.base_ghz : ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>All-core turbo</label><input type="number" id="cat-allcore-ghz" value="${item.all_core_turbo_ghz != null ? item.all_core_turbo_ghz : ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>Max turbo</label><input type="number" id="cat-max-ghz" value="${item.max_turbo_ghz != null ? item.max_turbo_ghz : ''}" step="0.1" min="0.1"></div>
+        </div>
+        <div class="form-row" style="margin-top:0.75rem">
+            <div class="form-group"><label title="Server throughput benchmark, per socket — preferred where available">SPECrate2017</label><input type="number" id="cat-specrate" value="${item.specrate_int != null ? item.specrate_int : ''}" step="0.1" min="0"></div>
+            <div class="form-group"><label title="Desktop/client benchmark (used when no SPECrate)">PassMark CPU Mark</label><input type="number" id="cat-passmark" value="${item.passmark_cpu_mark != null ? item.passmark_cpu_mark : ''}" min="0"></div>
         </div>`;
     if (type === 'nic') return `
         <div class="form-group"><label>Description *</label>
@@ -472,6 +487,36 @@ function closeCatalogModal() {
     catalogModalCallback = null;
 }
 
+// Auto-fill benchmark scores for the CPU being added/edited, from the curated
+// catalog or the broad SPECrate2017 lookup (same source as the source-CPU
+// comparison). Only fills empty fields, so it never clobbers manual entry.
+async function autofillCpuBenchmark() {
+    const desc = document.getElementById('cat-desc');
+    const status = document.getElementById('cat-bench-status');
+    if (!desc || !desc.value.trim()) return;
+    try {
+        const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(desc.value.trim()));
+        const d = await resp.json();
+        if (!d.found) {
+            if (status) status.textContent = 'No benchmark on file for this CPU — enter scores manually.';
+            return;
+        }
+        const sr = document.getElementById('cat-specrate');
+        const pm = document.getElementById('cat-passmark');
+        const filled = [];
+        if (d.specrate_int != null && sr && !sr.value) { sr.value = d.specrate_int; filled.push('SPECrate'); }
+        if (d.passmark_cpu_mark != null && pm && !pm.value) { pm.value = d.passmark_cpu_mark; filled.push('PassMark'); }
+        const src = d.source === 'spec-cpu2017' ? `SPEC avg of ${d.samples}` : 'catalog';
+        if (status) status.textContent = filled.length
+            ? `Auto-filled ${filled.join(' + ')} from ${src} (matched “${d.model}”).`
+            : `Benchmark on file (${src}) — existing values kept.`;
+    } catch (e) { /* best-effort */ }
+}
+
+const _catNum = id => { const el = document.getElementById(id); const n = el ? parseFloat(el.value) : NaN; return isFinite(n) ? n : null; };
+const _catInt = id => { const el = document.getElementById(id); const n = el ? parseInt(el.value, 10) : NaN; return isFinite(n) ? n : null; };
+const _catStr = id => { const el = document.getElementById(id); const s = el ? el.value.trim() : ''; return s || null; };
+
 async function saveCatalogItem() {
     const type = catalogModalType;
     let payload, url, method;
@@ -482,6 +527,14 @@ async function saveCatalogItem() {
             cores: parseInt(document.getElementById('cat-cores').value) || 0,
             threads: parseInt(document.getElementById('cat-threads').value) || 0,
             ghz: parseFloat(document.getElementById('cat-ghz').value) || 0,
+            generation: _catStr('cat-generation'),
+            p_cores: _catInt('cat-pcores'),
+            e_cores: _catInt('cat-ecores'),
+            base_ghz: _catNum('cat-base-ghz'),
+            all_core_turbo_ghz: _catNum('cat-allcore-ghz'),
+            max_turbo_ghz: _catNum('cat-max-ghz'),
+            specrate_int: _catNum('cat-specrate'),
+            passmark_cpu_mark: _catInt('cat-passmark'),
         };
         if (!payload.desc) { alert('Description is required'); return; }
     } else if (type === 'nic') {

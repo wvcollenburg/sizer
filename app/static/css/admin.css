@@ -157,7 +157,10 @@ label {
     display: flex;
     gap: 1rem;
     margin-bottom: 0.75rem;
+    flex-wrap: wrap;
 }
+
+.cat-bench-status { font-size: 0.8rem; margin: 0.4rem 0 0; }
 
 hr {
     border: none;
