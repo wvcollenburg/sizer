@@ -956,10 +956,12 @@ async function renderSourceCpus(sourceCpus) {
         try {
             const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(c.model));
             const d = await resp.json();
-            if (!d.found) { if (status) status.textContent = 'unknown — enter manually'; return; }
+            if (!d.found) { if (status) status.textContent = 'not in SPEC2017 — enter manually'; return; }
             panel.querySelector(`.source-cpu-type[data-srcidx="${i}"]`).value = d.perf_type;
             panel.querySelector(`.source-cpu-score[data-srcidx="${i}"]`).value = d.perf_index;
-            if (status) status.textContent = `auto (${d.perf_type})`;
+            if (status) status.textContent = d.source === 'spec-cpu2017'
+                ? `auto · SPEC avg of ${d.samples}`
+                : 'auto · catalog';
         } catch (e) { /* best-effort */ }
     }));
 }

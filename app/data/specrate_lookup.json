@@ -1,0 +1,3127 @@
+{
+"amd epyc 4124p": {
+"model": "AMD EPYC 4124P",
+"samples": 1,
+"specrate_int": 58.9
+},
+"amd epyc 4244p": {
+"model": "AMD EPYC 4244P",
+"samples": 2,
+"specrate_int": 84.3
+},
+"amd epyc 4245p": {
+"model": "AMD EPYC 4245P",
+"samples": 2,
+"specrate_int": 96.7
+},
+"amd epyc 4344p": {
+"model": "AMD EPYC 4344P",
+"samples": 3,
+"specrate_int": 103.3
+},
+"amd epyc 4345p": {
+"model": "AMD EPYC 4345P",
+"samples": 1,
+"specrate_int": 119.0
+},
+"amd epyc 4364p": {
+"model": "AMD EPYC 4364P",
+"samples": 1,
+"specrate_int": 105.0
+},
+"amd epyc 4464p": {
+"model": "AMD EPYC 4464P",
+"samples": 4,
+"specrate_int": 138.5
+},
+"amd epyc 4484px": {
+"model": "AMD EPYC 4484PX",
+"samples": 1,
+"specrate_int": 148.0
+},
+"amd epyc 4564p": {
+"model": "AMD EPYC 4564P",
+"samples": 2,
+"specrate_int": 173.5
+},
+"amd epyc 4565p": {
+"model": "AMD EPYC 4565P",
+"samples": 1,
+"specrate_int": 205.0
+},
+"amd epyc 4584px": {
+"model": "AMD EPYC 4584PX",
+"samples": 1,
+"specrate_int": 180.0
+},
+"amd epyc 4585px": {
+"model": "AMD EPYC 4585PX",
+"samples": 1,
+"specrate_int": 213.0
+},
+"amd epyc 7203": {
+"model": "AMD EPYC 7203",
+"samples": 7,
+"specrate_int": 70.9
+},
+"amd epyc 7203p": {
+"model": "AMD EPYC 7203P",
+"samples": 4,
+"specrate_int": 70.8
+},
+"amd epyc 7232p": {
+"model": "AMD EPYC 7232P",
+"samples": 7,
+"specrate_int": 56.4
+},
+"amd epyc 7251": {
+"model": "AMD EPYC 7251",
+"samples": 16,
+"specrate_int": 43.0
+},
+"amd epyc 7252": {
+"model": "AMD EPYC 7252",
+"samples": 19,
+"specrate_int": 59.8
+},
+"amd epyc 7261": {
+"model": "AMD EPYC 7261,",
+"samples": 18,
+"specrate_int": 45.3
+},
+"amd epyc 7262": {
+"model": "AMD EPYC 7262",
+"samples": 21,
+"specrate_int": 65.8
+},
+"amd epyc 7272": {
+"model": "AMD EPYC 7272",
+"samples": 12,
+"specrate_int": 84.8
+},
+"amd epyc 7281": {
+"model": "AMD EPYC 7281",
+"samples": 19,
+"specrate_int": 75.4
+},
+"amd epyc 7282": {
+"model": "AMD EPYC 7282",
+"samples": 27,
+"specrate_int": 105.3
+},
+"amd epyc 72f3": {
+"model": "AMD EPYC 72F3",
+"samples": 16,
+"specrate_int": 92.5
+},
+"amd epyc 7301": {
+"model": "AMD EPYC 7301",
+"samples": 12,
+"specrate_int": 78.8
+},
+"amd epyc 7302": {
+"model": "AMD EPYC 7302",
+"samples": 20,
+"specrate_int": 120.9
+},
+"amd epyc 7302p": {
+"model": "AMD EPYC 7302P",
+"samples": 10,
+"specrate_int": 119.9
+},
+"amd epyc 7303": {
+"model": "AMD EPYC 7303",
+"samples": 7,
+"specrate_int": 131.6
+},
+"amd epyc 7303p": {
+"model": "AMD EPYC 7303P",
+"samples": 4,
+"specrate_int": 132.8
+},
+"amd epyc 7313": {
+"model": "AMD EPYC 7313",
+"samples": 13,
+"specrate_int": 151.2
+},
+"amd epyc 7313p": {
+"model": "AMD EPYC 7313P 16-Core",
+"samples": 15,
+"specrate_int": 151.5
+},
+"amd epyc 7343": {
+"model": "AMD EPYC 7343",
+"samples": 15,
+"specrate_int": 158.7
+},
+"amd epyc 7351": {
+"model": "AMD EPYC 7351",
+"samples": 12,
+"specrate_int": 83.3
+},
+"amd epyc 7351p": {
+"model": "AMD EPYC 7351P",
+"samples": 11,
+"specrate_int": 84.6
+},
+"amd epyc 7352": {
+"model": "AMD EPYC 7352",
+"samples": 23,
+"specrate_int": 164.6
+},
+"amd epyc 7371": {
+"model": "AMD EPYC 7371",
+"samples": 5,
+"specrate_int": 99.9
+},
+"amd epyc 7373x": {
+"model": "AMD EPYC 7373X",
+"samples": 19,
+"specrate_int": 168.1
+},
+"amd epyc 73f3": {
+"model": "AMD EPYC 73F3",
+"samples": 14,
+"specrate_int": 169.6
+},
+"amd epyc 7401": {
+"model": "AMD EPYC 7401",
+"samples": 11,
+"specrate_int": 111.9
+},
+"amd epyc 7401p": {
+"model": "AMD EPYC 7401P",
+"samples": 13,
+"specrate_int": 109.1
+},
+"amd epyc 7402": {
+"model": "AMD EPYC 7402",
+"samples": 24,
+"specrate_int": 170.2
+},
+"amd epyc 7402p": {
+"model": "AMD EPYC 7402P",
+"samples": 10,
+"specrate_int": 170.2
+},
+"amd epyc 7413": {
+"model": "AMD EPYC 7413",
+"samples": 22,
+"specrate_int": 206.6
+},
+"amd epyc 7443": {
+"model": "AMD EPYC 7443",
+"samples": 17,
+"specrate_int": 213.2
+},
+"amd epyc 7443p": {
+"model": "AMD EPYC 7443P 24-Core Processor",
+"samples": 12,
+"specrate_int": 213.5
+},
+"amd epyc 7451": {
+"model": "AMD EPYC 7451",
+"samples": 15,
+"specrate_int": 118.3
+},
+"amd epyc 7452": {
+"model": "AMD EPYC 7452",
+"samples": 25,
+"specrate_int": 201.2
+},
+"amd epyc 7453": {
+"model": "AMD EPYC 7453",
+"samples": 19,
+"specrate_int": 215.3
+},
+"amd epyc 7473x": {
+"model": "AMD EPYC 7473X",
+"samples": 17,
+"specrate_int": 233.6
+},
+"amd epyc 74f3": {
+"model": "AMD EPYC 74F3",
+"samples": 16,
+"specrate_int": 227.8
+},
+"amd epyc 7501": {
+"model": "AMD EPYC 7501",
+"samples": 11,
+"specrate_int": 135.0
+},
+"amd epyc 7502": {
+"model": "AMD EPYC 7502",
+"samples": 15,
+"specrate_int": 208.2
+},
+"amd epyc 7502p": {
+"model": "AMD EPYC 7502P",
+"samples": 11,
+"specrate_int": 210.0
+},
+"amd epyc 7513": {
+"model": "AMD EPYC 7513",
+"samples": 26,
+"specrate_int": 243.6
+},
+"amd epyc 7532": {
+"model": "AMD EPYC 7532",
+"samples": 13,
+"specrate_int": 215.1
+},
+"amd epyc 7542": {
+"model": "AMD EPYC 7542",
+"samples": 17,
+"specrate_int": 212.8
+},
+"amd epyc 7543": {
+"model": "AMD EPYC 7543",
+"samples": 20,
+"specrate_int": 270.7
+},
+"amd epyc 7543p": {
+"model": "AMD EPYC 7543P",
+"samples": 12,
+"specrate_int": 275.4
+},
+"amd epyc 7551": {
+"model": "AMD EPYC 7551",
+"samples": 10,
+"specrate_int": 134.8
+},
+"amd epyc 7551p": {
+"model": "AMD EPYC 7551P",
+"samples": 11,
+"specrate_int": 134.0
+},
+"amd epyc 7552": {
+"model": "AMD EPYC 7552",
+"samples": 16,
+"specrate_int": 265.8
+},
+"amd epyc 7573x": {
+"model": "AMD EPYC 7573X",
+"samples": 19,
+"specrate_int": 288.5
+},
+"amd epyc 75f3": {
+"model": "AMD EPYC 75F3",
+"samples": 18,
+"specrate_int": 284.3
+},
+"amd epyc 7601": {
+"model": "AMD EPYC 7601",
+"samples": 38,
+"specrate_int": 140.5
+},
+"amd epyc 7642": {
+"model": "AMD EPYC 7642",
+"samples": 15,
+"specrate_int": 288.5
+},
+"amd epyc 7643": {
+"model": "AMD EPYC 7643",
+"samples": 17,
+"specrate_int": 332.0
+},
+"amd epyc 7643p": {
+"model": "AMD EPYC 7643P",
+"samples": 4,
+"specrate_int": 325.5
+},
+"amd epyc 7662": {
+"model": "AMD EPYC 7662",
+"samples": 16,
+"specrate_int": 331.0
+},
+"amd epyc 7663": {
+"model": "AMD EPYC 7663",
+"samples": 22,
+"specrate_int": 353.2
+},
+"amd epyc 7663p": {
+"model": "AMD EPYC 7663P",
+"samples": 4,
+"specrate_int": 346.8
+},
+"amd epyc 7702": {
+"model": "AMD EPYC 7702",
+"samples": 26,
+"specrate_int": 299.9
+},
+"amd epyc 7702p": {
+"model": "AMD EPYC 7702P",
+"samples": 12,
+"specrate_int": 314.5
+},
+"amd epyc 7713": {
+"model": "AMD EPYC 7713",
+"samples": 24,
+"specrate_int": 370.8
+},
+"amd epyc 7713p": {
+"model": "AMD EPYC 7713P 64-Core Processor",
+"samples": 13,
+"specrate_int": 365.5
+},
+"amd epyc 7742": {
+"model": "AMD EPYC 7742",
+"samples": 31,
+"specrate_int": 339.0
+},
+"amd epyc 7763": {
+"model": "AMD EPYC 7763",
+"samples": 54,
+"specrate_int": 408.3
+},
+"amd epyc 7773x": {
+"model": "AMD EPYC 7773X",
+"samples": 25,
+"specrate_int": 412.7
+},
+"amd epyc 7f32": {
+"model": "AMD EPYC 7F32",
+"samples": 18,
+"specrate_int": 74.4
+},
+"amd epyc 7f52": {
+"model": "AMD EPYC 7F52",
+"samples": 18,
+"specrate_int": 144.8
+},
+"amd epyc 7f72": {
+"model": "AMD EPYC 7F72",
+"samples": 19,
+"specrate_int": 187.8
+},
+"amd epyc 7h12": {
+"model": "AMD EPYC 7H12",
+"samples": 19,
+"specrate_int": 350.3
+},
+"amd epyc 8024p": {
+"model": "AMD EPYC 8024P 8-Core Processor",
+"samples": 5,
+"specrate_int": 75.4
+},
+"amd epyc 8024pn": {
+"model": "AMD EPYC 8024PN",
+"samples": 4,
+"specrate_int": 76.6
+},
+"amd epyc 8124p": {
+"model": "AMD EPYC 8124P 16-Core Processor",
+"samples": 4,
+"specrate_int": 148.8
+},
+"amd epyc 8124pn": {
+"model": "AMD EPYC 8124PN",
+"samples": 3,
+"specrate_int": 153.0
+},
+"amd epyc 8224p": {
+"model": "AMD EPYC 8224P 24-Core Processor",
+"samples": 6,
+"specrate_int": 211.2
+},
+"amd epyc 8224pn": {
+"model": "AMD EPYC 8224PN",
+"samples": 3,
+"specrate_int": 218.7
+},
+"amd epyc 8324p": {
+"model": "AMD EPYC 8324P 32-Core Processor",
+"samples": 5,
+"specrate_int": 281.4
+},
+"amd epyc 8324pn": {
+"model": "AMD EPYC 8324PN",
+"samples": 3,
+"specrate_int": 290.7
+},
+"amd epyc 8325p": {
+"model": "AMD EPYC 8325P",
+"samples": 2,
+"specrate_int": 401.0
+},
+"amd epyc 8434p": {
+"model": "AMD EPYC 8434P 48-Core Processor",
+"samples": 6,
+"specrate_int": 396.2
+},
+"amd epyc 8434pn": {
+"model": "AMD EPYC 8434PN",
+"samples": 3,
+"specrate_int": 395.3
+},
+"amd epyc 8534p": {
+"model": "AMD EPYC 8534P 64-Core Processor",
+"samples": 6,
+"specrate_int": 481.5
+},
+"amd epyc 8534pn": {
+"model": "AMD EPYC 8534PN",
+"samples": 4,
+"specrate_int": 455.0
+},
+"amd epyc 8535p": {
+"model": "AMD EPYC 8535P",
+"samples": 2,
+"specrate_int": 606.5
+},
+"amd epyc 8635p": {
+"model": "AMD EPYC 8635P",
+"samples": 2,
+"specrate_int": 666.0
+},
+"amd epyc 9015": {
+"model": "AMD EPYC 9015",
+"samples": 29,
+"specrate_int": 117.6
+},
+"amd epyc 9115": {
+"model": "AMD EPYC 9115",
+"samples": 27,
+"specrate_int": 220.2
+},
+"amd epyc 9124": {
+"model": "AMD EPYC 9124",
+"samples": 38,
+"specrate_int": 177.6
+},
+"amd epyc 9135": {
+"model": "AMD EPYC 9135",
+"samples": 27,
+"specrate_int": 233.0
+},
+"amd epyc 9174f": {
+"model": "AMD EPYC 9174F",
+"samples": 36,
+"specrate_int": 221.3
+},
+"amd epyc 9175f": {
+"model": "AMD EPYC 9175F",
+"samples": 27,
+"specrate_int": 295.4
+},
+"amd epyc 9184x": {
+"model": "AMD EPYC 9184X",
+"samples": 18,
+"specrate_int": 229.5
+},
+"amd epyc 9224": {
+"model": "AMD EPYC 9224",
+"samples": 34,
+"specrate_int": 256.2
+},
+"amd epyc 9254": {
+"model": "AMD EPYC 9254",
+"samples": 37,
+"specrate_int": 292.6
+},
+"amd epyc 9255": {
+"model": "AMD EPYC 9255",
+"samples": 29,
+"specrate_int": 347.0
+},
+"amd epyc 9274f": {
+"model": "AMD EPYC 9274F",
+"samples": 31,
+"specrate_int": 316.8
+},
+"amd epyc 9275f": {
+"model": "AMD EPYC 9275F",
+"samples": 29,
+"specrate_int": 390.5
+},
+"amd epyc 9334": {
+"model": "AMD EPYC 9334",
+"samples": 41,
+"specrate_int": 358.0
+},
+"amd epyc 9335": {
+"model": "AMD EPYC 9335",
+"samples": 33,
+"specrate_int": 438.4
+},
+"amd epyc 9354": {
+"model": "AMD EPYC 9354",
+"samples": 36,
+"specrate_int": 375.4
+},
+"amd epyc 9354p": {
+"model": "AMD EPYC 9354P",
+"samples": 15,
+"specrate_int": 372.3
+},
+"amd epyc 9354p 32 -core": {
+"model": "AMD EPYC 9354P 32 -Core Processor",
+"samples": 2,
+"specrate_int": 385.0
+},
+"amd epyc 9355": {
+"model": "AMD EPYC 9355",
+"samples": 30,
+"specrate_int": 474.6
+},
+"amd epyc 9355p": {
+"model": "AMD EPYC 9355P 32-Core processor",
+"samples": 19,
+"specrate_int": 468.4
+},
+"amd epyc 9365": {
+"model": "AMD EPYC 9365",
+"samples": 17,
+"specrate_int": 498.8
+},
+"amd epyc 9374f": {
+"model": "AMD EPYC 9374F",
+"samples": 28,
+"specrate_int": 410.7
+},
+"amd epyc 9375f": {
+"model": "AMD EPYC 9375F",
+"samples": 35,
+"specrate_int": 508.2
+},
+"amd epyc 9384x": {
+"model": "AMD EPYC 9384X",
+"samples": 18,
+"specrate_int": 406.5
+},
+"amd epyc 9454": {
+"model": "AMD EPYC 9454",
+"samples": 29,
+"specrate_int": 523.9
+},
+"amd epyc 9454p": {
+"model": "AMD EPYC 9454P",
+"samples": 14,
+"specrate_int": 521.1
+},
+"amd epyc 9454p 48 -core": {
+"model": "AMD EPYC 9454P 48 -Core Processor",
+"samples": 2,
+"specrate_int": 527.0
+},
+"amd epyc 9455": {
+"model": "AMD EPYC 9455",
+"samples": 24,
+"specrate_int": 633.5
+},
+"amd epyc 9455p": {
+"model": "AMD EPYC 9455P 3.15 GHz Processor",
+"samples": 10,
+"specrate_int": 621.3
+},
+"amd epyc 9474f": {
+"model": "AMD EPYC 9474F",
+"samples": 30,
+"specrate_int": 552.2
+},
+"amd epyc 9475f": {
+"model": "AMD EPYC 9475F",
+"samples": 31,
+"specrate_int": 684.2
+},
+"amd epyc 9534": {
+"model": "AMD EPYC 9534",
+"samples": 33,
+"specrate_int": 604.7
+},
+"amd epyc 9534\ufffd\ufffd\ufffd": {
+"model": "AMD EPYC 9534\ufffd\ufffd\ufffd",
+"samples": 1,
+"specrate_int": 643.0
+},
+"amd epyc 9535": {
+"model": "AMD EPYC 9535",
+"samples": 21,
+"specrate_int": 717.4
+},
+"amd epyc 9554": {
+"model": "AMD EPYC 9554",
+"samples": 43,
+"specrate_int": 647.8
+},
+"amd epyc 9554p": {
+"model": "AMD EPYC 9554P 3.10 GHz Processor",
+"samples": 14,
+"specrate_int": 659.0
+},
+"amd epyc 9554p 64 -core": {
+"model": "AMD EPYC 9554P 64 -Core Processor",
+"samples": 1,
+"specrate_int": 656.0
+},
+"amd epyc 9555": {
+"model": "AMD EPYC 9555",
+"samples": 30,
+"specrate_int": 822.6
+},
+"amd epyc 9555p": {
+"model": "AMD EPYC 9555P 3.20 GHz Processor",
+"samples": 14,
+"specrate_int": 806.2
+},
+"amd epyc 9565": {
+"model": "AMD EPYC 9565",
+"samples": 20,
+"specrate_int": 887.2
+},
+"amd epyc 9575f": {
+"model": "AMD EPYC 9575F",
+"samples": 36,
+"specrate_int": 813.5
+},
+"amd epyc 9634": {
+"model": "AMD EPYC 9634",
+"samples": 26,
+"specrate_int": 697.4
+},
+"amd epyc 9645": {
+"model": "AMD EPYC 9645",
+"samples": 20,
+"specrate_int": 990.6
+},
+"amd epyc 9654": {
+"model": "AMD EPYC 9654",
+"samples": 61,
+"specrate_int": 833.5
+},
+"amd epyc 9654p": {
+"model": "AMD EPYC 9654P",
+"samples": 15,
+"specrate_int": 828.3
+},
+"amd epyc 9654p 96 -core": {
+"model": "AMD EPYC 9654P 96 -Core Processor",
+"samples": 2,
+"specrate_int": 836.0
+},
+"amd epyc 9655": {
+"model": "AMD EPYC 9655",
+"samples": 30,
+"specrate_int": 1023.0
+},
+"amd epyc 9655p": {
+"model": "AMD EPYC 9655P 2.60 GHz Processor",
+"samples": 11,
+"specrate_int": 990.4
+},
+"amd epyc 9684x": {
+"model": "AMD EPYC 9684X",
+"samples": 32,
+"specrate_int": 895.2
+},
+"amd epyc 9734": {
+"model": "AMD EPYC 9734",
+"samples": 23,
+"specrate_int": 853.3
+},
+"amd epyc 9734 112 -core": {
+"model": "AMD EPYC 9734 112 -Core Processor",
+"samples": 1,
+"specrate_int": 850.0
+},
+"amd epyc 9745": {
+"model": "AMD EPYC 9745",
+"samples": 28,
+"specrate_int": 1160.5
+},
+"amd epyc 9754": {
+"model": "AMD EPYC 9754",
+"samples": 43,
+"specrate_int": 930.3
+},
+"amd epyc 9754 128 -core": {
+"model": "AMD EPYC 9754 128 -Core Processor",
+"samples": 1,
+"specrate_int": 925.0
+},
+"amd epyc 9755": {
+"model": "AMD EPYC 9755",
+"samples": 32,
+"specrate_int": 1320.9
+},
+"amd epyc 9825": {
+"model": "AMD EPYC 9825",
+"samples": 25,
+"specrate_int": 1248.2
+},
+"amd epyc 9845": {
+"model": "AMD EPYC 9845",
+"samples": 40,
+"specrate_int": 1255.1
+},
+"amd epyc 9965": {
+"model": "AMD EPYC 9965",
+"samples": 47,
+"specrate_int": 1277.7
+},
+"amd ryzen 7 5800x": {
+"model": "AMD Ryzen 7 5800X",
+"samples": 1,
+"specrate_int": 76.3
+},
+"amd ryzen 9 7950x": {
+"model": "AMD Ryzen 9 7950X",
+"samples": 2,
+"specrate_int": 176.0
+},
+"amd ryzen threadripper pro 3945wx": {
+"model": "AMD Ryzen Threadripper PRO 3945WX",
+"samples": 1,
+"specrate_int": 111.0
+},
+"amd ryzen threadripper pro 3955wx": {
+"model": "AMD Ryzen Threadripper PRO 3955WX",
+"samples": 2,
+"specrate_int": 131.5
+},
+"amd ryzen threadripper pro 3975wx": {
+"model": "AMD Ryzen Threadripper PRO 3975WX",
+"samples": 2,
+"specrate_int": 251.0
+},
+"amd ryzen threadripper pro 3995wx": {
+"model": "AMD Ryzen Threadripper PRO 3995WX",
+"samples": 1,
+"specrate_int": 369.0
+},
+"intel celeron g3930e": {
+"model": "Intel Celeron G3930E",
+"samples": 1,
+"specrate_int": 7.8
+},
+"intel celeron g4900": {
+"model": "Intel Celeron G4900",
+"samples": 7,
+"specrate_int": 8.6
+},
+"intel celeron g4900t": {
+"model": "Intel Celeron G4900T",
+"samples": 3,
+"specrate_int": 8.2
+},
+"intel celeron g4920": {
+"model": "Intel Celeron G4920",
+"samples": 3,
+"specrate_int": 8.8
+},
+"intel celeron g4930": {
+"model": "Intel Celeron G4930",
+"samples": 4,
+"specrate_int": 8.8
+},
+"intel core i3-7100": {
+"model": "Intel Core i3-7100",
+"samples": 1,
+"specrate_int": 15.0
+},
+"intel core i3-7101e": {
+"model": "Intel Core i3-7101E",
+"samples": 1,
+"specrate_int": 15.8
+},
+"intel core i3-7300": {
+"model": "Intel Core i3-7300",
+"samples": 2,
+"specrate_int": 15.4
+},
+"intel core i3-8100": {
+"model": "Intel Core i3-8100",
+"samples": 7,
+"specrate_int": 22.1
+},
+"intel core i3-8100t": {
+"model": "Intel Core i3-8100T",
+"samples": 3,
+"specrate_int": 20.3
+},
+"intel core i3-8300": {
+"model": "Intel Core i3-8300",
+"samples": 7,
+"specrate_int": 23.0
+},
+"intel core i3-8300t": {
+"model": "Intel Core i3-8300T",
+"samples": 3,
+"specrate_int": 21.3
+},
+"intel core i3-8350k": {
+"model": "Intel Core i3-8350K",
+"samples": 3,
+"specrate_int": 25.4
+},
+"intel core i3-9100": {
+"model": "Intel Core i3-9100",
+"samples": 4,
+"specrate_int": 25.7
+},
+"intel core i3-9300": {
+"model": "Intel Core i3-9300",
+"samples": 2,
+"specrate_int": 27.2
+},
+"intel core i5-8600t": {
+"model": "Intel Core i5-8600T",
+"samples": 1,
+"specrate_int": 29.1
+},
+"intel core i5-9600k": {
+"model": "Intel Core i5-9600K",
+"samples": 1,
+"specrate_int": 35.8
+},
+"intel core i7-6700k": {
+"model": "Intel Core i7-6700K",
+"samples": 1,
+"specrate_int": 23.5
+},
+"intel core i7-9700k": {
+"model": "Intel Core i7-9700K",
+"samples": 1,
+"specrate_int": 44.8
+},
+"intel core i9-9900k": {
+"model": "Intel Core i9-9900K",
+"samples": 1,
+"specrate_int": 51.0
+},
+"intel core ultra 5 225h": {
+"model": "Intel Core Ultra 5 225H",
+"samples": 1,
+"specrate_int": 42.4
+},
+"intel core ultra 7 255h": {
+"model": "Intel Core Ultra 7 255H",
+"samples": 1,
+"specrate_int": 52.2
+},
+"intel pentium g3930": {
+"model": "Intel Pentium G3930",
+"samples": 1,
+"specrate_int": 7.5
+},
+"intel pentium g4400": {
+"model": "Intel Pentium G4400",
+"samples": 1,
+"specrate_int": 8.8
+},
+"intel pentium g4560": {
+"model": "Intel Pentium G4560",
+"samples": 5,
+"specrate_int": 11.6
+},
+"intel pentium gold g5400": {
+"model": "Intel Pentium Gold G5400",
+"samples": 8,
+"specrate_int": 12.5
+},
+"intel pentium gold g5400t": {
+"model": "Intel Pentium Gold G5400T",
+"samples": 2,
+"specrate_int": 11.0
+},
+"intel pentium gold g5420": {
+"model": "Intel Pentium Gold G5420",
+"samples": 5,
+"specrate_int": 12.8
+},
+"intel pentium gold g5500": {
+"model": "Intel Pentium Gold G5500",
+"samples": 5,
+"specrate_int": 12.9
+},
+"intel pentium gold g5500t": {
+"model": "Intel Pentium Gold G5500T",
+"samples": 3,
+"specrate_int": 11.3
+},
+"intel pentium gold g5600": {
+"model": "Intel Pentium Gold G5600",
+"samples": 3,
+"specrate_int": 13.2
+},
+"intel pentium gold g6405": {
+"model": "Intel Pentium Gold G6405",
+"samples": 1,
+"specrate_int": 16.3
+},
+"intel pentium gold g7400": {
+"model": "Intel Pentium Gold G7400",
+"samples": 1,
+"specrate_int": 22.5
+},
+"intel r2208wf": {
+"model": "Intel R2208WF",
+"samples": 1,
+"specrate_int": 127.5
+},
+"intel s9248wk1hlc": {
+"model": "Intel S9248WK1HLC",
+"samples": 1,
+"specrate_int": 279.0
+},
+"intel s9256wk1hlc": {
+"model": "Intel S9256WK1HLC",
+"samples": 3,
+"specrate_int": 316.3
+},
+"intel xeon 6315p": {
+"model": "Intel Xeon 6315P",
+"samples": 12,
+"specrate_int": 42.1
+},
+"intel xeon 6325p": {
+"model": "Intel Xeon 6325P",
+"samples": 14,
+"specrate_int": 51.9
+},
+"intel xeon 6333p": {
+"model": "Intel Xeon 6333P",
+"samples": 13,
+"specrate_int": 73.7
+},
+"intel xeon 6337p": {
+"model": "Intel Xeon 6337P",
+"samples": 13,
+"specrate_int": 77.5
+},
+"intel xeon 6349p": {
+"model": "Intel Xeon 6349P",
+"samples": 13,
+"specrate_int": 81.5
+},
+"intel xeon 6353p": {
+"model": "Intel Xeon 6353P",
+"samples": 12,
+"specrate_int": 88.2
+},
+"intel xeon 6357p": {
+"model": "Intel Xeon 6357P",
+"samples": 13,
+"specrate_int": 94.8
+},
+"intel xeon 6369p": {
+"model": "Intel Xeon 6369P",
+"samples": 14,
+"specrate_int": 99.9
+},
+"intel xeon 6505p": {
+"model": "Intel Xeon 6505P",
+"samples": 27,
+"specrate_int": 144.2
+},
+"intel xeon 6507p": {
+"model": "Intel Xeon 6507P",
+"samples": 31,
+"specrate_int": 105.9
+},
+"intel xeon 6511p": {
+"model": "Intel Xeon 6511P 2.30 GHz processor",
+"samples": 12,
+"specrate_int": 198.2
+},
+"intel xeon 6515p": {
+"model": "Intel Xeon 6515P",
+"samples": 28,
+"specrate_int": 188.7
+},
+"intel xeon 6517p": {
+"model": "Intel Xeon 6517P",
+"samples": 29,
+"specrate_int": 196.6
+},
+"intel xeon 6520p": {
+"model": "Intel Xeon 6520P 2.40 GHz processor",
+"samples": 25,
+"specrate_int": 261.0
+},
+"intel xeon 6521p": {
+"model": "Intel Xeon 6521P 2.6 GHz processor",
+"samples": 13,
+"specrate_int": 297.4
+},
+"intel xeon 6527p": {
+"model": "Intel Xeon 6527P 3.0 GHz processor",
+"samples": 28,
+"specrate_int": 299.5
+},
+"intel xeon 6530p": {
+"model": "Intel Xeon 6530P 2.30 GHz processor",
+"samples": 28,
+"specrate_int": 360.9
+},
+"intel xeon 6710e": {
+"model": "Intel Xeon 6710E",
+"samples": 18,
+"specrate_int": 351.6
+},
+"intel xeon 6714p": {
+"model": "Intel Xeon 6714P 4.0 GHz processor",
+"samples": 15,
+"specrate_int": 105.1
+},
+"intel xeon 6716p-b": {
+"model": "Intel Xeon 6716P-B",
+"samples": 2,
+"specrate_int": 347.5
+},
+"intel xeon 6724p": {
+"model": "Intel Xeon 6724P 3.6 GHz processor",
+"samples": 18,
+"specrate_int": 201.1
+},
+"intel xeon 6725p": {
+"model": "Intel Xeon 6725P",
+"samples": 9,
+"specrate_int": 201.5
+},
+"intel xeon 6728p": {
+"model": "Intel Xeon 6728P 2.70 GHz processor",
+"samples": 10,
+"specrate_int": 282.2
+},
+"intel xeon 6730p": {
+"model": "Intel Xeon 6730P 2.5 GHz processor",
+"samples": 20,
+"specrate_int": 364.1
+},
+"intel xeon 6731e": {
+"model": "Intel Xeon 6731E",
+"samples": 10,
+"specrate_int": 496.0
+},
+"intel xeon 6731p": {
+"model": "Intel Xeon 6731P 2.5 GHz processor",
+"samples": 12,
+"specrate_int": 372.9
+},
+"intel xeon 6732p": {
+"model": "Intel Xeon 6732P",
+"samples": 6,
+"specrate_int": 393.2
+},
+"intel xeon 6736p": {
+"model": "Intel Xeon 6736P",
+"samples": 25,
+"specrate_int": 375.9
+},
+"intel xeon 6737p": {
+"model": "Intel Xeon 6737P 2.90 GHz processor",
+"samples": 24,
+"specrate_int": 378.3
+},
+"intel xeon 6738p": {
+"model": "Intel Xeon 6738P 2.9 GHz processor",
+"samples": 6,
+"specrate_int": 374.2
+},
+"intel xeon 6740e": {
+"model": "Intel Xeon 6740E",
+"samples": 15,
+"specrate_int": 508.7
+},
+"intel xeon 6740p": {
+"model": "Intel Xeon 6740P 2.1 GHz processor",
+"samples": 17,
+"specrate_int": 488.2
+},
+"intel xeon 6741p": {
+"model": "Intel Xeon 6741P",
+"samples": 14,
+"specrate_int": 529.2
+},
+"intel xeon 6745p": {
+"model": "Intel Xeon 6745P 3.10 GHz processor",
+"samples": 15,
+"specrate_int": 399.4
+},
+"intel xeon 6746e": {
+"model": "Intel Xeon 6746E",
+"samples": 11,
+"specrate_int": 516.0
+},
+"intel xeon 6747p": {
+"model": "Intel Xeon 6747P",
+"samples": 22,
+"specrate_int": 541.7
+},
+"intel xeon 6748p": {
+"model": "Intel Xeon 6748P 2.5 GHz processor",
+"samples": 6,
+"specrate_int": 512.9
+},
+"intel xeon 6756e": {
+"model": "Intel Xeon 6756E",
+"samples": 13,
+"specrate_int": 570.2
+},
+"intel xeon 6760p": {
+"model": "Intel Xeon 6760P 2.2 GHz processor",
+"samples": 21,
+"specrate_int": 633.7
+},
+"intel xeon 6761p": {
+"model": "Intel Xeon 6761P 2.5 GHz processor",
+"samples": 18,
+"specrate_int": 668.2
+},
+"intel xeon 6762p": {
+"model": "Intel Xeon 6762P",
+"samples": 3,
+"specrate_int": 670.0
+},
+"intel xeon 6766e": {
+"model": "Intel Xeon 6766E",
+"samples": 18,
+"specrate_int": 646.5
+},
+"intel xeon 6766p-b": {
+"model": "Intel Xeon 6766P-B",
+"samples": 2,
+"specrate_int": 568.5
+},
+"intel xeon 6767p": {
+"model": "Intel Xeon 6767P",
+"samples": 23,
+"specrate_int": 661.8
+},
+"intel xeon 6768p": {
+"model": "Intel Xeon 6768P 2.4 GHz processor",
+"samples": 8,
+"specrate_int": 643.1
+},
+"intel xeon 6774p": {
+"model": "Intel Xeon 6774P",
+"samples": 2,
+"specrate_int": 518.5
+},
+"intel xeon 6776p": {
+"model": "Intel Xeon 6776P",
+"samples": 2,
+"specrate_int": 695.0
+},
+"intel xeon 6776p-b": {
+"model": "Intel Xeon 6776P-B",
+"samples": 3,
+"specrate_int": 631.3
+},
+"intel xeon 6780e": {
+"model": "Intel Xeon 6780E",
+"samples": 21,
+"specrate_int": 686.3
+},
+"intel xeon 6781p": {
+"model": "Intel Xeon 6781P 2.00 GHz processor",
+"samples": 18,
+"specrate_int": 745.6
+},
+"intel xeon 6787p": {
+"model": "Intel Xeon 6787P",
+"samples": 41,
+"specrate_int": 788.9
+},
+"intel xeon 6788p": {
+"model": "Intel Xeon 6788P",
+"samples": 17,
+"specrate_int": 757.1
+},
+"intel xeon 6952p": {
+"model": "Intel Xeon 6952P",
+"samples": 3,
+"specrate_int": 936.3
+},
+"intel xeon 6960p": {
+"model": "Intel Xeon 6960P",
+"samples": 7,
+"specrate_int": 770.4
+},
+"intel xeon 6962p": {
+"model": "Intel Xeon 6962P",
+"samples": 1,
+"specrate_int": 849.0
+},
+"intel xeon 6966p-c": {
+"model": "Intel Xeon 6966P-C",
+"samples": 1,
+"specrate_int": 1025.0
+},
+"intel xeon 6970e+": {
+"model": "Intel Xeon 6970E+",
+"samples": 2,
+"specrate_int": 1060.0
+},
+"intel xeon 6972p": {
+"model": "Intel Xeon 6972P",
+"samples": 5,
+"specrate_int": 998.0
+},
+"intel xeon 6978p": {
+"model": "Intel Xeon 6978P",
+"samples": 2,
+"specrate_int": 1107.5
+},
+"intel xeon 6979p": {
+"model": "Intel Xeon 6979P",
+"samples": 1,
+"specrate_int": 1150.0
+},
+"intel xeon 6980e+": {
+"model": "Intel Xeon 6980E+",
+"samples": 2,
+"specrate_int": 1285.0
+},
+"intel xeon 6980p": {
+"model": "Intel Xeon 6980P",
+"samples": 14,
+"specrate_int": 1216.4
+},
+"intel xeon 6990e+": {
+"model": "Intel Xeon 6990E+",
+"samples": 3,
+"specrate_int": 1445.0
+},
+"intel xeon 9462": {
+"model": "Intel Xeon 9462",
+"samples": 1,
+"specrate_int": 304.5
+},
+"intel xeon bronze 3104": {
+"model": "Intel Xeon Bronze 3104",
+"samples": 47,
+"specrate_int": 16.7
+},
+"intel xeon bronze 3106": {
+"model": "Intel Xeon Bronze 3106",
+"samples": 42,
+"specrate_int": 22.3
+},
+"intel xeon bronze 3204": {
+"model": "Intel Xeon Bronze 3204",
+"samples": 44,
+"specrate_int": 20.1
+},
+"intel xeon bronze 3206r": {
+"model": "Intel Xeon Bronze 3206R",
+"samples": 34,
+"specrate_int": 28.6
+},
+"intel xeon bronze 3408u": {
+"model": "Intel Xeon Bronze 3408U",
+"samples": 25,
+"specrate_int": 43.0
+},
+"intel xeon bronze 3508u": {
+"model": "Intel Xeon Bronze 3508U",
+"samples": 12,
+"specrate_int": 46.6
+},
+"intel xeon d-1521": {
+"model": "Intel Xeon D-1521",
+"samples": 1,
+"specrate_int": 19.0
+},
+"intel xeon d-1541": {
+"model": "Intel Xeon D-1541",
+"samples": 1,
+"specrate_int": 32.3
+},
+"intel xeon d-1571": {
+"model": "Intel Xeon D-1571",
+"samples": 1,
+"specrate_int": 42.2
+},
+"intel xeon d-2712t": {
+"model": "Intel Xeon D-2712T",
+"samples": 3,
+"specrate_int": 28.5
+},
+"intel xeon d-2733nt": {
+"model": "Intel Xeon D-2733NT",
+"samples": 3,
+"specrate_int": 58.1
+},
+"intel xeon d-2752ter": {
+"model": "Intel Xeon D-2752TER",
+"samples": 1,
+"specrate_int": 71.9
+},
+"intel xeon d-2775te": {
+"model": "Intel Xeon D-2775TE",
+"samples": 2,
+"specrate_int": 104.0
+},
+"intel xeon d-2776nt": {
+"model": "Intel Xeon D-2776NT",
+"samples": 1,
+"specrate_int": 107.0
+},
+"intel xeon d-2796te": {
+"model": "Intel Xeon D-2796TE",
+"samples": 2,
+"specrate_int": 126.0
+},
+"intel xeon e-2104g": {
+"model": "Intel Xeon E-2104G",
+"samples": 10,
+"specrate_int": 20.6
+},
+"intel xeon e-2124": {
+"model": "Intel Xeon E-2124",
+"samples": 17,
+"specrate_int": 24.1
+},
+"intel xeon e-2124g": {
+"model": "Intel Xeon E-2124G",
+"samples": 17,
+"specrate_int": 25.2
+},
+"intel xeon e-2126g": {
+"model": "Intel Xeon E-2126G",
+"samples": 18,
+"specrate_int": 36.2
+},
+"intel xeon e-2134": {
+"model": "Intel Xeon E-2134",
+"samples": 19,
+"specrate_int": 30.9
+},
+"intel xeon e-2136": {
+"model": "Intel Xeon E-2136",
+"samples": 16,
+"specrate_int": 41.6
+},
+"intel xeon e-2144g": {
+"model": "Intel Xeon E-2144G",
+"samples": 18,
+"specrate_int": 30.7
+},
+"intel xeon e-2146g": {
+"model": "Intel Xeon E-2146G",
+"samples": 17,
+"specrate_int": 41.4
+},
+"intel xeon e-2174g": {
+"model": "Intel Xeon E-2174G",
+"samples": 20,
+"specrate_int": 30.7
+},
+"intel xeon e-2176g": {
+"model": "Intel Xeon E-2176G",
+"samples": 18,
+"specrate_int": 41.5
+},
+"intel xeon e-2186g": {
+"model": "Intel Xeon E-2186G",
+"samples": 18,
+"specrate_int": 42.1
+},
+"intel xeon e-2224": {
+"model": "Intel Xeon E-2224",
+"samples": 16,
+"specrate_int": 27.4
+},
+"intel xeon e-2224g": {
+"model": "Intel Xeon E-2224G",
+"samples": 13,
+"specrate_int": 29.6
+},
+"intel xeon e-2226g": {
+"model": "Intel Xeon E-2226G",
+"samples": 17,
+"specrate_int": 40.3
+},
+"intel xeon e-2234": {
+"model": "Intel Xeon E-2234",
+"samples": 13,
+"specrate_int": 35.3
+},
+"intel xeon e-2236": {
+"model": "Intel Xeon E-2236",
+"samples": 14,
+"specrate_int": 46.5
+},
+"intel xeon e-2244g": {
+"model": "Intel Xeon E-2244G",
+"samples": 12,
+"specrate_int": 35.1
+},
+"intel xeon e-2246g": {
+"model": "Intel Xeon E-2246G",
+"samples": 13,
+"specrate_int": 45.8
+},
+"intel xeon e-2274g": {
+"model": "Intel Xeon E-2274G",
+"samples": 13,
+"specrate_int": 35.0
+},
+"intel xeon e-2276g": {
+"model": "Intel Xeon E-2276G",
+"samples": 10,
+"specrate_int": 47.8
+},
+"intel xeon e-2278g": {
+"model": "Intel Xeon E-2278G",
+"samples": 10,
+"specrate_int": 56.6
+},
+"intel xeon e-2286g": {
+"model": "Intel Xeon E-2286G",
+"samples": 11,
+"specrate_int": 48.1
+},
+"intel xeon e-2288g": {
+"model": "Intel Xeon E-2288G",
+"samples": 15,
+"specrate_int": 58.0
+},
+"intel xeon e-2314": {
+"model": "Intel Xeon E-2314",
+"samples": 10,
+"specrate_int": 29.6
+},
+"intel xeon e-2324g": {
+"model": "Intel Xeon E-2324G",
+"samples": 10,
+"specrate_int": 34.8
+},
+"intel xeon e-2334": {
+"model": "Intel Xeon E-2334",
+"samples": 11,
+"specrate_int": 40.8
+},
+"intel xeon e-2336": {
+"model": "Intel Xeon E-2336",
+"samples": 10,
+"specrate_int": 53.8
+},
+"intel xeon e-2356g": {
+"model": "Intel Xeon E-2356G",
+"samples": 12,
+"specrate_int": 55.5
+},
+"intel xeon e-2374g": {
+"model": "Intel Xeon E-2374G",
+"samples": 9,
+"specrate_int": 43.1
+},
+"intel xeon e-2378": {
+"model": "Intel Xeon E-2378",
+"samples": 9,
+"specrate_int": 62.1
+},
+"intel xeon e-2378g": {
+"model": "Intel Xeon E-2378G",
+"samples": 13,
+"specrate_int": 66.5
+},
+"intel xeon e-2386g": {
+"model": "Intel Xeon E-2386G",
+"samples": 9,
+"specrate_int": 58.7
+},
+"intel xeon e-2388g": {
+"model": "Intel Xeon E-2388G",
+"samples": 17,
+"specrate_int": 69.7
+},
+"intel xeon e-2414": {
+"model": "Intel Xeon E-2414",
+"samples": 13,
+"specrate_int": 40.2
+},
+"intel xeon e-2434": {
+"model": "Intel Xeon E-2434",
+"samples": 14,
+"specrate_int": 50.8
+},
+"intel xeon e-2436": {
+"model": "Intel Xeon E-2436",
+"samples": 14,
+"specrate_int": 70.5
+},
+"intel xeon e-2456": {
+"model": "Intel Xeon E-2456",
+"samples": 12,
+"specrate_int": 72.9
+},
+"intel xeon e-2468": {
+"model": "Intel Xeon E-2468",
+"samples": 14,
+"specrate_int": 85.4
+},
+"intel xeon e-2478": {
+"model": "Intel Xeon E-2478",
+"samples": 11,
+"specrate_int": 92.3
+},
+"intel xeon e-2486": {
+"model": "Intel Xeon E-2486",
+"samples": 11,
+"specrate_int": 77.5
+},
+"intel xeon e-2488": {
+"model": "Intel Xeon E-2488",
+"samples": 15,
+"specrate_int": 96.1
+},
+"intel xeon e3-1220 v6": {
+"model": "Intel Xeon E3-1220 v6",
+"samples": 4,
+"specrate_int": 20.7
+},
+"intel xeon e3-1225 v6": {
+"model": "Intel Xeon E3-1225 v6",
+"samples": 5,
+"specrate_int": 21.7
+},
+"intel xeon e3-1230 v6": {
+"model": "Intel Xeon E3-1230 v6",
+"samples": 5,
+"specrate_int": 27.1
+},
+"intel xeon e3-1240 v6": {
+"model": "Intel Xeon E3-1240 v6",
+"samples": 1,
+"specrate_int": 28.5
+},
+"intel xeon e3-1240l v5": {
+"model": "Intel Xeon E3-1240L v5",
+"samples": 2,
+"specrate_int": 21.3
+},
+"intel xeon e3-1260l v5": {
+"model": "Intel Xeon E3-1260L v5",
+"samples": 2,
+"specrate_int": 26.2
+},
+"intel xeon e3-1270 v6": {
+"model": "Intel Xeon E3-1270 v6",
+"samples": 4,
+"specrate_int": 28.9
+},
+"intel xeon e3-1275 v6": {
+"model": "Intel Xeon E3-1275 v6",
+"samples": 1,
+"specrate_int": 27.7
+},
+"intel xeon e3-1280 v6": {
+"model": "Intel Xeon E3-1280 v6",
+"samples": 1,
+"specrate_int": 29.0
+},
+"intel xeon e5-2620": {
+"model": "Intel Xeon E5-2620",
+"samples": 1,
+"specrate_int": 18.8
+},
+"intel xeon e5-2620 v2": {
+"model": "Intel Xeon E5-2620 v2",
+"samples": 1,
+"specrate_int": 22.7
+},
+"intel xeon e5-2620 v3": {
+"model": "Intel Xeon E5-2620 v3",
+"samples": 1,
+"specrate_int": 33.5
+},
+"intel xeon e5-2620 v4": {
+"model": "Intel Xeon E5-2620 v4",
+"samples": 9,
+"specrate_int": 32.3
+},
+"intel xeon e5-2650 v4": {
+"model": "Intel Xeon E5-2650 v4",
+"samples": 2,
+"specrate_int": 52.5
+},
+"intel xeon e5-2670": {
+"model": "Intel Xeon E5-2670",
+"samples": 1,
+"specrate_int": 32.9
+},
+"intel xeon e5-2670 v2": {
+"model": "Intel Xeon E5-2670 v2",
+"samples": 1,
+"specrate_int": 42.0
+},
+"intel xeon e5-2680 v3": {
+"model": "Intel Xeon E5-2680 v3",
+"samples": 1,
+"specrate_int": 63.5
+},
+"intel xeon e5-2680 v4": {
+"model": "Intel Xeon E5-2680 v4",
+"samples": 1,
+"specrate_int": 74.5
+},
+"intel xeon e5-2698 v4": {
+"model": "Intel Xeon E5-2698 v4",
+"samples": 1,
+"specrate_int": 71.5
+},
+"intel xeon e5-2699a v4": {
+"model": "Intel Xeon E5-2699A v4",
+"samples": 3,
+"specrate_int": 87.5
+},
+"intel xeon e7-4850 v4": {
+"model": "Intel Xeon E7-4850 v4",
+"samples": 2,
+"specrate_int": 54.4
+},
+"intel xeon e7-8890 v4": {
+"model": "Intel Xeon E7-8890 v4",
+"samples": 3,
+"specrate_int": 78.9
+},
+"intel xeon gold 5115": {
+"model": "Intel Xeon Gold 5115",
+"samples": 60,
+"specrate_int": 50.7
+},
+"intel xeon gold 5117": {
+"model": "Intel Xeon Gold 5117",
+"samples": 29,
+"specrate_int": 61.2
+},
+"intel xeon gold 5118": {
+"model": "Intel Xeon Gold 5118",
+"samples": 77,
+"specrate_int": 59.8
+},
+"intel xeon gold 5119t": {
+"model": "Intel Xeon Gold 5119T",
+"samples": 12,
+"specrate_int": 60.2
+},
+"intel xeon gold 5120": {
+"model": "Intel Xeon Gold 5120",
+"samples": 77,
+"specrate_int": 67.2
+},
+"intel xeon gold 5120t": {
+"model": "Intel Xeon Gold 5120T",
+"samples": 19,
+"specrate_int": 67.2
+},
+"intel xeon gold 5122": {
+"model": "Intel Xeon Gold 5122",
+"samples": 70,
+"specrate_int": 28.0
+},
+"intel xeon gold 5215": {
+"model": "Intel Xeon Gold 5215",
+"samples": 52,
+"specrate_int": 59.8
+},
+"intel xeon gold 5215l": {
+"model": "Intel Xeon Gold 5215L",
+"samples": 29,
+"specrate_int": 59.6
+},
+"intel xeon gold 5215m": {
+"model": "Intel Xeon Gold 5215M",
+"samples": 31,
+"specrate_int": 59.6
+},
+"intel xeon gold 5217": {
+"model": "Intel Xeon Gold 5217",
+"samples": 46,
+"specrate_int": 53.9
+},
+"intel xeon gold 5218": {
+"model": "Intel Xeon Gold 5218",
+"samples": 74,
+"specrate_int": 91.5
+},
+"intel xeon gold 5218b": {
+"model": "Intel Xeon Gold 5218B",
+"samples": 25,
+"specrate_int": 92.1
+},
+"intel xeon gold 5218n": {
+"model": "Intel Xeon Gold 5218N",
+"samples": 31,
+"specrate_int": 88.9
+},
+"intel xeon gold 5218r": {
+"model": "Intel Xeon Gold 5218R",
+"samples": 56,
+"specrate_int": 114.0
+},
+"intel xeon gold 5218t": {
+"model": "Intel Xeon Gold 5218T",
+"samples": 14,
+"specrate_int": 87.9
+},
+"intel xeon gold 5220": {
+"model": "Intel Xeon Gold 5220",
+"samples": 68,
+"specrate_int": 100.1
+},
+"intel xeon gold 5220r": {
+"model": "Intel Xeon Gold 5220R",
+"samples": 41,
+"specrate_int": 140.1
+},
+"intel xeon gold 5220s": {
+"model": "Intel Xeon Gold 5220S",
+"samples": 30,
+"specrate_int": 100.7
+},
+"intel xeon gold 5220t": {
+"model": "Intel Xeon Gold 5220T",
+"samples": 16,
+"specrate_int": 95.2
+},
+"intel xeon gold 5222": {
+"model": "Intel Xeon Gold 5222",
+"samples": 59,
+"specrate_int": 32.3
+},
+"intel xeon gold 5315y": {
+"model": "Intel Xeon Gold 5315Y",
+"samples": 39,
+"specrate_int": 68.5
+},
+"intel xeon gold 5317": {
+"model": "Intel Xeon Gold 5317",
+"samples": 44,
+"specrate_int": 101.3
+},
+"intel xeon gold 5318h": {
+"model": "Intel Xeon Gold 5318H",
+"samples": 8,
+"specrate_int": 124.3
+},
+"intel xeon gold 5318n": {
+"model": "Intel Xeon Gold 5318N",
+"samples": 29,
+"specrate_int": 161.3
+},
+"intel xeon gold 5318s": {
+"model": "Intel Xeon Gold 5318S",
+"samples": 21,
+"specrate_int": 159.1
+},
+"intel xeon gold 5318y": {
+"model": "Intel Xeon Gold 5318Y",
+"samples": 46,
+"specrate_int": 159.7
+},
+"intel xeon gold 5320": {
+"model": "Intel Xeon Gold 5320",
+"samples": 49,
+"specrate_int": 181.2
+},
+"intel xeon gold 5320h": {
+"model": "Intel Xeon Gold 5320H",
+"samples": 9,
+"specrate_int": 137.1
+},
+"intel xeon gold 5320t": {
+"model": "Intel Xeon Gold 5320T",
+"samples": 23,
+"specrate_int": 144.2
+},
+"intel xeon gold 5411n": {
+"model": "Intel Xeon Gold 5411N",
+"samples": 18,
+"specrate_int": 211.3
+},
+"intel xeon gold 5412u": {
+"model": "Intel Xeon Gold 5412U",
+"samples": 22,
+"specrate_int": 219.0
+},
+"intel xeon gold 5415+": {
+"model": "Intel Xeon Gold 5415+",
+"samples": 31,
+"specrate_int": 88.8
+},
+"intel xeon gold 5416s": {
+"model": "Intel Xeon Gold 5416S",
+"samples": 35,
+"specrate_int": 141.5
+},
+"intel xeon gold 5418n": {
+"model": "Intel Xeon Gold 5418N",
+"samples": 23,
+"specrate_int": 196.3
+},
+"intel xeon gold 5418y": {
+"model": "Intel Xeon Gold 5418Y",
+"samples": 40,
+"specrate_int": 208.9
+},
+"intel xeon gold 5420+": {
+"model": "Intel Xeon Gold 5420+",
+"samples": 34,
+"specrate_int": 236.2
+},
+"intel xeon gold 5423n": {
+"model": "Intel Xeon Gold 5423N",
+"samples": 5,
+"specrate_int": 171.8
+},
+"intel xeon gold 5433n": {
+"model": "Intel Xeon Gold 5433N",
+"samples": 2,
+"specrate_int": 183.0
+},
+"intel xeon gold 5512u": {
+"model": "Intel Xeon Gold 5512U",
+"samples": 29,
+"specrate_int": 255.4
+},
+"intel xeon gold 5515+": {
+"model": "Intel Xeon Gold 5515+",
+"samples": 24,
+"specrate_int": 89.5
+},
+"intel xeon gold 5520+": {
+"model": "Intel Xeon Gold 5520+",
+"samples": 39,
+"specrate_int": 255.4
+},
+"intel xeon gold 6126": {
+"model": "Intel Xeon Gold 6126",
+"samples": 53,
+"specrate_int": 68.9
+},
+"intel xeon gold 6126f": {
+"model": "Intel Xeon Gold 6126F",
+"samples": 1,
+"specrate_int": 70.0
+},
+"intel xeon gold 6126t": {
+"model": "Intel Xeon Gold 6126T",
+"samples": 17,
+"specrate_int": 69.5
+},
+"intel xeon gold 6128": {
+"model": "Intel Xeon Gold 6128",
+"samples": 53,
+"specrate_int": 41.2
+},
+"intel xeon gold 6130": {
+"model": "Intel Xeon Gold 6130",
+"samples": 74,
+"specrate_int": 80.0
+},
+"intel xeon gold 6130f": {
+"model": "Intel Xeon Gold 6130F",
+"samples": 1,
+"specrate_int": 81.0
+},
+"intel xeon gold 6130t": {
+"model": "Intel Xeon Gold 6130T",
+"samples": 24,
+"specrate_int": 81.2
+},
+"intel xeon gold 6132": {
+"model": "Intel Xeon Gold 6132",
+"samples": 60,
+"specrate_int": 79.4
+},
+"intel xeon gold 6134": {
+"model": "Intel Xeon Gold 6134",
+"samples": 52,
+"specrate_int": 53.7
+},
+"intel xeon gold 6134m": {
+"model": "Intel Xeon Gold 6134M",
+"samples": 19,
+"specrate_int": 54.3
+},
+"intel xeon gold 6136": {
+"model": "Intel Xeon Gold 6136",
+"samples": 52,
+"specrate_int": 74.8
+},
+"intel xeon gold 6137": {
+"model": "Intel Xeon Gold 6137",
+"samples": 3,
+"specrate_int": 58.8
+},
+"intel xeon gold 6138": {
+"model": "Intel Xeon Gold 6138",
+"samples": 55,
+"specrate_int": 93.4
+},
+"intel xeon gold 6138f": {
+"model": "Intel Xeon Gold 6138F",
+"samples": 1,
+"specrate_int": 96.0
+},
+"intel xeon gold 6138t": {
+"model": "Intel Xeon Gold 6138T",
+"samples": 14,
+"specrate_int": 92.2
+},
+"intel xeon gold 6140": {
+"model": "Intel Xeon Gold 6140",
+"samples": 69,
+"specrate_int": 93.3
+},
+"intel xeon gold 6140m": {
+"model": "Intel Xeon Gold 6140M",
+"samples": 21,
+"specrate_int": 93.1
+},
+"intel xeon gold 6142": {
+"model": "Intel Xeon Gold 6142",
+"samples": 54,
+"specrate_int": 89.6
+},
+"intel xeon gold 6142f": {
+"model": "Intel Xeon Gold 6142F",
+"samples": 1,
+"specrate_int": 90.5
+},
+"intel xeon gold 6142m": {
+"model": "Intel Xeon Gold 6142M",
+"samples": 14,
+"specrate_int": 89.1
+},
+"intel xeon gold 6143": {
+"model": "Intel Xeon Gold 6143",
+"samples": 4,
+"specrate_int": 97.8
+},
+"intel xeon gold 6144": {
+"model": "Intel Xeon Gold 6144",
+"samples": 39,
+"specrate_int": 56.7
+},
+"intel xeon gold 6146": {
+"model": "Intel Xeon Gold 6146",
+"samples": 35,
+"specrate_int": 78.0
+},
+"intel xeon gold 6148": {
+"model": "Intel Xeon Gold 6148",
+"samples": 53,
+"specrate_int": 103.1
+},
+"intel xeon gold 6148f": {
+"model": "Intel Xeon Gold 6148F",
+"samples": 1,
+"specrate_int": 104.0
+},
+"intel xeon gold 6150": {
+"model": "Intel Xeon Gold 6150",
+"samples": 47,
+"specrate_int": 100.5
+},
+"intel xeon gold 6152": {
+"model": "Intel Xeon Gold 6152",
+"samples": 57,
+"specrate_int": 102.9
+},
+"intel xeon gold 6154": {
+"model": "Intel Xeon Gold 6154",
+"samples": 47,
+"specrate_int": 105.8
+},
+"intel xeon gold 6208u": {
+"model": "Intel Xeon Gold 6208U",
+"samples": 13,
+"specrate_int": 111.1
+},
+"intel xeon gold 6209u": {
+"model": "Intel Xeon Gold 6209U",
+"samples": 8,
+"specrate_int": 114.9
+},
+"intel xeon gold 6210u": {
+"model": "Intel Xeon Gold 6210U",
+"samples": 10,
+"specrate_int": 121.9
+},
+"intel xeon gold 6212u": {
+"model": "Intel Xeon Gold 6212U",
+"samples": 9,
+"specrate_int": 139.7
+},
+"intel xeon gold 6222v": {
+"model": "Intel Xeon Gold 6222V",
+"samples": 36,
+"specrate_int": 99.3
+},
+"intel xeon gold 6226": {
+"model": "Intel Xeon Gold 6226",
+"samples": 45,
+"specrate_int": 81.4
+},
+"intel xeon gold 6226r": {
+"model": "Intel Xeon Gold 6226R",
+"samples": 45,
+"specrate_int": 111.5
+},
+"intel xeon gold 6230": {
+"model": "Intel Xeon Gold 6230",
+"samples": 73,
+"specrate_int": 110.3
+},
+"intel xeon gold 6230n": {
+"model": "Intel Xeon Gold 6230N",
+"samples": 32,
+"specrate_int": 112.4
+},
+"intel xeon gold 6230r": {
+"model": "Intel Xeon Gold 6230R",
+"samples": 38,
+"specrate_int": 145.4
+},
+"intel xeon gold 6230t": {
+"model": "Intel Xeon Gold 6230T",
+"samples": 20,
+"specrate_int": 109.5
+},
+"intel xeon gold 6234": {
+"model": "Intel Xeon Gold 6234",
+"samples": 45,
+"specrate_int": 63.0
+},
+"intel xeon gold 6238": {
+"model": "Intel Xeon Gold 6238",
+"samples": 36,
+"specrate_int": 122.0
+},
+"intel xeon gold 6238l": {
+"model": "Intel Xeon Gold 6238L",
+"samples": 24,
+"specrate_int": 123.1
+},
+"intel xeon gold 6238m": {
+"model": "Intel Xeon Gold 6238M",
+"samples": 22,
+"specrate_int": 122.6
+},
+"intel xeon gold 6238r": {
+"model": "Intel Xeon Gold 6238R",
+"samples": 35,
+"specrate_int": 156.5
+},
+"intel xeon gold 6238t": {
+"model": "Intel Xeon Gold 6238T",
+"samples": 24,
+"specrate_int": 114.5
+},
+"intel xeon gold 6240": {
+"model": "Intel Xeon Gold 6240",
+"samples": 69,
+"specrate_int": 112.1
+},
+"intel xeon gold 6240l": {
+"model": "Intel Xeon Gold 6240L",
+"samples": 27,
+"specrate_int": 112.0
+},
+"intel xeon gold 6240m": {
+"model": "Intel Xeon Gold 6240M",
+"samples": 26,
+"specrate_int": 111.9
+},
+"intel xeon gold 6240r": {
+"model": "Intel Xeon Gold 6240R",
+"samples": 40,
+"specrate_int": 147.8
+},
+"intel xeon gold 6240y": {
+"model": "Intel Xeon Gold 6240Y",
+"samples": 22,
+"specrate_int": 111.4
+},
+"intel xeon gold 6242": {
+"model": "Intel Xeon Gold 6242",
+"samples": 55,
+"specrate_int": 105.0
+},
+"intel xeon gold 6242r": {
+"model": "Intel Xeon Gold 6242R",
+"samples": 26,
+"specrate_int": 143.0
+},
+"intel xeon gold 6244": {
+"model": "Intel Xeon Gold 6244",
+"samples": 55,
+"specrate_int": 66.9
+},
+"intel xeon gold 6246": {
+"model": "Intel Xeon Gold 6246",
+"samples": 33,
+"specrate_int": 91.4
+},
+"intel xeon gold 6246r": {
+"model": "Intel Xeon Gold 6246R",
+"samples": 29,
+"specrate_int": 127.5
+},
+"intel xeon gold 6248": {
+"model": "Intel Xeon Gold 6248",
+"samples": 77,
+"specrate_int": 121.9
+},
+"intel xeon gold 6248r": {
+"model": "Intel Xeon Gold 6248R",
+"samples": 40,
+"specrate_int": 163.4
+},
+"intel xeon gold 6250": {
+"model": "Intel Xeon Gold 6250",
+"samples": 10,
+"specrate_int": 73.3
+},
+"intel xeon gold 6252": {
+"model": "Intel Xeon Gold 6252",
+"samples": 62,
+"specrate_int": 132.3
+},
+"intel xeon gold 6252n": {
+"model": "Intel Xeon Gold 6252N",
+"samples": 36,
+"specrate_int": 139.6
+},
+"intel xeon gold 6254": {
+"model": "Intel Xeon Gold 6254",
+"samples": 45,
+"specrate_int": 126.3
+},
+"intel xeon gold 6254 ds4a0tr-28r": {
+"model": "Intel Xeon Gold 6254) DS4A0TR-28R",
+"samples": 1,
+"specrate_int": 115.0
+},
+"intel xeon gold 6256": {
+"model": "Intel Xeon Gold 6256",
+"samples": 16,
+"specrate_int": 102.2
+},
+"intel xeon gold 6258r": {
+"model": "Intel Xeon Gold 6258R",
+"samples": 38,
+"specrate_int": 173.7
+},
+"intel xeon gold 6262v": {
+"model": "Intel Xeon Gold 6262V",
+"samples": 32,
+"specrate_int": 120.4
+},
+"intel xeon gold 6312u": {
+"model": "Intel Xeon Gold 6312U",
+"samples": 23,
+"specrate_int": 182.7
+},
+"intel xeon gold 6314u": {
+"model": "Intel Xeon Gold 6314U",
+"samples": 27,
+"specrate_int": 224.1
+},
+"intel xeon gold 6326": {
+"model": "Intel Xeon Gold 6326",
+"samples": 53,
+"specrate_int": 131.6
+},
+"intel xeon gold 6328h": {
+"model": "Intel Xeon Gold 6328H",
+"samples": 4,
+"specrate_int": 125.2
+},
+"intel xeon gold 6328hl": {
+"model": "Intel Xeon Gold 6328HL",
+"samples": 10,
+"specrate_int": 120.9
+},
+"intel xeon gold 6330": {
+"model": "Intel Xeon Gold 6330",
+"samples": 48,
+"specrate_int": 182.9
+},
+"intel xeon gold 6330h": {
+"model": "Intel Xeon Gold 6330H",
+"samples": 9,
+"specrate_int": 145.4
+},
+"intel xeon gold 6330n": {
+"model": "Intel Xeon Gold 6330N",
+"samples": 41,
+"specrate_int": 176.4
+},
+"intel xeon gold 6334": {
+"model": "Intel Xeon Gold 6334",
+"samples": 37,
+"specrate_int": 73.8
+},
+"intel xeon gold 6336y": {
+"model": "Intel Xeon Gold 6336Y",
+"samples": 38,
+"specrate_int": 176.9
+},
+"intel xeon gold 6338": {
+"model": "Intel Xeon Gold 6338",
+"samples": 51,
+"specrate_int": 205.7
+},
+"intel xeon gold 6338n": {
+"model": "Intel Xeon Gold 6338N",
+"samples": 46,
+"specrate_int": 204.9
+},
+"intel xeon gold 6338t": {
+"model": "Intel Xeon Gold 6338T",
+"samples": 23,
+"specrate_int": 164.5
+},
+"intel xeon gold 6342": {
+"model": "Intel Xeon Gold 6342",
+"samples": 43,
+"specrate_int": 188.6
+},
+"intel xeon gold 6346": {
+"model": "Intel Xeon Gold 6346",
+"samples": 39,
+"specrate_int": 142.5
+},
+"intel xeon gold 6348": {
+"model": "Intel Xeon Gold 6348",
+"samples": 55,
+"specrate_int": 212.8
+},
+"intel xeon gold 6348h": {
+"model": "Intel Xeon Gold 6348H",
+"samples": 16,
+"specrate_int": 156.4
+},
+"intel xeon gold 6354": {
+"model": "Intel Xeon Gold 6354",
+"samples": 38,
+"specrate_int": 155.0
+},
+"intel xeon gold 6403n": {
+"model": "Intel Xeon Gold 6403N",
+"samples": 3,
+"specrate_int": 202.7
+},
+"intel xeon gold 6414u": {
+"model": "Intel Xeon Gold 6414U",
+"samples": 20,
+"specrate_int": 263.0
+},
+"intel xeon gold 6416h": {
+"model": "Intel Xeon Gold 6416H",
+"samples": 36,
+"specrate_int": 165.5
+},
+"intel xeon gold 6418h": {
+"model": "Intel Xeon Gold 6418H",
+"samples": 37,
+"specrate_int": 218.3
+},
+"intel xeon gold 6421n": {
+"model": "Intel Xeon Gold 6421N",
+"samples": 17,
+"specrate_int": 261.8
+},
+"intel xeon gold 6423n": {
+"model": "Intel Xeon Gold 6423N",
+"samples": 3,
+"specrate_int": 235.0
+},
+"intel xeon gold 6426y": {
+"model": "Intel Xeon Gold 6426Y",
+"samples": 41,
+"specrate_int": 163.9
+},
+"intel xeon gold 6428n": {
+"model": "Intel Xeon Gold 6428N",
+"samples": 19,
+"specrate_int": 250.3
+},
+"intel xeon gold 6430": {
+"model": "Intel Xeon Gold 6430",
+"samples": 43,
+"specrate_int": 258.6
+},
+"intel xeon gold 6433n": {
+"model": "Intel Xeon Gold 6433N",
+"samples": 5,
+"specrate_int": 255.4
+},
+"intel xeon gold 6434": {
+"model": "Intel Xeon Gold 6434",
+"samples": 28,
+"specrate_int": 98.9
+},
+"intel xeon gold 6434h": {
+"model": "Intel Xeon Gold 6434H",
+"samples": 20,
+"specrate_int": 100.2
+},
+"intel xeon gold 6438m": {
+"model": "Intel Xeon Gold 6438M",
+"samples": 23,
+"specrate_int": 275.7
+},
+"intel xeon gold 6438n": {
+"model": "Intel Xeon Gold 6438N",
+"samples": 20,
+"specrate_int": 270.0
+},
+"intel xeon gold 6438y+": {
+"model": "Intel Xeon Gold 6438Y+",
+"samples": 34,
+"specrate_int": 273.1
+},
+"intel xeon gold 6442y": {
+"model": "Intel Xeon Gold 6442Y",
+"samples": 42,
+"specrate_int": 241.8
+},
+"intel xeon gold 6443n": {
+"model": "Intel Xeon Gold 6443N",
+"samples": 3,
+"specrate_int": 266.3
+},
+"intel xeon gold 6444y": {
+"model": "Intel Xeon Gold 6444Y",
+"samples": 32,
+"specrate_int": 191.4
+},
+"intel xeon gold 6448h": {
+"model": "Intel Xeon Gold 6448H",
+"samples": 32,
+"specrate_int": 301.7
+},
+"intel xeon gold 6448y": {
+"model": "Intel Xeon Gold 6448Y",
+"samples": 39,
+"specrate_int": 288.7
+},
+"intel xeon gold 6454s": {
+"model": "Intel Xeon Gold 6454S",
+"samples": 26,
+"specrate_int": 276.9
+},
+"intel xeon gold 6458q": {
+"model": "Intel Xeon Gold 6458Q",
+"samples": 12,
+"specrate_int": 352.9
+},
+"intel xeon gold 6526y": {
+"model": "Intel Xeon Gold 6526Y",
+"samples": 50,
+"specrate_int": 170.6
+},
+"intel xeon gold 6530": {
+"model": "Intel Xeon Gold 6530",
+"samples": 38,
+"specrate_int": 274.1
+},
+"intel xeon gold 6534": {
+"model": "Intel Xeon Gold 6534",
+"samples": 34,
+"specrate_int": 99.3
+},
+"intel xeon gold 6538n": {
+"model": "Intel Xeon Gold 6538N",
+"samples": 17,
+"specrate_int": 281.1
+},
+"intel xeon gold 6538y+": {
+"model": "Intel Xeon Gold 6538Y+",
+"samples": 29,
+"specrate_int": 308.3
+},
+"intel xeon gold 6542y": {
+"model": "Intel Xeon Gold 6542Y",
+"samples": 41,
+"specrate_int": 256.0
+},
+"intel xeon gold 6544y": {
+"model": "Intel Xeon Gold 6544Y",
+"samples": 41,
+"specrate_int": 195.2
+},
+"intel xeon gold 6548n": {
+"model": "Intel Xeon Gold 6548N",
+"samples": 30,
+"specrate_int": 323.1
+},
+"intel xeon gold 6548y+": {
+"model": "Intel Xeon Gold 6548Y+",
+"samples": 52,
+"specrate_int": 322.8
+},
+"intel xeon gold 6554s": {
+"model": "Intel Xeon Gold 6554S",
+"samples": 21,
+"specrate_int": 329.7
+},
+"intel xeon gold 6558q": {
+"model": "Intel Xeon Gold 6558Q",
+"samples": 6,
+"specrate_int": 355.8
+},
+"intel xeon max 9460": {
+"model": "Intel Xeon Max 9460",
+"samples": 2,
+"specrate_int": 336.8
+},
+"intel xeon max 9462": {
+"model": "Intel Xeon Max 9462",
+"samples": 5,
+"specrate_int": 301.3
+},
+"intel xeon max 9468": {
+"model": "Intel Xeon Max 9468",
+"samples": 3,
+"specrate_int": 385.8
+},
+"intel xeon max 9470": {
+"model": "Intel Xeon Max 9470",
+"samples": 4,
+"specrate_int": 410.4
+},
+"intel xeon max 9480": {
+"model": "Intel Xeon Max 9480",
+"samples": 5,
+"specrate_int": 443.9
+},
+"intel xeon platinum 8153": {
+"model": "Intel Xeon Platinum 8153",
+"samples": 56,
+"specrate_int": 70.8
+},
+"intel xeon platinum 8156": {
+"model": "Intel Xeon Platinum 8156",
+"samples": 46,
+"specrate_int": 28.0
+},
+"intel xeon platinum 8158": {
+"model": "Intel Xeon Platinum 8158",
+"samples": 36,
+"specrate_int": 75.5
+},
+"intel xeon platinum 8160": {
+"model": "Intel Xeon Platinum 8160",
+"samples": 66,
+"specrate_int": 112.4
+},
+"intel xeon platinum 8160f": {
+"model": "Intel Xeon Platinum 8160F",
+"samples": 1,
+"specrate_int": 115.5
+},
+"intel xeon platinum 8160m": {
+"model": "Intel Xeon Platinum 8160M",
+"samples": 21,
+"specrate_int": 115.8
+},
+"intel xeon platinum 8160t": {
+"model": "Intel Xeon Platinum 8160T",
+"samples": 10,
+"specrate_int": 112.2
+},
+"intel xeon platinum 8164": {
+"model": "Intel Xeon Platinum 8164",
+"samples": 50,
+"specrate_int": 116.4
+},
+"intel xeon platinum 8165": {
+"model": "Intel Xeon Platinum 8165",
+"samples": 3,
+"specrate_int": 121.6
+},
+"intel xeon platinum 8168": {
+"model": "Intel Xeon Platinum 8168",
+"samples": 48,
+"specrate_int": 129.2
+},
+"intel xeon platinum 8170": {
+"model": "Intel Xeon Platinum 8170",
+"samples": 49,
+"specrate_int": 120.0
+},
+"intel xeon platinum 8170m": {
+"model": "Intel Xeon Platinum 8170M",
+"samples": 18,
+"specrate_int": 122.0
+},
+"intel xeon platinum 8176": {
+"model": "Intel Xeon Platinum 8176",
+"samples": 53,
+"specrate_int": 127.1
+},
+"intel xeon platinum 8176f": {
+"model": "Intel Xeon Platinum 8176F",
+"samples": 1,
+"specrate_int": 122.5
+},
+"intel xeon platinum 8176m": {
+"model": "Intel Xeon Platinum 8176M",
+"samples": 19,
+"specrate_int": 127.2
+},
+"intel xeon platinum 8180": {
+"model": "Intel Xeon Platinum 8180",
+"samples": 68,
+"specrate_int": 142.7
+},
+"intel xeon platinum 8180m": {
+"model": "Intel Xeon Platinum 8180M",
+"samples": 20,
+"specrate_int": 137.9
+},
+"intel xeon platinum 8253": {
+"model": "Intel Xeon Platinum 8253",
+"samples": 43,
+"specrate_int": 83.7
+},
+"intel xeon platinum 8256": {
+"model": "Intel Xeon Platinum 8256",
+"samples": 36,
+"specrate_int": 32.5
+},
+"intel xeon platinum 8260": {
+"model": "Intel Xeon Platinum 8260",
+"samples": 47,
+"specrate_int": 141.4
+},
+"intel xeon platinum 8260l": {
+"model": "Intel Xeon Platinum 8260L",
+"samples": 30,
+"specrate_int": 139.9
+},
+"intel xeon platinum 8260m": {
+"model": "Intel Xeon Platinum 8260M",
+"samples": 31,
+"specrate_int": 137.3
+},
+"intel xeon platinum 8260y": {
+"model": "Intel Xeon Platinum 8260Y",
+"samples": 25,
+"specrate_int": 140.2
+},
+"intel xeon platinum 8268": {
+"model": "Intel Xeon Platinum 8268",
+"samples": 46,
+"specrate_int": 153.2
+},
+"intel xeon platinum 8270": {
+"model": "Intel Xeon Platinum 8270",
+"samples": 48,
+"specrate_int": 158.5
+},
+"intel xeon platinum 8274": {
+"model": "Intel Xeon Platinum 8274",
+"samples": 1,
+"specrate_int": 156.5
+},
+"intel xeon platinum 8276": {
+"model": "Intel Xeon Platinum 8276",
+"samples": 44,
+"specrate_int": 149.6
+},
+"intel xeon platinum 8276l": {
+"model": "Intel Xeon Platinum 8276L",
+"samples": 43,
+"specrate_int": 154.4
+},
+"intel xeon platinum 8276m": {
+"model": "Intel Xeon Platinum 8276M",
+"samples": 30,
+"specrate_int": 148.0
+},
+"intel xeon platinum 8280": {
+"model": "Intel Xeon Platinum 8280",
+"samples": 77,
+"specrate_int": 168.8
+},
+"intel xeon platinum 8280l": {
+"model": "Intel Xeon Platinum 8280L",
+"samples": 33,
+"specrate_int": 166.6
+},
+"intel xeon platinum 8280m": {
+"model": "Intel Xeon Platinum 8280M",
+"samples": 24,
+"specrate_int": 166.8
+},
+"intel xeon platinum 8351n": {
+"model": "Intel Xeon Platinum 8351N",
+"samples": 22,
+"specrate_int": 245.1
+},
+"intel xeon platinum 8352m": {
+"model": "Intel Xeon Platinum 8352M",
+"samples": 21,
+"specrate_int": 210.0
+},
+"intel xeon platinum 8352s": {
+"model": "Intel Xeon Platinum 8352S",
+"samples": 23,
+"specrate_int": 216.6
+},
+"intel xeon platinum 8352v": {
+"model": "Intel Xeon Platinum 8352V",
+"samples": 29,
+"specrate_int": 219.7
+},
+"intel xeon platinum 8352y": {
+"model": "Intel Xeon Platinum 8352Y",
+"samples": 36,
+"specrate_int": 217.2
+},
+"intel xeon platinum 8353h": {
+"model": "Intel Xeon Platinum 8353H",
+"samples": 3,
+"specrate_int": 126.5
+},
+"intel xeon platinum 8354h": {
+"model": "Intel Xeon Platinum 8354H",
+"samples": 7,
+"specrate_int": 140.0
+},
+"intel xeon platinum 8356h": {
+"model": "Intel Xeon Platinum 8356H",
+"samples": 5,
+"specrate_int": 75.0
+},
+"intel xeon platinum 8358": {
+"model": "Intel Xeon Platinum 8358",
+"samples": 35,
+"specrate_int": 238.6
+},
+"intel xeon platinum 8358p": {
+"model": "Intel Xeon Platinum 8358P",
+"samples": 28,
+"specrate_int": 230.9
+},
+"intel xeon platinum 8360h": {
+"model": "Intel Xeon Platinum 8360H",
+"samples": 7,
+"specrate_int": 174.4
+},
+"intel xeon platinum 8360hl": {
+"model": "Intel Xeon Platinum 8360HL",
+"samples": 3,
+"specrate_int": 174.8
+},
+"intel xeon platinum 8360y": {
+"model": "Intel Xeon Platinum 8360Y",
+"samples": 38,
+"specrate_int": 249.8
+},
+"intel xeon platinum 8362": {
+"model": "Intel Xeon Platinum 8362",
+"samples": 26,
+"specrate_int": 248.4
+},
+"intel xeon platinum 8368": {
+"model": "Intel Xeon Platinum 8368",
+"samples": 34,
+"specrate_int": 260.4
+},
+"intel xeon platinum 8368q": {
+"model": "Intel Xeon Platinum 8368Q",
+"samples": 18,
+"specrate_int": 270.5
+},
+"intel xeon platinum 8376h": {
+"model": "Intel Xeon Platinum 8376H",
+"samples": 11,
+"specrate_int": 188.6
+},
+"intel xeon platinum 8376hl": {
+"model": "Intel Xeon Platinum 8376HL",
+"samples": 11,
+"specrate_int": 180.5
+},
+"intel xeon platinum 8380": {
+"model": "Intel Xeon Platinum 8380",
+"samples": 55,
+"specrate_int": 275.3
+},
+"intel xeon platinum 8380h": {
+"model": "Intel Xeon Platinum 8380H",
+"samples": 11,
+"specrate_int": 200.5
+},
+"intel xeon platinum 8380hl": {
+"model": "Intel Xeon Platinum 8380HL",
+"samples": 12,
+"specrate_int": 194.6
+},
+"intel xeon platinum 8444h": {
+"model": "Intel Xeon Platinum 8444H",
+"samples": 24,
+"specrate_int": 163.3
+},
+"intel xeon platinum 8450h": {
+"model": "Intel Xeon Platinum 8450H",
+"samples": 24,
+"specrate_int": 235.5
+},
+"intel xeon platinum 8452y": {
+"model": "Intel Xeon Platinum 8452Y",
+"samples": 30,
+"specrate_int": 305.8
+},
+"intel xeon platinum 8454h": {
+"model": "Intel Xeon Platinum 8454H",
+"samples": 27,
+"specrate_int": 270.2
+},
+"intel xeon platinum 8458p": {
+"model": "Intel Xeon Platinum 8458P",
+"samples": 26,
+"specrate_int": 401.9
+},
+"intel xeon platinum 8460h": {
+"model": "Intel Xeon Platinum 8460H",
+"samples": 21,
+"specrate_int": 368.8
+},
+"intel xeon platinum 8460y+": {
+"model": "Intel Xeon Platinum 8460Y+",
+"samples": 32,
+"specrate_int": 340.4
+},
+"intel xeon platinum 8461v": {
+"model": "Intel Xeon Platinum 8461V",
+"samples": 13,
+"specrate_int": 401.1
+},
+"intel xeon platinum 8462y+": {
+"model": "Intel Xeon Platinum 8462Y+",
+"samples": 29,
+"specrate_int": 333.7
+},
+"intel xeon platinum 8468": {
+"model": "Intel Xeon Platinum 8468",
+"samples": 32,
+"specrate_int": 422.4
+},
+"intel xeon platinum 8468h": {
+"model": "Intel Xeon Platinum 8468H",
+"samples": 23,
+"specrate_int": 411.7
+},
+"intel xeon platinum 8468v": {
+"model": "Intel Xeon Platinum 8468V",
+"samples": 25,
+"specrate_int": 403.3
+},
+"intel xeon platinum 8470": {
+"model": "Intel Xeon Platinum 8470",
+"samples": 30,
+"specrate_int": 436.7
+},
+"intel xeon platinum 8470n": {
+"model": "Intel Xeon Platinum 8470N",
+"samples": 21,
+"specrate_int": 405.6
+},
+"intel xeon platinum 8470q": {
+"model": "Intel Xeon Platinum 8470Q",
+"samples": 17,
+"specrate_int": 448.3
+},
+"intel xeon platinum 8471n": {
+"model": "Intel Xeon Platinum 8471N",
+"samples": 13,
+"specrate_int": 414.9
+},
+"intel xeon platinum 8480+": {
+"model": "Intel Xeon Platinum 8480+",
+"samples": 45,
+"specrate_int": 461.8
+},
+"intel xeon platinum 8480cl": {
+"model": "Intel Xeon Platinum 8480CL",
+"samples": 4,
+"specrate_int": 442.8
+},
+"intel xeon platinum 8490h": {
+"model": "Intel Xeon Platinum 8490H",
+"samples": 80,
+"specrate_int": 471.5
+},
+"intel xeon platinum 8558": {
+"model": "Intel Xeon Platinum 8558",
+"samples": 25,
+"specrate_int": 428.2
+},
+"intel xeon platinum 8558p": {
+"model": "Intel Xeon Platinum 8558P",
+"samples": 19,
+"specrate_int": 455.7
+},
+"intel xeon platinum 8558u": {
+"model": "Intel Xeon Platinum 8558U",
+"samples": 13,
+"specrate_int": 416.2
+},
+"intel xeon platinum 8562y+": {
+"model": "Intel Xeon Platinum 8562Y+",
+"samples": 37,
+"specrate_int": 343.6
+},
+"intel xeon platinum 8568+": {
+"model": "Intel Xeon Platinum 8568+",
+"samples": 1,
+"specrate_int": 408.5
+},
+"intel xeon platinum 8568y+": {
+"model": "Intel Xeon Platinum 8568Y+",
+"samples": 28,
+"specrate_int": 448.1
+},
+"intel xeon platinum 8570": {
+"model": "Intel Xeon Platinum 8570",
+"samples": 18,
+"specrate_int": 493.7
+},
+"intel xeon platinum 8571n": {
+"model": "Intel Xeon Platinum 8571N",
+"samples": 13,
+"specrate_int": 457.7
+},
+"intel xeon platinum 8580": {
+"model": "Intel Xeon Platinum 8580",
+"samples": 29,
+"specrate_int": 503.3
+},
+"intel xeon platinum 8581v": {
+"model": "Intel Xeon Platinum 8581V",
+"samples": 11,
+"specrate_int": 453.5
+},
+"intel xeon platinum 8592+": {
+"model": "Intel Xeon Platinum 8592+",
+"samples": 43,
+"specrate_int": 534.4
+},
+"intel xeon platinum 8592v": {
+"model": "Intel Xeon Platinum 8592V",
+"samples": 14,
+"specrate_int": 521.1
+},
+"intel xeon platinum 8593q": {
+"model": "Intel Xeon Platinum 8593Q",
+"samples": 5,
+"specrate_int": 546.0
+},
+"intel xeon silver 4108": {
+"model": "Intel Xeon Silver 4108",
+"samples": 53,
+"specrate_int": 32.7
+},
+"intel xeon silver 4109t": {
+"model": "Intel Xeon Silver 4109T",
+"samples": 34,
+"specrate_int": 35.3
+},
+"intel xeon silver 4110": {
+"model": "Intel Xeon Silver 4110",
+"samples": 70,
+"specrate_int": 37.0
+},
+"intel xeon silver 4112": {
+"model": "Intel Xeon Silver 4112",
+"samples": 53,
+"specrate_int": 22.0
+},
+"intel xeon silver 4114": {
+"model": "Intel Xeon Silver 4114",
+"samples": 62,
+"specrate_int": 46.9
+},
+"intel xeon silver 4114t": {
+"model": "Intel Xeon Silver 4114T",
+"samples": 13,
+"specrate_int": 46.8
+},
+"intel xeon silver 4116": {
+"model": "Intel Xeon Silver 4116",
+"samples": 53,
+"specrate_int": 54.4
+},
+"intel xeon silver 4116t": {
+"model": "Intel Xeon Silver 4116T",
+"samples": 9,
+"specrate_int": 54.1
+},
+"intel xeon silver 4208": {
+"model": "Intel Xeon Silver 4208",
+"samples": 70,
+"specrate_int": 41.7
+},
+"intel xeon silver 4209t": {
+"model": "Intel Xeon Silver 4209T",
+"samples": 18,
+"specrate_int": 41.6
+},
+"intel xeon silver 4210": {
+"model": "Intel Xeon Silver 4210",
+"samples": 51,
+"specrate_int": 54.9
+},
+"intel xeon silver 4210r": {
+"model": "Intel Xeon Silver 4210R",
+"samples": 53,
+"specrate_int": 61.7
+},
+"intel xeon silver 4210t": {
+"model": "Intel Xeon Silver 4210T",
+"samples": 3,
+"specrate_int": 56.0
+},
+"intel xeon silver 4214": {
+"model": "Intel Xeon Silver 4214",
+"samples": 51,
+"specrate_int": 66.8
+},
+"intel xeon silver 4214r": {
+"model": "Intel Xeon Silver 4214R",
+"samples": 45,
+"specrate_int": 75.7
+},
+"intel xeon silver 4214y": {
+"model": "Intel Xeon Silver 4214Y",
+"samples": 13,
+"specrate_int": 65.9
+},
+"intel xeon silver 4215": {
+"model": "Intel Xeon Silver 4215",
+"samples": 40,
+"specrate_int": 48.7
+},
+"intel xeon silver 4215r": {
+"model": "Intel Xeon Silver 4215R",
+"samples": 32,
+"specrate_int": 56.8
+},
+"intel xeon silver 4216": {
+"model": "Intel Xeon Silver 4216",
+"samples": 59,
+"specrate_int": 88.8
+},
+"intel xeon silver 4309y": {
+"model": "Intel Xeon Silver 4309Y",
+"samples": 53,
+"specrate_int": 66.3
+},
+"intel xeon silver 4310": {
+"model": "Intel Xeon Silver 4310",
+"samples": 47,
+"specrate_int": 85.1
+},
+"intel xeon silver 4310t": {
+"model": "Intel Xeon Silver 4310T",
+"samples": 26,
+"specrate_int": 73.8
+},
+"intel xeon silver 4314": {
+"model": "Intel Xeon Silver 4314",
+"samples": 57,
+"specrate_int": 117.2
+},
+"intel xeon silver 4316": {
+"model": "Intel Xeon Silver 4316",
+"samples": 45,
+"specrate_int": 139.2
+},
+"intel xeon silver 4410t": {
+"model": "Intel Xeon Silver 4410T",
+"samples": 20,
+"specrate_int": 105.4
+},
+"intel xeon silver 4410y": {
+"model": "Intel Xeon Silver 4410Y",
+"samples": 40,
+"specrate_int": 108.0
+},
+"intel xeon silver 4416+": {
+"model": "Intel Xeon Silver 4416+",
+"samples": 41,
+"specrate_int": 179.6
+},
+"intel xeon silver 4509y": {
+"model": "Intel Xeon Silver 4509Y",
+"samples": 43,
+"specrate_int": 86.0
+},
+"intel xeon silver 4510": {
+"model": "Intel Xeon Silver 4510",
+"samples": 55,
+"specrate_int": 120.4
+},
+"intel xeon silver 4510t": {
+"model": "Intel Xeon Silver 4510T",
+"samples": 13,
+"specrate_int": 106.5
+},
+"intel xeon silver 4514y": {
+"model": "Intel Xeon Silver 4514Y",
+"samples": 47,
+"specrate_int": 133.7
+},
+"intel xeon silver 4516y+": {
+"model": "Intel Xeon Silver 4516Y+",
+"samples": 36,
+"specrate_int": 216.2
+},
+"intel xeon w-2102": {
+"model": "Intel Xeon W-2102",
+"samples": 1,
+"specrate_int": 17.9
+},
+"intel xeon w-2104": {
+"model": "Intel Xeon W-2104",
+"samples": 1,
+"specrate_int": 19.3
+},
+"intel xeon w-2123": {
+"model": "Intel Xeon W-2123",
+"samples": 1,
+"specrate_int": 27.4
+},
+"intel xeon w-2133": {
+"model": "Intel Xeon W-2133",
+"samples": 1,
+"specrate_int": 40.2
+},
+"intel xeon w-2155": {
+"model": "Intel Xeon W-2155",
+"samples": 1,
+"specrate_int": 65.1
+},
+"intel xeon w-2175": {
+"model": "Intel Xeon W-2175",
+"samples": 1,
+"specrate_int": 78.9
+},
+"intel xeon w-2195": {
+"model": "Intel Xeon W-2195",
+"samples": 1,
+"specrate_int": 92.7
+},
+"intel xeon w-2295": {
+"model": "Intel Xeon W-2295",
+"samples": 1,
+"specrate_int": 118.0
+},
+"intel xeon w9-3495x": {
+"model": "Intel Xeon w9-3495X",
+"samples": 1,
+"specrate_int": 420.0
+}
+}
