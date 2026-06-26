@@ -329,7 +329,9 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
             doc.add_heading("Cluster Network", level=2)
             doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _spacer(doc)
+            # Start the sizing rationale on a fresh page (only when the diagram
+            # was actually rendered, so we never emit a stray blank page).
+            doc.add_page_break()
 
     # ── Sizing rationale (utilization bars + how the node count was reached) ──
     u = r.get("utilization")
