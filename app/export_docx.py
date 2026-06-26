@@ -148,6 +148,25 @@ def _fixed_layout(table, widths):
             row.cells[i].width = Inches(w)
 
 
+def _keep_table_together(table):
+    """Keep a table from being split across pages: mark every row 'cannot split'
+    (no row breaks mid-cell) and 'keep with next' on all rows but the last, so
+    Word holds the whole table on one page and pushes it to the next page when it
+    won't fit. A table taller than a single page still breaks — Word overrides
+    keep-with-next once the content exceeds the page, which is the desired
+    behaviour."""
+    rows = table.rows
+    last = len(rows) - 1
+    for ri, row in enumerate(rows):
+        trPr = row._tr.get_or_add_trPr()
+        if not trPr.findall(qn("w:cantSplit")):
+            trPr.append(OxmlElement("w:cantSplit"))
+        if ri < last:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    p.paragraph_format.keep_with_next = True
+
+
 def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
     cell.text = ""
     pr = cell.paragraphs[0]
@@ -172,6 +191,7 @@ def _spec_table(doc, rows, total_w, label_w=2.5):
         _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7")
         _style_cell(cells[1], v)
     _fixed_layout(t, [label_w, total_w - label_w])
+    _keep_table_together(t)
     return t
 
 
@@ -192,6 +212,7 @@ def _grid_table(doc, headers, rows, total_w, weights=None):
         weights = [1] * len(headers)
     scale = total_w / sum(weights)
     _fixed_layout(t, [w * scale for w in weights])
+    _keep_table_together(t)
     return t
 
 
