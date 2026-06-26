@@ -148,13 +148,55 @@ def _fixed_layout(table, widths):
             row.cells[i].width = Inches(w)
 
 
+def _para_keep_next(p_el):
+    """Set <w:keepNext/> on a raw <w:p> element, in schema-correct position
+    (after pStyle). Idempotent."""
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is None:
+        pPr = OxmlElement("w:pPr")
+        p_el.insert(0, pPr)
+    if pPr.findall(qn("w:keepNext")):
+        return
+    kn = OxmlElement("w:keepNext")
+    pStyle = pPr.find(qn("w:pStyle"))
+    if pStyle is not None:
+        pStyle.addnext(kn)
+    else:
+        pPr.insert(0, kn)
+
+
+def _pin_heading_to_table(table):
+    """Keep a table's heading on the same page as the table, so a heading (and its
+    short intro paragraph) is never orphaned at the foot of a page when the table
+    is pushed to the next. Walks the table's preceding sibling paragraphs marking
+    each 'keep with next', and stops once it pins the section heading (or hits a
+    non-paragraph — e.g. an earlier table — or a small step cap, so it never
+    chains back into the previous section). keep-with-next is a soft constraint:
+    Word still breaks if the heading+intro+table genuinely can't fit one page."""
+    el = table._tbl.getprevious()
+    steps = 0
+    while el is not None and el.tag == qn("w:p") and steps < 5:
+        pPr = el.find(qn("w:pPr"))
+        style = ""
+        if pPr is not None:
+            pStyle = pPr.find(qn("w:pStyle"))
+            if pStyle is not None:
+                style = (pStyle.get(qn("w:val")) or "").lower()
+        is_heading = style.startswith("heading") or style.startswith("title")
+        _para_keep_next(el)
+        if is_heading:
+            break  # reached the section heading — done
+        el = el.getprevious()
+        steps += 1
+
+
 def _keep_table_together(table):
     """Keep a table from being split across pages: mark every row 'cannot split'
     (no row breaks mid-cell) and 'keep with next' on all rows but the last, so
     Word holds the whole table on one page and pushes it to the next page when it
-    won't fit. A table taller than a single page still breaks — Word overrides
-    keep-with-next once the content exceeds the page, which is the desired
-    behaviour."""
+    won't fit. Also pins the heading above it (see _pin_heading_to_table). A
+    table taller than a single page still breaks — Word overrides keep-with-next
+    once the content exceeds the page, which is the desired behaviour."""
     rows = table.rows
     last = len(rows) - 1
     for ri, row in enumerate(rows):
@@ -165,6 +207,7 @@ def _keep_table_together(table):
             for cell in row.cells:
                 for p in cell.paragraphs:
                     p.paragraph_format.keep_with_next = True
+    _pin_heading_to_table(table)
 
 
 def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
