@@ -1007,9 +1007,15 @@ Why not just compare GHz and core counts? Because newer CPUs do far more work pe
 
 Note: part of this comparison used PassMark (a different benchmark) translated onto the SPECrate scale, so treat this particular figure as roughly ±20% approximate.`;
     }
-    msg += `
+    const floorActive = !!(lastProjection[activeMode]
+        && lastProjection[activeMode].compute_floor
+        && lastProjection[activeMode].compute_floor.active);
+    msg += floorActive ? `
 
-This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.
+CPU performance sizing is currently ON, so this comparison is not just informational: the cluster is sized to deliver at least the compute your current environment actually uses (its benchmark/clock scaled by measured peak CPU utilization, then grown for the horizon), in addition to CPU cores, memory, storage and IOPS. Each recommendation's "Compute floor" line shows how much of that demand it covers.` : `
+
+This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.`;
+    msg += `
 
 Disclaimer: although compiled with the greatest of care, these figures rely on externally acquired benchmark data (public SPEC and PassMark results) and real-world performance varies. They are provided for guidance only — no rights can be derived from them.`;
     showInfoModal('CPU performance comparison', msg);
@@ -1403,12 +1409,34 @@ function formatDeterminant(det) {
     if (det.resource === 'minimum') {
         return '<div class="rec-determinant"><strong>Determined by</strong> minimum cluster size</div>';
     }
+    // Compute floor (perf-based sizing): the value is a coverage % of the
+    // source's utilized, grown compute demand, not a single-unit capacity.
+    if (det.resource === 'Compute') {
+        return `<div class="rec-determinant"><strong>Determined by CPU performance</strong>`
+            + ` &mdash; delivers ${det.achieved}% of your current environment's compute demand`
+            + ` (${det.headroom_pct}% headroom)</div>`;
+    }
     const u = det.unit;
     const fmt = v => u === 'GB' ? formatRam(v)
         : (u === 'cores' ? `${Math.round(v).toLocaleString()} cores` : `${v} TB`);
     return `<div class="rec-determinant"><strong>Determined by ${det.resource}</strong>`
         + ` &mdash; ${fmt(det.required)} required vs ${fmt(det.achieved)} available`
         + ` (${det.headroom_pct}% headroom)</div>`;
+}
+
+// Compute-floor coverage line (perf-based sizing). Shown only when the active
+// floor is on (perf_scaling) and this config has a coverage figure. Breaks the
+// blended coverage into its clock (GHz) and benchmark (SPECrate) components so
+// the user can see what drove it.
+function formatComputeFloorLine(r) {
+    const cf = r.compute_floor;
+    if (!cf || cf.coverage_pct == null) return '';
+    const parts = [];
+    if (cf.ghz_pct != null) parts.push(`clock ${cf.ghz_pct}%`);
+    if (cf.perf_pct != null) parts.push(`benchmark ${cf.perf_pct}%`);
+    const detail = parts.length ? ` <span class="muted">(${parts.join(', ')}; util ${cf.source_cpu_util_pct}%)</span>` : '';
+    return `<div class="rec-compute-floor"><strong>Compute floor:</strong> `
+        + `${cf.coverage_pct}% of source demand${detail}</div>`;
 }
 
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
@@ -1482,6 +1510,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             </div>
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
+            ${formatComputeFloorLine(r)}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>Per Node</h4>
