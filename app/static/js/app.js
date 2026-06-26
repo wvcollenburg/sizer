@@ -980,6 +980,7 @@ function formatPerfLine(r) {
     const src = lastPerfSource;
     const tgt = r.totals && r.totals.perf_index;
     if (!src || !src.source_index_specrate || !tgt) return '';
+    // Benchmark-vs-benchmark (apples to apples): both sides are rated SPECrate.
     const ratio = tgt / src.source_index_specrate;
     const phrase = ratio >= 1
         ? `perform about <strong>${ratio.toFixed(1)}× better</strong> than`
@@ -999,7 +1000,7 @@ function explainPerf(ratio, tgt, src, usesPM) {
     let msg =
 `We compare the raw CPU horsepower of the recommended cluster against your current environment using SPECrate2017 — an industry-standard benchmark that measures how much total work all the CPU cores can do at once. That is the right yardstick for running lots of VMs.
 
-Your current environment scores about ${src}; the recommended cluster scores about ${tgt}. So on paper it delivers ${delivers}.
+Your current environment scores about ${src}; the recommended cluster scores about ${tgt}. So on paper it delivers ${delivers}. (This is a benchmark-to-benchmark comparison — both sides at their rated throughput, not real-world load.)
 
 Why not just compare GHz and core counts? Because newer CPUs do far more work per clock cycle than older ones — one modern core can be worth roughly 1.5 to 2 older cores. Comparing GHz × cores misses that, which is why an apparently "smaller" new cluster can comfortably outperform a larger old one.`;
     if (usesPM) {

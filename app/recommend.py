@@ -480,6 +480,12 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         src = float(source_perf_index)
         if (source_perf_type or "").lower() == "passmark":
             src *= 0.00386  # PassMark CPU Mark -> SPECrate-equivalent
+        # Benchmark-vs-benchmark, apples to apples: both sides are rated (nameplate)
+        # SPECrate throughput. Utilization belongs in the sizing floor (compute the
+        # source actually CONSUMES), NOT in a benchmark display — discounting only
+        # the source by real-world load while the target stays at its benchmark
+        # would mix actual usage with benchmark capacity and wildly inflate the
+        # ratio.
         tgt = top[0]["totals"]["perf_index"]
         perf_comparison = {
             "source_index_raw": round(float(source_perf_index), 1),

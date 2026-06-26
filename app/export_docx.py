@@ -25,7 +25,7 @@ from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
-from export_gauges import render_util_bars, util_rows
+from export_gauges import render_util_bars, util_rows, compute_floor_sentence
 
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
                          "TMPL - Generic Document Template_2025.docx")
@@ -354,6 +354,19 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
                 unit = det.get("unit", "")
                 _para(doc, f"Determined by {res} — {det.get('required')} {unit} required, vs "
                            f"{det.get('achieved')} {unit} available at N-1 ({hr:.1f}% headroom).")
+            elif res == "Compute":
+                cf = r.get("compute_floor") or {}
+                util = cf.get("source_cpu_util_pct", 100)
+                _para(doc, f"Determined by CPU performance — this cluster delivers "
+                           f"{det.get('achieved'):.0f}% of your current environment's compute "
+                           f"demand (rated throughput scaled to {util:.0f}% measured peak "
+                           f"utilization, grown to the horizon); the node count was raised to "
+                           f"clear that floor.")
+            # Show compute-floor coverage even when another resource was binding.
+            if res != "Compute":
+                cfs = compute_floor_sentence(r)
+                if cfs:
+                    _para(doc, cfs, italic=True, size=9)
             _para(doc, "Each bar is 100% of the full cluster: solid = today's load, light hatch = "
                        "growth + snapshot reserve the workload is sized to, dark hatch = HA failover "
                        "capacity held back so the cluster still meets the workload with one node down "

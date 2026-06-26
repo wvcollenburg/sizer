@@ -158,6 +158,19 @@ def run():
     print(f"PASS utilization scaling: 25%-utilized source -> {lun} nodes "
           f"(vs {ghz['recommendations'][0]['node_count']} at 50%)")
 
+    # ── 6. Advisory comparison is benchmark-vs-benchmark, NOT util-scaled ──────
+    # It's a "in a benchmark" display, so both sides are rated SPECrate: the
+    # source's measured utilization must NOT discount it here (that belongs in the
+    # floor). nameplate 300 -> ratio = target/300, regardless of the 50% util.
+    pc = bench["perf_comparison"]
+    assert pc is not None
+    assert pc["source_index_specrate"] == 300.0
+    assert "source_index_utilized" not in pc and "source_cpu_util_pct" not in pc
+    expected_ratio = round(pc["target_index"] / 300.0, 2)
+    assert pc["ratio"] == expected_ratio, f"{pc['ratio']} != {expected_ratio}"
+    print(f"PASS advisory benchmark-vs-benchmark: source {pc['source_index_specrate']}, "
+          f"target {pc['target_index']}, ratio {pc['ratio']}× (util ignored here)")
+
     print("\nALL E2E CHECKS PASSED")
 
 
