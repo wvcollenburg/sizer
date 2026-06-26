@@ -24,6 +24,71 @@ DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
 # effect without a restart. refresh_from_db() (called at the top of
 # generate_recommendations) loads the live values for the request.
 
+def _source_cpu_util(summary):
+    """Measured peak CPU utilization fraction of the source environment (0<u<=1).
+
+    The active compute floor sizes to the throughput actually consumed, not
+    nameplate capacity — the same principle the projection already uses when it
+    grows ``peak_cpu_ghz`` rather than ``total_host_ghz``. Prefer the derived
+    peak-GHz/nameplate-GHz ratio (present on imports); fall back to an explicit
+    peak CPU % (manual input carries this, not a peak GHz); finally default to
+    1.0 (treat the source as fully utilized — conservative, over-sizes)."""
+    peak = summary.get("peak_cpu_ghz") or 0
+    total = summary.get("total_host_ghz") or 0
+    if peak > 0 and total > 0:
+        return min(peak / total, 1.0)
+    pct = summary.get("peak_cpu_pct") or 0
+    if pct > 0:
+        return min(pct / 100.0, 1.0)
+    return 1.0
+
+
+def _compute_coverage(ghz_per_node, node_perf, req_ghz, req_perf, balance,
+                      comp_nodes):
+    """Blended compute coverage for ``comp_nodes`` compute nodes (1.0 = exactly
+    meets the source's utilized, grown compute demand), plus the per-signal
+    coverages. ``balance`` is the benchmark (perf) weight in [0,1]; GHz takes the
+    remainder. A signal with no demand or no per-node value is dropped and the
+    weight renormalised onto what's left, so a missing source benchmark degrades
+    to a pure-GHz floor (and a CPU with no benchmark data does the same).
+    Returns None when neither signal has a demand to size against."""
+    have_ghz = bool(req_ghz and req_ghz > 0)
+    have_perf = bool(node_perf and req_perf and req_perf > 0)
+    w = min(max(balance, 0.0), 1.0)
+    if have_ghz and have_perf:
+        wg, wp = 1.0 - w, w
+    elif have_ghz:
+        wg, wp = 1.0, 0.0
+    elif have_perf:
+        wg, wp = 0.0, 1.0
+    else:
+        return None
+    cov_ghz = (ghz_per_node * comp_nodes / req_ghz) if have_ghz else None
+    cov_perf = (node_perf * comp_nodes / req_perf) if have_perf else None
+    blended = wg * (cov_ghz or 0.0) + wp * (cov_perf or 0.0)
+    return {"blended": blended, "ghz": cov_ghz, "perf": cov_perf,
+            "w_ghz": wg, "w_perf": wp}
+
+
+def _compute_floor_nodes(ghz_per_node, node_perf, req_ghz, req_perf, balance,
+                         min_nodes, full_cluster):
+    """Smallest node count whose blended compute coverage reaches 1.0, or 0 when
+    no compute demand applies. The compute pool is all nodes when sizing for the
+    full cluster, otherwise N-1 (one node down per cluster) — matching how the
+    CPU-core floor is gated."""
+    for n in range(min_nodes, 200):
+        comp = n if full_cluster else (n - len(_cluster_layout(n)))
+        if comp <= 0:
+            continue
+        cov = _compute_coverage(ghz_per_node, node_perf, req_ghz, req_perf,
+                                balance, comp)
+        if cov is None:
+            return 0
+        if cov["blended"] >= 1.0:
+            return n
+    return 0
+
+
 STORAGE_CATEGORIES = {
     "nvme_only": "flash",
     "ssd_only": "flash",
@@ -144,14 +209,28 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "target_nodes": target_nodes,
     }
 
-    # Source-environment throughput floor (SPECrate scale), grown to the horizon.
-    # Only consumed when the perf_scaling tunable is on (default off); otherwise
-    # purely informational. A PassMark source score is converted to SPECrate.
+    # Active compute floor inputs (consumed only when the perf_scaling tunable is
+    # on; default off). Both the GHz and benchmark sides are scaled by the
+    # source's MEASURED peak CPU utilization, so the cluster is sized to the
+    # compute actually consumed (then grown to the horizon), not to nameplate.
+    # This is the same principle the projection uses (it grows peak_cpu_ghz, not
+    # nameplate total_host_ghz).
+    cpu_util = _source_cpu_util(summary)
+    needs["source_cpu_util"] = cpu_util
+    # GHz side of the floor: source nameplate GHz × utilization × growth. With no
+    # source benchmark entered, the floor degrades to this pure-GHz demand.
+    needs["required_compute_ghz"] = ((summary.get("total_host_ghz", 0) or 0)
+                                     * cpu_util * growth_factor)
+
+    # Benchmark side of the floor (SPECrate scale), also utilization-scaled and
+    # grown. A PassMark source score is converted to SPECrate. (The advisory
+    # perf_comparison below stays a nameplate-vs-nameplate horsepower comparison —
+    # a different, capacity-oriented view — so it is NOT utilization-scaled.)
     if source_perf_index:
         _src_perf = float(source_perf_index)
         if (source_perf_type or "").lower() == "passmark":
             _src_perf *= 0.00386
-        needs["required_perf_index"] = _src_perf * growth_factor
+        needs["required_perf_index"] = _src_perf * cpu_util * growth_factor
 
     required_cores = math.ceil(needs["vcpus"] / vcpu_ratio)
 
@@ -359,6 +438,18 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "growth_factor": round(growth_factor, 3),
     }
 
+    # Active compute-floor summary (perf-based sizing). Always reported so the UI
+    # can show whether the floor is on and what demand it sized against; the
+    # per-config coverage lives on each recommendation's `compute_floor`.
+    projection["compute_floor"] = {
+        "active": bool(getattr(T, "perf_scaling", 0)),
+        "balance": round(getattr(T, "perf_ghz_balance", 0.5), 2),
+        "source_cpu_util_pct": round(needs.get("source_cpu_util", 1.0) * 100, 1),
+        "required_ghz": round(needs.get("required_compute_ghz", 0), 1),
+        "required_perf_index": (round(needs["required_perf_index"], 1)
+                                if needs.get("required_perf_index") else None),
+    }
+
     # Workload IOPS demand (the measured front-end figures — what the workload
     # asks for). Compared against each config's net available IOPS. Metrics with
     # no measured value are omitted.
@@ -374,6 +465,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         c.pop("_nodes_for_cpu", None)
         c.pop("_nodes_for_ram", None)
         c.pop("_nodes_for_storage", None)
+        c.pop("_nodes_for_compute", None)
         c["network_svg"] = _rec_network_svg(c)
 
     # Advisory CPU-performance comparison (display-only; it does NOT change the
@@ -388,6 +480,12 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         src = float(source_perf_index)
         if (source_perf_type or "").lower() == "passmark":
             src *= 0.00386  # PassMark CPU Mark -> SPECrate-equivalent
+        # Benchmark-vs-benchmark, apples to apples: both sides are rated (nameplate)
+        # SPECrate throughput. Utilization belongs in the sizing floor (compute the
+        # source actually CONSUMES), NOT in a benchmark display — discounting only
+        # the source by real-world load while the target stays at its benchmark
+        # would mix actual usage with benchmark capacity and wildly inflate the
+        # ratio.
         tgt = top[0]["totals"]["perf_index"]
         perf_comparison = {
             "source_index_raw": round(float(source_perf_index), 1),
@@ -462,6 +560,8 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
         binding.append(f"RAM (≥{best['_nodes_for_ram']} nodes)")
     if best["_nodes_for_storage"] >= mf:
         binding.append(f"storage capacity (≥{best['_nodes_for_storage']} nodes)")
+    if best.get("_nodes_for_compute", 0) >= mf:
+        binding.append(f"CPU performance floor (≥{best['_nodes_for_compute']} nodes)")
 
     msg = (f"Target of {target_nodes} node{plural} could not be achieved for "
            f"this workload (smallest feasible: {mf} nodes).")
@@ -551,6 +651,9 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                iops_cfg=None, allow_storage_only=False):
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
+    # Active compute floor (perf-based sizing) state, read once per model.
+    perf_scaling = bool(getattr(T, "perf_scaling", 0))
+    perf_balance = getattr(T, "perf_ghz_balance", 0.5)
     storage = model["storage"]
     # OS RAM overhead is tiered by this node's drive-bay count (SCRIBE scales with
     # drive count); compute it once for the model and use it everywhere below.
@@ -630,25 +733,26 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 needed_nodes_cpu = n
                 break
 
-        # Optional perf-throughput floor — gated by the `perf_scaling` tunable
-        # (default 0 -> NO effect, so live sizing is unchanged until enabled).
-        # When on and a source benchmark score is supplied, require the cluster's
-        # compute nodes to deliver at least the source environment's (grown)
-        # throughput, so generational IPC is sized for rather than raw cores.
-        # VALIDATE before enabling in production.
-        needed_nodes_perf = 0
+        # Active compute floor — gated by the `perf_scaling` tunable (default 0 ->
+        # NO effect, so live sizing is unchanged until enabled). When on, require
+        # the cluster's compute nodes to deliver the source's utilized, grown
+        # compute demand, blended between raw clock (GHz×cores) and benchmark
+        # throughput (SPECrate) per the perf_ghz_balance tunable — so generational
+        # IPC is sized for rather than trusting raw cores/clock alone. This sits
+        # ALONGSIDE the vCPU:core core floor (needed_nodes_cpu), never replacing
+        # it. VALIDATE before enabling in production.
         node_perf = cpu.get("perf_index")
-        req_perf = needs.get("required_perf_index", 0)
-        if getattr(T, "perf_scaling", 0) and req_perf > 0 and node_perf:
-            for n in range(min_nodes, 200):
-                perf_nodes = n if full_cluster else (n - len(_cluster_layout(n)))
-                if node_perf * perf_nodes >= req_perf:
-                    needed_nodes_perf = n
-                    break
+        needed_nodes_compute = 0
+        if perf_scaling:
+            needed_nodes_compute = _compute_floor_nodes(
+                ghz_per_node, node_perf,
+                needs.get("required_compute_ghz", 0),
+                needs.get("required_perf_index", 0),
+                perf_balance, min_nodes, full_cluster)
 
         start_nodes = max(min_nodes, needed_nodes_cpu,
                           needed_nodes_storage, needed_nodes_ram,
-                          needed_nodes_perf)
+                          needed_nodes_compute)
 
         # Exact node-count target: when the user asks for N nodes and this CPU
         # can serve the workload in exactly N (N >= the minimum feasible), size
@@ -810,8 +914,11 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             score = T.w_cost * fleet_cost + core_cost + T.w_waste * waste
 
             # Don't let a high vCPU:core ratio quietly under-power the cluster:
-            # penalise raw GHz that falls below the source cluster's total.
-            if needs["current_total_ghz"] > 0:
+            # penalise raw GHz that falls below the source cluster's total. This
+            # is the LEGACY soft signal; when the active compute floor is on
+            # (perf_scaling) it already enforces compute adequacy as a hard
+            # constraint, so applying the penalty too would double-count.
+            if not perf_scaling and needs["current_total_ghz"] > 0:
                 ghz_ratio = n1_ghz / needs["current_total_ghz"]
                 if ghz_ratio < 1.0:
                     score += (1.0 - ghz_ratio) * T.w_ghz_shortfall
@@ -842,33 +949,72 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                     "raw_storage_tb": round(raw_per_node, 2),
                 }
 
+            # Active compute floor coverage for THIS config (display + determinant).
+            # Measured on the same compute pool the fit was gated on (full cluster
+            # or N-1). None when the floor is off or there's no compute demand.
+            compute_pool_nodes = hci_nodes if full_cluster else compute_n1_nodes
+            compute_cov = None
+            compute_floor_block = None
+            if perf_scaling and compute_pool_nodes > 0:
+                compute_cov = _compute_coverage(
+                    ghz_per_node, node_perf,
+                    needs.get("required_compute_ghz", 0),
+                    needs.get("required_perf_index", 0),
+                    perf_balance, compute_pool_nodes)
+            if compute_cov is not None:
+                compute_floor_block = {
+                    "coverage_pct": round(compute_cov["blended"] * 100, 1),
+                    "ghz_pct": (round(compute_cov["ghz"] * 100, 1)
+                                if compute_cov["ghz"] is not None else None),
+                    "perf_pct": (round(compute_cov["perf"] * 100, 1)
+                                 if compute_cov["perf"] is not None else None),
+                    "balance": round(perf_balance, 2),
+                    "source_cpu_util_pct": round(needs.get("source_cpu_util", 1.0) * 100, 1),
+                }
+
             # Determining factor: which resource drove the node count (the one
             # needing the most nodes). Ties break to the tightest headroom. If
             # nothing exceeds the cluster minimum, the floor itself is the driver.
             _det_nodes = {"CPU": needed_nodes_cpu, "RAM": needed_nodes_ram,
-                          "Storage": needed_nodes_storage}
+                          "Storage": needed_nodes_storage,
+                          "Compute": needed_nodes_compute}
             _binding = max(_det_nodes.values())
             if _binding <= min_nodes:
                 determinant = {"resource": "minimum", "required": None,
                                "achieved": None, "unit": None, "headroom_pct": None}
             else:
+                # Compute coverage headroom is (blended coverage − 1); for the
+                # other dimensions it's the usual fractional over-provisioning.
+                _compute_headroom = ((compute_cov["blended"] - 1.0)
+                                     if compute_cov is not None else 0.0)
                 _hr = {"CPU": core_headroom, "RAM": ram_headroom,
-                       "Storage": stor_headroom}
+                       "Storage": stor_headroom, "Compute": _compute_headroom}
                 _res = min((r for r, n in _det_nodes.items() if n == _binding),
                            key=lambda r: _hr[r])
-                _vals = {
-                    "CPU": (required_cores, cpu_avail, "cores"),
-                    "RAM": (needs["ram_gb"], usable_ram_per_node * compute_n1_nodes, "GB"),
-                    "Storage": (needs["usable_storage_tb"], usable, "TB"),
-                }
-                _req, _ach, _unit = _vals[_res]
-                determinant = {
-                    "resource": _res,
-                    "required": round(_req, 1),
-                    "achieved": round(_ach, 1),
-                    "unit": _unit,
-                    "headroom_pct": round(_hr[_res] * 100, 1),
-                }
+                if _res == "Compute":
+                    # Coverage is a blended ratio, not a single unit — report it as
+                    # a percentage of the source's utilized, grown compute demand.
+                    determinant = {
+                        "resource": "Compute",
+                        "required": 100.0,
+                        "achieved": round(compute_cov["blended"] * 100, 1),
+                        "unit": "%",
+                        "headroom_pct": round(_compute_headroom * 100, 1),
+                    }
+                else:
+                    _vals = {
+                        "CPU": (required_cores, cpu_avail, "cores"),
+                        "RAM": (needs["ram_gb"], usable_ram_per_node * compute_n1_nodes, "GB"),
+                        "Storage": (needs["usable_storage_tb"], usable, "TB"),
+                    }
+                    _req, _ach, _unit = _vals[_res]
+                    determinant = {
+                        "resource": _res,
+                        "required": round(_req, 1),
+                        "achieved": round(_ach, 1),
+                        "unit": _unit,
+                        "headroom_pct": round(_hr[_res] * 100, 1),
+                    }
 
             results.append({
                 "model": model["name"],
@@ -902,6 +1048,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "vcpu_ratio_degraded": round(n1_ratio, 2),
                 "sized_full_cluster": full_cluster,
                 "determinant": determinant,
+                # Active compute-floor coverage for this config (None when the
+                # perf_scaling tunable is off). coverage_pct >= 100 means the
+                # cluster meets the source's utilized, grown compute demand.
+                "compute_floor": compute_floor_block,
                 "utilization": utilization,
                 "validated": validated,
                 "validated_only": validated_only,
@@ -931,6 +1081,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "_nodes_for_cpu": needed_nodes_cpu,
                 "_nodes_for_ram": needed_nodes_ram,
                 "_nodes_for_storage": needed_nodes_storage,
+                "_nodes_for_compute": needed_nodes_compute,
             })
 
             break

@@ -62,6 +62,26 @@ def util_rows(utilization):
     return rows, any_ha
 
 
+def compute_floor_sentence(r):
+    """One-line plain-language summary of a recommendation's active compute-floor
+    coverage (perf-based sizing), or None when the floor is off / absent. Shared
+    by the PPTX and DOCX exporters so both read identically. Coverage >= 100%
+    means the cluster meets the source's utilized, grown compute demand; the
+    clock/benchmark split shows which signal carried it."""
+    cf = r.get("compute_floor")
+    if not cf or cf.get("coverage_pct") is None:
+        return None
+    parts = []
+    if cf.get("ghz_pct") is not None:
+        parts.append(f"clock {cf['ghz_pct']:.0f}%")
+    if cf.get("perf_pct") is not None:
+        parts.append(f"benchmark {cf['perf_pct']:.0f}%")
+    detail = f" ({', '.join(parts)})" if parts else ""
+    return (f"CPU performance floor: this cluster delivers {cf['coverage_pct']:.0f}% "
+            f"of your current environment's compute demand{detail}, sized to its "
+            f"{cf['source_cpu_util_pct']:.0f}% measured peak CPU utilization.")
+
+
 def _hatch(size, sign, c1, c2, period, lw):
     """A diagonal-stripe tile (c1 lines on a c2 ground). sign +1 = '/', -1 = '\\'."""
     w, h = size

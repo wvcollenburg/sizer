@@ -18,7 +18,7 @@ from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
 
-from export_gauges import render_util_bars, util_rows
+from export_gauges import render_util_bars, util_rows, compute_floor_sentence
 
 # Brand palette taken from the template theme (resources/template.pptx):
 #   dk1 272727 · dk2 113859 · lt2 E9EAF0 · accent1 009ADE · accent2 194F90
@@ -726,9 +726,23 @@ def _slide_sizing(prs, r, s):
         lines.append((f"Determined by {res} — {det.get('required')} {unit} required, vs "
                       f"{det.get('achieved')} {unit} available at N-1 "
                       f"({hr:.1f}% headroom).", 12, CHARCOAL, False))
+    elif res == "Compute":
+        cf = r.get("compute_floor") or {}
+        util = cf.get("source_cpu_util_pct", 100)
+        lines.append((f"Determined by CPU performance — this cluster delivers "
+                      f"{det.get('achieved'):.0f}% of your current environment's "
+                      f"compute demand (rated throughput scaled to {util:.0f}% "
+                      f"measured peak utilization, grown to the horizon); the node "
+                      f"count was raised to clear that floor.", 12, CHARCOAL, False))
     else:
         lines.append(("Sized to the minimum supported configuration for this model.",
                       12, CHARCOAL, False))
+    # Show the compute-floor coverage even when another resource was binding, so
+    # the deck reflects that sizing is performance-aware.
+    if res != "Compute":
+        cfs = compute_floor_sentence(r)
+        if cfs:
+            lines.append((cfs, 11, MID_GRAY, False))
     lines.append(("Each bar is 100% of the full cluster: solid = today's load, light "
                   "hatch = growth + snapshot reserve the workload is sized to, dark hatch "
                   "= HA failover capacity held back so the cluster still meets the "

@@ -25,7 +25,7 @@ from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
-from export_gauges import render_util_bars, util_rows
+from export_gauges import render_util_bars, util_rows, compute_floor_sentence
 
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
                          "TMPL - Generic Document Template_2025.docx")
@@ -148,6 +148,68 @@ def _fixed_layout(table, widths):
             row.cells[i].width = Inches(w)
 
 
+def _para_keep_next(p_el):
+    """Set <w:keepNext/> on a raw <w:p> element, in schema-correct position
+    (after pStyle). Idempotent."""
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is None:
+        pPr = OxmlElement("w:pPr")
+        p_el.insert(0, pPr)
+    if pPr.findall(qn("w:keepNext")):
+        return
+    kn = OxmlElement("w:keepNext")
+    pStyle = pPr.find(qn("w:pStyle"))
+    if pStyle is not None:
+        pStyle.addnext(kn)
+    else:
+        pPr.insert(0, kn)
+
+
+def _pin_heading_to_table(table):
+    """Keep a table's heading on the same page as the table, so a heading (and its
+    short intro paragraph) is never orphaned at the foot of a page when the table
+    is pushed to the next. Walks the table's preceding sibling paragraphs marking
+    each 'keep with next', and stops once it pins the section heading (or hits a
+    non-paragraph — e.g. an earlier table — or a small step cap, so it never
+    chains back into the previous section). keep-with-next is a soft constraint:
+    Word still breaks if the heading+intro+table genuinely can't fit one page."""
+    el = table._tbl.getprevious()
+    steps = 0
+    while el is not None and el.tag == qn("w:p") and steps < 5:
+        pPr = el.find(qn("w:pPr"))
+        style = ""
+        if pPr is not None:
+            pStyle = pPr.find(qn("w:pStyle"))
+            if pStyle is not None:
+                style = (pStyle.get(qn("w:val")) or "").lower()
+        is_heading = style.startswith("heading") or style.startswith("title")
+        _para_keep_next(el)
+        if is_heading:
+            break  # reached the section heading — done
+        el = el.getprevious()
+        steps += 1
+
+
+def _keep_table_together(table):
+    """Keep a table from being split across pages: mark every row 'cannot split'
+    (no row breaks mid-cell) and 'keep with next' on all rows but the last, so
+    Word holds the whole table on one page and pushes it to the next page when it
+    won't fit. Also pins the heading above it (see _pin_heading_to_table). A
+    table taller than a single page still breaks — Word overrides keep-with-next
+    once the content exceeds the page, which is the desired behaviour."""
+    rows = table.rows
+    last = len(rows) - 1
+    for ri, row in enumerate(rows):
+        trPr = row._tr.get_or_add_trPr()
+        if not trPr.findall(qn("w:cantSplit")):
+            trPr.append(OxmlElement("w:cantSplit"))
+        if ri < last:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    p.paragraph_format.keep_with_next = True
+    _pin_heading_to_table(table)
+
+
 def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
     cell.text = ""
     pr = cell.paragraphs[0]
@@ -172,6 +234,7 @@ def _spec_table(doc, rows, total_w, label_w=2.5):
         _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7")
         _style_cell(cells[1], v)
     _fixed_layout(t, [label_w, total_w - label_w])
+    _keep_table_together(t)
     return t
 
 
@@ -192,6 +255,7 @@ def _grid_table(doc, headers, rows, total_w, weights=None):
         weights = [1] * len(headers)
     scale = total_w / sum(weights)
     _fixed_layout(t, [w * scale for w in weights])
+    _keep_table_together(t)
     return t
 
 
@@ -329,7 +393,9 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
             doc.add_heading("Cluster Network", level=2)
             doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _spacer(doc)
+            # Start the sizing rationale on a fresh page (only when the diagram
+            # was actually rendered, so we never emit a stray blank page).
+            doc.add_page_break()
 
     # ── Sizing rationale (utilization bars + how the node count was reached) ──
     u = r.get("utilization")
@@ -354,6 +420,19 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
                 unit = det.get("unit", "")
                 _para(doc, f"Determined by {res} — {det.get('required')} {unit} required, vs "
                            f"{det.get('achieved')} {unit} available at N-1 ({hr:.1f}% headroom).")
+            elif res == "Compute":
+                cf = r.get("compute_floor") or {}
+                util = cf.get("source_cpu_util_pct", 100)
+                _para(doc, f"Determined by CPU performance — this cluster delivers "
+                           f"{det.get('achieved'):.0f}% of your current environment's compute "
+                           f"demand (rated throughput scaled to {util:.0f}% measured peak "
+                           f"utilization, grown to the horizon); the node count was raised to "
+                           f"clear that floor.")
+            # Show compute-floor coverage even when another resource was binding.
+            if res != "Compute":
+                cfs = compute_floor_sentence(r)
+                if cfs:
+                    _para(doc, cfs, italic=True, size=9)
             _para(doc, "Each bar is 100% of the full cluster: solid = today's load, light hatch = "
                        "growth + snapshot reserve the workload is sized to, dark hatch = HA failover "
                        "capacity held back so the cluster still meets the workload with one node down "
