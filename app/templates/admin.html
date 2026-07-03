@@ -17,11 +17,16 @@
             <span class="header-sep">|</span>
             <span class="header-sub" data-i18n="admin.header.sub">Model Administration</span>
             <a href="/" class="back-link" data-i18n="admin.header.back">Back to Sizer</a>
-            <select class="lang-switcher" data-change='["setLang","$value"]' aria-label="Language">
-                {% for code in supported_langs %}
-                <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ {'en':'English','de':'Deutsch','fr':'Français','nl':'Nederlands'}[code] }}</option>
-                {% endfor %}
-            </select>
+            <div class="lang-menu">
+                <button class="lang-btn" data-click='["toggleLangMenu"]' aria-label="Language" title="Language">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </button>
+                <ul class="lang-dropdown" id="lang-dropdown" hidden>
+                    {% for code in supported_langs %}
+                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ {'en':'English','de':'Deutsch','fr':'Français','nl':'Nederlands'}[code] }}</button></li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
     </header>
 

@@ -85,6 +85,22 @@
     }
     window.setLang = setLang;
 
+    // Globe-icon language menu (compact header control). Toggle open/closed; a
+    // document-level listener closes it on any outside click. Registered here in
+    // <head> so it runs before delegate.js's click handler — on the globe click
+    // the dropdown is still closed when this runs, so it won't pre-close it.
+    function toggleLangMenu() {
+        var d = document.getElementById('lang-dropdown');
+        if (d) d.hidden = !d.hidden;
+    }
+    window.toggleLangMenu = toggleLangMenu;
+    document.addEventListener('click', function (e) {
+        var d = document.getElementById('lang-dropdown');
+        if (d && !d.hidden && !(e.target.closest && e.target.closest('.lang-menu'))) {
+            d.hidden = true;
+        }
+    });
+
     // FOUC guard: for non-English the server marks <html data-i18n-pending> and
     // CSS hides the body until we've swapped the text, so users never see an
     // English flash. English needs no swap and is never hidden. Clear the flag
