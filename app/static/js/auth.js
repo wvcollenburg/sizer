@@ -19,20 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // If a non-super-admin was bounced from /admin, nudge them to sign in.
     if (params.get('admin') === '1') {
         openAuthModal();
-        showAuthError('Sign in with a super-admin account to manage models.');
+        showAuthError(t('auth.admin_signin_required'));
     }
     // Result of clicking an email-verification link.
     const v = params.get('verify');
     if (v === 'ok') {
-        showInfoModal('Email verified', 'Your email is verified — you can now sign in.');
+        showInfoModal(t('auth.verify_ok_title'), t('auth.verify_ok_body'));
     } else if (v === 'expired') {
-        showInfoModal('Link expired',
-            'That verification link has expired. Sign in and use "Resend verification email" '
-            + 'to get a fresh one.');
+        showInfoModal(t('auth.verify_expired_title'), t('auth.verify_expired_body'));
     } else if (v === 'invalid') {
-        showInfoModal('Invalid link',
-            'That verification link is invalid. If you already opened it, your account may '
-            + 'be active — try signing in.');
+        showInfoModal(t('auth.verify_invalid_title'), t('auth.verify_invalid_body'));
     }
     // Password-reset link.
     const resetToken = params.get('reset');
@@ -81,14 +77,14 @@ function renderAccountBar() {
 
     // Left group: actions. Right group: identity (email · badge · sign out).
     const actions = [
-        `<button class="btn btn-sm btn-account" data-click='["saveCurrentSizing"]'>Save sizing</button>`,
-        `<button class="btn btn-sm" data-click='["openSizingsModal"]'>My Sizings</button>`,
+        `<button class="btn btn-sm btn-account" data-click='["saveCurrentSizing"]'>${esc(t('auth.btn.save_sizing'))}</button>`,
+        `<button class="btn btn-sm" data-click='["openSizingsModal"]'>${esc(t('auth.btn.my_sizings'))}</button>`,
     ];
     if (u.role === 'tenant_admin') {
-        actions.push(`<button class="btn btn-sm" data-click='["openOrgModal"]'>Organization</button>`);
+        actions.push(`<button class="btn btn-sm" data-click='["openOrgModal"]'>${esc(t('auth.btn.organization'))}</button>`);
     }
     if (u.role === 'super_admin') {
-        actions.push(`<a class="btn btn-sm" href="/admin/">Admin</a>`);
+        actions.push(`<a class="btn btn-sm" href="/admin/">${esc(t('auth.btn.admin'))}</a>`);
     }
 
     bar.innerHTML =
@@ -96,8 +92,8 @@ function renderAccountBar() {
         + `<span class="account-sep">|</span>`
         + `<div class="account-identity">`
         +   `<span class="account-email">${esc(u.email)}</span>`
-        +   `<span class="account-badge ${badge.cls}">${badge.label}</span>`
-        +   `<button class="btn btn-sm btn-muted" data-click='["doLogout"]'>Sign out</button>`
+        +   `<span class="account-badge ${badge.cls}">${esc(badge.label)}</span>`
+        +   `<button class="btn btn-sm btn-muted" data-click='["doLogout"]'>${esc(t('auth.btn.sign_out'))}</button>`
         + `</div>`;
 }
 
@@ -109,10 +105,10 @@ function canExportEditable() {
 
 // Badge label + colour class: purple super admin, blue scale user, green others.
 function accountBadge(u) {
-    if (u.role === 'super_admin') return { label: 'Super admin', cls: 'super' };
-    if (u.is_scale) return { label: 'Scale', cls: 'scale' };
-    if (u.role === 'tenant_admin') return { label: 'Admin', cls: 'user' };
-    return { label: 'User', cls: 'user' };
+    if (u.role === 'super_admin') return { label: t('auth.badge.super_admin'), cls: 'super' };
+    if (u.is_scale) return { label: t('auth.badge.scale'), cls: 'scale' };
+    if (u.role === 'tenant_admin') return { label: t('auth.badge.admin'), cls: 'user' };
+    return { label: t('auth.badge.user'), cls: 'user' };
 }
 
 function esc(s) {
@@ -193,8 +189,8 @@ function setAuthTab(tab) {
     const signup = tab === 'signup';
     document.getElementById('auth-tab-login').classList.toggle('active', !signup);
     document.getElementById('auth-tab-signup').classList.toggle('active', signup);
-    document.getElementById('auth-modal-title').textContent = signup ? 'Sign up' : 'Sign in';
-    document.getElementById('auth-submit').textContent = signup ? 'Create account' : 'Sign in';
+    document.getElementById('auth-modal-title').textContent = signup ? t('auth.signup_title') : t('auth.signin_title');
+    document.getElementById('auth-submit').textContent = signup ? t('auth.create_account') : t('auth.signin_title');
     document.getElementById('auth-signup-hint').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-password').setAttribute(
         'autocomplete', signup ? 'new-password' : 'current-password');
@@ -229,15 +225,15 @@ async function submitAuth(event) {
     // Enforce the password policy + match on signup before hitting the server.
     if (authTab === 'signup') {
         if (password !== document.getElementById('auth-confirm').value) {
-            showAuthError('Passwords do not match.');
+            showAuthError(t('auth.pw_mismatch'));
             return;
         }
         if (!pwAllValid('auth-password', 'auth-confirm')) {
-            showAuthError('Please meet all the password requirements.');
+            showAuthError(t('auth.pw_requirements'));
             return;
         }
         if (!document.getElementById('auth-accept-privacy').checked) {
-            showAuthError('Please accept the privacy policy to create an account.');
+            showAuthError(t('auth.accept_privacy'));
             return;
         }
     }
@@ -252,7 +248,7 @@ async function submitAuth(event) {
     const submitBtn = document.getElementById('auth-submit');
     const submitLabel = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = authTab === 'signup' ? 'Creating account…' : 'Signing in…';
+    submitBtn.textContent = authTab === 'signup' ? t('auth.creating') : t('auth.signing_in');
 
     let ok, data;
     try {
@@ -266,7 +262,7 @@ async function submitAuth(event) {
         submitBtn.textContent = submitLabel;
     }
     if (!ok) {
-        showAuthError((data && data.error) || 'Something went wrong. Try again.');
+        showAuthError((data && data.error) || t('auth.generic_error'));
         // Offer a resend link when the account exists but isn't verified.
         if (data && data.needs_verification) {
             document.getElementById('auth-resend').style.display = 'block';
@@ -286,11 +282,10 @@ async function submitAuth(event) {
         document.getElementById('auth-confirm').value = '';
         document.getElementById('auth-accept-privacy').checked = false;
         const note = data.email_sent === false
-            ? ' (We could not send the email — please contact your administrator.)'
+            ? ' ' + t('auth.check_email_note')
             : '';
-        showInfoModal('Check your email',
-            `We sent a verification link to ${data.email}. Open it to activate your `
-            + `account, then sign in.${note}`);
+        showInfoModal(t('auth.check_email_title'),
+            t('auth.check_email_body', { email: data.email, note }));
         return;
     }
 
@@ -300,23 +295,21 @@ async function submitAuth(event) {
     closeAuthModal();
     if (window.initSizer) window.initSizer();  // load catalog data now that we're in
     if (authTab === 'signup' && data.is_tenant_admin) {
-        showInfoModal('Account created', 'You are the admin for your organisation.');
+        showInfoModal(t('auth.account_created_title'), t('auth.account_created_body'));
     }
 }
 
 async function forgotPassword(event) {
     if (event) event.preventDefault();
     const email = document.getElementById('auth-email').value.trim();
-    if (!email) { showAuthError('Enter your email above first, then click "Forgot password?"'); return; }
+    if (!email) { showAuthError(t('auth.forgot_need_email')); return; }
     await apiJson('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
     });
     closeAuthModal();
-    showInfoModal('Check your email',
-        'If that account exists, a password reset email is on its way. The link is '
-        + 'valid for a short time.');
+    showInfoModal(t('auth.check_email_title'), t('auth.forgot_sent_body'));
 }
 
 // ── Reset password (from an emailed ?reset=<token> link) ─────────────────────
@@ -347,12 +340,12 @@ async function submitReset(event) {
     err.style.display = 'none';
     const password = document.getElementById('reset-password').value;
     if (password !== document.getElementById('reset-confirm').value) {
-        err.textContent = 'Passwords do not match.';
+        err.textContent = t('auth.pw_mismatch');
         err.style.display = 'block';
         return;
     }
     if (!pwAllValid('reset-password', 'reset-confirm')) {
-        err.textContent = 'Please meet all the password requirements.';
+        err.textContent = t('auth.pw_requirements');
         err.style.display = 'block';
         return;
     }
@@ -362,19 +355,19 @@ async function submitReset(event) {
         body: JSON.stringify({ token: _resetToken, password }),
     });
     if (!ok) {
-        err.textContent = (data && data.error) || 'Could not reset password.';
+        err.textContent = (data && data.error) || t('auth.reset_failed');
         err.style.display = 'block';
         return;
     }
     closeResetModal();
-    showInfoModal('Password reset', (data && data.message) || 'You can now sign in.');
+    showInfoModal(t('auth.reset_ok_title'), (data && data.message) || t('auth.reset_ok_body'));
     openAuthModal();
 }
 
 async function resendVerification(event) {
     if (event) event.preventDefault();
     const email = document.getElementById('auth-email').value.trim();
-    if (!email) { showAuthError('Enter your email first.'); return; }
+    if (!email) { showAuthError(t('auth.resend_need_email')); return; }
     await apiJson('/api/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -382,8 +375,7 @@ async function resendVerification(event) {
     });
     document.getElementById('auth-resend').style.display = 'none';
     closeAuthModal();
-    showInfoModal('Verification email',
-        'If that account exists and needs verification, an email is on its way.');
+    showInfoModal(t('auth.resend_title'), t('auth.resend_body'));
 }
 
 async function doLogout() {
@@ -444,7 +436,7 @@ async function loadSizingsList() {
     if (!ok) {
         sizingsCache = [];
         document.getElementById('sizings-table-body').innerHTML = '';
-        sizingsStatus('Could not load sizings.', true);
+        sizingsStatus(t('auth.sizings_load_error'), true);
         return;
     }
     sizingsCache = data;
@@ -462,8 +454,8 @@ function renderSizings() {
     // Tab counts (independent of the search filter).
     const mineCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.mine.includes(c.source)).length;
     const orgCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.org.includes(c.source)).length;
-    document.getElementById('sizings-tab-mine').textContent = `My Sizings (${mineCount})`;
-    document.getElementById('sizings-tab-org').textContent = `My Organization (${orgCount})`;
+    document.getElementById('sizings-tab-mine').textContent = t('auth.sizings_tab_mine', { count: mineCount });
+    document.getElementById('sizings-tab-org').textContent = t('auth.sizings_tab_org', { count: orgCount });
 
     let rows = sizingsCache.filter(c => sources.includes(c.source));
     if (term) {
@@ -473,25 +465,30 @@ function renderSizings() {
     }
 
     if (!rows.length) {
-        const msg = term ? 'No sizings match your search.'
-            : (sizingsTab === 'mine' ? 'You have not saved any sizings yet.'
-                                     : 'No sizings shared in your organisation yet.');
-        body.innerHTML = `<tr><td colspan="6" class="no-recs">${msg}</td></tr>`;
+        const msg = term ? t('auth.sizings_none_search')
+            : (sizingsTab === 'mine' ? t('auth.sizings_none_mine')
+                                     : t('auth.sizings_none_org'));
+        body.innerHTML = `<tr><td colspan="6" class="no-recs">${esc(msg)}</td></tr>`;
         return;
     }
 
-    const sourceLabel = { owned: 'Mine', tenant: 'Team', scale: 'Scale', linked: 'By code' };
+    const sourceLabel = {
+        owned: t('auth.source.owned'),
+        tenant: t('auth.source.tenant'),
+        scale: t('auth.source.scale'),
+        linked: t('auth.source.linked'),
+    };
     body.innerHTML = rows.map(c => {
         const del = c.can_delete
-            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id},"${esc(c.source)}"]'>${c.source === 'linked' ? 'Remove' : 'Delete'}</button>`
+            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id},"${esc(c.source)}"]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
             : '';
         return `<tr>
             <td>${esc(c.name)}</td>
             <td>${esc(c.owner_email || '')}</td>
-            <td><code class="sizing-code" title="Share this code">${esc(c.code)}</code></td>
-            <td>${sourceLabel[c.source] || c.source}</td>
+            <td><code class="sizing-code" title="${esc(t('auth.share_code_title'))}">${esc(c.code)}</code></td>
+            <td>${esc(sourceLabel[c.source] || c.source)}</td>
             <td>${fmtDate(c.updated_at)}</td>
-            <td><button class="btn btn-sm btn-primary" data-click='["loadSizing",${c.id}]'>Load</button> ${del}</td>
+            <td><button class="btn btn-sm btn-primary" data-click='["loadSizing",${c.id}]'>${esc(t('auth.load'))}</button> ${del}</td>
         </tr>`;
     }).join('');
 }
@@ -511,12 +508,12 @@ async function saveCurrentSizing() {
     const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
 
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
-        showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
+        showInfoModal(t('auth.nothing_to_save_title'), t('auth.nothing_to_save_body'));
         return false;
     }
     const snap = window.captureSizingState();
     if (!snap) {
-        showInfoModal('Nothing to save', 'Run a sizing first — there is nothing to save yet.');
+        showInfoModal(t('auth.nothing_to_save_title'), t('auth.nothing_to_save_body'));
         return false;
     }
     // If a sizing we own is loaded, offer to update it in place.
@@ -533,11 +530,11 @@ async function saveCurrentSizing() {
             body: JSON.stringify({ payload: snap }),
         });
         if (!ok) {
-            showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
+            showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
-        showInfoModal('Sizing updated', `Updated "${data.name}".`, data.code);
+        showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
         return true;
     }
@@ -551,11 +548,11 @@ async function saveCurrentSizing() {
         body: JSON.stringify({ name, payload: snap }),
     });
     if (!ok) {
-        showInfoModal('Could not save', (data && data.error) || 'Something went wrong. Try again.');
+        showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
         return false;
     }
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
-    showInfoModal('Sizing saved', `Saved "${data.name}".`, data.code);
+    showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
     return true;
 }
@@ -568,7 +565,7 @@ function askSaveChoice(name) {
     return new Promise(resolve => {
         _saveChoiceResolver = resolve;
         document.getElementById('save-choice-msg').textContent =
-            `You loaded "${name}". Update it, or save a copy as a new sizing?`;
+            t('auth.save_choice_msg', { name });
         document.getElementById('save-choice-modal').style.display = 'flex';
     });
 }
@@ -585,7 +582,7 @@ function chooseSave(which) { _resolveSaveChoice(which); }
 
 async function loadSizing(id) {
     const { ok, data } = await apiJson('/api/configs/' + id);
-    if (!ok) { sizingsStatus((data && data.error) || 'Could not load.', true); return; }
+    if (!ok) { sizingsStatus((data && data.error) || t('auth.load_failed'), true); return; }
     closeSizingsModal();
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
@@ -595,9 +592,9 @@ async function retrieveByCode() {
     const code = document.getElementById('sizings-code-input').value.trim();
     if (!code) return;
     const { ok, data } = await apiJson('/api/configs/code/' + encodeURIComponent(code));
-    if (!ok) { sizingsStatus((data && data.error) || 'No configuration found for that code.', true); return; }
+    if (!ok) { sizingsStatus((data && data.error) || t('auth.code_not_found'), true); return; }
     document.getElementById('sizings-code-input').value = '';
-    sizingsStatus(`Loaded "${data.name}" and added it to your list.`, false);
+    sizingsStatus(t('auth.code_loaded', { name: data.name }), false);
     loadSizingsList();
     closeSizingsModal();
     await window.restoreSizingState(data.payload);
@@ -605,11 +602,11 @@ async function retrieveByCode() {
 }
 
 async function deleteSizing(id, source) {
-    const verb = source === 'linked' ? 'remove this from your list' : 'delete this sizing';
-    if (!confirm(`Are you sure you want to ${verb}?`)) return;
+    const msg = source === 'linked' ? t('auth.confirm_remove') : t('auth.confirm_delete');
+    if (!confirm(msg)) return;
     const { ok, data } = await apiJson('/api/configs/' + id, { method: 'DELETE' });
-    if (!ok) { sizingsStatus((data && data.error) || 'Could not delete.', true); return; }
-    sizingsStatus(data.message || 'Done.', false);
+    if (!ok) { sizingsStatus((data && data.error) || t('auth.delete_failed'), true); return; }
+    sizingsStatus(data.message || t('auth.done'), false);
     loadSizingsList();
 }
 
@@ -653,7 +650,7 @@ function showInfoModal(title, message, code) {
     if (code) {
         document.getElementById('info-modal-code').textContent = code;
         const btn = document.getElementById('info-copy-btn');
-        btn.textContent = 'Copy';
+        btn.textContent = t('auth.copy');
         row.style.display = 'flex';
     } else {
         row.style.display = 'none';
@@ -668,7 +665,7 @@ function closeInfoModal() {
 function copyInfoCode() {
     const code = document.getElementById('info-modal-code').textContent;
     const btn = document.getElementById('info-copy-btn');
-    const done = () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); };
+    const done = () => { btn.textContent = t('auth.copied'); setTimeout(() => { btn.textContent = t('auth.copy'); }, 1500); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(done, () => {});
     } else {
@@ -686,8 +683,7 @@ function copyInfoCode() {
 
 function openOrgModal() {
     document.getElementById('org-modal').style.display = 'flex';
-    document.getElementById('org-desc').textContent =
-        'Active members of your organisation. Disabling a member revokes their access.';
+    document.getElementById('org-desc').textContent = t('auth.org_desc');
     loadOrgUsers();
 }
 function closeOrgModal() {
@@ -704,13 +700,13 @@ function orgStatus(msg, isError) {
 async function loadOrgUsers() {
     const { ok, data } = await apiJson('/api/admin/users/');
     const body = document.getElementById('org-table-body');
-    if (!ok) { body.innerHTML = ''; orgStatus('Could not load members.', true); return; }
+    if (!ok) { body.innerHTML = ''; orgStatus(t('auth.org_load_error'), true); return; }
     body.innerHTML = data.map(u => {
         const isSelf = currentAccount && u.id === currentAccount.id;
         const canDisable = !isSelf && u.role !== 'super_admin';
         const action = canDisable
-            ? `<button class="btn btn-sm btn-muted" data-click='["disableOrgUser",${u.id}]'>Disable</button>`
-            : (isSelf ? '<span class="muted">You</span>' : '');
+            ? `<button class="btn btn-sm btn-muted" data-click='["disableOrgUser",${u.id}]'>${esc(t('auth.disable'))}</button>`
+            : (isSelf ? `<span class="muted">${esc(t('auth.you'))}</span>` : '');
         return `<tr>
             <td>${esc(u.email)}</td>
             <td>${esc(u.role)}</td>
@@ -721,9 +717,9 @@ async function loadOrgUsers() {
 }
 
 async function disableOrgUser(id) {
-    if (!confirm('Disable this member? They will lose access immediately.')) return;
+    if (!confirm(t('auth.confirm_disable'))) return;
     const { ok, data } = await apiJson('/api/admin/users/' + id + '/disable', { method: 'POST' });
-    if (!ok) { orgStatus((data && data.error) || 'Could not disable.', true); return; }
-    orgStatus('Member disabled.', false);
+    if (!ok) { orgStatus((data && data.error) || t('auth.disable_failed'), true); return; }
+    orgStatus(t('auth.member_disabled'), false);
     loadOrgUsers();
 }

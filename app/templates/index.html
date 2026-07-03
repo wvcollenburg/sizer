@@ -1,18 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Infrastructure Sizer</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <!-- i18n: English base (fallback) + the active locale, then the engine.
+         Loaded in <head> so text is swapped before first paint. -->
+    <script src="{{ asset('js/lang/en.js') }}"></script>
+    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
+    <script src="{{ asset('js/i18n.js') }}"></script>
 </head>
 <body data-vcpu-ratio="{{ default_vcpu_ratio }}">
     <header>
         <div class="header-content">
-            <h1>SC// Infrastructure Sizer</h1>
+            <h1 data-i18n="header.title">SC// Infrastructure Sizer</h1>
             <span class="version">v9.8</span>
             <div class="account-bar" id="account-bar">
                 <!-- populated by auth.js -->
+            </div>
+            <div class="lang-menu">
+                <button class="lang-btn" data-click='["toggleLangMenu"]' aria-label="Language" title="Language">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </button>
+                <ul class="lang-dropdown" id="lang-dropdown" hidden>
+                    {% for code in supported_langs %}
+                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
+                    {% endfor %}
+                </ul>
             </div>
         </div>
     </header>
@@ -21,23 +36,23 @@
         <section class="mode-selector">
             <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
-                <span class="mode-label">Appliance (Certified)</span>
-                <span class="mode-desc">Fixed hardware configurations</span>
+                <span class="mode-label" data-i18n="mode.appliance_label">Appliance (Certified)</span>
+                <span class="mode-desc" data-i18n="mode.appliance_desc">Fixed hardware configurations</span>
             </button>
             <button class="mode-btn" data-mode="validated" data-click='["requestSwitchMode","validated"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
-                <span class="mode-label">Software Only (Validated)</span>
-                <span class="mode-desc">Flexible configurations with rules</span>
+                <span class="mode-label" data-i18n="mode.validated_label">Software Only (Validated)</span>
+                <span class="mode-desc" data-i18n="mode.validated_desc">Flexible configurations with rules</span>
             </button>
             <button class="mode-btn" data-mode="import" data-click='["requestSwitchMode","import"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-                <span class="mode-label">VMware Import</span>
-                <span class="mode-desc">Import Live Optics or RVTools export</span>
+                <span class="mode-label" data-i18n="mode.import_label">VMware Import</span>
+                <span class="mode-desc" data-i18n="mode.import_desc">Import Live Optics or RVTools export</span>
             </button>
             <button class="mode-btn" data-mode="manual" data-click='["requestSwitchMode","manual"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
-                <span class="mode-label">Manual Input</span>
-                <span class="mode-desc">Enter workload requirements manually</span>
+                <span class="mode-label" data-i18n="mode.manual_label">Manual Input</span>
+                <span class="mode-desc" data-i18n="mode.manual_desc">Enter workload requirements manually</span>
             </button>
         </section>
 
@@ -45,21 +60,21 @@
         <section id="appliance-form" class="config-form">
             <div class="form-row">
                 <div class="form-group">
-                    <label>Show Models</label>
+                    <label data-i18n="appliance.show_models">Show Models</label>
                     <select id="status-filter" data-change='["loadModels"]'>
-                        <option value="active">Active Only</option>
-                        <option value="all_current">Active + EOL</option>
-                        <option value="all">All (incl. EOS)</option>
+                        <option value="active" data-i18n="appliance.status_active">Active Only</option>
+                        <option value="all_current" data-i18n="appliance.status_active_eol">Active + EOL</option>
+                        <option value="all" data-i18n="appliance.status_all">All (incl. EOS)</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Model</label>
+                    <label data-i18n="appliance.model">Model</label>
                     <select id="model-select" data-change='["loadModelDetails"]'>
-                        <option value="">-- Select Model --</option>
+                        <option value="" data-i18n="appliance.select_model">-- Select Model --</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Node Count</label>
+                    <label data-i18n="appliance.node_count">Node Count</label>
                     <input type="number" id="node-count" value="3" min="1" max="99" data-change='["calculate"]'>
                 </div>
             </div>
@@ -78,7 +93,7 @@
                         <select id="cpu-select" data-change='["calculate"]'></select>
                     </div>
                     <div class="form-group">
-                        <label>RAM (GB)</label>
+                        <label data-i18n="appliance.ram_gb">RAM (GB)</label>
                         <select id="ram-select" data-change='["calculate"]'></select>
                     </div>
                     <div class="form-group">
@@ -93,22 +108,22 @@
                     <div class="storage-only-header">
                         <label class="checkbox-inline">
                             <input type="checkbox" id="so-enable" data-change='["toggleStorageOnly"]'>
-                            Add storage-only nodes
+                            <span data-i18n="appliance.add_storage_only">Add storage-only nodes</span>
                         </label>
-                        <span class="info-icon" tabindex="0"
+                        <span class="info-icon" tabindex="0" data-i18n-title="appliance.storage_only_info"
                               title="Storage-only nodes run no VMs (virtualization disabled) but still join the storage cluster, adding capacity and IOPS. Same model/drives as the HCI nodes, the lowest-tier CPU and minimal RAM. A single CPU is offered when a single-socket model exists in the family; otherwise the family's dual CPU is kept. Requires at least 2 full HCI nodes for HA and updates.">i</span>
                     </div>
                     <div id="so-config" class="form-row" style="display:none">
                         <div class="form-group">
-                            <label>Storage-Only Node Count</label>
+                            <label data-i18n="appliance.storage_only_node_count">Storage-Only Node Count</label>
                             <input type="number" id="so-count" value="1" min="1" max="98" data-change='["calculate"]'>
                         </div>
                         <div class="form-group">
-                            <label>CPU (storage-only)</label>
+                            <label data-i18n="appliance.cpu_storage_only">CPU (storage-only)</label>
                             <select id="so-cpu-select" data-change='["calculate"]'></select>
                         </div>
                         <div class="form-group">
-                            <label>RAM (GB)</label>
+                            <label data-i18n="appliance.ram_gb">RAM (GB)</label>
                             <select id="so-ram-select" data-change='["calculate"]'></select>
                         </div>
                     </div>
@@ -119,41 +134,41 @@
         <!-- VALIDATED MODE -->
         <section id="validated-form" class="config-form" style="display:none">
             <div class="validated-rules">
-                <h3>Validated Installer Rules</h3>
+                <h3 data-i18n="validated.rules_title">Validated Installer Rules</h3>
                 <ul id="validated-rules-list">
-                    <li data-rule="disks">1 or 3+ disks per node (no 2-disk configs)</li>
-                    <li data-rule="band">Hybrid: fast tier must be 7-24.3% of total capacity</li>
-                    <li data-rule="ratio">Hybrid: at least 3 HDDs per flash disk (HEAT down-tiering)</li>
-                    <li>Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
-                    <li>JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
-                    <li>Internal storage only &mdash; no SAN or DAS</li>
-                    <li data-rule="nodes">Minimum 2 nodes (2-node clusters require a witness device)</li>
+                    <li data-rule="disks" data-i18n="validated.rule_disks">1 or 3+ disks per node (no 2-disk configs)</li>
+                    <li data-rule="band" data-i18n="validated.rule_band">Hybrid: fast tier must be 7-24.3% of total capacity</li>
+                    <li data-rule="ratio" data-i18n="validated.rule_ratio">Hybrid: at least 3 HDDs per flash disk (HEAT down-tiering)</li>
+                    <li data-i18n="validated.rule_hybrid">Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
+                    <li data-i18n="validated.rule_jbod">JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
+                    <li data-i18n="validated.rule_internal">Internal storage only &mdash; no SAN or DAS</li>
+                    <li data-rule="nodes" data-i18n="validated.rule_nodes">Minimum 2 nodes (2-node clusters require a witness device)</li>
                 </ul>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Node Count</label>
+                    <label data-i18n="validated.node_count">Node Count</label>
                     <input type="number" id="val-node-count" value="3" min="2" max="99"
                            data-input='["updateValidatedRules"]'>
                 </div>
                 <div class="form-group">
-                    <label>CPU Cores per Node</label>
+                    <label data-i18n="validated.cores_per_node">CPU Cores per Node</label>
                     <input type="number" id="val-cores" value="8" min="2" max="128">
                 </div>
                 <div class="form-group">
-                    <label>Threads per Node</label>
+                    <label data-i18n="validated.threads_per_node">Threads per Node</label>
                     <input type="number" id="val-threads" value="16" min="2" max="256">
                 </div>
                 <div class="form-group">
-                    <label>Base GHz</label>
+                    <label data-i18n="validated.base_ghz">Base GHz</label>
                     <input type="number" id="val-ghz" value="2.1" min="0.5" max="6" step="0.1">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>RAM per Node (GB)</label>
+                    <label data-i18n="validated.ram_per_node">RAM per Node (GB)</label>
                     <select id="val-ram"></select>
                 </div>
                 <div class="form-group">
@@ -164,59 +179,59 @@
 
             <div class="disk-config">
                 <div class="disk-header">
-                    <h3>Disk Configuration (per node)</h3>
+                    <h3 data-i18n="validated.disk_config_title">Disk Configuration (per node)</h3>
                     <div class="tier-mode-toggle">
                         <label class="radio-inline">
                             <input type="radio" name="disk-tier-mode" value="single" checked
-                                   data-change='["setTierMode","single"]'> Single tier
+                                   data-change='["setTierMode","single"]'> <span data-i18n="validated.single_tier">Single tier</span>
                         </label>
                         <label class="radio-inline">
                             <input type="radio" name="disk-tier-mode" value="dual"
-                                   data-change='["setTierMode","dual"]'> Dual tier (hybrid)
+                                   data-change='["setTierMode","dual"]'> <span data-i18n="validated.dual_tier">Dual tier (hybrid)</span>
                         </label>
                     </div>
                 </div>
 
                 <div id="single-tier-config">
                     <div class="tier-row">
-                        <span class="tier-label">Tier</span>
+                        <span class="tier-label" data-i18n="validated.tier">Tier</span>
                         <select id="st-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
-                            <option value="SAS">SAS (Spinning)</option>
-                            <option value="NLSAS">NLSAS (Spinning)</option>
-                            <option value="SATA">SATA (Spinning)</option>
-                            <option value="SSD">SSD (Flash)</option>
-                            <option value="NVMe">NVMe (Flash)</option>
+                            <option value="SAS" data-i18n="validated.disk_sas">SAS (Spinning)</option>
+                            <option value="NLSAS" data-i18n="validated.disk_nlsas">NLSAS (Spinning)</option>
+                            <option value="SATA" data-i18n="validated.disk_sata">SATA (Spinning)</option>
+                            <option value="SSD" data-i18n="validated.disk_ssd">SSD (Flash)</option>
+                            <option value="NVMe" data-i18n="validated.disk_nvme">NVMe (Flash)</option>
                         </select>
                         <select id="st-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
                         <input type="number" id="st-qty" class="disk-qty" value="4" min="1" max="48"
                                data-input='["updateValidatedRules"]'>
-                        <span class="qty-label">drives</span>
+                        <span class="qty-label" data-i18n="validated.drives">drives</span>
                     </div>
                 </div>
 
                 <div id="dual-tier-config" style="display:none">
                     <div class="tier-row">
-                        <span class="tier-label">Capacity</span>
+                        <span class="tier-label" data-i18n="validated.capacity">Capacity</span>
                         <select id="dt-cap-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
-                            <option value="SAS">SAS (Spinning)</option>
-                            <option value="NLSAS">NLSAS (Spinning)</option>
-                            <option value="SATA">SATA (Spinning)</option>
+                            <option value="SAS" data-i18n="validated.disk_sas">SAS (Spinning)</option>
+                            <option value="NLSAS" data-i18n="validated.disk_nlsas">NLSAS (Spinning)</option>
+                            <option value="SATA" data-i18n="validated.disk_sata">SATA (Spinning)</option>
                         </select>
                         <select id="dt-cap-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
                         <input type="number" id="dt-cap-qty" class="disk-qty" value="6" min="1" max="48"
                                data-input='["updateValidatedRules"]'>
-                        <span class="qty-label">drives</span>
+                        <span class="qty-label" data-i18n="validated.drives">drives</span>
                     </div>
                     <div class="tier-row">
-                        <span class="tier-label">Fast</span>
+                        <span class="tier-label" data-i18n="validated.fast">Fast</span>
                         <select id="dt-fast-type" class="disk-type" data-change='["populateDiskSizes","$this"]'>
-                            <option value="SSD">SSD (Flash)</option>
-                            <option value="NVMe">NVMe (Flash)</option>
+                            <option value="SSD" data-i18n="validated.disk_ssd">SSD (Flash)</option>
+                            <option value="NVMe" data-i18n="validated.disk_nvme">NVMe (Flash)</option>
                         </select>
                         <select id="dt-fast-size" class="disk-size" data-change='["updateValidatedRules"]'></select>
                         <input type="number" id="dt-fast-qty" class="disk-qty" value="2" min="1" max="48"
                                data-input='["updateValidatedRules"]'>
-                        <span class="qty-label">drives</span>
+                        <span class="qty-label" data-i18n="validated.drives">drives</span>
                     </div>
                 </div>
 
@@ -227,46 +242,46 @@
                 <div class="storage-only-header">
                     <label class="checkbox-inline">
                         <input type="checkbox" id="val-so-enable" data-change='["toggleValidatedStorageOnly"]'>
-                        Add storage-only nodes
+                        <span data-i18n="validated.add_storage_only">Add storage-only nodes</span>
                     </label>
-                    <span class="info-icon" tabindex="0"
+                    <span class="info-icon" tabindex="0" data-i18n-title="validated.storage_only_info"
                           title="Storage-only nodes run no VMs but join the storage cluster, adding capacity and IOPS. Same disks as the HCI nodes, a single CPU and at least 16 GB RAM. Requires at least 2 full HCI nodes.">i</span>
                 </div>
                 <div id="val-so-config" class="form-row" style="display:none">
                     <div class="form-group">
-                        <label>Storage-Only Node Count</label>
+                        <label data-i18n="validated.storage_only_node_count">Storage-Only Node Count</label>
                         <input type="number" id="val-so-count" value="1" min="1" max="96">
                     </div>
                     <div class="form-group">
-                        <label>Cores (single CPU)</label>
+                        <label data-i18n="validated.cores_single_cpu">Cores (single CPU)</label>
                         <input type="number" id="val-so-cores" value="8" min="1" max="64">
                     </div>
                     <div class="form-group">
-                        <label>Threads</label>
+                        <label data-i18n="validated.threads">Threads</label>
                         <input type="number" id="val-so-threads" value="16" min="1" max="128">
                     </div>
                     <div class="form-group">
-                        <label>Base GHz</label>
+                        <label data-i18n="validated.base_ghz">Base GHz</label>
                         <input type="number" id="val-so-ghz" value="2.1" min="0.5" max="6" step="0.1">
                     </div>
                     <div class="form-group">
-                        <label>RAM (GB, min 16)</label>
+                        <label data-i18n="validated.ram_min16">RAM (GB, min 16)</label>
                         <input type="number" id="val-so-ram" value="32" min="16" max="2048" step="16">
                     </div>
                 </div>
             </div>
 
-            <button class="btn btn-primary" id="val-calculate-btn" data-click='["calculateValidated"]'>Calculate</button>
+            <button class="btn btn-primary" id="val-calculate-btn" data-click='["calculateValidated"]' data-i18n="validated.calculate">Calculate</button>
         </section>
 
         <!-- IMPORT MODE -->
         <section id="import-form" class="config-form" style="display:none">
             <div class="import-upload">
-                <h3>Upload VMware Environment Export</h3>
-                <p class="import-desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
+                <h3 data-i18n="import.upload_title">Upload VMware Environment Export</h3>
+                <p class="import-desc" data-i18n="import.upload_desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
                 <div class="upload-area" id="upload-area">
                     <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
-                    <div class="upload-text">Drop .xlsx file here or click to browse</div>
+                    <div class="upload-text" data-i18n="import.drop_hint">Drop .xlsx file here or click to browse</div>
                     <input type="file" id="file-input" accept=".xlsx" data-change='["handleFileSelect","$this"]'>
                 </div>
                 <div id="upload-status" class="upload-status" style="display:none"></div>
@@ -275,17 +290,17 @@
             <div id="import-results" style="display:none">
                 <div class="import-summary">
                     <div class="section-header-row">
-                        <h3>Environment Summary</h3>
+                        <h3 data-i18n="import.env_summary">Environment Summary</h3>
                         <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                            Configure VMs <span id="vm-exclusion-count"></span>
+                            <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
                         </button>
                     </div>
                     <div class="summary-grid" id="env-summary"></div>
                 </div>
 
                 <div class="import-workload">
-                    <h3>Workload Requirements</h3>
+                    <h3 data-i18n="import.workload_requirements">Workload Requirements</h3>
                     <div class="summary-grid" id="workload-summary"></div>
                 </div>
             </div>
@@ -294,72 +309,72 @@
         <!-- MANUAL INPUT MODE -->
         <section id="manual-form" class="config-form" style="display:none">
             <div class="manual-section">
-                <h3>Current Environment</h3>
+                <h3 data-i18n="manual.current_env">Current Environment</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Platform</label>
-                        <input type="text" id="man-platform" placeholder="e.g. Dell PowerEdge R740">
+                        <label data-i18n="manual.platform">Platform</label>
+                        <input type="text" id="man-platform" placeholder="e.g. Dell PowerEdge R740" data-i18n-ph="manual.platform_ph">
                     </div>
                     <div class="form-group">
-                        <label>Cluster Name</label>
-                        <input type="text" id="man-cluster" placeholder="e.g. Production">
+                        <label data-i18n="manual.cluster_name">Cluster Name</label>
+                        <input type="text" id="man-cluster" placeholder="e.g. Production" data-i18n-ph="manual.cluster_ph">
                     </div>
                     <div class="form-group">
-                        <label>Hosts</label>
+                        <label data-i18n="manual.hosts">Hosts</label>
                         <input type="number" id="man-hosts" value="" min="0" placeholder="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Total Cores</label>
+                        <label data-i18n="manual.total_cores">Total Cores</label>
                         <input type="number" id="man-cores" value="" min="0" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Total Threads</label>
+                        <label data-i18n="manual.total_threads">Total Threads</label>
                         <input type="number" id="man-threads" value="" min="0" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Total GHz</label>
+                        <label data-i18n="manual.total_ghz">Total GHz</label>
                         <input type="number" id="man-ghz" value="" min="0" step="0.1" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Total Host RAM (GB)</label>
+                        <label data-i18n="manual.total_host_ram">Total Host RAM (GB)</label>
                         <input type="number" id="man-host-ram" value="" min="0" placeholder="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Peak CPU %</label>
+                        <label data-i18n="manual.peak_cpu">Peak CPU %</label>
                         <input type="number" id="man-peak-cpu" value="" min="0" max="100" step="0.1" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Avg CPU %</label>
+                        <label data-i18n="manual.avg_cpu">Avg CPU %</label>
                         <input type="number" id="man-avg-cpu" value="" min="0" max="100" step="0.1" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Peak Memory %</label>
+                        <label data-i18n="manual.peak_mem">Peak Memory %</label>
                         <input type="number" id="man-peak-mem" value="" min="0" max="100" step="0.1" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Avg Memory %</label>
+                        <label data-i18n="manual.avg_mem">Avg Memory %</label>
                         <input type="number" id="man-avg-mem" value="" min="0" max="100" step="0.1" placeholder="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Avg IOPS</label>
+                        <label data-i18n="manual.avg_iops">Avg IOPS</label>
                         <input type="number" id="man-avg-iops" value="" min="0" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Peak IOPS</label>
+                        <label data-i18n="manual.peak_iops">Peak IOPS</label>
                         <input type="number" id="man-peak-iops" value="" min="0" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>P95 IOPS</label>
-                        <input type="number" id="man-p95-iops" value="" min="0" placeholder="0 = unknown">
+                        <label data-i18n="manual.p95_iops">P95 IOPS</label>
+                        <input type="number" id="man-p95-iops" value="" min="0" placeholder="0 = unknown" data-i18n-ph="manual.p95_iops_ph">
                     </div>
                     <div class="form-group">
-                        <label>NIC Speed</label>
+                        <label data-i18n="manual.nic_speed">NIC Speed</label>
                         <select id="man-nic-speed">
                             <option value="1000">1 GbE</option>
                             <option value="2500">2.5 GbE</option>
@@ -372,51 +387,51 @@
 
             <div class="manual-section">
                 <div class="manual-section-head">
-                    <h3>Workload Requirements</h3>
-                    <button class="btn btn-sm" type="button" data-click='["openManualVmModal"]'>+ Add / edit VMs<span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
+                    <h3 data-i18n="manual.workload_requirements">Workload Requirements</h3>
+                    <button class="btn btn-sm" type="button" data-click='["openManualVmModal"]'><span data-i18n="manual.add_edit_vms">+ Add / edit VMs</span><span id="manual-vm-count" class="manual-vm-count" style="display:none"></span></button>
                 </div>
                 <div class="manual-vm-note" id="manual-vm-note" style="display:none"></div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Total VMs</label>
+                        <label data-i18n="manual.total_vms">Total VMs</label>
                         <input type="number" id="man-total-vms" value="" min="0" placeholder="0" data-change='["clampManualField","man-total-vms","total_vms"]'>
                     </div>
                     <div class="form-group">
-                        <label>Active VMs</label>
+                        <label data-i18n="manual.active_vms">Active VMs</label>
                         <input type="number" id="man-active-vms" value="" min="0" placeholder="0" data-change='["clampManualField","man-active-vms","active_vms"]'>
                     </div>
                     <div class="form-group">
-                        <label>Total vCPUs *</label>
-                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" class="required-field" data-change='["clampManualField","man-vcpus","vcpus"]'>
+                        <label data-i18n="manual.total_vcpus">Total vCPUs *</label>
+                        <input type="number" id="man-vcpus" value="" min="1" placeholder="Required" data-i18n-ph="manual.required_ph" class="required-field" data-change='["clampManualField","man-vcpus","vcpus"]'>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Provisioned RAM (GB) *</label>
-                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" class="required-field" data-change='["clampManualField","man-prov-ram","prov_ram"]'>
+                        <label data-i18n="manual.prov_ram">Provisioned RAM (GB) *</label>
+                        <input type="number" id="man-prov-ram" value="" min="1" placeholder="Required" data-i18n-ph="manual.required_ph" class="required-field" data-change='["clampManualField","man-prov-ram","prov_ram"]'>
                     </div>
                     <div class="form-group">
-                        <label>Used RAM (GB)</label>
+                        <label data-i18n="manual.used_ram">Used RAM (GB)</label>
                         <input type="number" id="man-used-ram" value="" min="0" placeholder="0">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Provisioned Storage (TB)</label>
+                        <label data-i18n="manual.prov_storage">Provisioned Storage (TB)</label>
                         <input type="number" id="man-prov-storage" value="" min="0" step="0.01" placeholder="0" data-change='["clampManualField","man-prov-storage","prov_storage_tb"]'>
                     </div>
                     <div class="form-group">
-                        <label>Datastore Used (TB) *</label>
-                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" class="required-field" data-change='["clampManualField","man-ds-used","ds_used_tb"]'>
+                        <label data-i18n="manual.ds_used">Datastore Used (TB) *</label>
+                        <input type="number" id="man-ds-used" value="" min="0.01" step="0.01" placeholder="Required" data-i18n-ph="manual.required_ph" class="required-field" data-change='["clampManualField","man-ds-used","ds_used_tb"]'>
                     </div>
                     <div class="form-group">
-                        <label>Datastore Total (TB)</label>
+                        <label data-i18n="manual.ds_total">Datastore Total (TB)</label>
                         <input type="number" id="man-ds-total" value="" min="0" step="0.01" placeholder="0">
                     </div>
                 </div>
             </div>
 
-            <button class="btn btn-primary" data-click='["calculateManual"]'>Get Recommendations</button>
+            <button class="btn btn-primary" data-click='["calculateManual"]' data-i18n="manual.get_recommendations">Get Recommendations</button>
 
         </section>
 
@@ -425,11 +440,11 @@
         <section id="sizing-results" class="config-form" style="display:none">
                 <div class="ratio-control">
                     <div class="ratio-header">
-                        <h3>Sizing Options</h3>
+                        <h3 data-i18n="results.sizing_options">Sizing Options</h3>
                         <div class="ratio-current" id="ratio-current"></div>
                     </div>
                     <div class="ratio-slider-row compact">
-                        <label>Target vCPU : Core ratio</label>
+                        <label data-i18n="results.target_ratio">Target vCPU : Core ratio</label>
                         <input type="range" id="ratio-slider" min="1" max="8" step="0.25" value="3"
                                data-input='["updateRatioDisplay"]'>
                         <span class="ratio-value" id="ratio-value">3.00 : 1</span>
@@ -437,76 +452,84 @@
                     <div class="ratio-bar-container">
                         <div class="ratio-bar">
                             <div class="ratio-bar-fill" id="ratio-bar-fill"></div>
-                            <div class="ratio-bar-marker" id="ratio-bar-marker" title="Current environment"></div>
+                            <div class="ratio-bar-marker" id="ratio-bar-marker" title="Current environment" data-i18n-title="results.current_env_marker"></div>
                         </div>
                         <div class="ratio-labels">
-                            <span>1:1 Conservative</span>
-                            <span>4:1 Moderate</span>
-                            <span>8:1 Aggressive</span>
+                            <span data-i18n="results.ratio_conservative">1:1 Conservative</span>
+                            <span data-i18n="results.ratio_moderate">4:1 Moderate</span>
+                            <span data-i18n="results.ratio_aggressive">8:1 Aggressive</span>
                         </div>
                     </div>
 
                     <div class="sizing-options-grid">
                         <div class="form-group">
-                            <label>Target Node Count</label>
+                            <label data-i18n="results.target_node_count">Target Node Count</label>
                             <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
+                                   data-i18n-ph="results.no_target_ph"
                                    title="Size recommendations to exactly this many nodes. Larger sizes are only offered (with a warning) when the target can't fit the workload. Leave blank for the optimal/best-priced solution."
+                                   data-i18n-title="results.target_node_count_info"
                                    data-change='["recalcRecommendations"]'>
                             <!-- CPU sizing is tied to node count. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
                                     <input type="checkbox" id="size-full-cluster" data-change='["recalcRecommendations"]'>
-                                    Size CPU for full cluster
+                                    <span data-i18n="results.size_full_cluster">Size CPU for full cluster</span>
                                 </label>
                                 <span class="info-icon" id="full-cluster-info" tabindex="0"
+                                      data-i18n-title="results.size_full_cluster_info"
                                       title="By default CPU is sized for N-1, so the cluster keeps full performance even if a node fails. Enabling this sizes CPU across all nodes — lowering node count and cost, but during a node failure performance can degrade as the effective vCPU:core ratio rises.">i</span>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Storage Type</label>
+                            <label data-i18n="results.storage_type">Storage Type</label>
                             <select id="storage-pref" data-change='["recalcRecommendations"]'
+                                    data-i18n-title="results.storage_type_info"
                                     title="Prefer a specific storage media. Auto considers all options.">
-                                <option value="auto" selected>Auto</option>
-                                <option value="flash">All-Flash</option>
-                                <option value="hybrid">Hybrid</option>
-                                <option value="spinning">All-Spinning</option>
+                                <option value="auto" selected data-i18n="results.storage_auto">Auto</option>
+                                <option value="flash" data-i18n="results.storage_flash">All-Flash</option>
+                                <option value="hybrid" data-i18n="results.storage_hybrid">Hybrid</option>
+                                <option value="spinning" data-i18n="results.storage_spinning">All-Spinning</option>
                             </select>
                             <!-- Storage-related options grouped under storage type. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
                                     <input type="checkbox" id="allow-storage-only" data-change='["recalcRecommendations"]'>
-                                    Allow storage-only nodes
+                                    <span data-i18n="results.allow_storage_only">Allow storage-only nodes</span>
                                 </label>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.allow_storage_only_info"
                                       title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
                             </div>
                             <div id="local-storage-option"></div>
                         </div>
                         <div class="form-group">
-                            <label>Sizing Mode
+                            <label><span data-i18n="results.sizing_mode">Sizing Mode</span>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.sizing_mode_info"
                                       title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid 7–24.3% flash band and the 100-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
                             </label>
                             <select id="sizing-mode" data-change='["onSizingModeChange"]'>
-                                <option value="certified" selected>Certified</option>
-                                <option value="validated">Validated (Software-Only)</option>
+                                <option value="certified" selected data-i18n="results.mode_certified">Certified</option>
+                                <option value="validated" data-i18n="results.mode_validated">Validated (Software-Only)</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Size For Model
+                            <label><span data-i18n="results.size_for_model">Size For Model</span>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.size_for_model_info"
                                       title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
                             </label>
                             <select id="sizing-model-select" data-change='["recalcRecommendations"]'>
-                                <option value="">All models (best fit)</option>
+                                <option value="" data-i18n="results.all_models">All models (best fit)</option>
                             </select>
                             <!-- Tied to model selection, so it sits under this dropdown. -->
                             <div class="toggle-item">
                                 <label class="checkbox-inline">
                                     <input type="checkbox" id="sizing-include-eol" data-change='["onEolToggle"]'>
-                                    Include EOL / EOS systems
+                                    <span data-i18n="results.include_eol">Include EOL / EOS systems</span>
                                 </label>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.include_eol_info"
                                       title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
                             </div>
                         </div>
@@ -515,39 +538,41 @@
                 </div>
 
                 <div class="growth-control">
-                    <h3>Growth Projection</h3>
+                    <h3 data-i18n="results.growth_projection">Growth Projection</h3>
                     <div class="growth-inputs">
                         <div class="form-group">
-                            <label>Projection Years</label>
+                            <label data-i18n="results.projection_years">Projection Years</label>
                             <select id="growth-years" data-change='["recalcRecommendations"]'>
-                                <option value="1">1 year</option>
-                                <option value="2">2 years</option>
-                                <option value="3">3 years</option>
-                                <option value="4">4 years</option>
-                                <option value="5" selected>5 years</option>
+                                <option value="1" data-i18n="results.year_1">1 year</option>
+                                <option value="2" data-i18n="results.years_2">2 years</option>
+                                <option value="3" data-i18n="results.years_3">3 years</option>
+                                <option value="4" data-i18n="results.years_4">4 years</option>
+                                <option value="5" selected data-i18n="results.years_5">5 years</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>YoY Growth %</label>
+                            <label data-i18n="results.yoy_growth">YoY Growth %</label>
                             <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
                                    data-change='["recalcRecommendations"]'>
                         </div>
                         <div class="form-group">
-                            <label>Snapshot Overhead %</label>
+                            <label data-i18n="results.snapshot_overhead">Snapshot Overhead %</label>
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
                                    data-change='["recalcRecommendations"]'>
                         </div>
                         <div class="form-group">
-                            <label>Max Day-One Storage %
+                            <label><span data-i18n="results.max_day_one_storage">Max Day-One Storage %</span>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.max_day_one_storage_info"
                                       title="Cap on today's (pre-growth) storage use as a share of full-cluster usable capacity. The cluster is sized so day-one storage sits at or below this, adding headroom on top of growth + snapshots. Measured against the full cluster (RF replication already covers a node loss). 100 = no cap.">i</span>
                             </label>
                             <input type="number" id="max-day-one-storage" value="{{ max_day_one_storage_pct }}"
                                    min="1" max="100" step="1" data-change='["recalcRecommendations"]'>
                         </div>
                         <div class="form-group">
-                            <label>Max Day-One RAM %
+                            <label><span data-i18n="results.max_day_one_ram">Max Day-One RAM %</span>
                                 <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.max_day_one_ram_info"
                                       title="Cap on today's (pre-growth) RAM use as a share of N-1 available RAM, so the workload still fits with a node down even at the projected end-state. Measured against N-1, so the on-card RAM bar (shown vs the full cluster) reads lower than this percentage. 100 = no cap.">i</span>
                             </label>
                             <input type="number" id="max-day-one-ram" value="{{ max_day_one_ram_pct }}"
@@ -558,8 +583,8 @@
                 </div>
 
                 <div class="import-recommendations">
-                    <h3>SC// Recommendations</h3>
-                    <p class="rec-desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                    <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
+                    <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
                     <div id="rec-list"></div>
                 </div>
         </section>
@@ -567,67 +592,67 @@
 
         <!-- RESULTS -->
         <section id="results" class="results-section" style="display:none">
-            <h2>Sizing Results</h2>
+            <h2 data-i18n="results.sizing_results">Sizing Results</h2>
             <div id="error-msg" class="error-msg" style="display:none"></div>
             <div id="witness-info" style="display:none"></div>
 
             <div class="results-grid">
                 <div class="result-card">
-                    <h3>Per Node</h3>
+                    <h3 data-i18n="results.per_node">Per Node</h3>
                     <table id="per-node-table"></table>
                 </div>
                 <div class="result-card highlight">
-                    <h3>Cluster Total (<span id="result-nodes"></span>)</h3>
+                    <h3><span data-i18n="results.cluster_total">Cluster Total</span> (<span id="result-nodes"></span>)</h3>
                     <table id="cluster-table"></table>
                 </div>
                 <div class="result-card n1">
-                    <h3>N-1 (Update/Failure)</h3>
-                    <p class="n1-desc" id="n1-desc">Resources available with one node offline</p>
+                    <h3 data-i18n="results.n1_title">N-1 (Update/Failure)</h3>
+                    <p class="n1-desc" id="n1-desc" data-i18n="results.n1_desc">Resources available with one node offline</p>
                     <table id="n1-table"></table>
                 </div>
             </div>
             <div class="results-export">
-                <button class="btn btn-muted btn-sm" data-click='["exportConfig","pptx"]' id="config-export-btn" style="display:none" title="Download the editable PowerPoint (Scale users)">PPTX</button>
-                <button class="btn btn-export" data-click='["exportConfig","pdf"]' id="config-export-pdf-btn" style="display:none" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export PDF</button>
+                <button class="btn btn-muted btn-sm" data-click='["exportConfig","pptx"]' id="config-export-btn" style="display:none" data-i18n-title="results.export_pptx_title" title="Download the editable PowerPoint (Scale users)">PPTX</button>
+                <button class="btn btn-export" data-click='["exportConfig","pdf"]' id="config-export-pdf-btn" style="display:none" data-i18n-title="results.export_pdf_title" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="results.export_pdf">Export PDF</span></button>
             </div>
         </section>
     </main>
 
     <footer>
-        <p>SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)
+        <p data-i18n-html="footer.text">SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)
            &nbsp;&middot;&nbsp; <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
     </footer>
 
     <div class="dev-disclaimer" role="note">
-        <span class="dev-disclaimer-tag">In development</span>
-        This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
+        <span class="dev-disclaimer-tag" data-i18n="footer.dev_tag">In development</span>
+        <span data-i18n="footer.disclaimer">This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
         best-effort basis only &mdash; no guarantees are made, and no responsibility or liability can be accepted for any
-        decisions taken based on its output. Always validate results before relying on them.
+        decisions taken based on its output. Always validate results before relying on them.</span>
     </div>
 
     <!-- VM Exclusion Modal -->
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Configure VMs for Sizing</h2>
+                <h2 data-i18n="modal.vmexcl.title">Configure VMs for Sizing</h2>
                 <button class="modal-close" data-click='["closeVmExclusionModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar">
-                <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-input='["filterVmTable"]'>
-                <select id="vm-power-filter" class="vm-power-filter" data-change='["setVmPowerFilter","$value"]' title="Filter the table by power state">
-                    <option value="all">All power states</option>
-                    <option value="on">Powered on only</option>
-                    <option value="off">Powered off only</option>
+                <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-i18n-ph="modal.vmexcl.search_ph" data-input='["filterVmTable"]'>
+                <select id="vm-power-filter" class="vm-power-filter" data-change='["setVmPowerFilter","$value"]' data-i18n-title="modal.vmexcl.power_filter_title" title="Filter the table by power state">
+                    <option value="all" data-i18n="modal.vmexcl.power_all">All power states</option>
+                    <option value="on" data-i18n="modal.vmexcl.power_on">Powered on only</option>
+                    <option value="off" data-i18n="modal.vmexcl.power_off">Powered off only</option>
                 </select>
                 <div class="modal-actions">
-                    <label class="excl-toggle" title="When selecting powered-off VMs, also exclude their storage">
+                    <label class="excl-toggle" data-i18n-title="modal.vmexcl.include_storage_title" title="When selecting powered-off VMs, also exclude their storage">
                         <input type="checkbox" id="excl-include-storage" checked>
-                        Include storage in exclusions
+                        <span data-i18n="modal.vmexcl.include_storage">Include storage in exclusions</span>
                     </label>
-                    <button class="btn btn-sm" data-click='["addVm"]'>+ Add VM</button>
-                    <button class="btn btn-sm" data-click='["selectPoweredOffVms"]'>Select powered off</button>
-                    <button class="btn btn-sm" data-click='["selectLikelyCVMs"]'>Select likely CVMs</button>
-                    <button class="btn btn-sm btn-muted" data-click='["clearAllVmExclusions"]'>Clear all</button>
+                    <button class="btn btn-sm" data-click='["addVm"]' data-i18n="modal.vmexcl.add_vm">+ Add VM</button>
+                    <button class="btn btn-sm" data-click='["selectPoweredOffVms"]' data-i18n="modal.vmexcl.select_powered_off">Select powered off</button>
+                    <button class="btn btn-sm" data-click='["selectLikelyCVMs"]' data-i18n="modal.vmexcl.select_cvms">Select likely CVMs</button>
+                    <button class="btn btn-sm btn-muted" data-click='["clearAllVmExclusions"]' data-i18n="modal.vmexcl.clear_all">Clear all</button>
                 </div>
             </div>
             <div class="modal-body">
@@ -635,14 +660,14 @@
                     <table class="vm-table" id="vm-table">
                         <thead>
                             <tr>
-                                <th class="vm-col-check">Excl. Compute</th>
-                                <th class="vm-col-check">Excl. Storage</th>
-                                <th class="vm-col-name sortable" data-click='["sortVmTable","name"]'>VM Name</th>
-                                <th class="vm-col-model sortable" data-click='["sortVmTable","model"]'>Model</th>
-                                <th class="vm-col-power sortable" data-click='["sortVmTable","powered_on"]'>Power</th>
-                                <th class="vm-col-num sortable" data-click='["sortVmTable","vcpus"]' title="Total cores (sockets &times; cores) &mdash; editable">Cores</th>
-                                <th class="vm-col-num sortable" data-click='["sortVmTable","provisioned_memory_gb"]' title="RAM (GB) &mdash; editable">RAM (GB)</th>
-                                <th class="vm-col-num sortable" data-click='["sortVmTable","vdisk_used_gb"]'>Storage (GB)</th>
+                                <th class="vm-col-check" data-i18n="modal.vmexcl.col_excl_compute">Excl. Compute</th>
+                                <th class="vm-col-check" data-i18n="modal.vmexcl.col_excl_storage">Excl. Storage</th>
+                                <th class="vm-col-name sortable" data-click='["sortVmTable","name"]' data-i18n="modal.vmexcl.col_vm_name">VM Name</th>
+                                <th class="vm-col-model sortable" data-click='["sortVmTable","model"]' data-i18n="modal.vmexcl.col_model">Model</th>
+                                <th class="vm-col-power sortable" data-click='["sortVmTable","powered_on"]' data-i18n="modal.vmexcl.col_power">Power</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","vcpus"]' data-i18n-title="modal.vmexcl.col_cores_title" title="Total cores (sockets &times; cores) &mdash; editable" data-i18n="modal.vmexcl.col_cores">Cores</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","provisioned_memory_gb"]' data-i18n-title="modal.vmexcl.col_ram_title" title="RAM (GB) &mdash; editable" data-i18n="modal.vmexcl.col_ram">RAM (GB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortVmTable","vdisk_used_gb"]' data-i18n="modal.vmexcl.col_storage">Storage (GB)</th>
                                 <th class="vm-col-os">OS</th>
                                 <th class="vm-col-action"></th>
                             </tr>
@@ -654,9 +679,9 @@
             <div class="modal-footer">
                 <div class="vm-exclusion-summary" id="vm-exclusion-summary"></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-sm btn-muted" data-click='["resetVmConfig"]'>Reset edits</button>
-                    <button class="btn btn-muted" data-click='["closeVmExclusionModal"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["applyVmExclusions"]'>Apply Changes</button>
+                    <button class="btn btn-sm btn-muted" data-click='["resetVmConfig"]' data-i18n="modal.vmexcl.reset_edits">Reset edits</button>
+                    <button class="btn btn-muted" data-click='["closeVmExclusionModal"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyVmExclusions"]' data-i18n="modal.vmexcl.apply_changes">Apply Changes</button>
                 </div>
             </div>
         </div>
@@ -666,23 +691,23 @@
     <div class="modal-overlay" id="manual-vm-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Add VMs</h2>
+                <h2 data-i18n="modal.manualvm.title">Add VMs</h2>
                 <button class="modal-close" data-click='["closeManualVmModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar">
-                <button class="btn btn-sm" type="button" data-click='["addManualVm"]'>+ Add VM</button>
-                <span class="manual-vm-hint">Totals fill the Workload Requirements fields. You can raise those fields afterward, but not below these totals.</span>
+                <button class="btn btn-sm" type="button" data-click='["addManualVm"]' data-i18n="modal.manualvm.add_vm">+ Add VM</button>
+                <span class="manual-vm-hint" data-i18n="modal.manualvm.hint">Totals fill the Workload Requirements fields. You can raise those fields afterward, but not below these totals.</span>
             </div>
             <div class="modal-body">
                 <div class="vm-table-wrap">
                     <table class="vm-table" id="manual-vm-table">
                         <thead>
                             <tr>
-                                <th class="vm-col-name sortable" data-click='["sortManualVm","name"]'>VM Name</th>
-                                <th class="vm-col-power sortable" data-click='["sortManualVm","powered_on"]'>Power</th>
+                                <th class="vm-col-name sortable" data-click='["sortManualVm","name"]' data-i18n="modal.vmexcl.col_vm_name">VM Name</th>
+                                <th class="vm-col-power sortable" data-click='["sortManualVm","powered_on"]' data-i18n="modal.vmexcl.col_power">Power</th>
                                 <th class="vm-col-num sortable" data-click='["sortManualVm","vcpus"]'>vCPUs</th>
-                                <th class="vm-col-num sortable" data-click='["sortManualVm","ram_gb"]'>RAM (GB)</th>
-                                <th class="vm-col-num sortable" data-click='["sortManualVm","storage_gb"]'>Storage (GB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortManualVm","ram_gb"]' data-i18n="modal.vmexcl.col_ram">RAM (GB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortManualVm","storage_gb"]' data-i18n="modal.vmexcl.col_storage">Storage (GB)</th>
                                 <th class="vm-col-action"></th>
                             </tr>
                         </thead>
@@ -693,8 +718,8 @@
             <div class="modal-footer">
                 <div class="vm-exclusion-summary" id="manual-vm-summary"></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-muted" data-click='["closeManualVmModal"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["applyManualVms"]'>Apply</button>
+                    <button class="btn btn-muted" data-click='["closeManualVmModal"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyManualVms"]' data-i18n="common.apply">Apply</button>
                 </div>
             </div>
         </div>
@@ -705,7 +730,7 @@
     <div class="modal-overlay" id="source-cpu-modal" style="display:none">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Source CPU performance</h2>
+                <h2 data-i18n="modal.sourcecpu.title">Source CPU performance</h2>
                 <button class="modal-close" data-click='["closeSourceCpuModal"]'>&times;</button>
             </div>
             <div class="modal-body">
@@ -714,7 +739,7 @@
             <div class="modal-footer">
                 <div></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-primary" data-click='["closeSourceCpuModal"]'>Done</button>
+                    <button class="btn btn-primary" data-click='["closeSourceCpuModal"]' data-i18n="modal.common.done">Done</button>
                 </div>
             </div>
         </div>
@@ -723,14 +748,14 @@
     <div class="modal-overlay" id="diagram-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2 id="diagram-modal-title">Network diagram</h2>
+                <h2 id="diagram-modal-title" data-i18n="modal.diagram.title">Network diagram</h2>
                 <button class="modal-close" data-click='["closeClusterDiagram"]'>&times;</button>
             </div>
             <div class="modal-body" id="diagram-modal-body"></div>
             <div class="modal-footer">
                 <div></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-primary" data-click='["downloadClusterDiagram"]' title="Download this diagram as an SVG"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download SVG</button>
+                    <button class="btn btn-primary" data-click='["downloadClusterDiagram"]' data-i18n-title="modal.diagram.download_title" title="Download this diagram as an SVG"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="modal.diagram.download_svg">Download SVG</span></button>
                 </div>
             </div>
         </div>
@@ -740,24 +765,24 @@
     <div class="modal-overlay" id="clone-vm-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Clone <span id="clone-source-name"></span></h2>
+                <h2><span data-i18n="modal.clone.title">Clone</span> <span id="clone-source-name"></span></h2>
                 <button class="modal-close" data-click='["closeCloneModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>Number of copies</label>
+                    <label data-i18n="modal.clone.num_copies">Number of copies</label>
                     <input type="number" id="clone-count" value="1" min="1" max="500">
                 </div>
-                <label class="excl-toggle" title="Bump the trailing number on the name for each copy, keeping zero-padding (DC01 → DC02, DC03…)">
+                <label class="excl-toggle" data-i18n-title="modal.clone.autoinc_title" title="Bump the trailing number on the name for each copy, keeping zero-padding (DC01 → DC02, DC03…)">
                     <input type="checkbox" id="clone-autoinc" checked>
-                    Auto-increment name (DC01 &rarr; DC02, DC03…)
+                    <span data-i18n="modal.clone.autoinc">Auto-increment name (DC01 &rarr; DC02, DC03…)</span>
                 </label>
             </div>
             <div class="modal-footer">
                 <div></div>
                 <div class="modal-footer-actions">
-                    <button class="btn btn-muted" data-click='["closeCloneModal"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["confirmCloneVm"]'>Clone</button>
+                    <button class="btn btn-muted" data-click='["closeCloneModal"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmCloneVm"]' data-i18n="modal.clone.clone_btn">Clone</button>
                 </div>
             </div>
         </div>
@@ -767,39 +792,39 @@
     <div class="modal-overlay" id="auth-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2 id="auth-modal-title">Sign in</h2>
+                <h2 id="auth-modal-title" data-i18n="modal.auth.signin">Sign in</h2>
                 <button class="modal-close" data-click='["closeAuthModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <div class="auth-tabs">
-                    <button class="auth-tab active" id="auth-tab-login" data-click='["setAuthTab","login"]'>Sign in</button>
-                    <button class="auth-tab" id="auth-tab-signup" data-click='["setAuthTab","signup"]'>Sign up</button>
+                    <button class="auth-tab active" id="auth-tab-login" data-click='["setAuthTab","login"]' data-i18n="modal.auth.signin">Sign in</button>
+                    <button class="auth-tab" id="auth-tab-signup" data-click='["setAuthTab","signup"]' data-i18n="modal.auth.signup">Sign up</button>
                 </div>
                 <form id="auth-form" data-submit='["submitAuth","$event"]'>
                     <div class="form-group">
-                        <label>Work email</label>
+                        <label data-i18n="modal.auth.work_email">Work email</label>
                         <input type="email" id="auth-email" autocomplete="email" required
-                               placeholder="you@yourcompany.com">
+                               placeholder="you@yourcompany.com" data-i18n-ph="modal.auth.work_email_ph">
                     </div>
                     <div class="form-group">
-                        <label>Password</label>
+                        <label data-i18n="modal.auth.password">Password</label>
                         <input type="password" id="auth-password" autocomplete="current-password"
-                               required placeholder="Your password" data-input='["onAuthPwInput"]'>
+                               required placeholder="Your password" data-i18n-ph="modal.auth.password_ph" data-input='["onAuthPwInput"]'>
                     </div>
                     <div class="form-group" id="auth-confirm-group" style="display:none">
-                        <label>Confirm password</label>
+                        <label data-i18n="modal.auth.confirm_password">Confirm password</label>
                         <input type="password" id="auth-confirm" autocomplete="new-password"
-                               placeholder="Re-enter your password" data-input='["onAuthPwInput"]'>
+                               placeholder="Re-enter your password" data-i18n-ph="modal.auth.confirm_password_ph" data-input='["onAuthPwInput"]'>
                     </div>
                     <ul class="pw-rules" id="auth-pw-rules" style="display:none">
-                        <li data-rule="len">At least 10 characters</li>
-                        <li data-rule="upper">An uppercase letter (A–Z)</li>
-                        <li data-rule="lower">A lowercase letter (a–z)</li>
-                        <li data-rule="digit">A number (0–9)</li>
-                        <li data-rule="special">A special character</li>
-                        <li data-rule="match">Passwords match</li>
+                        <li data-rule="len" data-i18n="modal.auth.rule_len">At least 10 characters</li>
+                        <li data-rule="upper" data-i18n="modal.auth.rule_upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower" data-i18n="modal.auth.rule_lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit" data-i18n="modal.auth.rule_digit">A number (0–9)</li>
+                        <li data-rule="special" data-i18n="modal.auth.rule_special">A special character</li>
+                        <li data-rule="match" data-i18n="modal.auth.rule_match">Passwords match</li>
                     </ul>
-                    <p class="auth-hint" id="auth-signup-hint" style="display:none">
+                    <p class="auth-hint" id="auth-signup-hint" style="display:none" data-i18n="modal.auth.signup_hint">
                         Sign up with your organisation's email domain. The first person from a
                         domain becomes its admin. Public email providers (gmail, outlook, etc.)
                         are not allowed.
@@ -807,17 +832,17 @@
                     <div class="auth-consent" id="auth-consent-row" style="display:none">
                         <label class="checkbox-inline">
                             <input type="checkbox" id="auth-accept-privacy">
-                            I have read and accept the
-                            <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+                            <span data-i18n-html="modal.auth.consent">I have read and accept the
+                            <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></span>
                         </label>
                     </div>
                     <div class="auth-error" id="auth-error" style="display:none"></div>
                     <div class="auth-resend" id="auth-resend" style="display:none">
-                        <a href="#" data-click='["resendVerification","$event"]'>Resend verification email</a>
+                        <a href="#" data-click='["resendVerification","$event"]' data-i18n="modal.auth.resend">Resend verification email</a>
                     </div>
-                    <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Sign in</button>
+                    <button type="submit" class="btn btn-primary auth-submit" id="auth-submit" data-i18n="modal.auth.signin">Sign in</button>
                     <div class="auth-links" id="auth-forgot-row">
-                        <a href="#" data-click='["forgotPassword","$event"]'>Forgot password?</a>
+                        <a href="#" data-click='["forgotPassword","$event"]' data-i18n="modal.auth.forgot">Forgot password?</a>
                     </div>
                 </form>
             </div>
@@ -828,20 +853,20 @@
     <div class="modal-overlay" id="sizings-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>My Sizings</h2>
+                <h2 data-i18n="modal.sizings.title">My Sizings</h2>
                 <button class="modal-close" data-click='["closeSizingsModal"]'>&times;</button>
             </div>
             <div class="modal-toolbar" id="sizings-toolbar">
                 <input type="text" id="sizings-search" class="vm-search"
-                       placeholder="Search by name or code…" data-input='["filterSizings"]'>
+                       placeholder="Search by name or code…" data-i18n-ph="modal.sizings.search_ph" data-input='["filterSizings"]'>
                 <div class="modal-actions" id="sizings-code-box">
-                    <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code">
-                    <button class="btn btn-sm" data-click='["retrieveByCode"]'>Retrieve</button>
+                    <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code" data-i18n-ph="modal.sizings.code_ph">
+                    <button class="btn btn-sm" data-click='["retrieveByCode"]' data-i18n="modal.sizings.retrieve">Retrieve</button>
                 </div>
             </div>
             <div class="sizings-tabs">
-                <button class="sizings-tab active" id="sizings-tab-mine" data-click='["setSizingsTab","mine"]'>My Sizings</button>
-                <button class="sizings-tab" id="sizings-tab-org" data-click='["setSizingsTab","org"]'>My Organization</button>
+                <button class="sizings-tab active" id="sizings-tab-mine" data-click='["setSizingsTab","mine"]' data-i18n="modal.sizings.tab_mine">My Sizings</button>
+                <button class="sizings-tab" id="sizings-tab-org" data-click='["setSizingsTab","org"]' data-i18n="modal.sizings.tab_org">My Organization</button>
             </div>
             <div class="modal-body">
                 <div class="sizings-status" id="sizings-status" style="display:none"></div>
@@ -849,11 +874,11 @@
                     <table class="vm-table" id="sizings-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Owner</th>
-                                <th>Code</th>
-                                <th>Source</th>
-                                <th>Updated</th>
+                                <th data-i18n="common.name">Name</th>
+                                <th data-i18n="modal.sizings.col_owner">Owner</th>
+                                <th data-i18n="modal.sizings.col_code">Code</th>
+                                <th data-i18n="modal.sizings.col_source">Source</th>
+                                <th data-i18n="modal.sizings.col_updated">Updated</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -868,7 +893,7 @@
     <div class="modal-overlay" id="org-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Organization</h2>
+                <h2 data-i18n="modal.org.title">Organization</h2>
                 <button class="modal-close" data-click='["closeOrgModal"]'>&times;</button>
             </div>
             <div class="modal-body">
@@ -877,7 +902,7 @@
                 <div class="vm-table-wrap">
                     <table class="vm-table" id="org-table">
                         <thead>
-                            <tr><th>Email</th><th>Role</th><th>Last login</th><th></th></tr>
+                            <tr><th data-i18n="common.email">Email</th><th data-i18n="common.role">Role</th><th data-i18n="modal.org.col_last_login">Last login</th><th></th></tr>
                         </thead>
                         <tbody id="org-table-body"></tbody>
                     </table>
@@ -890,19 +915,19 @@
     <div class="modal-overlay" id="name-sizing-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Name this sizing</h2>
+                <h2 data-i18n="modal.name.title">Name this sizing</h2>
                 <button class="modal-close" data-click='["closeNameModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <form id="name-sizing-form" data-submit='["submitNameSizing","$event"]'>
                     <div class="form-group">
-                        <label>Sizing name</label>
+                        <label data-i18n="modal.name.label">Sizing name</label>
                         <input type="text" id="name-sizing-input" maxlength="200"
-                               placeholder="e.g. Acme production cluster" autocomplete="off" required>
+                               placeholder="e.g. Acme production cluster" data-i18n-ph="modal.name.input_ph" autocomplete="off" required>
                     </div>
                     <div class="modal-btn-row">
-                        <button type="button" class="btn btn-muted" data-click='["closeNameModal"]'>Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn btn-muted" data-click='["closeNameModal"]' data-i18n="common.cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
                     </div>
                 </form>
             </div>
@@ -913,35 +938,35 @@
     <div class="modal-overlay" id="reset-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Set a new password</h2>
+                <h2 data-i18n="modal.reset.title">Set a new password</h2>
                 <button class="modal-close" data-click='["closeResetModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <form id="reset-form" data-submit='["submitReset","$event"]'>
                     <div class="form-group">
-                        <label>New password</label>
+                        <label data-i18n="modal.reset.new_password">New password</label>
                         <input type="password" id="reset-password" required
-                               autocomplete="new-password" placeholder="Your new password"
+                               autocomplete="new-password" placeholder="Your new password" data-i18n-ph="modal.reset.new_password_ph"
                                data-input='["onResetPwInput"]'>
                     </div>
                     <div class="form-group">
-                        <label>Confirm new password</label>
+                        <label data-i18n="modal.reset.confirm_new_password">Confirm new password</label>
                         <input type="password" id="reset-confirm" required
-                               autocomplete="new-password" placeholder="Re-enter your new password"
+                               autocomplete="new-password" placeholder="Re-enter your new password" data-i18n-ph="modal.reset.confirm_new_password_ph"
                                data-input='["onResetPwInput"]'>
                     </div>
                     <ul class="pw-rules" id="reset-pw-rules">
-                        <li data-rule="len">At least 10 characters</li>
-                        <li data-rule="upper">An uppercase letter (A–Z)</li>
-                        <li data-rule="lower">A lowercase letter (a–z)</li>
-                        <li data-rule="digit">A number (0–9)</li>
-                        <li data-rule="special">A special character</li>
-                        <li data-rule="match">Passwords match</li>
+                        <li data-rule="len" data-i18n="modal.auth.rule_len">At least 10 characters</li>
+                        <li data-rule="upper" data-i18n="modal.auth.rule_upper">An uppercase letter (A–Z)</li>
+                        <li data-rule="lower" data-i18n="modal.auth.rule_lower">A lowercase letter (a–z)</li>
+                        <li data-rule="digit" data-i18n="modal.auth.rule_digit">A number (0–9)</li>
+                        <li data-rule="special" data-i18n="modal.auth.rule_special">A special character</li>
+                        <li data-rule="match" data-i18n="modal.auth.rule_match">Passwords match</li>
                     </ul>
                     <div class="auth-error" id="reset-error" style="display:none"></div>
                     <div class="modal-btn-row">
-                        <button type="button" class="btn btn-muted" data-click='["closeResetModal"]'>Cancel</button>
-                        <button type="submit" class="btn btn-primary">Set password</button>
+                        <button type="button" class="btn btn-muted" data-click='["closeResetModal"]' data-i18n="common.cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary" data-i18n="modal.reset.set_password">Set password</button>
                     </div>
                 </form>
             </div>
@@ -953,15 +978,15 @@
     <div class="modal-overlay" id="leave-page-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Unsaved sizing</h2>
+                <h2 data-i18n="modal.leave.title">Unsaved sizing</h2>
                 <button class="modal-close" data-click='["closeLeavePage"]'>&times;</button>
             </div>
             <div class="modal-body">
-                <p class="info-modal-msg">Switching pages will discard the data on this page. Would you like to save this configuration first?</p>
+                <p class="info-modal-msg" data-i18n="modal.leave.msg">Switching pages will discard the data on this page. Would you like to save this configuration first?</p>
                 <div class="modal-btn-row">
-                    <button type="button" class="btn btn-muted" data-click='["chooseLeave","cancel"]'>Stay here</button>
-                    <button type="button" class="btn btn-secondary" data-click='["chooseLeave","discard"]'>Discard &amp; switch</button>
-                    <button type="button" class="btn btn-primary" data-click='["chooseLeave","save"]'>Save &amp; switch</button>
+                    <button type="button" class="btn btn-muted" data-click='["chooseLeave","cancel"]' data-i18n="modal.leave.stay">Stay here</button>
+                    <button type="button" class="btn btn-secondary" data-click='["chooseLeave","discard"]' data-i18n="modal.leave.discard">Discard &amp; switch</button>
+                    <button type="button" class="btn btn-primary" data-click='["chooseLeave","save"]' data-i18n="modal.leave.save">Save &amp; switch</button>
                 </div>
             </div>
         </div>
@@ -970,15 +995,15 @@
     <div class="modal-overlay" id="save-choice-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Save sizing</h2>
+                <h2 data-i18n="modal.save.title">Save sizing</h2>
                 <button class="modal-close" data-click='["closeSaveChoice"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" id="save-choice-msg"></p>
                 <div class="modal-btn-row">
-                    <button type="button" class="btn btn-muted" data-click='["closeSaveChoice"]'>Cancel</button>
-                    <button type="button" class="btn btn-secondary" data-click='["chooseSave","new"]'>Save as new</button>
-                    <button type="button" class="btn btn-primary" data-click='["chooseSave","update"]'>Update</button>
+                    <button type="button" class="btn btn-muted" data-click='["closeSaveChoice"]' data-i18n="common.cancel">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-click='["chooseSave","new"]' data-i18n="modal.save.save_as_new">Save as new</button>
+                    <button type="button" class="btn btn-primary" data-click='["chooseSave","update"]' data-i18n="modal.save.update">Update</button>
                 </div>
             </div>
         </div>
@@ -988,20 +1013,20 @@
     <div class="modal-overlay" id="info-modal" style="display:none">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2 id="info-modal-title">Notice</h2>
+                <h2 id="info-modal-title" data-i18n="modal.info.title">Notice</h2>
                 <button class="modal-close" data-click='["closeInfoModal"]'>&times;</button>
             </div>
             <div class="modal-body">
                 <p id="info-modal-msg" class="info-modal-msg"></p>
                 <div class="info-code-row" id="info-modal-code-row" style="display:none">
                     <div>
-                        <div class="info-code-label">Share code</div>
+                        <div class="info-code-label" data-i18n="modal.info.share_code">Share code</div>
                         <code class="sizing-code info-code" id="info-modal-code"></code>
                     </div>
-                    <button type="button" class="btn btn-sm" id="info-copy-btn" data-click='["copyInfoCode"]'>Copy</button>
+                    <button type="button" class="btn btn-sm" id="info-copy-btn" data-click='["copyInfoCode"]' data-i18n="modal.info.copy">Copy</button>
                 </div>
                 <div class="modal-btn-row">
-                    <button type="button" class="btn btn-primary" data-click='["closeInfoModal"]'>Done</button>
+                    <button type="button" class="btn btn-primary" data-click='["closeInfoModal"]' data-i18n="modal.common.done">Done</button>
                 </div>
             </div>
         </div>

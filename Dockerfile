@@ -8,8 +8,10 @@ WORKDIR /app
 #  * libreoffice-impress provides the PowerPoint filters for the deck → PDF
 #    ("Slides PDF"); Writer alone can't convert .pptx.
 #  * fonts-liberation gives Arial-compatible glyphs for all of them.
+#  * fonts-noto-cjk provides CJK glyphs so Japanese exports render real characters
+#    instead of tofu (LibreOffice PDF conversion, PIL charts, cairosvg diagrams).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libcairo2 libpango-1.0-0 libpangocairo-1.0-0 fonts-liberation \
+        libcairo2 libpango-1.0-0 libpangocairo-1.0-0 fonts-liberation fonts-noto-cjk \
         libreoffice-writer libreoffice-impress \
     && rm -rf /var/lib/apt/lists/*
 

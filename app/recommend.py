@@ -8,12 +8,13 @@ from storage_only import single_cpu_options
 from cluster_diagram import network_svg_for
 
 
-def _rec_network_svg(rec):
+def _rec_network_svg(rec, lang="en"):
     """House-style network diagram SVG for a recommendation: HCI/storage-only
-    split + witness (2-node) + NIC ports → topology."""
+    split + witness (2-node) + NIC ports → topology. `lang` localizes the diagram
+    labels (used by the exporters to match the document language)."""
     so_count = rec["storage_only"]["count"] if rec.get("storage_only") else 0
     hci_count = rec.get("hci_node_count") or (rec.get("node_count", 1) - so_count)
-    return network_svg_for(hci_count, so_count, rec.get("nic_ports", 2))
+    return network_svg_for(hci_count, so_count, rec.get("nic_ports", 2), lang=lang)
 from tunables import T, refresh_from_db
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.

@@ -15,6 +15,8 @@ import os
 
 from PIL import Image, ImageDraw, ImageFont
 
+from i18n import translator, is_cjk
+
 # ── Sizer palette (kept in sync with style.css .util-* rules) ────────────────
 NOW_LOW = "#2e7d32"      # < 70% load
 NOW_MID = "#e67e22"      # 70-90%
@@ -31,10 +33,21 @@ _SS = 4                  # supersample factor for crisp edges + hatching
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "resources", "fonts")
 
 
-def _font(name, px):
-    for cand in (os.path.join(_FONT_DIR, name),
-                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                 "/System/Library/Fonts/Supplemental/Arial.ttf"):
+# CJK-capable fallbacks (installed via the Dockerfile's fonts-noto-cjk). Try both
+# the opentype and truetype install paths — distros differ.
+_NOTO_CJK = ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+             "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc")
+
+
+def _font(name, px, cjk=False):
+    # For CJK languages, prefer Noto so labels render as glyphs instead of tofu;
+    # Martel Sans / DejaVu / Arial can't render CJK.
+    cands = (_NOTO_CJK if cjk else ()) + (
+        os.path.join(_FONT_DIR, name),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+    ) + (() if cjk else _NOTO_CJK)
+    for cand in cands:
         try:
             return ImageFont.truetype(cand, px)
         except OSError:
@@ -62,7 +75,7 @@ def util_rows(utilization):
     return rows, any_ha
 
 
-def compute_floor_sentence(r):
+def compute_floor_sentence(r, lang="en"):
     """One-line plain-language summary of a recommendation's active compute-floor
     coverage (perf-based sizing), or None when the floor is off / absent. Shared
     by the PPTX and DOCX exporters so both read identically. Coverage >= 100%
@@ -71,15 +84,16 @@ def compute_floor_sentence(r):
     cf = r.get("compute_floor")
     if not cf or cf.get("coverage_pct") is None:
         return None
+    t = translator(lang)
     parts = []
     if cf.get("ghz_pct") is not None:
-        parts.append(f"clock {cf['ghz_pct']:.0f}%")
+        parts.append(t("export.gauge.compute_floor_clock", pct=f"{cf['ghz_pct']:.0f}"))
     if cf.get("perf_pct") is not None:
-        parts.append(f"benchmark {cf['perf_pct']:.0f}%")
-    detail = f" ({', '.join(parts)})" if parts else ""
-    return (f"CPU performance floor: this cluster delivers {cf['coverage_pct']:.0f}% "
-            f"of your current environment's compute demand{detail}, sized to its "
-            f"{cf['source_cpu_util_pct']:.0f}% measured peak CPU utilization.")
+        parts.append(t("export.gauge.compute_floor_benchmark", pct=f"{cf['perf_pct']:.0f}"))
+    detail = " ({})".format(", ".join(parts)) if parts else ""
+    return t("export.gauge.compute_floor_sentence",
+             coverage=f"{cf['coverage_pct']:.0f}", detail=detail,
+             util=f"{cf['source_cpu_util_pct']:.0f}")
 
 
 def _hatch(size, sign, c1, c2, period, lw):
@@ -141,9 +155,17 @@ def _swatch(img, d, x, y, kind, label, font):
     return x + sz + 7 * _SS + (r - l) + 22 * _SS    # next swatch x
 
 
-def render_util_bars(rows, limiting_key="", any_ha=True):
+def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
     """rows: list of dicts {label, now, sized, ha}. Returns PNG bytes for the
     whole 'Utilization vs full cluster' block (title, legend, bars)."""
+    t = translator(lang)
+    cjk = is_cjk(lang)
+
+    # Display label for a resource: CPU/RAM are technical terms (verbatim);
+    # Storage is prose (translated). Comparison to limiting_key uses the raw label.
+    def res_label(key):
+        return t("export.common.storage") if key == "Storage" else key
+
     W = 940 * _SS
     pad = 14 * _SS
     title_h = 30 * _SS
@@ -155,25 +177,25 @@ def render_util_bars(rows, limiting_key="", any_ha=True):
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))   # transparent — sits on the slide gradient
     d = ImageDraw.Draw(img)
 
-    f_title = _font("MartelSans-SemiBold.ttf", 17 * _SS)
-    f_label = _font("MartelSans-SemiBold.ttf", 17 * _SS)
-    f_pct = _font("MartelSans-Bold.ttf", 17 * _SS)
-    f_pct2 = _font("MartelSans-SemiBold.ttf", 15 * _SS)
-    f_leg = _font("MartelSans-Regular.ttf", 13 * _SS)
-    f_badge = _font("MartelSans-Bold.ttf", 11 * _SS)
+    f_title = _font("MartelSans-SemiBold.ttf", 17 * _SS, cjk)
+    f_label = _font("MartelSans-SemiBold.ttf", 17 * _SS, cjk)
+    f_pct = _font("MartelSans-Bold.ttf", 17 * _SS, cjk)
+    f_pct2 = _font("MartelSans-SemiBold.ttf", 15 * _SS, cjk)
+    f_leg = _font("MartelSans-Regular.ttf", 13 * _SS, cjk)
+    f_badge = _font("MartelSans-Bold.ttf", 11 * _SS, cjk)
 
     # title (left) + legend (right)
-    _text(d, (pad, title_h // 2), "Utilization vs full cluster — now / sized",
+    _text(d, (pad, title_h // 2), t("export.gauge.title"),
           f_title, TEXT, anchor="lm")
     lx = W - pad
-    legend = [("now", "now")]
-    legend.append(("growth", "growth + snapshot"))
+    legend = [("now", t("export.gauge.legend_now"))]
+    legend.append(("growth", t("export.gauge.legend_growth")))
     if any_ha:
-        legend.append(("ha", "HA failover reserve"))
+        legend.append(("ha", t("export.gauge.legend_ha")))
     # measure from the right: lay out left-to-right but start far enough left
     total_w = 0
     for kind, lab in legend:
-        l, t, r, b = d.textbbox((0, 0), lab, font=f_leg)
+        l, _tb, r, b = d.textbbox((0, 0), lab, font=f_leg)
         total_w += 16 * _SS + 7 * _SS + (r - l) + 22 * _SS
     x = W - pad - total_w
     sy = (title_h - 16 * _SS) // 2
@@ -192,18 +214,19 @@ def render_util_bars(rows, limiting_key="", any_ha=True):
     for r in rows:
         now, sized, ha = r["now"], r["sized"], r.get("ha", 0)
         # label + optional LIMITING badge
-        _text(d, (pad, y + bar_h // 2), r["label"], f_label, TEXT, anchor="lm")
+        disp = res_label(r["label"])
+        _text(d, (pad, y + bar_h // 2), disp, f_label, TEXT, anchor="lm")
         if r["label"] == limiting_key:
-            l, t, rr, b = d.textbbox((0, 0), r["label"], font=f_label)
+            l, tt, rr, b = d.textbbox((0, 0), disp, font=f_label)
             bx = pad + (rr - l) + 10 * _SS
-            _badge(img, d, bx, y + bar_h // 2, "LIMITING", f_badge)
+            _badge(img, d, bx, y + bar_h // 2, t("export.gauge.limiting"), f_badge)
         # bar
         _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now))
         d = ImageDraw.Draw(img)
         # pct: "35% / 57%"
         px = bar_x + bar_w + 16 * _SS
         _text(d, (px, y + bar_h // 2), f"{now}%", f_pct, TEXT, anchor="lm")
-        l, t, rr, b = d.textbbox((0, 0), f"{now}%", font=f_pct)
+        l, _tb, rr, b = d.textbbox((0, 0), f"{now}%", font=f_pct)
         _text(d, (px + (rr - l) + 4 * _SS, y + bar_h // 2), f"/ {sized}%",
               f_pct2, MUTED, anchor="lm")
         y += row_h + row_gap

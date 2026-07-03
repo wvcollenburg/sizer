@@ -39,6 +39,60 @@ header {
     gap: 1rem;
 }
 
+/* i18n: hide the page until translateDOM() has swapped text, so non-English
+   users never see an English flash. Only set on <html> for non-English locales
+   (see the template) and cleared by i18n.js after the first pass. */
+[data-i18n-pending] body { visibility: hidden; }
+
+/* Compact globe language menu, pinned to the far right of the header (after the
+   account-bar, which already carries margin-left:auto). A button + absolutely
+   positioned dropdown so it never affects the header's flow/width. */
+.lang-menu { position: relative; display: flex; align-items: center; }
+.lang-btn {
+    background: transparent;
+    border: none;
+    color: #cfe4f5;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    line-height: 0;
+}
+.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.lang-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    min-width: 150px;
+    max-height: min(70vh, 420px);
+    overflow-y: auto;
+    z-index: 1200;
+}
+.lang-dropdown[hidden] { display: none; }
+.lang-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+.lang-option:hover { background: var(--surface2); }
+.lang-option.active { font-weight: 700; color: var(--accent); }
+
 header h1 {
     font-size: 1.5rem;
     font-weight: 600;

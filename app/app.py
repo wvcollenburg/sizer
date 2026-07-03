@@ -26,6 +26,7 @@ from export_pptx import generate_proposal, generate_config_slide
 from export_docx import build_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
+from i18n import SUPPORTED_LANGS, LANG_NAMES
 
 
 def _validated_disk_sizes():
@@ -49,6 +50,21 @@ def _validated_ram_sizes():
         for row in RamOption.query.with_entities(RamOption.size_gb).distinct()
     }
     return sorted(set(RAM_SIZES_GB) | catalog)
+
+
+# The supported-language list and endonyms live in i18n.py (single source of truth,
+# shared with the export translator) and are imported above.
+
+
+def pick_lang():
+    """Resolve the active UI language for the current request — READ ONLY, never
+    writes a cookie. Precedence: the `lang` cookie (set only when the user
+    explicitly picks a language) -> the browser's Accept-Language -> English. Used
+    both to render pages and to language-match generated exports."""
+    cookie = (request.cookies.get("lang") or "").lower()
+    if cookie in SUPPORTED_LANGS:
+        return cookie
+    return request.accept_languages.best_match(SUPPORTED_LANGS) or "en"
 
 
 def create_app():
@@ -108,6 +124,20 @@ def create_app():
                 v = 0
             return f"/static/{path}?v={v}"
         return {"asset": asset}
+
+    # UI language selection. Order of precedence:
+    #   1. the `lang` cookie, but only if it names a supported language — this is
+    #      written client-side (i18n.js setLang) ONLY when the user explicitly
+    #      picks a language, so it always reflects a deliberate choice;
+    #   2. otherwise the browser's Accept-Language header (auto-detection) —
+    #      read-only, never persisted;
+    #   3. English as the final fallback.
+    # Every template gets `lang` (the active code) and `supported_langs` (for the
+    # switcher); client-side i18n.js reads the code back from <html lang="..">.
+    @app.context_processor
+    def _lang_helper():
+        return {"lang": pick_lang(), "supported_langs": SUPPORTED_LANGS,
+                "lang_names": LANG_NAMES}
 
     @app.route("/")
     def index():
@@ -318,7 +348,7 @@ def create_app():
         if not _can_export_editable():
             return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
         try:
-            buf = generate_config_slide(data)
+            buf = generate_config_slide(data, lang=pick_lang())
             mode = data.get("mode", "config")
             model = data.get("model", mode)
             nodes = data.get("node_count", "")
@@ -335,7 +365,7 @@ def create_app():
         if not data:
             return jsonify({"error": "No data provided"}), 400
         try:
-            pptx_buf = generate_config_slide(data)
+            pptx_buf = generate_config_slide(data, lang=pick_lang())
             pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
             if not pdf:
                 return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
@@ -361,7 +391,8 @@ def create_app():
             return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
 
         try:
-            buf = generate_proposal(summary, recommendation, projection, source_perf)
+            buf = generate_proposal(summary, recommendation, projection, source_perf,
+                                    lang=pick_lang())
             model_name = recommendation.get("model", "proposal")
             filename = f"SC_Proposal_{model_name}_{recommendation.get('node_count', '')}N.pptx"
             return send_file(buf, as_attachment=True, download_name=filename,
@@ -389,7 +420,8 @@ def create_app():
         if not _can_export_editable():
             return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
         try:
-            buf = build_proposal_docx(summary, recommendation, projection, source_perf)
+            buf = build_proposal_docx(summary, recommendation, projection, source_perf,
+                                      lang=pick_lang())
             fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
             return send_file(buf, as_attachment=True, download_name=fn,
                              mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
@@ -403,7 +435,8 @@ def create_app():
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         try:
-            docx_buf = build_proposal_docx(summary, recommendation, projection, source_perf)
+            docx_buf = build_proposal_docx(summary, recommendation, projection, source_perf,
+                                           lang=pick_lang())
             pdf = convert_docx_to_pdf(docx_buf.getvalue())
             if not pdf:
                 return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
@@ -420,7 +453,8 @@ def create_app():
         if not summary or not recommendation or not projection:
             return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
         try:
-            pptx_buf = generate_proposal(summary, recommendation, projection, source_perf)
+            pptx_buf = generate_proposal(summary, recommendation, projection, source_perf,
+                                         lang=pick_lang())
             pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
             if not pdf:
                 return jsonify({"error": "PDF conversion is unavailable on this server."}), 503

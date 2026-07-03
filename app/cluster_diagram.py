@@ -20,6 +20,8 @@ colours come from the house palette (LAN = blue, backplane = yellow).
 
 from xml.sax.saxutils import escape
 
+from i18n import translator
+
 # ── house palette ────────────────────────────────────────────────────────────
 DK2 = "#113859"          # navy — HCI nodes, borders, labels
 SWITCH_FILL = "#2C5F8A"  # switch bars
@@ -33,7 +35,9 @@ B0 = "#F2C200"           # backplane leg to switch 1 (yellow)
 B1 = "#BD9100"           # backplane leg to switch 2 (dark gold)
 WHITE = "#FFFFFF"
 
-FONT = "Arial, Helvetica, sans-serif"
+# Include a CJK fallback so cairosvg resolves CJK glyphs (installed via
+# fonts-noto-cjk); Arial/Helvetica alone can't render CJK.
+FONT = "Arial, Helvetica, 'Noto Sans CJK JP', sans-serif"
 
 
 class _SVG:
@@ -84,16 +88,17 @@ CHIP_W, CHIP_H = 34, 22
 
 
 def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
-                       canvas_h=None):
+                       canvas_h=None, lang="en"):
     """nodes: list of {"name": str, "nics": 2|4}. Returns an SVG string.
 
     canvas_h overrides the height (used only to pad to a square for qlmanage
     self-checks; production calls leave it None so the SVG is content-sized)."""
+    t = translator(lang)
     two_sw = not single_switch
 
     entities = list(nodes)
     if witness:
-        entities = entities + [{"name": "Witness", "nics": 4, "_witness": True}]
+        entities = entities + [{"name": t("export.net.witness"), "nics": 4, "_witness": True}]
     n = len(entities)
     multi = n >= 2          # backplane exists only when there are peers to talk to
     any_ded_bp = any_vlan_bp = False
@@ -124,17 +129,17 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
     en_w, en_h = 260, 76
     en_x, en_y = cx - en_w / 2, 28
     svg.rect(en_x, en_y, en_w, en_h, EXIST_FILL, rx=8, stroke=DK2, sw=1.5)
-    svg.text(cx, en_y + en_h / 2, "Existing Network", size=16, fill=DK2, weight="bold")
+    svg.text(cx, en_y + en_h / 2, t("export.net.existing_network"), size=16, fill=DK2, weight="bold")
     for ux in (cx - 70, cx + 70):
         svg.line(ux, sw1_y, ux, en_y + en_h, L0, sw=2, dash="6 5")
-    svg.text(cx + 84, en_y + en_h + 6, "LAN uplink", size=12, fill=MUTED, anchor="start")
+    svg.text(cx + 84, en_y + en_h + 6, t("export.net.lan_uplink"), size=12, fill=MUTED, anchor="start")
 
     # ── switches + interlink ─────────────────────────────────────────────────
     svg.rect(sw_x, sw1_y, sw_w, sw_h, SWITCH_FILL, rx=6)
-    svg.text(cx, sw1_y + sw_h / 2, "Switch 1 (primary)", size=16, fill=WHITE, weight="bold")
+    svg.text(cx, sw1_y + sw_h / 2, t("export.net.switch1"), size=16, fill=WHITE, weight="bold")
     if two_sw:
         svg.rect(sw_x, sw2_y, sw_w, sw_h, SWITCH_FILL, rx=6)
-        svg.text(cx, sw2_y + sw_h / 2, "Switch 2 (secondary)", size=16, fill=WHITE, weight="bold")
+        svg.text(cx, sw2_y + sw_h / 2, t("export.net.switch2"), size=16, fill=WHITE, weight="bold")
         svg.line(cx, sw1_y + sw_h, cx, sw2_y, DK2, sw=2)
         svg.parts.append(f'<polygon points="{cx-4},{sw2_y-1} {cx+4},{sw2_y-1} {cx},{sw2_y+6}" fill="{DK2}"/>')
         svg.parts.append(f'<polygon points="{cx-4},{sw1_y+sw_h+1} {cx+4},{sw1_y+sw_h+1} {cx},{sw1_y+sw_h-6}" fill="{DK2}"/>')
@@ -152,7 +157,8 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
             svg.text(ncx, ny + node_h / 2, ent["name"], size=15, fill=WHITE, weight="bold")
         else:
             svg.text(ncx, ny + node_h / 2 - 8, ent["name"], size=15, fill=WHITE, weight="bold")
-            svg.text(ncx, ny + node_h / 2 + 11, "HCI" if role == "hci" else "Storage-only",
+            svg.text(ncx, ny + node_h / 2 + 11,
+                     "HCI" if role == "hci" else t("export.net.storage_only"),
                      size=10, fill=ROLE_LABEL)
 
         # ≤3 NICs leaves no room for a dedicated backplane pair, so it rides a
@@ -166,7 +172,7 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
         _chip(svg, node_x + 4, l0y, "L0", L0, WHITE)
         _chip(svg, node_x + 4, l1y, "L1", L1, WHITE)
         if vlan_bp:
-            svg.text(node_x + 4 + CHIP_W + 5, ny + node_h / 2, "+BP VLAN",
+            svg.text(node_x + 4 + CHIP_W + 5, ny + node_h / 2, t("export.net.bp_vlan"),
                      size=9, fill="#BFE3F7", anchor="start")
 
         lane = lan_lane0 - i * lane_step     # < sw_x, so vertical run clears the switch
@@ -190,19 +196,19 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
     # ── legend ───────────────────────────────────────────────────────────────
     ly = content_bottom - 96
     svg.rect(node_x, ly, 22, 12, L0, rx=2, stroke=DK2, sw=0.5)
-    svg.text(node_x + 30, ly + 6, "LAN (L0/L1) — VMs ↔ network, uplinks to existing",
+    svg.text(node_x + 30, ly + 6, t("export.net.legend_lan"),
              size=12, fill=DK2, anchor="start")
     ly += 22
     if any_ded_bp:
         svg.rect(node_x, ly, 22, 12, B0, rx=2, stroke=DK2, sw=0.5)
-        svg.text(node_x + 30, ly + 6, "Backplane (B0/B1) — node-to-node, stays on switches (interlink only)",
+        svg.text(node_x + 30, ly + 6, t("export.net.legend_bp_dedicated"),
                  size=12, fill=DK2, anchor="start")
         ly += 22
     elif any_vlan_bp:
-        svg.text(node_x, ly + 6, "Backplane — tagged VLAN over L0/L1 (no dedicated NICs); stays on switches",
+        svg.text(node_x, ly + 6, t("export.net.legend_bp_vlan"),
                  size=12, fill=DK2, anchor="start")
         ly += 22
-    svg.text(node_x, ly + 6, "No LAG — active/passive failover across switches",
+    svg.text(node_x, ly + 6, t("export.net.legend_no_lag"),
              size=12, fill=MUTED, anchor="start")
 
     if title:
@@ -210,7 +216,7 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
     return svg.svg()
 
 
-def network_svg_for(hci_count, storage_count=0, nic_ports=2):
+def network_svg_for(hci_count, storage_count=0, nic_ports=2, lang="en"):
     """Build the network-diagram SVG for a topology described by counts. Shared by
     the recommendation export and the manual builder. Returns None if no nodes."""
     nodes = [{"name": f"Node {i+1}", "nics": nic_ports, "role": "hci"} for i in range(hci_count)]
@@ -220,7 +226,8 @@ def network_svg_for(hci_count, storage_count=0, nic_ports=2):
     try:
         return render_cluster_svg(nodes,
                                   witness=(hci_count == 2 and storage_count == 0),
-                                  single_switch=(nic_ports <= 1))
+                                  single_switch=(nic_ports <= 1),
+                                  lang=lang)
     except Exception:
         return None
 
