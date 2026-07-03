@@ -78,6 +78,9 @@ LOCKOUT_MINUTES = 15
 # Password-reset link validity.
 RESET_TOKEN_TTL_HOURS = 2
 
+# Email-verification link validity.
+VERIFICATION_TOKEN_TTL_HOURS = 24
+
 # A user is "inactive" once it's been this long since their last successful login
 # (or since signup, if they never logged in).
 STALE_DAYS = 365
@@ -740,10 +743,22 @@ def verify_email(token):
     user = User.query.filter_by(verification_token=_hash_token((token or "").strip())).first()
     if user is None:
         return redirect("/?verify=invalid")
-    user.is_verified = True
-    user.verification_token = None
-    audit("activate", user.email, actor=user)
-    db.session.commit()
+    # A genuinely expired link does NOT activate the account — the user must
+    # request a fresh one.
+    sent = _aware(user.verification_sent_at)
+    if not sent or (_utcnow() - sent) > timedelta(hours=VERIFICATION_TOKEN_TTL_HOURS):
+        return redirect("/?verify=expired")
+    # Idempotent within the TTL: we deliberately do NOT null out the token on
+    # first use. Email-security scanners (Outlook SafeLinks, Mimecast, …) and
+    # browsers routinely pre-fetch links, which would consume a single-use token
+    # and leave the user's real click seeing a missing token — reported to them
+    # as "expired" even though the account was already activated. Keeping the
+    # token valid until it times out (or a new one is issued via resend) makes
+    # both hits land on "verified".
+    if not user.is_verified:
+        user.is_verified = True
+        audit("activate", user.email, actor=user)
+        db.session.commit()
     return redirect("/?verify=ok")
 
 

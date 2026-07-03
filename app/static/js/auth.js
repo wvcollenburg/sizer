@@ -25,8 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const v = params.get('verify');
     if (v === 'ok') {
         showInfoModal('Email verified', 'Your email is verified — you can now sign in.');
+    } else if (v === 'expired') {
+        showInfoModal('Link expired',
+            'That verification link has expired. Sign in and use "Resend verification email" '
+            + 'to get a fresh one.');
     } else if (v === 'invalid') {
-        showInfoModal('Link expired', 'That verification link is invalid or has already been used.');
+        showInfoModal('Invalid link',
+            'That verification link is invalid. If you already opened it, your account may '
+            + 'be active — try signing in.');
     }
     // Password-reset link.
     const resetToken = params.get('reset');
@@ -240,11 +246,25 @@ async function submitAuth(event) {
     const body = { email, password };
     if (authTab === 'signup') body.accept_privacy = true;
 
-    const { ok, data } = await apiJson(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
+    // Give immediate feedback and block double-submits while the request is in
+    // flight — signup includes a (potentially slow) email send, and without this
+    // an impatient user keeps clicking, firing duplicate requests.
+    const submitBtn = document.getElementById('auth-submit');
+    const submitLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = authTab === 'signup' ? 'Creating account…' : 'Signing in…';
+
+    let ok, data;
+    try {
+        ({ ok, data } = await apiJson(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        }));
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitLabel;
+    }
     if (!ok) {
         showAuthError((data && data.error) || 'Something went wrong. Try again.');
         // Offer a resend link when the account exists but isn't verified.
