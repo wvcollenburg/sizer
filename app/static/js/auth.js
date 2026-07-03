@@ -277,6 +277,10 @@ async function submitAuth(event) {
     // Signup may require email verification before the account is usable.
     if (data && data.pending_verification) {
         closeAuthModal();
+        // While login is mandatory the modal can't actually be dismissed, so
+        // flip it back to the Sign in tab — that's what the user needs next,
+        // once they've verified via email.
+        setAuthTab('login');
         const note = data.email_sent === false
             ? ' (We could not send the email — please contact your administrator.)'
             : '';
