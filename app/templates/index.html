@@ -25,7 +25,7 @@
                 </button>
                 <ul class="lang-dropdown" id="lang-dropdown" hidden>
                     {% for code in supported_langs %}
-                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ {'en':'English','de':'Deutsch','fr':'Français','nl':'Nederlands'}[code] }}</button></li>
+                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
                     {% endfor %}
                 </ul>
             </div>

@@ -52,8 +52,19 @@ def _validated_ram_sizes():
 
 
 # UI languages the sizer ships translations for (app/static/js/lang/<code>.js).
-# English is the base/fallback and must stay first.
-SUPPORTED_LANGS = ["en", "de", "fr", "nl"]
+# English is the base/fallback and must stay first. Codes are the primary
+# language subtag (Accept-Language best_match maps e.g. sv-SE -> sv); "pt" ships
+# Brazilian Portuguese. Each needs an entry in LANG_NAMES below.
+SUPPORTED_LANGS = ["en", "de", "fr", "nl", "es", "it", "pt", "ja",
+                   "sv", "da", "no", "fi", "et", "lv", "lt"]
+
+# Endonyms (each language's own name) for the header language menu.
+LANG_NAMES = {
+    "en": "English", "de": "Deutsch", "fr": "Français", "nl": "Nederlands",
+    "es": "Español", "it": "Italiano", "pt": "Português", "ja": "日本語",
+    "sv": "Svenska", "da": "Dansk", "no": "Norsk", "fi": "Suomi",
+    "et": "Eesti", "lv": "Latviešu", "lt": "Lietuvių",
+}
 
 
 def create_app():
@@ -130,7 +141,8 @@ def create_app():
             lang = cookie
         else:
             lang = request.accept_languages.best_match(SUPPORTED_LANGS) or "en"
-        return {"lang": lang, "supported_langs": SUPPORTED_LANGS}
+        return {"lang": lang, "supported_langs": SUPPORTED_LANGS,
+                "lang_names": LANG_NAMES}
 
     @app.route("/")
     def index():
