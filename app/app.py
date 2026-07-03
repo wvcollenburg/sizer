@@ -51,6 +51,11 @@ def _validated_ram_sizes():
     return sorted(set(RAM_SIZES_GB) | catalog)
 
 
+# UI languages the sizer ships translations for (app/static/js/lang/<code>.js).
+# English is the base/fallback and must stay first.
+SUPPORTED_LANGS = ["en", "de", "fr", "nl"]
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -108,6 +113,24 @@ def create_app():
                 v = 0
             return f"/static/{path}?v={v}"
         return {"asset": asset}
+
+    # UI language selection. Order of precedence:
+    #   1. the `lang` cookie, but only if it names a supported language — this is
+    #      written client-side (i18n.js setLang) ONLY when the user explicitly
+    #      picks a language, so it always reflects a deliberate choice;
+    #   2. otherwise the browser's Accept-Language header (auto-detection) —
+    #      read-only, never persisted;
+    #   3. English as the final fallback.
+    # Every template gets `lang` (the active code) and `supported_langs` (for the
+    # switcher); client-side i18n.js reads the code back from <html lang="..">.
+    @app.context_processor
+    def _lang_helper():
+        cookie = (request.cookies.get("lang") or "").lower()
+        if cookie in SUPPORTED_LANGS:
+            lang = cookie
+        else:
+            lang = request.accept_languages.best_match(SUPPORTED_LANGS) or "en"
+        return {"lang": lang, "supported_langs": SUPPORTED_LANGS}
 
     @app.route("/")
     def index():

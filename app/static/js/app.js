@@ -141,7 +141,7 @@ async function loadModels() {
     modelsCache = await resp.json();
 
     const select = document.getElementById('model-select');
-    select.innerHTML = '<option value="">-- Select Model --</option>';
+    select.innerHTML = `<option value="">${window.t('results.select_model_option')}</option>`;
 
     const categories = {};
     for (const [name, data] of Object.entries(modelsCache)) {
@@ -190,7 +190,7 @@ async function populateSizingModelDropdown(selectId, includeEolEos) {
     for (const [name, data] of Object.entries(models)) {
         (categories[data.category] = categories[data.category] || []).push(name);
     }
-    let html = '<option value="">All models (best fit)</option>';
+    let html = `<option value="">${window.t('results.all_models_option')}</option>`;
     for (const [cat, names] of Object.entries(categories)) {
         html += `<optgroup label="${cat}">`;
         names.forEach(m => {
@@ -320,7 +320,7 @@ function buildStorageSection(storage) {
     if (stype === 'nvme_only') {
         section.innerHTML = `
             <div class="form-group">
-                <label>NVMe Drive Size (TB) &times; ${storage.drives_per_node || 1}</label>
+                <label>${window.t('results.storage.nvme_drive_size', {count: storage.drives_per_node || 1})}</label>
                 <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -328,7 +328,7 @@ function buildStorageSection(storage) {
     } else if (stype === 'ssd_only') {
         section.innerHTML = `
             <div class="form-group">
-                <label>SSD Drive Size (TB) &times; ${storage.drives_per_node || 4}</label>
+                <label>${window.t('results.storage.ssd_drive_size', {count: storage.drives_per_node || 4})}</label>
                 <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -336,7 +336,7 @@ function buildStorageSection(storage) {
     } else if (stype === 'hdd_only') {
         section.innerHTML = `
             <div class="form-group">
-                <label>HDD Drive Size (TB) &times; ${storage.drives_per_node || 4}</label>
+                <label>${window.t('results.storage.hdd_drive_size', {count: storage.drives_per_node || 4})}</label>
                 <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -344,13 +344,13 @@ function buildStorageSection(storage) {
     } else if (stype === 'hybrid') {
         section.innerHTML = `
             <div class="form-group">
-                <label>HDD Size (TB) &times; ${storage.hdd_count}</label>
+                <label>${window.t('results.storage.hdd_size', {count: storage.hdd_count})}</label>
                 <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
-                <label>SSD Cache Size (TB) &times; ${storage.ssd_count}</label>
+                <label>${window.t('results.storage.ssd_cache_size', {count: storage.ssd_count})}</label>
                 <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -358,13 +358,13 @@ function buildStorageSection(storage) {
     } else if (stype === 'hybrid_nvme') {
         section.innerHTML = `
             <div class="form-group">
-                <label>HDD Size (TB) &times; ${storage.hdd_count}</label>
+                <label>${window.t('results.storage.hdd_size', {count: storage.hdd_count})}</label>
                 <select id="stor-hdd" data-change='["calculate"]'>
                     ${storage.hdd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
-                <label>NVMe Cache Size (TB) &times; ${storage.nvme_count}</label>
+                <label>${window.t('results.storage.nvme_cache_size', {count: storage.nvme_count})}</label>
                 <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -372,13 +372,13 @@ function buildStorageSection(storage) {
     } else if (stype === 'nvme_and_ssd') {
         section.innerHTML = `
             <div class="form-group">
-                <label>NVMe Drive Size (TB)</label>
+                <label>${window.t('results.storage.nvme_drive_size_plain')}</label>
                 <select id="stor-nvme" data-change='["calculate"]'>
                     ${storage.nvme_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
             </div>
             <div class="form-group">
-                <label>SSD Drive Size (TB)</label>
+                <label>${window.t('results.storage.ssd_drive_size_plain')}</label>
                 <select id="stor-ssd" data-change='["calculate"]'>
                     ${storage.ssd_options_tb.map(s => `<option value="${s}">${s} TB</option>`).join('')}
                 </select>
@@ -386,7 +386,7 @@ function buildStorageSection(storage) {
     } else if (stype === 'cloud') {
         section.innerHTML = `
             <div class="form-group">
-                <label>Storage Tier</label>
+                <label>${window.t('results.storage.storage_tier')}</label>
                 <select id="stor-cloud" data-change='["calculate"]'>
                     ${storage.options.map(s => `<option value="${s}">${s}</option>`).join('')}
                 </select>
@@ -453,10 +453,9 @@ async function calculateValidated() {
     const totalClusterDisks = disks.length * nodeCount;
     if (totalClusterDisks > 100) {
         validation.errors.push(
-            `Cluster disk limit exceeded: ${totalClusterDisks} disks ` +
-            `(${disks.length} per node × ${nodeCount} nodes). The maximum is ` +
-            `100 disks per cluster. When more storage capacity is required, the ` +
-            `recommendation is to deploy multiple clusters or use bigger disks.`
+            window.t('validated.disk_limit_exceeded', {
+                total: totalClusterDisks, perNode: disks.length, nodes: nodeCount,
+            })
         );
     }
     const valDiv = document.getElementById('disk-validation');
@@ -504,11 +503,11 @@ function validateDisks(disks) {
     const warnings = [];
 
     if (disks.length === 0) {
-        errors.push('At least 1 disk required');
+        errors.push(window.t('validated.at_least_one_disk'));
         return {errors, warnings};
     }
     if (disks.length === 2) {
-        errors.push('2 disks not supported. Use 1 or 3+ disks.');
+        errors.push(window.t('validated.two_disks_unsupported'));
     }
 
     const hasSpinning = disks.some(d => ['SAS', 'NLSAS', 'SATA', 'HDD'].includes(d.type));
@@ -518,13 +517,13 @@ function validateDisks(disks) {
         const total = disks.reduce((s, d) => s + d.size_tb, 0);
         const flash = disks.filter(d => ['SSD', 'NVMe'].includes(d.type)).reduce((s, d) => s + d.size_tb, 0);
         const pct = (flash / total) * 100;
-        if (pct < 7) errors.push(`Flash tier too small: ${pct.toFixed(1)}% (min 7%)`);
-        if (pct > 24.3) errors.push(`Flash tier too large: ${pct.toFixed(1)}% (max 24.3%)`);
-        if (pct >= 7 && pct <= 24.3) warnings.push(`Hybrid config OK: flash tier is ${pct.toFixed(1)}% of total`);
+        if (pct < 7) errors.push(window.t('validated.flash_too_small', {pct: pct.toFixed(1)}));
+        if (pct > 24.3) errors.push(window.t('validated.flash_too_large', {pct: pct.toFixed(1)}));
+        if (pct >= 7 && pct <= 24.3) warnings.push(window.t('validated.hybrid_ok', {pct: pct.toFixed(1)}));
     }
 
     if (disks.length >= 3 && !hasSpinning && hasFlash) {
-        warnings.push('All-Flash configuration detected');
+        warnings.push(window.t('validated.all_flash_detected'));
     }
 
     return {errors, warnings};
@@ -580,7 +579,7 @@ function updateValidatedRules() {
     if (btn) {
         btn.disabled = anyBad;
         btn.title = anyBad
-            ? 'Resolve the highlighted Validated Installer Rules to calculate' : '';
+            ? window.t('validated.resolve_rules_tooltip') : '';
     }
 }
 
@@ -697,15 +696,10 @@ async function loadValidatedNics() {
 const DEFAULT_SIZING_RATIO =
     parseFloat(document.body.dataset.vcpuRatio) || 3.0;
 
-const WITNESS_MESSAGE =
-    'A 2-node cluster requires a separate witness device and HyperCore 9.7.5 or ' +
-    'later. The witness can be almost any device with an Intel Core i3 (or newer) ' +
-    'CPU, 16 GB of RAM, and about 100 GB of free disk to install HyperCore.';
-
 function witnessBarHtml() {
     return '<div class="info-bar">' +
         '<span class="info-bar-icon">i</span>' +
-        `<span><strong>Witness device required.</strong> ${WITNESS_MESSAGE}</span>` +
+        `<span>${window.t('results.witness_message')}</span>` +
         '</div>';
 }
 
@@ -738,10 +732,10 @@ function displayResults(result) {
     const numClusters = result.num_clusters || 1;
     const totalNodes = result.total_node_count || result.node_count;
     let nodesText = so
-        ? `${result.node_count} HCI + ${so.count} storage-only (${result.total_node_count} total)`
-        : `${totalNodes} node${totalNodes === 1 ? '' : 's'}`;
+        ? window.t('results.nodes_hci_storage', {hci: result.node_count, so: so.count, total: result.total_node_count})
+        : window.t('results.nodes_count', {count: totalNodes});
     if (numClusters > 1 && result.cluster_layout) {
-        nodesText += `, ${numClusters} clusters: ${result.cluster_layout.join(' + ')}`;
+        nodesText += window.t('results.nodes_clusters_suffix', {clusters: numClusters, layout: result.cluster_layout.join(' + ')});
     }
     document.getElementById('result-nodes').textContent = nodesText;
 
@@ -755,8 +749,8 @@ function displayResults(result) {
     const n1Desc = document.getElementById('n1-desc');
     if (n1Desc) {
         n1Desc.textContent = numClusters > 1
-            ? 'Resources available with one node per cluster offline'
-            : 'Resources available with one node offline';
+            ? window.t('results.n1_desc_multi')
+            : window.t('results.n1_desc_single');
     }
 
     const pn = result.per_node;
@@ -764,47 +758,47 @@ function displayResults(result) {
     let perNodeHtml = '';
     if (result.mode === 'appliance') {
         perNodeHtml = `
-            <tr><td>CPU</td><td>${pn.cpu}</td></tr>
-            <tr><td>Cores</td><td>${pn.cores}</td></tr>
-            <tr><td>Threads</td><td>${pn.threads}</td></tr>
-            <tr><td>Clock Speed</td><td>${pn.ghz} GHz</td></tr>
-            <tr><td>RAM</td><td>${pn.ram_gb} GB</td></tr>
-            <tr><td>RAW Storage</td><td>${pn.raw_storage_tb} TB</td></tr>`;
+            <tr><td>${window.t('results.row.cpu')}</td><td>${pn.cpu}</td></tr>
+            <tr><td>${window.t('results.row.cores')}</td><td>${pn.cores}</td></tr>
+            <tr><td>${window.t('results.row.threads')}</td><td>${pn.threads}</td></tr>
+            <tr><td>${window.t('results.row.clock_speed')}</td><td>${pn.ghz} GHz</td></tr>
+            <tr><td>${window.t('results.row.ram')}</td><td>${pn.ram_gb} GB</td></tr>
+            <tr><td>${window.t('results.row.raw_storage')}</td><td>${pn.raw_storage_tb} TB</td></tr>`;
         if (result.form_factor) {
-            perNodeHtml += `<tr><td>Form Factor</td><td>${result.form_factor}</td></tr>`;
+            perNodeHtml += `<tr><td>${window.t('results.row.form_factor')}</td><td>${result.form_factor}</td></tr>`;
         }
     } else {
         perNodeHtml = `
-            <tr><td>Cores</td><td>${pn.cores}</td></tr>
-            <tr><td>Threads</td><td>${pn.threads}</td></tr>
-            <tr><td>Clock Speed</td><td>${pn.ghz} GHz</td></tr>
-            <tr><td>RAM</td><td>${pn.ram_gb} GB</td></tr>
-            <tr><td>Disks</td><td>${pn.disk_count} drives</td></tr>
-            <tr><td>RAW Storage</td><td>${pn.raw_storage_tb} TB</td></tr>`;
+            <tr><td>${window.t('results.row.cores')}</td><td>${pn.cores}</td></tr>
+            <tr><td>${window.t('results.row.threads')}</td><td>${pn.threads}</td></tr>
+            <tr><td>${window.t('results.row.clock_speed')}</td><td>${pn.ghz} GHz</td></tr>
+            <tr><td>${window.t('results.row.ram')}</td><td>${pn.ram_gb} GB</td></tr>
+            <tr><td>${window.t('results.row.disks')}</td><td>${window.t('results.disks_drives', {count: pn.disk_count})}</td></tr>
+            <tr><td>${window.t('results.row.raw_storage')}</td><td>${pn.raw_storage_tb} TB</td></tr>`;
         if (result.storage_type) {
-            perNodeHtml += `<tr><td>Storage Type</td><td>${result.storage_type}</td></tr>`;
+            perNodeHtml += `<tr><td>${window.t('results.row.storage_type')}</td><td>${result.storage_type}</td></tr>`;
         }
     }
     if (so) {
-        const cpuRow = so.cpu ? `<tr><td>CPU</td><td>${so.cpu}</td></tr>` : '';
+        const cpuRow = so.cpu ? `<tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>` : '';
         perNodeHtml += `
-            <tr class="so-divider"><td colspan="2">Storage-Only Node &times; ${so.count} (no VMs)</td></tr>
+            <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_node_divider', {count: so.count})}</td></tr>
             ${cpuRow}
-            <tr><td>Cores</td><td>${so.cores}</td></tr>
-            <tr><td>Threads</td><td>${so.threads}</td></tr>
-            <tr><td>RAM</td><td>${so.ram_gb} GB</td></tr>
-            <tr><td>RAW Storage</td><td>${so.raw_storage_tb} TB</td></tr>`;
+            <tr><td>${window.t('results.row.cores')}</td><td>${so.cores}</td></tr>
+            <tr><td>${window.t('results.row.threads')}</td><td>${so.threads}</td></tr>
+            <tr><td>${window.t('results.row.ram')}</td><td>${so.ram_gb} GB</td></tr>
+            <tr><td>${window.t('results.row.raw_storage')}</td><td>${so.raw_storage_tb} TB</td></tr>`;
     }
     perNodeTable.innerHTML = perNodeHtml;
 
     const cl = result.cluster_total;
     document.getElementById('cluster-table').innerHTML = `
-        <tr><td>Total Cores</td><td>${cl.cores}</td></tr>
-        <tr><td>Total Threads</td><td>${cl.threads}</td></tr>
-        <tr><td>Total GHz</td><td>${cl.total_ghz} GHz</td></tr>
-        <tr><td>Total RAM</td><td>${formatRam(cl.ram_gb)}</td></tr>
-        <tr><td>Total RAW Storage</td><td>${cl.raw_storage_tb} TB</td></tr>
-        <tr><td>Usable Storage</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
+        <tr><td>${window.t('results.row.total_cores')}</td><td>${cl.cores}</td></tr>
+        <tr><td>${window.t('results.row.total_threads')}</td><td>${cl.threads}</td></tr>
+        <tr><td>${window.t('results.row.total_ghz')}</td><td>${cl.total_ghz} GHz</td></tr>
+        <tr><td>${window.t('results.row.total_ram')}</td><td>${formatRam(cl.ram_gb)}</td></tr>
+        <tr><td>${window.t('results.row.total_raw_storage')}</td><td>${cl.raw_storage_tb} TB</td></tr>
+        <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
 
     const n1 = result.n_minus_1;
     // n1Desc is declared and set above (with the multi-cluster wording).
@@ -816,18 +810,18 @@ function displayResults(result) {
         if (n1Desc) n1Desc.textContent = '';
         document.getElementById('n1-table').innerHTML = `
             <tr><td class="no-redundancy-msg" colspan="2">
-                <strong>No redundancy.</strong> ${result.redundancy_note
+                <strong>${window.t('results.no_redundancy_label')}</strong> ${result.redundancy_note
                     ? result.redundancy_note.replace(/^No redundancy[^a-zA-Z]*/, '')
-                    : 'Ensure workloads are protected with replication or a properly configured backup.'}
+                    : window.t('results.no_redundancy_default')}
             </td></tr>`;
     } else {
         n1Card.classList.remove('no-redundancy');
         document.getElementById('n1-table').innerHTML = `
-            <tr><td>Available Cores</td><td>${n1.cores}</td></tr>
-            <tr><td>Available Threads</td><td>${n1.threads}</td></tr>
-            <tr><td>Available GHz</td><td>${n1.total_ghz} GHz</td></tr>
-            <tr><td>Available RAM</td><td>${formatRam(n1.ram_gb)}</td></tr>
-            <tr><td>Usable Storage</td><td class="usable">${n1.usable_storage_tb} TB</td></tr>`;
+            <tr><td>${window.t('results.row.available_cores')}</td><td>${n1.cores}</td></tr>
+            <tr><td>${window.t('results.row.available_threads')}</td><td>${n1.threads}</td></tr>
+            <tr><td>${window.t('results.row.available_ghz')}</td><td>${n1.total_ghz} GHz</td></tr>
+            <tr><td>${window.t('results.row.available_ram')}</td><td>${formatRam(n1.ram_gb)}</td></tr>
+            <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${n1.usable_storage_tb} TB</td></tr>`;
     }
 
     section.scrollIntoView({behavior: 'smooth'});
@@ -899,11 +893,11 @@ function handleFileSelect(input) {
 
 async function uploadFile(file) {
     if (!file.name.endsWith('.xlsx')) {
-        showUploadStatus('File must be an .xlsx Excel file', true);
+        showUploadStatus(window.t('upload.must_be_xlsx'), true);
         return;
     }
 
-    showUploadStatus('Analyzing workload...', false);
+    showUploadStatus(window.t('upload.analyzing'), false);
     document.getElementById('import-results').style.display = 'none';
     document.getElementById('sizing-results').style.display = 'none';
 
@@ -939,12 +933,12 @@ async function uploadFile(file) {
         updateFullClusterInfo(false, null);
         const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
         const scanNote = data.summary && data.summary.scan_type === 'general'
-            ? ' — server-level scan: each server sized 1:1 (no overcommit/NIC data; peak metrics only)'
+            ? window.t('upload.scan_note_general')
             : '';
-        showUploadStatus(`Analyzed (${sourceLabel}): ${file.name}${scanNote}`, false);
+        showUploadStatus(window.t('upload.analyzed', {source: sourceLabel, file: file.name, note: scanNote}), false);
         displayImportResults(data);
     } catch (e) {
-        showUploadStatus('Upload failed: ' + e.message, true);
+        showUploadStatus(window.t('upload.failed', {error: e.message}), true);
     }
 }
 
@@ -983,43 +977,30 @@ function formatPerfLine(r) {
     // Benchmark-vs-benchmark (apples to apples): both sides are rated SPECrate.
     const ratio = tgt / src.source_index_specrate;
     const phrase = ratio >= 1
-        ? `perform about <strong>${ratio.toFixed(1)}× better</strong> than`
-        : `perform at about <strong>${Math.round(ratio * 100)}%</strong> of`;
+        ? window.t('perf.phrase_better', {ratio: ratio.toFixed(1)})
+        : window.t('perf.phrase_percent_of', {pct: Math.round(ratio * 100)});
     const usesPM = (sourceUsedPassmark() || r.cpu_perf_is_passmark) ? 1 : 0;
-    return `<div class="rec-perf-line">In a benchmark, this should ${phrase} your current environment.`
+    return `<div class="rec-perf-line">${window.t('perf.benchmark_line', {phrase: phrase})}`
         + ` <button type="button" class="rec-perf-explain"`
         + ` data-click='["explainPerf",${ratio.toFixed(3)},${tgt},${src.source_index_specrate},${usesPM}]'>`
-        + `Explanation</button></div>`;
+        + `${window.t('perf.explanation_btn')}</button></div>`;
 }
 
 // Plain-language modal explaining a recommendation's CPU-performance comparison.
 function explainPerf(ratio, tgt, src, usesPM) {
     const delivers = ratio >= 1
-        ? `about ${(+ratio).toFixed(1)}× the compute throughput of your current environment`
-        : `about ${Math.round(ratio * 100)}% of your current environment's compute throughput`;
-    let msg =
-`We compare the raw CPU horsepower of the recommended cluster against your current environment using SPECrate2017 — an industry-standard benchmark that measures how much total work all the CPU cores can do at once. That is the right yardstick for running lots of VMs.
-
-Your current environment scores about ${src}; the recommended cluster scores about ${tgt}. So on paper it delivers ${delivers}. (This is a benchmark-to-benchmark comparison — both sides at their rated throughput, not real-world load.)
-
-Why not just compare GHz and core counts? Because newer CPUs do far more work per clock cycle than older ones — one modern core can be worth roughly 1.5 to 2 older cores. Comparing GHz × cores misses that, which is why an apparently "smaller" new cluster can comfortably outperform a larger old one.`;
+        ? window.t('perf.delivers_better', {ratio: (+ratio).toFixed(1)})
+        : window.t('perf.delivers_percent', {pct: Math.round(ratio * 100)});
+    let msg = window.t('perf.explain_intro', {src: src, tgt: tgt, delivers: delivers});
     if (usesPM) {
-        msg += `
-
-Note: part of this comparison used PassMark (a different benchmark) translated onto the SPECrate scale, so treat this particular figure as roughly ±20% approximate.`;
+        msg += window.t('perf.explain_passmark');
     }
     const floorActive = !!(lastProjection[activeMode]
         && lastProjection[activeMode].compute_floor
         && lastProjection[activeMode].compute_floor.active);
-    msg += floorActive ? `
-
-CPU performance sizing is currently ON, so this comparison is not just informational: the cluster is sized to deliver at least the compute your current environment actually uses (its benchmark/clock scaled by measured peak CPU utilization, then grown for the horizon), in addition to CPU cores, memory, storage and IOPS. Each recommendation's "Compute floor" line shows how much of that demand it covers.` : `
-
-This figure is informational only — it does not change the recommended hardware, which is sized on CPU cores, memory, storage and IOPS.`;
-    msg += `
-
-Disclaimer: although compiled with the greatest of care, these figures rely on externally acquired benchmark data (public SPEC and PassMark results) and real-world performance varies. They are provided for guidance only — no rights can be derived from them.`;
-    showInfoModal('CPU performance comparison', msg);
+    msg += floorActive ? window.t('perf.explain_floor_on') : window.t('perf.explain_floor_off');
+    msg += window.t('perf.explain_disclaimer');
+    showInfoModal(window.t('perf.modal_title'), msg);
 }
 
 // Per-CPU source benchmark breakdown for the exportables (the "where you are
@@ -1072,16 +1053,16 @@ async function renderSourceCpus(sourceCpus) {
     if (!panel) return;
     if (!sourceCpus || !sourceCpus.length) { panel.innerHTML = ''; return; }
     panel.innerHTML = `<div class="source-cpu-head">
-        <span class="muted">Per-CPU benchmark used to compare your current environment to the recommendation. Auto-filled where known; otherwise enter each CPU's SPECrate2017 (server) or PassMark (desktop) score — look up at spec.org or cpubenchmark.net.</span></div>`
+        <span class="muted">${window.t('import.source_cpu_help')}</span></div>`
         + sourceCpus.map((c, i) => `
         <div class="source-cpu-row">
-            <div class="source-cpu-name">${esc(c.model)} <span class="muted">× ${c.sockets} socket${c.sockets !== 1 ? 's' : ''}</span></div>
+            <div class="source-cpu-name">${esc(c.model)} <span class="muted">${window.t('import.source_cpu_sockets', {count: c.sockets})}</span></div>
             <select class="source-cpu-type" data-srcidx="${i}" data-change='["recalcRecommendations"]'>
                 <option value="specrate">SPECrate2017</option>
                 <option value="passmark">PassMark</option>
             </select>
             <input type="number" class="source-cpu-score" data-srcidx="${i}" data-sockets="${c.sockets}"
-                   min="0" step="1" placeholder="per-CPU score" data-change='["recalcRecommendations"]'>
+                   min="0" step="1" placeholder="${window.t('import.source_cpu_score_ph')}" data-change='["recalcRecommendations"]'>
             <span class="source-cpu-status muted" id="src-cpu-status-${i}"></span>
         </div>`).join('');
     await Promise.all(sourceCpus.map(async (c, i) => {
@@ -1089,12 +1070,12 @@ async function renderSourceCpus(sourceCpus) {
         try {
             const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(c.model));
             const d = await resp.json();
-            if (!d.found) { if (status) status.textContent = 'not in SPEC2017 — enter manually'; return; }
+            if (!d.found) { if (status) status.textContent = window.t('import.source_cpu_not_found'); return; }
             panel.querySelector(`.source-cpu-type[data-srcidx="${i}"]`).value = d.perf_type;
             panel.querySelector(`.source-cpu-score[data-srcidx="${i}"]`).value = d.perf_index;
             if (status) status.textContent = d.source === 'spec-cpu2017'
-                ? `auto · SPEC avg of ${d.samples}`
-                : 'auto · catalog';
+                ? window.t('import.source_cpu_auto_spec', {samples: d.samples})
+                : window.t('import.source_cpu_auto_catalog');
         } catch (e) { /* best-effort */ }
     }));
     updateSourcePerfCard();
@@ -1202,12 +1183,6 @@ async function recalcRecommendations() {
     }
 }
 
-const FULL_CLUSTER_INFO_BASE =
-    'By default CPU is sized for N-1, so the cluster keeps full performance even ' +
-    'if a node fails. Enabling this sizes CPU across all nodes — lowering node ' +
-    'count and cost, but during a node failure performance can degrade as the ' +
-    'effective vCPU:core ratio rises.';
-
 // Append the worst-case degraded ratio across the current recommendations to the
 // (i) tooltip when full-cluster sizing is active.
 function updateFullClusterInfo(enabled, recommendations) {
@@ -1215,10 +1190,10 @@ function updateFullClusterInfo(enabled, recommendations) {
     if (!icon) return;
     if (enabled && recommendations && recommendations.length > 0) {
         const worst = Math.max(...recommendations.map(r => r.vcpu_ratio_degraded || 0));
-        setInfoTip(icon, FULL_CLUSTER_INFO_BASE +
-            ` During a node failure the vCPU:core ratio rises to up to ${worst.toFixed(2)}:1.`);
+        setInfoTip(icon, window.t('results.full_cluster_info_base') +
+            window.t('results.full_cluster_info_degraded', {ratio: worst.toFixed(2)}));
     } else {
-        setInfoTip(icon, FULL_CLUSTER_INFO_BASE);
+        setInfoTip(icon, window.t('results.full_cluster_info_base'));
     }
 }
 
@@ -1226,37 +1201,36 @@ function renderProjectionTo(p, targetId) {
     document.getElementById(targetId).innerHTML = `
         <div class="proj-grid">
             <div class="proj-card">
-                <div class="proj-label">Current vCPUs</div>
+                <div class="proj-label">${window.t('results.proj.current_vcpus')}</div>
                 <div class="proj-base">${p.base_vcpus}</div>
                 <div class="proj-arrow">&#8594;</div>
-                <div class="proj-label">Year ${p.years} vCPUs</div>
+                <div class="proj-label">${window.t('results.proj.year_vcpus', {years: p.years})}</div>
                 <div class="proj-projected">${p.projected_vcpus}</div>
             </div>
             <div class="proj-card">
-                <div class="proj-label">Current RAM</div>
+                <div class="proj-label">${window.t('results.proj.current_ram')}</div>
                 <div class="proj-base">${formatRam(p.base_ram_gb)}</div>
                 <div class="proj-arrow">&#8594;</div>
-                <div class="proj-label">Year ${p.years} RAM</div>
+                <div class="proj-label">${window.t('results.proj.year_ram', {years: p.years})}</div>
                 <div class="proj-projected">${formatRam(p.projected_ram_gb)}</div>
             </div>
             <div class="proj-card">
-                <div class="proj-label">Current GHz</div>
+                <div class="proj-label">${window.t('results.proj.current_ghz')}</div>
                 <div class="proj-base">${p.base_ghz} GHz</div>
                 <div class="proj-arrow">&#8594;</div>
-                <div class="proj-label">Year ${p.years} GHz</div>
+                <div class="proj-label">${window.t('results.proj.year_ghz', {years: p.years})}</div>
                 <div class="proj-projected">${p.projected_ghz} GHz</div>
             </div>
             <div class="proj-card">
-                <div class="proj-label">Current Storage</div>
+                <div class="proj-label">${window.t('results.proj.current_storage')}</div>
                 <div class="proj-base">${p.base_storage_tb} TiB</div>
                 <div class="proj-arrow">&#8594;</div>
-                <div class="proj-label">Year ${p.years} + Snapshots</div>
+                <div class="proj-label">${window.t('results.proj.year_snapshots', {years: p.years})}</div>
                 <div class="proj-projected">${p.projected_storage_tb} TiB</div>
             </div>
         </div>
         <div class="proj-note">
-            Growth: ${p.growth_factor}x over ${p.years}yr &mdash;
-            Snapshot overhead at year ${p.years}: ${p.snapshot_pct_at_target}%
+            ${window.t('results.proj.growth_note', {factor: p.growth_factor, years: p.years, snapPct: p.snapshot_pct_at_target})}
         </div>
         ${iopsDemandNote(p.iops_demand)}
     `;
@@ -1268,9 +1242,9 @@ function iopsDemandNote(d) {
     if (!d) return '';
     const bits = [];
     if (d.p95) bits.push(`P95 ${d.p95.toLocaleString()}`);
-    if (d.avg) bits.push(`Avg ${d.avg.toLocaleString()}`);
+    if (d.avg) bits.push(window.t('results.iops_avg', {value: d.avg.toLocaleString()}));
     if (!bits.length) return '';
-    return `<div class="proj-note">Workload IOPS demand: ${bits.join(' &middot; ')}</div>`;
+    return `<div class="proj-note">${window.t('results.workload_iops_demand', {values: bits.join(' &middot; ')})}</div>`;
 }
 
 function displayImportResults(data) {
@@ -1292,97 +1266,95 @@ function displayImportResults(data) {
 
     if (s.vcpu_ratio_assumed) {
         // Server-level scan: no overcommit was measured, so this is a default.
-        marker.title = `Assumed default: ${currentRatio.toFixed(2)}:1`;
+        marker.title = window.t('results.ratio_assumed_tooltip', {ratio: currentRatio.toFixed(2)});
         document.getElementById('ratio-current').innerHTML =
-            `Assumed default: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
-            `(no overcommit data in this server-level scan)`;
+            window.t('results.ratio_assumed', {ratio: currentRatio.toFixed(2)});
     } else {
-        marker.title = `Current environment: ${currentRatio.toFixed(2)}:1`;
+        marker.title = window.t('results.ratio_current_tooltip', {ratio: currentRatio.toFixed(2)});
         document.getElementById('ratio-current').innerHTML =
-            `Current environment: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
-            `(${s.total_vcpus} vCPUs / ${s.total_host_cores} cores)`;
+            window.t('results.ratio_current', {ratio: currentRatio.toFixed(2), vcpus: s.total_vcpus, cores: s.total_host_cores});
     }
 
     document.getElementById('env-summary').innerHTML = `
         <div class="summary-card">
-            <div class="summary-label">Current Platform</div>
+            <div class="summary-label">${window.t('import.current_platform')}</div>
             <div class="summary-value">${esc(s.current_platform)}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Cluster</div>
+            <div class="summary-label">${window.t('import.cluster')}</div>
             <div class="summary-value">${esc(s.cluster_name)}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Hosts</div>
+            <div class="summary-label">${window.t('import.hosts')}</div>
             <div class="summary-value">${s.host_count}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Total VMs</div>
-            <div class="summary-value">${s.total_vms} (${s.active_vms} active)</div>
+            <div class="summary-label">${window.t('import.total_vms')}</div>
+            <div class="summary-value">${window.t('import.vms_active', {total: s.total_vms, active: s.active_vms})}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Current Cores</div>
+            <div class="summary-label">${window.t('import.current_cores')}</div>
             <div class="summary-value">${s.total_host_cores}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Current Threads</div>
+            <div class="summary-label">${window.t('import.current_threads')}</div>
             <div class="summary-value">${s.total_host_threads}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Current RAM</div>
+            <div class="summary-label">${window.t('import.current_ram')}</div>
             <div class="summary-value">${formatRam(s.total_host_ram_gb)}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Peak CPU</div>
-            <div class="summary-value">${s.peak_cpu_pct}% (avg ${s.avg_cpu_pct}%)</div>
+            <div class="summary-label">${window.t('import.peak_cpu')}</div>
+            <div class="summary-value">${window.t('import.peak_avg_pct', {peak: s.peak_cpu_pct, avg: s.avg_cpu_pct})}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Peak Memory</div>
-            <div class="summary-value">${s.peak_mem_pct}% (avg ${s.avg_mem_pct}%)</div>
+            <div class="summary-label">${window.t('import.peak_memory')}</div>
+            <div class="summary-value">${window.t('import.peak_avg_pct', {peak: s.peak_mem_pct, avg: s.avg_mem_pct})}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">IOPS</div>
-            <div class="summary-value">${s.total_avg_iops.toLocaleString()} avg (${s.total_peak_iops.toLocaleString()} peak)</div>
+            <div class="summary-label">${window.t('import.iops')}</div>
+            <div class="summary-value">${window.t('import.iops_avg_peak', {avg: s.total_avg_iops.toLocaleString(), peak: s.total_peak_iops.toLocaleString()})}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">P95 IOPS (from LO Dashboard)</div>
+            <div class="summary-label">${window.t('import.p95_iops')}</div>
             <div class="summary-value">
                 <input type="number" id="p95-iops" value="${s.p95_iops || 0}" min="0" step="1"
-                       class="inline-input" placeholder="0 = unknown"
+                       class="inline-input" placeholder="${window.t('import.p95_placeholder')}"
                        data-change='["updateP95Display"]'>
             </div>
         </div>
         ${(s.source_cpus && s.source_cpus.length) ? `
         <div class="summary-card">
-            <div class="summary-label">Source CPU · SPECrate2017</div>
+            <div class="summary-label">${window.t('import.source_cpu')}</div>
             <div class="summary-value"><span id="source-perf-total">—</span>
-                <a class="card-edit-link" data-click='["openSourceCpuModal"]'>edit / add</a></div>
+                <a class="card-edit-link" data-click='["openSourceCpuModal"]'>${window.t('import.edit_add')}</a></div>
         </div>` : ''}
     `;
 
     document.getElementById('workload-summary').innerHTML = `
         <div class="summary-card">
-            <div class="summary-label">vCPUs Required</div>
+            <div class="summary-label">${window.t('import.vcpus_required')}</div>
             <div class="summary-value accent">${s.total_vcpus}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Provisioned RAM</div>
+            <div class="summary-label">${window.t('import.provisioned_ram')}</div>
             <div class="summary-value accent">${formatRam(s.total_vm_provisioned_memory_gb)}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Used RAM</div>
+            <div class="summary-label">${window.t('import.used_ram')}</div>
             <div class="summary-value">${formatRam(s.total_vm_used_memory_gb)}</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Provisioned Storage</div>
+            <div class="summary-label">${window.t('import.provisioned_storage')}</div>
             <div class="summary-value">${s.total_vm_provisioned_storage_tb} TiB</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Datastore Used</div>
+            <div class="summary-label">${window.t('import.datastore_used')}</div>
             <div class="summary-value accent">${s.datastore_used_tb} TiB</div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Datastore Total</div>
+            <div class="summary-label">${window.t('import.datastore_total')}</div>
             <div class="summary-value">${s.datastore_total_tb} TiB</div>
         </div>
     `;
@@ -1408,21 +1380,17 @@ function displayImportResults(data) {
 function formatDeterminant(det) {
     if (!det) return '';
     if (det.resource === 'minimum') {
-        return '<div class="rec-determinant"><strong>Determined by</strong> minimum cluster size</div>';
+        return `<div class="rec-determinant">${window.t('results.determined_by_minimum')}</div>`;
     }
     // Compute floor (perf-based sizing): the value is a coverage % of the
     // source's utilized, grown compute demand, not a single-unit capacity.
     if (det.resource === 'Compute') {
-        return `<div class="rec-determinant"><strong>Determined by CPU performance</strong>`
-            + ` &mdash; delivers ${det.achieved}% of your current environment's compute demand`
-            + ` (${det.headroom_pct}% headroom)</div>`;
+        return `<div class="rec-determinant">${window.t('results.determined_by_compute', {achieved: det.achieved, headroom: det.headroom_pct})}</div>`;
     }
     const u = det.unit;
     const fmt = v => u === 'GB' ? formatRam(v)
-        : (u === 'cores' ? `${Math.round(v).toLocaleString()} cores` : `${v} TB`);
-    return `<div class="rec-determinant"><strong>Determined by ${det.resource}</strong>`
-        + ` &mdash; ${fmt(det.required)} required vs ${fmt(det.achieved)} available`
-        + ` (${det.headroom_pct}% headroom)</div>`;
+        : (u === 'cores' ? window.t('results.cores_value', {value: Math.round(v).toLocaleString()}) : `${v} TB`);
+    return `<div class="rec-determinant">${window.t('results.determined_by_resource', {resource: det.resource, required: fmt(det.required), achieved: fmt(det.achieved), headroom: det.headroom_pct})}</div>`;
 }
 
 // Compute-floor coverage line (perf-based sizing). Shown only when the active
@@ -1433,11 +1401,10 @@ function formatComputeFloorLine(r) {
     const cf = r.compute_floor;
     if (!cf || cf.coverage_pct == null) return '';
     const parts = [];
-    if (cf.ghz_pct != null) parts.push(`clock ${cf.ghz_pct}%`);
-    if (cf.perf_pct != null) parts.push(`benchmark ${cf.perf_pct}%`);
-    const detail = parts.length ? ` <span class="muted">(${parts.join(', ')}; util ${cf.source_cpu_util_pct}%)</span>` : '';
-    return `<div class="rec-compute-floor"><strong>Compute floor:</strong> `
-        + `${cf.coverage_pct}% of source demand${detail}</div>`;
+    if (cf.ghz_pct != null) parts.push(window.t('results.compute_floor_clock', {pct: cf.ghz_pct}));
+    if (cf.perf_pct != null) parts.push(window.t('results.compute_floor_benchmark', {pct: cf.perf_pct}));
+    const detail = parts.length ? ` <span class="muted">${window.t('results.compute_floor_detail', {parts: parts.join(', '), util: cf.source_cpu_util_pct})}</span>` : '';
+    return `<div class="rec-compute-floor">${window.t('results.compute_floor_line', {pct: cf.coverage_pct})}${detail}</div>`;
 }
 
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
@@ -1450,7 +1417,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 warnings.map(w => `<div class="rec-warning">${w}</div>`).join('') +
                 '</div>';
         } else {
-            recList.innerHTML = '<div class="no-recs">No matching configurations found. The workload may exceed available appliance capacities. Consider Software Only (Validated) mode.</div>';
+            recList.innerHTML = `<div class="no-recs">${window.t('results.no_matching_configs')}</div>`;
         }
         return;
     }
@@ -1474,31 +1441,31 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
 
     recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
         const clusterInfo = r.num_clusters > 1
-            ? `${r.num_clusters} clusters (${r.cluster_layout.join(' + ')})`
-            : '1 cluster';
+            ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
+            : window.t('results.one_cluster');
         const n1Label = r.num_clusters > 1
-            ? `N-1 per Cluster (${r.num_clusters} spares)`
-            : 'N-1 Available';
+            ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
+            : window.t('results.n1_available');
         const modelLabel = r.validated_only
             ? r.model
-            : (r.validated ? `Validated &ndash; based off ${r.model}` : r.model);
+            : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
         const ratioBadge = r.sized_full_cluster
-            ? `<span class="rec-ratio-badge degraded" title="Normal vCPU:core ratio (full cluster). Rises to ${r.vcpu_ratio_degraded.toFixed(2)}:1 during a node failure.">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
-            : `<span class="rec-ratio-badge" title="Actual vCPU:core ratio at N-1">${r.vcpu_ratio.toFixed(2)}:1</span>`;
+            ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
+            : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
         const iops = r.iops || null;
-        const iopsRow = (val) => iops ? `<tr><td>Net IOPS</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
+        const iopsRow = (val) => iops ? `<tr><td>${window.t('results.row.net_iops')}</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
         const iopsHeadroom = buildIopsHeadroom(iops, demand);
         const utilBars = buildUtilizationBars(r);
         const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
         const so = r.storage_only || null;
         const nodesLabel = so
-            ? `${r.hci_node_count} HCI + ${so.count} storage-only`
-            : `${r.node_count} nodes`;
+            ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
+            : window.t('results.nodes_count', {count: r.node_count});
         const soRows = so ? `
-                        <tr class="so-divider"><td colspan="2">Storage-Only &times; ${so.count} (no VMs)</td></tr>
-                        <tr><td>CPU</td><td>${so.cpu}</td></tr>
-                        <tr><td>RAM</td><td>${formatRam(so.ram_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
+                        <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_divider', {count: so.count})}</td></tr>
+                        <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
+                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
+                        <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
         return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
             <div class="rec-header">
@@ -1514,36 +1481,36 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             ${formatComputeFloorLine(r)}
             <div class="rec-details">
                 <div class="rec-col">
-                    <h4>Per Node</h4>
+                    <h4>${window.t('results.per_node')}</h4>
                     <table>
-                        <tr><td>CPU</td><td>${r.cpu}</td></tr>
-                        <tr><td>Cores</td><td>${r.cores_per_node}</td></tr>
-                        <tr><td>Threads</td><td>${r.threads_per_node}</td></tr>
-                        <tr><td>RAM</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
-                        <tr><td>Storage</td><td>${esc(r.storage_config.desc)}</td></tr>
+                        <tr><td>${window.t('results.row.cpu')}</td><td>${r.cpu}</td></tr>
+                        <tr><td>${window.t('results.row.cores')}</td><td>${r.cores_per_node}</td></tr>
+                        <tr><td>${window.t('results.row.threads')}</td><td>${r.threads_per_node}</td></tr>
+                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(r.ram_per_node_gb)}</td></tr>
+                        <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>
                         ${iops ? iopsRow(iops.per_node) : ''}
                         ${soRows}
                     </table>
                 </div>
                 <div class="rec-col">
-                    <h4>Total (all clusters)</h4>
+                    <h4>${window.t('results.total_all_clusters')}</h4>
                     <table>
-                        <tr><td>Cores</td><td>${r.totals.cores}</td></tr>
-                        <tr><td>Threads</td><td>${r.totals.threads}</td></tr>
-                        <tr><td>GHz</td><td>${r.totals.total_ghz}</td></tr>
-                        <tr><td>RAM</td><td>${formatRam(r.totals.ram_gb)}</td></tr>
-                        <tr><td>Usable Storage</td><td class="usable">${r.totals.usable_storage_tb} TB</td></tr>
+                        <tr><td>${window.t('results.row.cores')}</td><td>${r.totals.cores}</td></tr>
+                        <tr><td>${window.t('results.row.threads')}</td><td>${r.totals.threads}</td></tr>
+                        <tr><td>${window.t('results.row.ghz')}</td><td>${r.totals.total_ghz}</td></tr>
+                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(r.totals.ram_gb)}</td></tr>
+                        <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${r.totals.usable_storage_tb} TB</td></tr>
                         ${iops ? iopsRow(iops.total) : ''}
                     </table>
                 </div>
                 <div class="rec-col">
                     <h4>${n1Label}</h4>
                     <table>
-                        <tr><td>Cores</td><td>${r.n_minus_1.cores}</td></tr>
-                        <tr><td>Threads</td><td>${r.n_minus_1.threads}</td></tr>
-                        <tr><td>GHz</td><td>${r.n_minus_1.total_ghz}</td></tr>
-                        <tr><td>RAM</td><td>${formatRam(r.n_minus_1.ram_gb)}</td></tr>
-                        <tr><td>Usable Storage</td><td class="usable">${r.n_minus_1.usable_storage_tb} TB</td></tr>
+                        <tr><td>${window.t('results.row.cores')}</td><td>${r.n_minus_1.cores}</td></tr>
+                        <tr><td>${window.t('results.row.threads')}</td><td>${r.n_minus_1.threads}</td></tr>
+                        <tr><td>${window.t('results.row.ghz')}</td><td>${r.n_minus_1.total_ghz}</td></tr>
+                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(r.n_minus_1.ram_gb)}</td></tr>
+                        <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${r.n_minus_1.usable_storage_tb} TB</td></tr>
                         ${iops ? iopsRow(iops.n_minus_1) : ''}
                     </table>
                 </div>
@@ -1554,11 +1521,11 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>
                 <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="View the cluster network diagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>Network</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="Download the editable Word proposal (Scale users)">Word</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="Download the editable PowerPoint deck (Scale users)">PPTX</button>` : ''}
-                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="Download the presentation as PDF">Slides PDF</button>
-                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="Download the proposal as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Proposal PDF</button>
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
+                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
                 </div>
             </div>
         </div>
@@ -1574,6 +1541,7 @@ function buildUtilizationBars(r) {
     if (!u) return '';
     const binding = (r.determinant && r.determinant.resource) || '';
     const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
+    const labelFor = k => k === 'Storage' ? window.t('results.util.storage') : k;
     let anyHa = false;
     const bars = rows.map(([key, val]) => {
         if (!val) return '';
@@ -1592,33 +1560,37 @@ function buildUtilizationBars(r) {
         const haW = Math.min(ha, 100 - curW - resW);
         const freeW = Math.max(0, 100 - curW - resW - haW);
         const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
+        const label = labelFor(key);
         const bind = key === binding
-            ? ' <span class="util-bind" title="The resource that drove the node count">limiting</span>'
+            ? ` <span class="util-bind" title="${window.t('results.util.limiting_tooltip')}">${window.t('results.util.limiting')}</span>`
             : '';
-        const tipParts = [`now ${cur}%`, `+${reserve}% growth/snapshot reserve`];
-        if (ha > 0) tipParts.push(`${ha}% HA failover reserve`);
-        tipParts.push(`${freeW}% free`);
-        const tip = `${key}: ${tipParts.join(' · ')} (workload sized to ${tot}% of full cluster)`;
+        const tipParts = [
+            window.t('results.util.tip_now', {pct: cur}),
+            window.t('results.util.tip_reserve', {pct: reserve}),
+        ];
+        if (ha > 0) tipParts.push(window.t('results.util.tip_ha', {pct: ha}));
+        tipParts.push(window.t('results.util.tip_free', {pct: freeW}));
+        const tip = window.t('results.util.tip', {label, parts: tipParts.join(' · '), tot});
         return `<div class="util-row" title="${tip}">
-            <span class="util-label">${key}${bind}</span>
+            <span class="util-label">${label}${bind}</span>
             <span class="util-track">
                 <span class="util-fill ${cls}" style="width:${curW}%"></span>
                 <span class="util-fill util-reserve" style="width:${resW}%"></span>
                 <span class="util-fill util-free" style="width:${freeW}%"></span>
                 <span class="util-fill util-ha" style="width:${haW}%"></span>
             </span>
-            <span class="util-pct" title="Now ${cur}% · sized to ${tot}% of full cluster after growth + snapshot reserve">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+            <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
         </div>`;
     }).join('');
     const haKey = anyHa
-        ? '<span class="util-key"><i class="util-sw util-sw-ha"></i>HA failover reserve</span>'
+        ? `<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}</span>`
         : '';
     return `<div class="rec-utilization">
         <div class="util-head">
-            <span class="util-title">Utilization vs full cluster &mdash; now / sized</span>
+            <span class="util-title">${window.t('results.util.title')}</span>
             <span class="util-legend">
-                <span class="util-key"><i class="util-sw util-sw-now"></i>now</span>
-                <span class="util-key"><i class="util-sw util-sw-reserve"></i>growth + snapshot</span>
+                <span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}</span>
+                <span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}</span>
                 ${haKey}
             </span>
         </div>${bars}
@@ -1636,14 +1608,14 @@ function buildIopsHeadroom(iops, demand) {
         const ratio = iops.total / value;
         const ok = ratio >= 1;
         parts.push(
-            `<span class="${ok ? 'iops-ok' : 'iops-short'}" title="${label} demand ${value.toLocaleString()} IOPS; net available ${iops.total.toLocaleString()}">` +
+            `<span class="${ok ? 'iops-ok' : 'iops-short'}" title="${window.t('results.iops_headroom_tooltip', {label, demand: value.toLocaleString(), available: iops.total.toLocaleString()})}">` +
             `${label}: ${ratio.toFixed(1)}&times; ${ok ? '&#10003;' : '&#9888;'}</span>`
         );
     };
     fmtMetric('P95', demand.p95);
-    fmtMetric('Avg', demand.avg);
+    fmtMetric(window.t('results.avg_label'), demand.avg);
     if (!parts.length) return '';
-    return `<div class="rec-iops-headroom">Net IOPS headroom (available &divide; demand): ${parts.join(' &middot; ')}</div>`;
+    return `<div class="rec-iops-headroom">${window.t('results.iops_headroom_label', {parts: parts.join(' &middot; ')})}</div>`;
 }
 
 // ==================== MANUAL INPUT MODE ====================
@@ -1697,7 +1669,7 @@ function openCloneModal(i) {
     const vm = manualVms[i];
     document.getElementById('clone-count').value = 1;
     document.getElementById('clone-autoinc').checked = true;
-    document.getElementById('clone-source-name').textContent = vm ? (vm.name || 'VM') : 'VM';
+    document.getElementById('clone-source-name').textContent = vm ? (vm.name || window.t('manual.default_vm_name')) : window.t('manual.default_vm_name');
     document.getElementById('clone-vm-modal').style.display = 'flex';
     document.getElementById('clone-count').focus();
 }
@@ -1804,16 +1776,16 @@ function renderManualVmTable() {
             <td class="vm-col-name"><input type="text" class="vm-edit vm-edit-text" value="${esc(vm.name)}" data-change='["setManualVm",${i},"name","$value"]'></td>
             <td class="vm-col-power">
                 <select class="vm-edit" data-change='["setManualVm",${i},"powered_on","$value"]'>
-                    <option value="on"${vm.powered_on ? ' selected' : ''}>On</option>
-                    <option value="off"${vm.powered_on ? '' : ' selected'}>Off</option>
+                    <option value="on"${vm.powered_on ? ' selected' : ''}>${window.t('manual.power_on')}</option>
+                    <option value="off"${vm.powered_on ? '' : ' selected'}>${window.t('manual.power_off')}</option>
                 </select>
             </td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="1" step="1" value="${vm.vcpus}" data-change='["setManualVm",${i},"vcpus","$value"]'></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="0.1" value="${vm.ram_gb}" data-change='["setManualVm",${i},"ram_gb","$value"]'></td>
             <td class="vm-col-num"><input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${vm.storage_gb}" data-change='["setManualVm",${i},"storage_gb","$value"]'></td>
             <td class="vm-col-action">
-                <button class="vm-action-btn vm-clone" title="Clone this VM" data-click='["openCloneModal",${i}]'><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button class="vm-action-btn vm-remove" title="Remove this VM" data-click='["removeManualVm",${i}]'>&times;</button>
+                <button class="vm-action-btn vm-clone" title="${window.t('manual.clone_vm_title')}" data-click='["openCloneModal",${i}]'><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button class="vm-action-btn vm-remove" title="${window.t('manual.remove_vm_title')}" data-click='["removeManualVm",${i}]'>&times;</button>
             </td>
         </tr>`).join('');
 
@@ -1849,7 +1821,7 @@ function manualVmTotals() {
 function updateManualVmSummary() {
     const t = manualVmTotals();
     document.getElementById('manual-vm-summary').textContent =
-        `${t.count} VM${t.count === 1 ? '' : 's'} (${t.active} on) · ${t.vcpus} vCPUs · ${t.ram_gb} GB RAM · ${t.storage_gb} GB storage`;
+        window.t('manual.vm_summary', {count: t.count, active: t.active, vcpus: t.vcpus, ram: t.ram_gb, storage: t.storage_gb});
 }
 
 // Apply the entered VMs: set the workload floors and fill the fields (raising any
@@ -1878,7 +1850,7 @@ function applyManualVms() {
     if (t.count > 0) {
         badge.textContent = ` (${t.count})`;
         badge.style.display = '';
-        note.textContent = `${t.count} VM${t.count === 1 ? '' : 's'} entered — the fields below include them and can't be set lower than their totals.`;
+        note.textContent = window.t('manual.vms_entered_note', {count: t.count});
         note.style.display = '';
     } else {
         badge.style.display = 'none';
@@ -1908,7 +1880,7 @@ function calculateManual() {
     const dsUsed = parseFloat(document.getElementById('man-ds-used').value) || 0;
 
     if (vcpus < 1 || provRam < 1 || dsUsed <= 0) {
-        alert('Please fill in the required fields: Total vCPUs, Provisioned RAM, and Datastore Used.');
+        alert(window.t('manual.fill_required_fields'));
         return;
     }
 
@@ -1955,14 +1927,13 @@ function calculateManual() {
         const markerPct = ((currentRatio - 1) / 7) * 100;
         marker.style.left = Math.min(markerPct, 100) + '%';
         marker.style.display = 'block';
-        marker.title = `Current environment: ${currentRatio.toFixed(2)}:1`;
+        marker.title = window.t('results.ratio_current_tooltip', {ratio: currentRatio.toFixed(2)});
         document.getElementById('ratio-current').innerHTML =
-            `Current environment: <strong>${currentRatio.toFixed(2)} : 1</strong> vCPU per core ` +
-            `(${vcpus} vCPUs / ${cores} cores)`;
+            window.t('results.ratio_current', {ratio: currentRatio.toFixed(2), vcpus: vcpus, cores: cores});
     } else {
         marker.style.display = 'none';
         document.getElementById('ratio-current').innerHTML =
-            `No current core count provided &mdash; using slider value`;
+            window.t('results.ratio_no_cores');
     }
 
     const sizing = document.getElementById('sizing-results');
@@ -1978,7 +1949,7 @@ function openClusterDiagram(mode, recIndex) {
     if (!rec || !rec.network_svg) return;
     const nodes = rec.node_count;
     document.getElementById('diagram-modal-title').textContent =
-        `Network — ${rec.model} (${nodes} node${nodes === 1 ? '' : 's'})`;
+        window.t('results.diagram_title', {model: rec.model, nodes: nodes});
     const body = document.getElementById('diagram-modal-body');
     body.innerHTML = rec.network_svg;
     body.dataset.filename =
@@ -2020,13 +1991,13 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     const projection = lastProjection[mode];
 
     if (!recs || !recs[recIndex] || !summary || !projection) {
-        alert('Missing data for export. Please recalculate first.');
+        alert(window.t('results.export_missing_data'));
         return;
     }
 
     const btn = (event.target.closest && event.target.closest('button')) || event.target;
     const origHtml = btn.innerHTML;
-    btn.textContent = 'Generating…';
+    btn.textContent = window.t('results.generating');
     btn.disabled = true;
 
     try {
@@ -2043,7 +2014,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert(err.error || 'Export failed');
+            alert(err.error || window.t('results.export_failed'));
             return;
         }
 
@@ -2058,7 +2029,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        alert('Export failed: ' + e.message);
+        alert(window.t('results.export_failed_detail', {error: e.message}));
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;
@@ -2067,7 +2038,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
 
 async function exportConfig(fmt = 'pptx') {
     if (!lastConfigResult) {
-        alert('No configuration to export. Please calculate first.');
+        alert(window.t('results.no_config_to_export'));
         return;
     }
 
@@ -2075,7 +2046,7 @@ async function exportConfig(fmt = 'pptx') {
     const btn = (event && event.target.closest && event.target.closest('button'))
         || document.getElementById('config-export-btn');
     const origHtml = btn.innerHTML;
-    btn.textContent = 'Generating…';
+    btn.textContent = window.t('results.generating');
     btn.disabled = true;
 
     try {
@@ -2087,7 +2058,7 @@ async function exportConfig(fmt = 'pptx') {
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert(err.error || 'Export failed');
+            alert(err.error || window.t('results.export_failed'));
             return;
         }
 
@@ -2102,7 +2073,7 @@ async function exportConfig(fmt = 'pptx') {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        alert('Export failed: ' + e.message);
+        alert(window.t('results.export_failed_detail', {error: e.message}));
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;
@@ -2157,7 +2128,7 @@ function renderVmTable() {
         const storChecked = vmExclusions.storage.has(vm._idx) ? 'checked' : '';
         const excluded = vmExclusions.compute.has(vm._idx) || vmExclusions.storage.has(vm._idx);
         const powerClass = vm.powered_on ? 'vm-power-on' : 'vm-power-off';
-        const powerLabel = vm.powered_on ? 'On' : 'Off';
+        const powerLabel = vm.powered_on ? window.t('import.power_on') : window.t('import.power_off');
         const edited = vmConfig[vm._idx] && Object.keys(vmConfig[vm._idx]).length > 0;
         const isAdded = vmAdded.has(vm._idx);
         const isRemoved = vmRemoved.has(vm._idx);
@@ -2170,14 +2141,14 @@ function renderVmTable() {
         const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
         const name = vmVal(vm, vm._idx, 'name') || '';
         const nameCell = isAdded
-            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${esc(name)}" data-change='["setVmConfig",${vm._idx},"name","$value"]'><span class="vm-tag">new</span></span>`
+            ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${esc(name)}" data-change='["setVmConfig",${vm._idx},"name","$value"]'><span class="vm-tag">${window.t('import.vm_tag_new')}</span></span>`
             : `<span title="${esc(name)}">${esc(name)}</span>`;
         const storCell = isAdded
             ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" data-change='["setVmConfig",${vm._idx},"vdisk_used_gb","$value"]'>`
             : `${(stor || 0).toFixed(1)}`;
         const action = isRemoved
-            ? `<button class="vm-action-btn vm-restore" title="Restore this VM" data-click='["restoreVm",${vm._idx}]'>↺</button>`
-            : `<button class="vm-action-btn vm-remove" title="Remove this VM from the dataset" data-click='["removeVm",${vm._idx}]'>&times;</button>`;
+            ? `<button class="vm-action-btn vm-restore" title="${window.t('import.restore_vm_title')}" data-click='["restoreVm",${vm._idx}]'>↺</button>`
+            : `<button class="vm-action-btn vm-remove" title="${window.t('import.remove_vm_title')}" data-click='["removeVm",${vm._idx}]'>&times;</button>`;
         return `<tr class="${rowClass}" data-idx="${vm._idx}" data-power="${vm.powered_on ? 'on' : 'off'}">
             <td class="vm-col-check"><input type="checkbox" ${compChecked} data-change='["toggleVmExclusion",${vm._idx},"compute","$checked"]'></td>
             <td class="vm-col-check"><input type="checkbox" ${storChecked} data-change='["toggleVmExclusion",${vm._idx},"storage","$checked"]'></td>
@@ -2242,7 +2213,7 @@ function setVmPowerFilter(val) {
 function addVm() {
     const idx = importVms.length;
     importVms.push({
-        name: 'New VM', powered_on: true, is_template: false, os: '', model: '',
+        name: window.t('import.new_vm_name'), powered_on: true, is_template: false, os: '', model: '',
         vcpus: 2, provisioned_memory_gb: 4, consumed_memory_gb: 0, used_memory_gb: 0,
         disk_capacity_gb: 0, disk_used_gb: 0, vdisk_size_gb: 0, vdisk_used_gb: 0,
     });
@@ -2378,19 +2349,19 @@ function updateVmExclusionSummary() {
     const el = document.getElementById('vm-exclusion-summary');
     const parts = [];
     if (vmExclusions.compute.size > 0) {
-        let label = `Compute: ${vmExclusions.compute.size} excluded`;
-        if (compActive > 0) label += ` (-${compVcpus} cores, -${compRam.toFixed(1)} GB RAM)`;
-        if (compActive < vmExclusions.compute.size) label += ` (${vmExclusions.compute.size - compActive} already off)`;
+        let label = window.t('import.excl_compute', {count: vmExclusions.compute.size});
+        if (compActive > 0) label += window.t('import.excl_compute_detail', {cores: compVcpus, ram: compRam.toFixed(1)});
+        if (compActive < vmExclusions.compute.size) label += window.t('import.excl_already_off', {count: vmExclusions.compute.size - compActive});
         parts.push(label);
     }
     if (vmExclusions.storage.size > 0) {
-        parts.push(`Storage: ${vmExclusions.storage.size} excluded (-${(storGb / 1024).toFixed(2)} TB)`);
+        parts.push(window.t('import.excl_storage', {count: vmExclusions.storage.size, tb: (storGb / 1024).toFixed(2)}));
     }
     if (editedCount > 0) {
-        parts.push(`${editedCount} VM(s) edited`);
+        parts.push(window.t('import.excl_edited', {count: editedCount}));
     }
     if (parts.length === 0) {
-        el.textContent = 'No changes';
+        el.textContent = window.t('import.excl_no_changes');
     } else {
         el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
     }
@@ -2517,7 +2488,7 @@ function renderLocalStorageOption(s) {
         <label class="checkbox-inline local-storage-toggle">
             <input type="checkbox" id="include-local-cb" ${includeLocalStorage ? 'checked' : ''}
                    data-change='["toggleLocalStorage"]'>
-            Include ${localGb.toLocaleString()} GB found on local storage
+            ${window.t('storage.include_local', {gb: localGb.toLocaleString()})}
         </label>`;
 }
 
@@ -2662,7 +2633,7 @@ async function restoreSizingState(snap) {
         lastProjection['import'] = im.lastProjection || null;
         importSummary = computeAdjustedImportSummary();
         updateExclusionCountBadge();
-        showUploadStatus('Restored a saved sizing.', false);
+        showUploadStatus(window.t('upload.restored'), false);
         // Re-render the env/workload cards from the adjusted summary, then re-apply
         // the saved options and recompute recommendations.
         displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });

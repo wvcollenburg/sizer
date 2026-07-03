@@ -13,6 +13,21 @@ let catalogModalType = null;
 let catalogModalId = null;
 let catalogModalCallback = null;
 
+// Translate-or-fallback: use a translation when the key exists in the loaded
+// dictionaries (active locale or the English base), otherwise fall back to the
+// server-provided English string. This lets server metadata (tunable labels/help)
+// be overridden by translations without showing raw keys when none is present.
+function tOr(key, fallback) {
+    const langs = window.I18N_LANGS || {};
+    const active = langs[window.I18N_ACTIVE] || {};
+    const base = langs.en || {};
+    if (key in active || key in base) return window.t(key);
+    // Defensive: window.t() falls back to the raw key, so if it echoes the key
+    // back we know there is no translation and use the server string instead.
+    const s = window.t(key);
+    return s === key ? fallback : s;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadCatalogs();
@@ -43,7 +58,7 @@ async function loadModels() {
     const categories = [...new Set(allModels.map(m => m.category))].sort();
     const catFilter = document.getElementById('category-filter');
     const curCat = catFilter.value;
-    catFilter.innerHTML = '<option value="all">All Categories</option>';
+    catFilter.innerHTML = `<option value="all">${esc(t('admin.filter.all_categories'))}</option>`;
     categories.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c;
@@ -110,7 +125,7 @@ async function saveDriveIops() {
         if (!r2.ok) throw new Error(d2.error || 'Save failed');
         driveIops = d1.drive_iops || driveIops;
         sizingConfig = d2.sizing_config || sizingConfig;
-        status.textContent = 'Saved';
+        status.textContent = t('admin.msg.saved');
         status.className = 'iops-status ok';
     } catch (e) {
         status.textContent = e.message;
@@ -148,18 +163,22 @@ function renderTunables(values) {
         byGroup[d.group].push(d);
     }
     container.innerHTML = groups.map(g => `
-        <div class="iops-card-header" style="margin-top:14px"><h3>${esc(g)}</h3></div>
+        <div class="iops-card-header" style="margin-top:14px"><h3>${esc(tOr('admin.tunable.group.' + g, g))}</h3></div>
         <div class="iops-inputs">
-            ${byGroup[g].map(d => `
+            ${byGroup[g].map(d => {
+                const label = tOr('admin.tunable.' + d.key + '.label', d.label);
+                const help = tOr('admin.tunable.' + d.key + '.help', d.help || '');
+                return `
                 <div class="form-group">
-                    <label title="${esc(d.help || '')}">${esc(d.label)}<button type="button" class="tunable-info-btn" title="What this does" data-click='["showTunableInfo","${d.key}"]'>i</button></label>
+                    <label title="${esc(help)}">${esc(label)}<button type="button" class="tunable-info-btn" title="${esc(t('admin.tunable.info_btn'))}" data-click='["showTunableInfo","${d.key}"]'>i</button></label>
                     <input type="number" id="tun-${d.key}"
                            ${d.min != null ? `min="${d.min}"` : ''}
                            ${d.max != null ? `max="${d.max}"` : ''}
                            step="${d.step != null ? d.step : (d.type === 'int' ? 1 : 'any')}"
                            value="${values[d.key]}"
-                           title="${esc(d.help || '')}">
-                </div>`).join('')}
+                           title="${esc(help)}">
+                </div>`;
+            }).join('')}
         </div>`).join('');
 }
 
@@ -178,7 +197,7 @@ async function saveTunables() {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'Save failed');
         renderTunables(d.values || {});
-        status.textContent = 'Saved';
+        status.textContent = t('admin.msg.saved');
         status.className = 'iops-status ok';
     } catch (e) {
         status.textContent = e.message;
@@ -190,7 +209,7 @@ async function saveTunables() {
 // Shared What/How/Beware info modal, driven by a {label, what, how, beware} object.
 function showInfo(d) {
     if (!d) return;
-    document.getElementById('tun-info-title').textContent = d.label || 'Setting';
+    document.getElementById('tun-info-title').textContent = d.label || t('admin.info.default_title');
     document.getElementById('tun-info-what').textContent = d.what || d.help || '';
     document.getElementById('tun-info-how').textContent = d.how || '';
     document.getElementById('tun-info-beware').textContent = d.beware || '';
@@ -203,41 +222,53 @@ function showTunableInfo(key) {
 
 // IOPS fields are hand-built (not metadata-driven), so their info text lives here.
 const IOPS_INFO = {
-    hdd: {
-        label: 'HDD IOPS per drive',
-        what: 'The raw IOPS credited to a single HDD (spinning) data drive, before cluster derating or write amplification.',
-        how: 'Each HDD in a node adds this to the cluster IOPS total. Raise it to credit hybrid/HDD configs with more performance; lower it to make them look slower (pushing the engine toward flash for IOPS-heavy workloads).',
-        beware: 'Vendor "max" figures are optimistic for random I/O — set too high and HDD configs appear to meet demand they can’t sustain in practice. Too low needlessly disqualifies hybrid/HDD options.',
+    get hdd() {
+        return {
+            label: t('admin.iops.hdd.label'),
+            what: t('admin.iops.hdd.what'),
+            how: t('admin.iops.hdd.how'),
+            beware: t('admin.iops.hdd.beware'),
+        };
     },
-    ssd: {
-        label: 'SSD IOPS per drive',
-        what: 'The raw IOPS credited to a single SATA/SAS SSD data drive, before derating or write amplification.',
-        how: 'Each SSD adds this to the cluster IOPS total. Raise or lower it to change how SSD-tier configs are credited.',
-        beware: 'Optimistic spec-sheet numbers skew which media wins. Keep the HDD/SSD/NVMe values in realistic proportion to one another.',
+    get ssd() {
+        return {
+            label: t('admin.iops.ssd.label'),
+            what: t('admin.iops.ssd.what'),
+            how: t('admin.iops.ssd.how'),
+            beware: t('admin.iops.ssd.beware'),
+        };
     },
-    nvme: {
-        label: 'NVMe IOPS per drive',
-        what: 'The raw IOPS credited to a single NVMe data drive, before derating or write amplification.',
-        how: 'Each NVMe drive adds this to the cluster total. Raise it to credit all-flash NVMe configs with more headroom.',
-        beware: 'Very high values let a 2-node all-flash cluster "satisfy" almost any IOPS demand, hiding the need for more nodes. Keep proportional to SSD/HDD.',
+    get nvme() {
+        return {
+            label: t('admin.iops.nvme.label'),
+            what: t('admin.iops.nvme.what'),
+            how: t('admin.iops.nvme.how'),
+            beware: t('admin.iops.nvme.beware'),
+        };
     },
-    derating: {
-        label: 'Derating %',
-        what: 'A blanket reduction applied to raw drive IOPS for cluster overhead — replication traffic, metadata and scrubbing (SCRIBE). 35% means only 65% of raw IOPS counts.',
-        how: 'Raise it to assume less usable IOPS (more conservative — may need more drives or nodes). Lower it to credit more of the raw IOPS.',
-        beware: 'Too low (near 0) over-promises performance the cluster can’t deliver under real overhead. Too high buries achievable configs and inflates hardware. Range 0–89%.',
+    get derating() {
+        return {
+            label: t('admin.iops.derating.label'),
+            what: t('admin.iops.derating.what'),
+            how: t('admin.iops.derating.how'),
+            beware: t('admin.iops.derating.beware'),
+        };
     },
-    rf: {
-        label: 'Replication Factor',
-        what: 'How many copies of each write the cluster stores (RF2 = 2 copies). It drives write amplification — each front-end write costs this many back-end writes.',
-        how: 'Raise it to increase write amplification, lowering the net IOPS available to workloads (so the engine sizes more drives/nodes). It reflects the real data-protection level.',
-        beware: 'Should match the cluster’s actual replication policy: below the real RF over-states usable IOPS; above it needlessly inflates sizing. Must be a whole number ≥ 1.',
+    get rf() {
+        return {
+            label: t('admin.iops.rf.label'),
+            what: t('admin.iops.rf.what'),
+            how: t('admin.iops.rf.how'),
+            beware: t('admin.iops.rf.beware'),
+        };
     },
-    read: {
-        label: 'Read %',
-        what: 'The assumed read share of the workload (the rest is writes). Writes are amplified by the replication factor; reads are not — so the read/write mix sets the effective write amplification.',
-        how: 'A higher read % means fewer amplified writes, so more net IOPS are available. A lower (write-heavy) read % reduces net IOPS and pushes toward more or faster drives.',
-        beware: 'If the real workload is more write-heavy than assumed, an optimistic read % over-states usable IOPS and under-sizes the cluster. Range 0–100%.',
+    get read() {
+        return {
+            label: t('admin.iops.read.label'),
+            what: t('admin.iops.read.what'),
+            how: t('admin.iops.read.how'),
+            beware: t('admin.iops.read.beware'),
+        };
     },
 };
 
@@ -250,14 +281,14 @@ function closeTunableInfo() {
 }
 
 async function resetTunables() {
-    if (!confirm('Reset all sizing & scoring tunables to their defaults?')) return;
+    if (!confirm(t('admin.tunable.reset_confirm'))) return;
     const status = document.getElementById('tunables-status');
     try {
         const r = await fetch('/admin/api/tunables/reset', {method: 'POST'});
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'Reset failed');
         renderTunables(d.values || {});
-        status.textContent = 'Reset to defaults';
+        status.textContent = t('admin.msg.reset_ok');
         status.className = 'iops-status ok';
     } catch (e) {
         status.textContent = e.message;
@@ -280,7 +311,7 @@ function renderModelTable() {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted)">No models found</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted)">${esc(t('admin.models.none'))}</td></tr>`;
         return;
     }
 
@@ -292,7 +323,7 @@ function renderModelTable() {
         const storType = m.storage?.type || '-';
 
         tr.innerHTML = `
-            <td><strong>${esc(m.name)}</strong>${m.validated_only ? ' <span class="badge badge-validated" title="Validated-only: no certified equivalent">Validated-only</span>' : ''}</td>
+            <td><strong>${esc(m.name)}</strong>${m.validated_only ? ` <span class="badge badge-validated" title="${esc(t('admin.models.validated_only_title'))}">${esc(t('admin.models.validated_only'))}</span>` : ''}</td>
             <td><span class="badge ${badgeClass}">${m.status}</span></td>
             <td>${esc(m.category)}</td>
             <td>${esc(m.form_factor || '-')}</td>
@@ -303,10 +334,10 @@ function renderModelTable() {
             <td>${m.min_nodes}</td>
             <td>${m.cost_tier ?? '-'}</td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" data-click='["openEditModel",${m.id}]'>
+                <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditModel",${m.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" data-click='["deleteModel",${m.id},"${esc(m.name)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteModel",${m.id},"${esc(m.name)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -325,7 +356,7 @@ function esc(s) {
 // ── Catalog Tables ─────────────────────────────────────────────────────────
 
 function renderCpuCatalog() {
-    document.getElementById('cpu-count').textContent = `${cpuCatalog.length} CPUs`;
+    document.getElementById('cpu-count').textContent = t('admin.catalog.cpu_count', {n: cpuCatalog.length});
     const tbody = document.getElementById('cpu-catalog-tbody');
     tbody.innerHTML = '';
     cpuCatalog.forEach(c => {
@@ -350,10 +381,10 @@ function renderCpuCatalog() {
             <td>${perf}</td>
             <td><span class="count-pill">${c.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","cpu",${c.id}]'>
+                <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","cpu",${c.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","cpu",${c.id},"${esc(c.desc)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","cpu",${c.id},"${esc(c.desc)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -363,7 +394,7 @@ function renderCpuCatalog() {
 }
 
 function renderNicCatalog() {
-    document.getElementById('nic-count').textContent = `${nicCatalog.length} NICs`;
+    document.getElementById('nic-count').textContent = t('admin.catalog.nic_count', {n: nicCatalog.length});
     const tbody = document.getElementById('nic-catalog-tbody');
     tbody.innerHTML = '';
     nicCatalog.forEach(n => {
@@ -374,10 +405,10 @@ function renderNicCatalog() {
             <td>${esc(n.speed)}</td>
             <td><span class="count-pill">${n.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","nic",${n.id}]'>
+                <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","nic",${n.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","nic",${n.id},"${esc(n.desc)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","nic",${n.id},"${esc(n.desc)}"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -387,7 +418,7 @@ function renderNicCatalog() {
 }
 
 function renderDriveCatalog() {
-    document.getElementById('drive-count').textContent = `${driveCatalog.length} Drives`;
+    document.getElementById('drive-count').textContent = t('admin.catalog.drive_count', {n: driveCatalog.length});
     const tbody = document.getElementById('drive-catalog-tbody');
     tbody.innerHTML = '';
     driveCatalog.forEach(d => {
@@ -397,10 +428,10 @@ function renderDriveCatalog() {
             <td>${d.size_tb}</td>
             <td><span class="count-pill">${d.used_by}</span></td>
             <td class="col-actions">
-                <button class="btn-icon" title="Edit" data-click='["openEditCatalogItem","drive",${d.id}]'>
+                <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","drive",${d.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="Delete" data-click='["deleteCatalogItem","drive",${d.id},"${d.drive_type} ${d.size_tb}TB"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","drive",${d.id},"${d.drive_type} ${d.size_tb}TB"]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -416,7 +447,7 @@ function openAddCatalogItem(type, fromModelEditor = false) {
     catalogModalId = null;
     catalogModalCallback = fromModelEditor ? () => refreshPickersAfterCatalogChange(type) : null;
 
-    const titles = { cpu: 'Add CPU', nic: 'Add NIC', drive: 'Add Drive' };
+    const titles = { cpu: t('admin.catalog.add_cpu'), nic: t('admin.catalog.add_nic'), drive: t('admin.catalog.add_drive') };
     document.getElementById('catalog-modal-title').textContent = titles[type];
     document.getElementById('catalog-modal-body').innerHTML = catalogFormHtml(type, {});
     document.getElementById('catalog-modal').style.display = 'flex';
@@ -431,7 +462,7 @@ function openEditCatalogItem(type, id) {
     const item = catalog.find(c => c.id === id);
     if (!item) return;
 
-    const titles = { cpu: 'Edit CPU', nic: 'Edit NIC', drive: 'Edit Drive' };
+    const titles = { cpu: t('admin.catalog.edit_cpu'), nic: t('admin.catalog.edit_nic'), drive: t('admin.catalog.edit_drive') };
     document.getElementById('catalog-modal-title').textContent = titles[type];
     document.getElementById('catalog-modal-body').innerHTML = catalogFormHtml(type, item);
     document.getElementById('catalog-modal').style.display = 'flex';
@@ -439,44 +470,44 @@ function openEditCatalogItem(type, id) {
 
 function catalogFormHtml(type, item) {
     if (type === 'cpu') return `
-        <div class="form-group"><label>Description *</label>
-            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="e.g. Xeon Gold 6442Y 24C/48T 2.6GHz" data-change='["autofillCpuBenchmark"]'></div>
-        <div class="muted cat-bench-status" id="cat-bench-status">Enter the description, then tab out — known benchmark scores fill in automatically.</div>
+        <div class="form-group"><label>${esc(t('admin.form.description_req'))}</label>
+            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="${esc(t('admin.form.cpu_desc_ph'))}" data-change='["autofillCpuBenchmark"]'></div>
+        <div class="muted cat-bench-status" id="cat-bench-status">${esc(t('admin.form.bench_hint'))}</div>
         <div class="form-row" style="margin-top:0.75rem">
-            <div class="form-group"><label>Cores</label><input type="number" id="cat-cores" value="${item.cores || ''}" min="1"></div>
-            <div class="form-group"><label>Threads</label><input type="number" id="cat-threads" value="${item.threads || ''}" min="1"></div>
-            <div class="form-group"><label>Generation</label><input type="text" id="cat-generation" value="${esc(item.generation || '')}" placeholder="e.g. 4th Gen (Sapphire Rapids)"></div>
+            <div class="form-group"><label>${esc(t('admin.form.cores'))}</label><input type="number" id="cat-cores" value="${item.cores || ''}" min="1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.threads'))}</label><input type="number" id="cat-threads" value="${item.threads || ''}" min="1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.generation'))}</label><input type="text" id="cat-generation" value="${esc(item.generation || '')}" placeholder="${esc(t('admin.form.generation_ph'))}"></div>
         </div>
         <div class="form-row" style="margin-top:0.75rem">
-            <div class="form-group"><label title="Licensable performance cores — the engine sizes on these">P-cores</label><input type="number" id="cat-pcores" value="${item.p_cores != null ? item.p_cores : ''}" min="0"></div>
-            <div class="form-group"><label title="Efficiency cores (weight 0 by default)">E-cores</label><input type="number" id="cat-ecores" value="${item.e_cores != null ? item.e_cores : ''}" min="0"></div>
+            <div class="form-group"><label title="${esc(t('admin.form.pcores_title'))}">${esc(t('admin.form.pcores'))}</label><input type="number" id="cat-pcores" value="${item.p_cores != null ? item.p_cores : ''}" min="0"></div>
+            <div class="form-group"><label title="${esc(t('admin.form.ecores_title'))}">${esc(t('admin.form.ecores'))}</label><input type="number" id="cat-ecores" value="${item.e_cores != null ? item.e_cores : ''}" min="0"></div>
         </div>
         <div class="form-row" style="margin-top:0.75rem">
-            <div class="form-group"><label title="Clock used for sizing (all-core turbo for known server CPUs)">Sizing GHz</label><input type="number" id="cat-ghz" value="${item.ghz || ''}" step="0.1" min="0.1"></div>
-            <div class="form-group"><label>Base GHz</label><input type="number" id="cat-base-ghz" value="${item.base_ghz != null ? item.base_ghz : ''}" step="0.1" min="0.1"></div>
-            <div class="form-group"><label>All-core turbo</label><input type="number" id="cat-allcore-ghz" value="${item.all_core_turbo_ghz != null ? item.all_core_turbo_ghz : ''}" step="0.1" min="0.1"></div>
-            <div class="form-group"><label>Max turbo</label><input type="number" id="cat-max-ghz" value="${item.max_turbo_ghz != null ? item.max_turbo_ghz : ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label title="${esc(t('admin.form.sizing_ghz_title'))}">${esc(t('admin.form.sizing_ghz'))}</label><input type="number" id="cat-ghz" value="${item.ghz || ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.base_ghz'))}</label><input type="number" id="cat-base-ghz" value="${item.base_ghz != null ? item.base_ghz : ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.allcore_turbo'))}</label><input type="number" id="cat-allcore-ghz" value="${item.all_core_turbo_ghz != null ? item.all_core_turbo_ghz : ''}" step="0.1" min="0.1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.max_turbo'))}</label><input type="number" id="cat-max-ghz" value="${item.max_turbo_ghz != null ? item.max_turbo_ghz : ''}" step="0.1" min="0.1"></div>
         </div>
         <div class="form-row" style="margin-top:0.75rem">
-            <div class="form-group"><label title="Server throughput benchmark, per socket — preferred where available">SPECrate2017</label><input type="number" id="cat-specrate" value="${item.specrate_int != null ? item.specrate_int : ''}" step="0.1" min="0"></div>
-            <div class="form-group"><label title="Desktop/client benchmark (used when no SPECrate)">PassMark CPU Mark</label><input type="number" id="cat-passmark" value="${item.passmark_cpu_mark != null ? item.passmark_cpu_mark : ''}" min="0"></div>
+            <div class="form-group"><label title="${esc(t('admin.form.specrate_title'))}">SPECrate2017</label><input type="number" id="cat-specrate" value="${item.specrate_int != null ? item.specrate_int : ''}" step="0.1" min="0"></div>
+            <div class="form-group"><label title="${esc(t('admin.form.passmark_title'))}">PassMark CPU Mark</label><input type="number" id="cat-passmark" value="${item.passmark_cpu_mark != null ? item.passmark_cpu_mark : ''}" min="0"></div>
         </div>`;
     if (type === 'nic') return `
-        <div class="form-group"><label>Description *</label>
-            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="e.g. 10GbE SFP+ 4-port Network Card (Intel X710)"></div>
+        <div class="form-group"><label>${esc(t('admin.form.description_req'))}</label>
+            <input type="text" id="cat-desc" value="${esc(item.desc || '')}" placeholder="${esc(t('admin.form.nic_desc_ph'))}"></div>
         <div class="form-row" style="margin-top:0.75rem">
-            <div class="form-group"><label>Ports</label><input type="number" id="cat-ports" value="${item.ports || ''}" min="1"></div>
-            <div class="form-group"><label>Speed</label><input type="text" id="cat-speed" value="${esc(item.speed || '')}" placeholder="e.g. 10GbE"></div>
+            <div class="form-group"><label>${esc(t('admin.form.ports'))}</label><input type="number" id="cat-ports" value="${item.ports || ''}" min="1"></div>
+            <div class="form-group"><label>${esc(t('admin.form.speed'))}</label><input type="text" id="cat-speed" value="${esc(item.speed || '')}" placeholder="${esc(t('admin.form.speed_ph'))}"></div>
         </div>`;
     if (type === 'drive') return `
         <div class="form-row">
-            <div class="form-group"><label>Type *</label>
+            <div class="form-group"><label>${esc(t('admin.form.type_req'))}</label>
                 <select id="cat-drive-type">
                     <option value="HDD" ${item.drive_type === 'HDD' ? 'selected' : ''}>HDD</option>
                     <option value="SSD" ${item.drive_type === 'SSD' ? 'selected' : ''}>SSD</option>
                     <option value="NVMe" ${item.drive_type === 'NVMe' ? 'selected' : ''}>NVMe</option>
                 </select></div>
-            <div class="form-group"><label>Size (TB) *</label>
+            <div class="form-group"><label>${esc(t('admin.form.size_tb_req'))}</label>
                 <input type="number" id="cat-size-tb" value="${item.size_tb || ''}" step="0.01" min="0.01"></div>
         </div>`;
     return '';
@@ -498,7 +529,7 @@ async function autofillCpuBenchmark() {
         const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(desc.value.trim()));
         const d = await resp.json();
         if (!d.found) {
-            if (status) status.textContent = 'No benchmark on file for this CPU — enter scores manually.';
+            if (status) status.textContent = t('admin.bench.none');
             return;
         }
         const sr = document.getElementById('cat-specrate');
@@ -506,10 +537,10 @@ async function autofillCpuBenchmark() {
         const filled = [];
         if (d.specrate_int != null && sr && !sr.value) { sr.value = d.specrate_int; filled.push('SPECrate'); }
         if (d.passmark_cpu_mark != null && pm && !pm.value) { pm.value = d.passmark_cpu_mark; filled.push('PassMark'); }
-        const src = d.source === 'spec-cpu2017' ? `SPEC avg of ${d.samples}` : 'catalog';
+        const src = d.source === 'spec-cpu2017' ? t('admin.bench.src_spec', {n: d.samples}) : t('admin.bench.src_catalog');
         if (status) status.textContent = filled.length
-            ? `Auto-filled ${filled.join(' + ')} from ${src} (matched “${d.model}”).`
-            : `Benchmark on file (${src}) — existing values kept.`;
+            ? t('admin.bench.filled', {fields: filled.join(' + '), src: src, model: d.model})
+            : t('admin.bench.kept', {src: src});
     } catch (e) { /* best-effort */ }
 }
 
@@ -536,20 +567,20 @@ async function saveCatalogItem() {
             specrate_int: _catNum('cat-specrate'),
             passmark_cpu_mark: _catInt('cat-passmark'),
         };
-        if (!payload.desc) { alert('Description is required'); return; }
+        if (!payload.desc) { alert(t('admin.validate.desc_required')); return; }
     } else if (type === 'nic') {
         payload = {
             desc: document.getElementById('cat-desc').value.trim(),
             ports: parseInt(document.getElementById('cat-ports').value) || 0,
             speed: document.getElementById('cat-speed').value.trim(),
         };
-        if (!payload.desc) { alert('Description is required'); return; }
+        if (!payload.desc) { alert(t('admin.validate.desc_required')); return; }
     } else if (type === 'drive') {
         payload = {
             drive_type: document.getElementById('cat-drive-type').value,
             size_tb: parseFloat(document.getElementById('cat-size-tb').value) || 0,
         };
-        if (!payload.drive_type || payload.size_tb <= 0) { alert('Type and size are required'); return; }
+        if (!payload.drive_type || payload.size_tb <= 0) { alert(t('admin.validate.type_size_required')); return; }
     }
 
     const base = `/admin/api/${type === 'cpu' ? 'cpus' : type === 'nic' ? 'nics' : 'drives'}`;
@@ -574,12 +605,12 @@ async function saveCatalogItem() {
         await loadCatalogs();
         if (catalogModalCallback) catalogModalCallback();
     } catch (e) {
-        alert('Save failed: ' + e.message);
+        alert(t('admin.msg.save_failed', {error: e.message}));
     }
 }
 
 async function deleteCatalogItem(type, id, label) {
-    if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    if (!confirm(t('admin.confirm.delete_item', {label: label}))) return;
     const base = `/admin/api/${type === 'cpu' ? 'cpus' : type === 'nic' ? 'nics' : 'drives'}`;
     try {
         const resp = await fetch(`${base}/${id}`, { method: 'DELETE' });
@@ -587,14 +618,14 @@ async function deleteCatalogItem(type, id, label) {
         if (data.error) { alert(data.error); return; }
         await loadCatalogs();
     } catch (e) {
-        alert('Delete failed: ' + e.message);
+        alert(t('admin.msg.delete_failed', {error: e.message}));
     }
 }
 
 // ── Delete Model ───────────────────────────────────────────────────────────
 
 async function deleteModel(id, name) {
-    if (!confirm(`Delete model "${name}"? This cannot be undone.`)) return;
+    if (!confirm(t('admin.confirm.delete_model', {name: name}))) return;
     await fetch(`/admin/api/models/${id}`, { method: 'DELETE' });
     loadModels();
     loadCatalogs();
@@ -620,11 +651,11 @@ function closeCatalogImport() {
 
 async function doCatalogImport() {
     const fileInput = document.getElementById('catalog-import-file');
-    if (!fileInput.files.length) { showCatalogImportStatus('Please select a file', true); return; }
+    if (!fileInput.files.length) { showCatalogImportStatus(t('admin.import.select_file'), true); return; }
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
-    showCatalogImportStatus('Importing...', false);
+    showCatalogImportStatus(t('admin.import.importing'), false);
 
     try {
         const resp = await fetch('/admin/api/import-catalog', { method: 'POST', body: formData });
@@ -634,7 +665,7 @@ async function doCatalogImport() {
         loadCatalogs();
         loadModels();
     } catch (e) {
-        showCatalogImportStatus('Import failed: ' + e.message, true);
+        showCatalogImportStatus(t('admin.import.failed', {error: e.message}), true);
     }
 }
 
@@ -658,7 +689,7 @@ function refreshPickersAfterCatalogChange(type) {}
 
 function openAddModel() {
     document.getElementById('edit-id').value = '';
-    document.getElementById('edit-title').textContent = 'Add Model';
+    document.getElementById('edit-title').textContent = t('admin.model.add_title');
     document.getElementById('edit-name').value = '';
     document.getElementById('edit-status').value = 'Active';
     document.getElementById('edit-category').value = '';
@@ -697,7 +728,7 @@ async function openEditModel(id) {
     const m = await resp.json();
 
     document.getElementById('edit-id').value = id;
-    document.getElementById('edit-title').textContent = `Edit: ${m.name}`;
+    document.getElementById('edit-title').textContent = t('admin.model.edit_title', {name: m.name});
     document.getElementById('edit-name').value = m.name;
     document.getElementById('edit-status').value = m.status;
     document.getElementById('edit-category').value = m.category || '';
@@ -770,12 +801,12 @@ function nicSpeedVal(speed) {
 
 const ITEM_SELECT = {
     cpu: {
-        title: 'Add CPUs',
-        noun: 'CPUs',
+        title: () => t('admin.select.add_cpus'),
+        noun: () => t('admin.select.noun_cpus'),
         catalog: () => cpuCatalog,
         selected: () => selectedCpus,
         key: c => c.desc,
-        label: c => `${esc(c.desc)}<span class="item-select-meta">${c.cores}C / ${c.threads}T · ${c.ghz} GHz</span>`,
+        label: c => `${esc(c.desc)}<span class="item-select-meta">${esc(t('admin.select.cpu_meta', {cores: c.cores, threads: c.threads, ghz: c.ghz}))}</span>`,
         sort: (a, b) => b.cores - a.cores || b.ghz - a.ghz || a.desc.localeCompare(b.desc),
         add: c => {
             const flags = parseModelName(document.getElementById('edit-name').value.trim());
@@ -784,12 +815,12 @@ const ITEM_SELECT = {
         renderChips: () => renderCpuChips(),
     },
     nic: {
-        title: 'Add NICs',
-        noun: 'NICs',
+        title: () => t('admin.select.add_nics'),
+        noun: () => t('admin.select.noun_nics'),
         catalog: () => nicCatalog,
         selected: () => selectedNics,
         key: n => n.desc,
-        label: n => `${esc(n.desc)}<span class="item-select-meta">${n.ports}-port · ${esc(n.speed)}</span>`,
+        label: n => `${esc(n.desc)}<span class="item-select-meta">${esc(t('admin.select.nic_meta', {ports: n.ports, speed: n.speed}))}</span>`,
         sort: (a, b) => nicSpeedVal(b.speed) - nicSpeedVal(a.speed) || a.desc.localeCompare(b.desc),
         add: n => { selectedNics.push({ ...n, qty: 1 }); },
         renderChips: () => renderNicChips(),
@@ -800,7 +831,7 @@ let itemSelectKind = null;
 
 function openItemSelect(kind) {
     itemSelectKind = kind;
-    document.getElementById('item-select-title').textContent = ITEM_SELECT[kind].title;
+    document.getElementById('item-select-title').textContent = ITEM_SELECT[kind].title();
     renderItemSelectList();
     document.getElementById('item-select-all').checked = false;
     document.getElementById('item-select-modal').style.display = 'flex';
@@ -817,7 +848,7 @@ function renderItemSelectList() {
     const taken = new Set(cfg.selected().map(cfg.key));
     const avail = cfg.catalog().filter(it => !taken.has(cfg.key(it))).sort(cfg.sort);
     if (!avail.length) {
-        list.innerHTML = `<p class="drive-select-empty">All ${cfg.noun} are already added.</p>`;
+        list.innerHTML = `<p class="drive-select-empty">${esc(t('admin.select.all_added', {noun: cfg.noun()}))}</p>`;
         return;
     }
     list.innerHTML = avail.map(it =>
@@ -947,12 +978,12 @@ function onModelNameInput() {
         document.getElementById('edit-socket').value = 'dual';
         selectedCpus.forEach(c => { c.qty = 2; });
         renderCpuChips();
-        hints.push('Dual CPU (D) → socket set to dual, CPU qty defaults to 2');
+        hints.push(t('admin.hint.dual_cpu'));
     } else if (flags.isEdge || flags.isCore) {
         document.getElementById('edit-socket').value = 'single';
         selectedCpus.forEach(c => { c.qty = 1; });
         renderCpuChips();
-        hints.push('Single CPU → socket set to single, CPU qty defaults to 1');
+        hints.push(t('admin.hint.single_cpu'));
     }
 
     if (flags.isFlash) {
@@ -963,11 +994,11 @@ function onModelNameInput() {
         }
         selectedDrives = selectedDrives.filter(d => d.drive_type !== 'HDD');
         renderDriveChips();
-        hints.push('All-Flash (F) → no HDD allowed, storage type set to flash');
+        hints.push(t('admin.hint.all_flash'));
     }
 
-    if (flags.isEdge) hints.unshift('Edge model (HE)');
-    if (flags.isCore) hints.unshift('Core model (HC)');
+    if (flags.isEdge) hints.unshift(t('admin.hint.edge_model'));
+    if (flags.isCore) hints.unshift(t('admin.hint.core_model'));
 
     showNameHints(hints);
 }
@@ -1030,9 +1061,9 @@ function renderDriveSelectList() {
     const avail = driveCatalog
         .filter(d => allowed.includes(d.drive_type) && !taken.has(`${d.drive_type}|${d.size_tb}`));
     if (!avail.length) {
-        list.innerHTML = `<p class="drive-select-empty">${allowed.length
-            ? 'All matching drives are already added.'
-            : 'This storage type has no drive options.'}</p>`;
+        list.innerHTML = `<p class="drive-select-empty">${esc(allowed.length
+            ? t('admin.drive_select.all_added')
+            : t('admin.drive_select.no_options'))}</p>`;
         return;
     }
     // One section per drive type (in the storage type's media order), sizes asc.
@@ -1113,7 +1144,7 @@ function updateStorageFields() {
 async function saveModel() {
     const id = document.getElementById('edit-id').value;
     const name = document.getElementById('edit-name').value.trim();
-    if (!name) { alert('Model name is required.'); return; }
+    if (!name) { alert(t('admin.validate.model_name_required')); return; }
 
     const cpuOptions = selectedCpus.map(c => ({
         desc: c.desc, cores: c.cores, threads: c.threads, ghz: c.ghz, qty: c.qty || 1,
@@ -1175,7 +1206,7 @@ async function saveModel() {
         loadModels();
         loadCatalogs();
     } catch (e) {
-        alert('Save failed: ' + e.message);
+        alert(t('admin.msg.save_failed', {error: e.message}));
     }
 }
 
@@ -1218,13 +1249,13 @@ let tenantCache = [];
 
 async function loadAdminTenants() {
     const { ok, data } = await adminApi('/api/admin/super/tenants');
-    if (!ok) { setStatus('tenants-status', 'Could not load tenants.', true); return; }
+    if (!ok) { setStatus('tenants-status', t('admin.tenants.load_error'), true); return; }
     tenantCache = data;
     // Keep the user-tab tenant filter in sync.
     const filter = document.getElementById('users-tenant-filter');
     if (filter) {
         const cur = filter.value;
-        filter.innerHTML = '<option value="">All tenants</option>'
+        filter.innerHTML = `<option value="">${adminEsc(t('admin.users.all_tenants'))}</option>`
             + data.map(t => `<option value="${t.id}">${adminEsc(t.domain)}</option>`).join('');
         filter.value = cur;
     }
@@ -1232,25 +1263,25 @@ async function loadAdminTenants() {
     body.innerHTML = data.map(t => `
         <tr>
             <td>${adminEsc(t.domain)}</td>
-            <td>${t.is_scale ? 'Yes' : ''}</td>
+            <td>${t.is_scale ? adminEsc(window.t('common.yes')) : ''}</td>
             <td>${t.user_count}</td>
-            <td>${t.is_blocked ? '<span class="badge-blocked">Blocked</span>' : 'Active'}</td>
+            <td>${t.is_blocked ? `<span class="badge-blocked">${adminEsc(window.t('admin.tenants.blocked'))}</span>` : adminEsc(window.t('admin.status.active'))}</td>
             <td class="col-actions">
                 <button class="btn btn-sm ${t.is_blocked ? 'btn-secondary' : 'btn-danger'}"
                         data-click='["toggleBlockTenant",${t.id},${t.is_blocked ? 'false' : 'true'}]'>
-                    ${t.is_blocked ? 'Unblock' : 'Block'}
+                    ${t.is_blocked ? adminEsc(window.t('admin.tenants.unblock')) : adminEsc(window.t('admin.tenants.block'))}
                 </button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="5">No tenants yet.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="5">${adminEsc(window.t('admin.tenants.none'))}</td></tr>`;
 }
 
 async function toggleBlockTenant(id, block) {
-    if (block && !confirm('Block this domain? All its users will be unable to sign in.')) return;
+    if (block && !confirm(t('admin.tenants.block_confirm'))) return;
     const { ok, data } = await adminApi(`/api/admin/super/tenants/${id}/block`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocked: block }),
     });
-    if (!ok) { setStatus('tenants-status', (data && data.error) || 'Failed.', true); return; }
+    if (!ok) { setStatus('tenants-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     setStatus('tenants-status', data.message, false);
     loadAdminTenants();
 }
@@ -1268,89 +1299,87 @@ async function loadAdminUsers() {
     if (tenant) params.set('tenant', tenant);
     const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
     const body = document.getElementById('admin-users-tbody');
-    if (!ok) { body.innerHTML = ''; setStatus('admin-status', 'Could not load users.', true); return; }
+    if (!ok) { body.innerHTML = ''; setStatus('admin-status', t('admin.users.load_error'), true); return; }
     const roleOpts = (sel) =>
-        `<option value="user"${sel === 'user' ? ' selected' : ''}>User</option>`
-        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>Tenant admin</option>`
-        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>Super admin</option>`;
+        `<option value="user"${sel === 'user' ? ' selected' : ''}>${adminEsc(t('admin.role.user'))}</option>`
+        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>${adminEsc(t('admin.role.tenant_admin'))}</option>`
+        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>${adminEsc(t('admin.role.super_admin'))}</option>`;
 
     body.innerHTML = data.map(u => {
         const actions = [];
         if (!u.is_disabled) {
-            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["resetUserPassword",${u.id},"${adminEsc(u.email)}"]'>Reset password</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["resetUserPassword",${u.id},"${adminEsc(u.email)}"]'>${adminEsc(t('admin.users.reset_password'))}</button>`);
             if (u.role !== 'super_admin') {
-                actions.push(`<button class="btn btn-sm btn-danger" data-click='["disableAdminUser",${u.id}]'>Disable</button>`);
+                actions.push(`<button class="btn btn-sm btn-danger" data-click='["disableAdminUser",${u.id}]'>${adminEsc(t('admin.users.disable'))}</button>`);
             }
         } else {
-            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["restoreUser",${u.id}]'>Restore</button>`);
-            actions.push(`<button class="btn btn-sm btn-danger" data-click='["deleteUser",${u.id}]'>Delete</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["restoreUser",${u.id}]'>${adminEsc(t('admin.users.restore'))}</button>`);
+            actions.push(`<button class="btn btn-sm btn-danger" data-click='["deleteUser",${u.id}]'>${adminEsc(t('common.delete'))}</button>`);
         }
         // Role is editable inline for active users; disabled users must be
         // restored before their role can change (server enforces this too).
         const roleCell = u.is_disabled
             ? adminEsc(u.role)
             : `<select class="role-select" data-change='["changeUserRole",${u.id},"$value","${adminEsc(u.role)}"]'>${roleOpts(u.role)}</select>`;
-        const statusCell = u.is_disabled ? 'Disabled'
-            : (u.is_verified ? 'Active'
-               : '<span class="badge-unverified">Unactivated</span>');
+        const statusCell = u.is_disabled ? adminEsc(t('admin.status.disabled'))
+            : (u.is_verified ? adminEsc(t('admin.status.active'))
+               : `<span class="badge-unverified">${adminEsc(t('admin.status.unactivated'))}</span>`);
         return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
             <td>${adminEsc(u.email)}</td>
             <td>${adminEsc(u.tenant_domain)}</td>
-            <td>${roleCell}${u.is_scale ? ' <span class="badge-scale">scale</span>' : ''}</td>
+            <td>${roleCell}${u.is_scale ? ` <span class="badge-scale">${adminEsc(t('admin.users.scale_badge'))}</span>` : ''}</td>
             <td>${statusCell}</td>
             <td>${adminDate(u.last_login_at)}</td>
             <td class="col-actions">${actions.join(' ')}</td>
         </tr>`;
-    }).join('') || `<tr><td colspan="6">No users.</td></tr>`;
+    }).join('') || `<tr><td colspan="6">${adminEsc(t('admin.users.none'))}</td></tr>`;
 }
 
 async function changeUserRole(id, role, prevRole) {
     if (role === prevRole) return;
-    const label = { user: 'User', tenant_admin: 'Tenant admin', super_admin: 'Super admin' }[role] || role;
-    if (!confirm(`Change this user's role to "${label}"?`)) { loadAdminUsers(); return; }
+    const label = { user: t('admin.role.user'), tenant_admin: t('admin.role.tenant_admin'), super_admin: t('admin.role.super_admin') }[role] || role;
+    if (!confirm(t('admin.users.role_confirm', {role: label}))) { loadAdminUsers(); return; }
     const { ok, data } = await adminApi(`/api/admin/super/users/${id}/role`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
     });
-    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); loadAdminUsers(); return; }
-    setStatus('admin-status', 'Role updated.', false);
+    if (!ok) { setStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); loadAdminUsers(); return; }
+    setStatus('admin-status', t('admin.users.role_updated'), false);
     loadAdminUsers();
 }
 
 async function resetUserPassword(id, email) {
-    const pw = prompt(
-        `Reset password for ${email}.\n\nEnter a new password (min 8 chars), `
-        + `or leave blank to email them a reset link (requires SMTP):`);
+    const pw = prompt(t('admin.users.reset_prompt', {email: email}));
     if (pw === null) return;  // cancelled
     const body = pw.trim() ? { password: pw.trim() } : {};
-    if (!pw.trim() && !confirm('Email this user a password-reset link?')) return;
+    if (!pw.trim() && !confirm(t('admin.users.reset_email_confirm'))) return;
     const { ok, data } = await adminApi(`/api/admin/super/users/${id}/reset-password`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    setStatus('admin-status', (data && (data.message || data.error)) || (ok ? 'Done.' : 'Failed.'), !ok);
+    setStatus('admin-status', (data && (data.message || data.error)) || (ok ? t('admin.msg.done') : t('admin.msg.failed')), !ok);
 }
 
 async function disableAdminUser(id) {
-    if (!confirm('Disable this user?')) return;
+    if (!confirm(t('admin.users.disable_confirm'))) return;
     const { ok, data } = await adminApi(`/api/admin/users/${id}/disable`, { method: 'POST' });
-    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
-    setStatus('admin-status', 'User disabled.', false);
+    if (!ok) { setStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    setStatus('admin-status', t('admin.users.disabled_ok'), false);
     loadAdminUsers();
 }
 
 async function restoreUser(id) {
     const { ok, data } = await adminApi(`/api/admin/super/users/${id}/restore`, { method: 'POST' });
-    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
-    setStatus('admin-status', 'User restored.', false);
+    if (!ok) { setStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    setStatus('admin-status', t('admin.users.restored_ok'), false);
     loadAdminUsers();
 }
 
 async function deleteUser(id) {
-    if (!confirm('Permanently delete this disabled user? This cannot be undone.')) return;
+    if (!confirm(t('admin.users.delete_confirm'))) return;
     const { ok, data } = await adminApi(`/api/admin/super/users/${id}`, { method: 'DELETE' });
-    if (!ok) { setStatus('admin-status', (data && data.error) || 'Failed.', true); return; }
-    setStatus('admin-status', 'User deleted.', false);
+    if (!ok) { setStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    setStatus('admin-status', t('admin.users.deleted_ok'), false);
     loadAdminUsers();
 }
 
@@ -1362,35 +1391,35 @@ async function loadAdminSizings() {
     if (includeDeleted) params.set('include_deleted', 'true');
     const { ok, data } = await adminApi('/api/admin/super/configs?' + params.toString());
     const body = document.getElementById('admin-sizings-tbody');
-    if (!ok) { body.innerHTML = ''; setStatus('sizings-status-admin', 'Could not load sizings.', true); return; }
+    if (!ok) { body.innerHTML = ''; setStatus('sizings-status-admin', t('admin.sizings.load_error'), true); return; }
     body.innerHTML = data.map(c => `
         <tr class="${c.is_deleted ? 'row-disabled' : ''}">
             <td>${adminEsc(c.name)}</td>
             <td>${adminEsc(c.owner_email || '')}</td>
             <td>${adminEsc(c.tenant_domain || '')}</td>
             <td><code>${adminEsc(c.code)}</code></td>
-            <td>${c.is_deleted ? 'Deleted' : 'Active'}</td>
+            <td>${c.is_deleted ? adminEsc(t('admin.status.deleted')) : adminEsc(t('admin.status.active'))}</td>
             <td>${adminDate(c.updated_at)}</td>
             <td class="col-actions">
-                <button class="btn btn-sm btn-danger" data-click='["purgeSizing",${c.id}]'>Purge</button>
+                <button class="btn btn-sm btn-danger" data-click='["purgeSizing",${c.id}]'>${adminEsc(t('admin.sizings.purge'))}</button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="7">No sizings.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.sizings.none'))}</td></tr>`;
 }
 
 async function purgeSizing(id) {
-    if (!confirm('Permanently delete this configuration? This cannot be undone.')) return;
+    if (!confirm(t('admin.sizings.purge_confirm'))) return;
     const { ok, data } = await adminApi(`/api/admin/super/configs/${id}/purge`, { method: 'DELETE' });
-    if (!ok) { setStatus('sizings-status-admin', (data && data.error) || 'Failed.', true); return; }
-    setStatus('sizings-status-admin', 'Configuration purged.', false);
+    if (!ok) { setStatus('sizings-status-admin', (data && data.error) || t('admin.msg.failed'), true); return; }
+    setStatus('sizings-status-admin', t('admin.sizings.purged_ok'), false);
     loadAdminSizings();
 }
 
 async function runPurge() {
-    if (!confirm('Run the 90-day retention purge now?')) return;
+    if (!confirm(t('admin.sizings.run_purge_confirm'))) return;
     const { ok, data } = await adminApi('/api/admin/super/purge-run', { method: 'POST' });
-    if (!ok) { setStatus('sizings-status-admin', 'Purge failed.', true); return; }
+    if (!ok) { setStatus('sizings-status-admin', t('admin.sizings.purge_failed'), true); return; }
     setStatus('sizings-status-admin',
-        `Purged ${data.configs_purged} config(s) and ${data.users_purged} user(s).`, false);
+        t('admin.sizings.purge_run_ok', {configs: data.configs_purged, users: data.users_purged}), false);
     loadAdminSizings();
 }
 
@@ -1399,19 +1428,19 @@ async function runPurge() {
 
 async function loadEmailSettings() {
     const { ok, data } = await adminApi('/api/admin/super/email-settings');
-    if (!ok) { setStatus('email-status', 'Could not load email settings.', true); return; }
+    if (!ok) { setStatus('email-status', t('admin.email.load_error'), true); return; }
     document.getElementById('smtp-host').value = data.smtp_host || '';
     document.getElementById('smtp-port').value = data.smtp_port || '587';
     document.getElementById('smtp-from').value = data.smtp_from || '';
     document.getElementById('smtp-username').value = data.smtp_username || '';
     document.getElementById('smtp-password').value = '';
-    document.getElementById('smtp-pass-set').textContent = data.smtp_password_set ? '(a password is set)' : '(none set)';
+    document.getElementById('smtp-pass-set').textContent = data.smtp_password_set ? t('admin.email.pass_set') : t('admin.email.pass_none');
     document.getElementById('smtp-use-tls').checked = !!data.smtp_use_tls;
     document.getElementById('verify-email-enabled').checked = !!data.verify_email_enabled;
     document.getElementById('email-active-state').textContent =
-        data.verification_active ? 'Email verification is ACTIVE'
-        : data.configured ? 'SMTP configured, verification OFF'
-        : 'SMTP not configured';
+        data.verification_active ? t('admin.email.state_active')
+        : data.configured ? t('admin.email.state_off')
+        : t('admin.email.state_unconfigured');
 }
 
 async function saveEmailSettings() {
@@ -1429,20 +1458,20 @@ async function saveEmailSettings() {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     });
-    if (!ok) { setStatus('email-status', (data && data.error) || 'Save failed.', true); return; }
-    setStatus('email-status', 'Email settings saved.', false);
+    if (!ok) { setStatus('email-status', (data && data.error) || t('admin.email.save_failed'), true); return; }
+    setStatus('email-status', t('admin.email.saved_ok'), false);
     loadEmailSettings();
 }
 
 async function sendTestEmail() {
-    const to = prompt('Send a test email to which address?');
+    const to = prompt(t('admin.email.test_prompt'));
     if (!to) return;
-    setStatus('email-status', 'Sending…', false);
+    setStatus('email-status', t('admin.email.sending'), false);
     const { ok, data } = await adminApi('/api/admin/super/email-settings/test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to }),
     });
-    setStatus('email-status', (data && (data.message || data.error)) || (ok ? 'Sent.' : 'Failed.'), !ok);
+    setStatus('email-status', (data && (data.message || data.error)) || (ok ? t('admin.email.sent') : t('admin.msg.failed')), !ok);
 }
 
 async function loadAuditLog() {
@@ -1455,7 +1484,7 @@ async function loadAuditLog() {
             <td>${adminEsc(e.actor_email || '')}</td>
             <td><code>${adminEsc(e.action)}</code></td>
             <td>${adminEsc(e.detail || '')}</td>
-        </tr>`).join('') || `<tr><td colspan="4">No audit entries yet.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="4">${adminEsc(t('admin.audit.none'))}</td></tr>`;
 }
 
 
@@ -1465,12 +1494,12 @@ async function loadStaleUsers() {
     const { ok, data } = await adminApi('/api/admin/super/users/stale');
     const body = document.getElementById('stale-users-tbody');
     document.getElementById('stale-select-all').checked = false;
-    if (!ok) { body.innerHTML = ''; setStatus('stale-status', 'Could not load.', true); return; }
+    if (!ok) { body.innerHTML = ''; setStatus('stale-status', t('admin.stale.load_error'), true); return; }
 
     // Populate the per-domain selector from the result.
     const domains = [...new Set(data.map(u => u.tenant_domain).filter(Boolean))].sort();
     const sel = document.getElementById('stale-domain-select');
-    sel.innerHTML = '<option value="">Select all from domain…</option>'
+    sel.innerHTML = `<option value="">${adminEsc(t('admin.stale.select_domain'))}</option>`
         + domains.map(d => `<option value="${adminEsc(d)}">${adminEsc(d)} (${data.filter(u => u.tenant_domain === d).length})</option>`).join('');
 
     body.innerHTML = data.map(u => `
@@ -1479,9 +1508,9 @@ async function loadStaleUsers() {
             <td>${adminEsc(u.email)}</td>
             <td>${adminEsc(u.tenant_domain)}</td>
             <td>${adminEsc(u.role)}</td>
-            <td>${u.last_login_at ? adminDate(u.last_login_at) : '<span class="muted">never</span>'}</td>
+            <td>${u.last_login_at ? adminDate(u.last_login_at) : `<span class="muted">${adminEsc(t('admin.stale.never'))}</span>`}</td>
             <td>${adminDate(u.created_at)}</td>
-        </tr>`).join('') || `<tr><td colspan="6">No users inactive for a year.</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="6">${adminEsc(t('admin.stale.none'))}</td></tr>`;
     updateStaleCount();
 }
 
@@ -1493,7 +1522,7 @@ function updateStaleCount() {
     const all = staleChecks();
     const checked = all.filter(c => c.checked);
     document.getElementById('stale-selected-count').textContent =
-        checked.length ? `${checked.length} selected` : '';
+        checked.length ? t('admin.stale.selected_count', {n: checked.length}) : '';
     const head = document.getElementById('stale-select-all');
     head.checked = all.length > 0 && checked.length === all.length;
     head.indeterminate = checked.length > 0 && checked.length < all.length;
@@ -1517,13 +1546,15 @@ function selectStaleByDomain() {
 
 async function purgeSelectedStale() {
     const ids = staleChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
-    if (!ids.length) { setStatus('stale-status', 'Select at least one user first.', true); return; }
-    if (!confirm(`Permanently delete ${ids.length} user(s) and all of their saved sizings? This cannot be undone.`)) return;
+    if (!ids.length) { setStatus('stale-status', t('admin.stale.select_first'), true); return; }
+    if (!confirm(t('admin.stale.purge_confirm', {n: ids.length}))) return;
     const { ok, data } = await adminApi('/api/admin/super/users/purge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
     });
-    if (!ok) { setStatus('stale-status', (data && data.error) || 'Purge failed.', true); return; }
-    setStatus('stale-status', `Purged ${data.purged} user(s)${data.skipped ? `, skipped ${data.skipped}` : ''}.`, false);
+    if (!ok) { setStatus('stale-status', (data && data.error) || t('admin.sizings.purge_failed'), true); return; }
+    setStatus('stale-status', data.skipped
+        ? t('admin.stale.purged_skipped', {purged: data.purged, skipped: data.skipped})
+        : t('admin.stale.purged', {purged: data.purged}), false);
     loadStaleUsers();
 }

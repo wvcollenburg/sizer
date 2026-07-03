@@ -1,62 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Privacy Policy — SC// Infrastructure Sizer</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <script src="{{ asset('js/lang/en.js') }}"></script>
+    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
+    <script src="{{ asset('js/i18n.js') }}"></script>
 </head>
 <body>
     <header>
         <div class="header-content">
-            <h1>SC// Infrastructure Sizer</h1>
-            <span class="version">Privacy</span>
+            <h1 data-i18n="privacy.header_title">SC// Infrastructure Sizer</h1>
+            <span class="version" data-i18n="privacy.header_badge">Privacy</span>
             <div class="account-bar">
-                <a class="btn btn-sm" href="/">Back to Sizer</a>
+                <select class="lang-switcher" data-change='["setLang","$value"]' aria-label="Language">
+                    {% for code in supported_langs %}
+                    <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ {'en':'English','de':'Deutsch','fr':'Français','nl':'Nederlands'}[code] }}</option>
+                    {% endfor %}
+                </select>
+                <a class="btn btn-sm" href="/" data-i18n="privacy.back">Back to Sizer</a>
             </div>
         </div>
     </header>
 
     <main>
         <article class="legal-doc">
-            <h1>Privacy Policy</h1>
-            <p class="legal-meta">Last updated: <strong>4 June 2026</strong></p>
+            <h1 data-i18n="privacy.doc_title">Privacy Policy</h1>
+            <p class="legal-meta" data-i18n-html="privacy.updated">Last updated: <strong>4 June 2026</strong></p>
 
-            <h2>1. Who we are</h2>
-            <p>
+            <h2 data-i18n="privacy.s1_h">1. Who we are</h2>
+            <p data-i18n-html="privacy.s1_p">
                 The SC// Infrastructure Sizer ("the Sizer", "we", "us") is operated by
                 <strong>Demolabs</strong>. For any privacy question, or to exercise your rights,
                 contact us at <strong>privacy@demolabs.me</strong>.
             </p>
 
-            <h2>2. What data we collect</h2>
+            <h2 data-i18n="privacy.s2_h">2. What data we collect</h2>
             <ul>
-                <li><strong>Account data</strong> — your email address and a securely hashed
+                <li data-i18n-html="privacy.s2_li1"><strong>Account data</strong> — your email address and a securely hashed
                     password (we never store your password in plain text). Your email domain
                     determines your organisation/tenant.</li>
-                <li><strong>Saved sizings</strong> — the configurations you choose to save, including
+                <li data-i18n-html="privacy.s2_li2"><strong>Saved sizings</strong> — the configurations you choose to save, including
                     any workload data you import (e.g. Live Optics / RVTools exports) and the
                     options you select.</li>
-                <li><strong>Usage &amp; security records</strong> — sign-in timestamps, an audit log
+                <li data-i18n-html="privacy.s2_li3"><strong>Usage &amp; security records</strong> — sign-in timestamps, an audit log
                     of account actions (sign-up, activation, password changes, administrative
                     actions), and limited technical data needed to operate the service.</li>
             </ul>
 
-            <h2>3. Why we use it, and our lawful basis</h2>
+            <h2 data-i18n="privacy.s3_h">3. Why we use it, and our lawful basis</h2>
             <ul>
-                <li><strong>To provide the service</strong> (authenticate you, store and share your
+                <li data-i18n-html="privacy.s3_li1"><strong>To provide the service</strong> (authenticate you, store and share your
                     sizings within your organisation) — <em>performance of a contract</em>.</li>
-                <li><strong>To keep the service secure</strong> (audit logging, brute-force
+                <li data-i18n-html="privacy.s3_li2"><strong>To keep the service secure</strong> (audit logging, brute-force
                     protection) — <em>legitimate interests</em>.</li>
-                <li><strong>To verify your email</strong> and send password-reset messages, where
+                <li data-i18n-html="privacy.s3_li3"><strong>To verify your email</strong> and send password-reset messages, where
                     enabled — <em>performance of a contract / legitimate interests</em>.</li>
-                <li><strong>To send product update emails</strong> — for example, a notification when
+                <li data-i18n-html="privacy.s3_li4"><strong>To send product update emails</strong> — for example, a notification when
                     new hardware models become available — where you have opted in. This is based on
                     your <em>consent</em>, and you can opt out at any time.</li>
             </ul>
 
-            <h2>4. Cookies</h2>
-            <p>
+            <h2 data-i18n="privacy.s4_h">4. Cookies</h2>
+            <p data-i18n-html="privacy.s4_p">
                 We use a <strong>single, strictly-necessary session cookie</strong> for the sole
                 purpose of keeping you signed in. It is first-party, marked <code>HttpOnly</code>
                 and <code>SameSite=Lax</code>, contains no advertising or tracking identifiers, and
@@ -67,8 +75,8 @@
                 changes, we will ask for your consent first.
             </p>
 
-            <h2>5. Who we share it with</h2>
-            <p>
+            <h2 data-i18n="privacy.s5_h">5. Who we share it with</h2>
+            <p data-i18n-html="privacy.s5_p">
                 We do not sell your data. Saved sizings are visible to other users within your
                 organisation (your email domain) and to our administrators for support. Beyond your
                 own organisation, your data is shared <strong>only with Scale Computing</strong>, the
@@ -76,22 +84,22 @@
                 do not share your data with any other third parties.
             </p>
 
-            <h2>6. How long we keep it (retention)</h2>
+            <h2 data-i18n="privacy.s6_h">6. How long we keep it (retention)</h2>
             <ul>
-                <li><strong>Account &amp; sizings</strong> — kept while your account is active.</li>
-                <li><strong>Deleted sizings</strong> — soft-deleted and recoverable by an
+                <li data-i18n-html="privacy.s6_li1"><strong>Account &amp; sizings</strong> — kept while your account is active.</li>
+                <li data-i18n-html="privacy.s6_li2"><strong>Deleted sizings</strong> — soft-deleted and recoverable by an
                     administrator for <strong>90 days</strong>, then permanently purged.</li>
-                <li><strong>Disabled / inactive accounts</strong> — disabled accounts are purged
+                <li data-i18n-html="privacy.s6_li3"><strong>Disabled / inactive accounts</strong> — disabled accounts are purged
                     after 90 days; accounts with no sign-in for a prolonged period (around a year)
                     may be removed.</li>
-                <li><strong>Audit log</strong> — retained for security and accountability. Any
+                <li data-i18n-html="privacy.s6_li4"><strong>Audit log</strong> — retained for security and accountability. Any
                     personal identifier of a deleted user is <strong>automatically anonymised exactly
                     365 days after that user is deleted</strong>; the (now non-personal) action record
                     is kept.</li>
             </ul>
 
-            <h2>7. Your rights</h2>
-            <p>
+            <h2 data-i18n="privacy.s7_h">7. Your rights</h2>
+            <p data-i18n-html="privacy.s7_p">
                 Subject to applicable law, you may request access to, correction of, or deletion of
                 your personal data, and may object to or restrict certain processing. You can delete
                 your saved sizings yourself in the app; to delete your account or exercise any other
@@ -101,21 +109,21 @@
                 region.
             </p>
 
-            <h2>8. Security</h2>
-            <p>
+            <h2 data-i18n="privacy.s8_h">8. Security</h2>
+            <p data-i18n-html="privacy.s8_p">
                 Passwords are hashed with a salted, slow key-derivation function (PBKDF2-SHA256).
                 Access is restricted by role, sign-in is rate-limited, and the service is intended to
                 be served over HTTPS. No system is perfectly secure, but we take appropriate
                 technical and organisational measures to protect your data.
             </p>
 
-            <h2>9. Changes to this policy</h2>
-            <p>
+            <h2 data-i18n="privacy.s9_h">9. Changes to this policy</h2>
+            <p data-i18n-html="privacy.s9_p">
                 We may update this policy from time to time. Material changes will be communicated by
                 email, and the "last updated" date above will change.
             </p>
 
-            <p class="legal-back"><a href="/">&larr; Back to the Sizer</a></p>
+            <p class="legal-back"><a href="/" data-i18n="privacy.back_link">&larr; Back to the Sizer</a></p>
         </article>
     </main>
 </body>

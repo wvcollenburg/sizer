@@ -47,6 +47,21 @@ header h1 {
 .header-sep { color: #5a8ab5; }
 .header-sub { color: #b0cfe0; font-size: 0.95rem; }
 
+/* i18n: hide until translated (non-English only) to avoid an English flash. */
+[data-i18n-pending] body { visibility: hidden; }
+
+.lang-switcher {
+    margin-left: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.lang-switcher option { color: #2c3e50; }
+
 .back-link {
     margin-left: auto;
     color: #8ec5e8;

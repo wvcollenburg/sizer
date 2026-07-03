@@ -1,36 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Sizer Admin</title>
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    <!-- i18n: English base (fallback) + the active locale, then the engine. -->
+    <script src="{{ asset('js/lang/en.js') }}"></script>
+    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
+    <script src="{{ asset('js/i18n.js') }}"></script>
 </head>
 <body>
     <header>
         <div class="header-content">
             <h1>SC// Sizer</h1>
             <span class="header-sep">|</span>
-            <span class="header-sub">Model Administration</span>
-            <a href="/" class="back-link">Back to Sizer</a>
+            <span class="header-sub" data-i18n="admin.header.sub">Model Administration</span>
+            <a href="/" class="back-link" data-i18n="admin.header.back">Back to Sizer</a>
+            <select class="lang-switcher" data-change='["setLang","$value"]' aria-label="Language">
+                {% for code in supported_langs %}
+                <option value="{{ code }}"{% if code == lang %} selected{% endif %}>{{ {'en':'English','de':'Deutsch','fr':'Français','nl':'Nederlands'}[code] }}</option>
+                {% endfor %}
+            </select>
         </div>
     </header>
 
     <main>
         <!-- Tab Navigation -->
         <div class="tab-bar">
-            <button class="tab active" data-tab="models" data-click='["switchTab","models"]'>Models</button>
-            <button class="tab" data-tab="cpus" data-click='["switchTab","cpus"]'>CPUs</button>
-            <button class="tab" data-tab="nics" data-click='["switchTab","nics"]'>NICs</button>
-            <button class="tab" data-tab="drives" data-click='["switchTab","drives"]'>Drives</button>
-            <button class="tab" data-tab="tuning" data-click='["switchTab","tuning"]'>Tuning</button>
+            <button class="tab active" data-tab="models" data-click='["switchTab","models"]' data-i18n="admin.tab.models">Models</button>
+            <button class="tab" data-tab="cpus" data-click='["switchTab","cpus"]' data-i18n="admin.tab.cpus">CPUs</button>
+            <button class="tab" data-tab="nics" data-click='["switchTab","nics"]' data-i18n="admin.tab.nics">NICs</button>
+            <button class="tab" data-tab="drives" data-click='["switchTab","drives"]' data-i18n="admin.tab.drives">Drives</button>
+            <button class="tab" data-tab="tuning" data-click='["switchTab","tuning"]' data-i18n="admin.tab.tuning">Tuning</button>
             <span class="tab-spacer"></span>
-            <button class="tab" data-tab="users" data-click='["switchTab","users"]'>Users</button>
-            <button class="tab" data-tab="stale" data-click='["switchTab","stale"]'>Inactive 1yr+</button>
-            <button class="tab" data-tab="tenants" data-click='["switchTab","tenants"]'>Tenants</button>
-            <button class="tab" data-tab="sizings" data-click='["switchTab","sizings"]'>Saved Sizings</button>
-            <button class="tab" data-tab="email" data-click='["switchTab","email"]'>Email</button>
-            <button class="tab" data-tab="audit" data-click='["switchTab","audit"]'>Audit Log</button>
+            <button class="tab" data-tab="users" data-click='["switchTab","users"]' data-i18n="admin.tab.users">Users</button>
+            <button class="tab" data-tab="stale" data-click='["switchTab","stale"]' data-i18n="admin.tab.stale">Inactive 1yr+</button>
+            <button class="tab" data-tab="tenants" data-click='["switchTab","tenants"]' data-i18n="admin.tab.tenants">Tenants</button>
+            <button class="tab" data-tab="sizings" data-click='["switchTab","sizings"]' data-i18n="admin.tab.sizings">Saved Sizings</button>
+            <button class="tab" data-tab="email" data-click='["switchTab","email"]' data-i18n="admin.tab.email">Email</button>
+            <button class="tab" data-tab="audit" data-click='["switchTab","audit"]' data-i18n="admin.tab.audit">Audit Log</button>
         </div>
 
         <!-- ═══════════════════ MODELS TAB ═══════════════════ -->
@@ -39,30 +48,30 @@
                 <div class="toolbar-left">
                     <button class="btn btn-primary" data-click='["openAddModel"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add Model
+                        <span data-i18n="admin.models.add">Add Model</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["exportModels"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Export Excel
+                        <span data-i18n="admin.models.export">Export Excel</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import Excel
+                        <span data-i18n="admin.models.import">Import Excel</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Template
+                        <span data-i18n="admin.models.template">Template</span>
                     </button>
                 </div>
                 <div class="toolbar-right">
                     <select id="status-filter" data-change='["loadModels"]'>
-                        <option value="all">All Statuses</option>
-                        <option value="Active" selected>Active</option>
-                        <option value="EOL">EOL</option>
-                        <option value="EOS">EOS</option>
+                        <option value="all" data-i18n="admin.models.filter_all_statuses">All Statuses</option>
+                        <option value="Active" selected data-i18n="admin.models.status_active">Active</option>
+                        <option value="EOL" data-i18n="admin.models.status_eol">EOL</option>
+                        <option value="EOS" data-i18n="admin.models.status_eos">EOS</option>
                     </select>
                     <select id="category-filter" data-change='["loadModels"]'>
-                        <option value="all">All Categories</option>
+                        <option value="all" data-i18n="admin.models.filter_all_categories">All Categories</option>
                     </select>
                 </div>
             </div>
@@ -71,17 +80,17 @@
                 <table class="model-table" id="model-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Category</th>
-                            <th>Form Factor</th>
-                            <th>Socket</th>
-                            <th>CPUs</th>
-                            <th>RAM Options</th>
-                            <th>Storage</th>
-                            <th>Min Nodes</th>
-                            <th>Cost</th>
-                            <th class="col-actions">Actions</th>
+                            <th data-i18n="common.name">Name</th>
+                            <th data-i18n="common.status">Status</th>
+                            <th data-i18n="admin.models.col_category">Category</th>
+                            <th data-i18n="admin.models.col_form_factor">Form Factor</th>
+                            <th data-i18n="admin.models.col_socket">Socket</th>
+                            <th data-i18n="admin.models.col_cpus">CPUs</th>
+                            <th data-i18n="admin.models.col_ram">RAM Options</th>
+                            <th data-i18n="admin.models.col_storage">Storage</th>
+                            <th data-i18n="admin.models.col_min_nodes">Min Nodes</th>
+                            <th data-i18n="admin.models.col_cost">Cost</th>
+                            <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="model-tbody"></tbody>
@@ -95,15 +104,15 @@
                 <div class="toolbar-left">
                     <button class="btn btn-primary" data-click='["openAddCatalogItem","cpu"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add CPU
+                        <span data-i18n="admin.cpus.add">Add CPU</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import Catalog
+                        <span data-i18n="admin.cpus.import">Import Catalog</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Template
+                        <span data-i18n="admin.cpus.template">Template</span>
                     </button>
                 </div>
                 <div class="toolbar-right">
@@ -114,14 +123,14 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th>Description</th>
-                            <th>Generation</th>
-                            <th style="width:70px">Cores</th>
-                            <th style="width:70px">Threads</th>
-                            <th style="width:140px" title="Sizing clock = all-core turbo. base / all-core / max">Clocks (GHz)</th>
-                            <th style="width:120px" title="SPECrate2017_int per socket (server) or PassMark CPU Mark (desktop)">Perf</th>
-                            <th style="width:90px">Used By</th>
-                            <th class="col-actions">Actions</th>
+                            <th data-i18n="admin.cpus.col_description">Description</th>
+                            <th data-i18n="admin.cpus.col_generation">Generation</th>
+                            <th style="width:70px" data-i18n="admin.cpus.col_cores">Cores</th>
+                            <th style="width:70px" data-i18n="admin.cpus.col_threads">Threads</th>
+                            <th style="width:140px" title="Sizing clock = all-core turbo. base / all-core / max" data-i18n="admin.cpus.col_clocks" data-i18n-title="admin.cpus.col_clocks_title">Clocks (GHz)</th>
+                            <th style="width:120px" title="SPECrate2017_int per socket (server) or PassMark CPU Mark (desktop)" data-i18n="admin.cpus.col_perf" data-i18n-title="admin.cpus.col_perf_title">Perf</th>
+                            <th style="width:90px" data-i18n="admin.cpus.col_used_by">Used By</th>
+                            <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="cpu-catalog-tbody"></tbody>
@@ -135,15 +144,15 @@
                 <div class="toolbar-left">
                     <button class="btn btn-primary" data-click='["openAddCatalogItem","nic"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add NIC
+                        <span data-i18n="admin.nics.add">Add NIC</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import Catalog
+                        <span data-i18n="admin.nics.import">Import Catalog</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Template
+                        <span data-i18n="admin.nics.template">Template</span>
                     </button>
                 </div>
                 <div class="toolbar-right">
@@ -154,11 +163,11 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th>Description</th>
-                            <th style="width:80px">Ports</th>
-                            <th style="width:120px">Speed</th>
-                            <th style="width:100px">Used By</th>
-                            <th class="col-actions">Actions</th>
+                            <th data-i18n="admin.nics.col_description">Description</th>
+                            <th style="width:80px" data-i18n="admin.nics.col_ports">Ports</th>
+                            <th style="width:120px" data-i18n="admin.nics.col_speed">Speed</th>
+                            <th style="width:100px" data-i18n="admin.nics.col_used_by">Used By</th>
+                            <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="nic-catalog-tbody"></tbody>
@@ -172,15 +181,15 @@
                 <div class="toolbar-left">
                     <button class="btn btn-primary" data-click='["openAddCatalogItem","drive"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add Drive
+                        <span data-i18n="admin.drives.add">Add Drive</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["openCatalogImport"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Import Catalog
+                        <span data-i18n="admin.drives.import">Import Catalog</span>
                     </button>
                     <button class="btn btn-secondary" data-click='["downloadCatalogTemplate"]'>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Template
+                        <span data-i18n="admin.drives.template">Template</span>
                     </button>
                 </div>
                 <div class="toolbar-right">
@@ -191,10 +200,10 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th style="width:120px">Type</th>
-                            <th style="width:120px">Size (TB)</th>
-                            <th style="width:100px">Used By</th>
-                            <th class="col-actions">Actions</th>
+                            <th style="width:120px" data-i18n="admin.drives.col_type">Type</th>
+                            <th style="width:120px" data-i18n="admin.drives.col_size">Size (TB)</th>
+                            <th style="width:100px" data-i18n="admin.drives.col_used_by">Used By</th>
+                            <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="drive-catalog-tbody"></tbody>
@@ -206,57 +215,57 @@
         <div class="tab-content" id="tab-tuning">
             <div class="iops-card">
                 <div class="iops-card-header">
-                    <h3>IOPS per Drive Type</h3>
+                    <h3 data-i18n="admin.tuning.iops_per_drive">IOPS per Drive Type</h3>
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","hdd"]'>i</button></label>
+                        <label>HDD<button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","hdd"]'>i</button></label>
                         <input type="number" id="iops-hdd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","ssd"]'>i</button></label>
+                        <label>SSD<button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","ssd"]'>i</button></label>
                         <input type="number" id="iops-ssd" min="0" step="1">
                     </div>
                     <div class="form-group">
-                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","nvme"]'>i</button></label>
+                        <label>NVMe<button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","nvme"]'>i</button></label>
                         <input type="number" id="iops-nvme" min="0" step="1">
                     </div>
                 </div>
                 <div class="iops-card-header" style="margin-top:14px">
-                    <h3>Cluster IOPS Adjustments</h3>
+                    <h3 data-i18n="admin.tuning.cluster_iops_adj">Cluster IOPS Adjustments</h3>
                 </div>
                 <div class="iops-inputs">
                     <div class="form-group">
-                        <label>Derating %<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","derating"]'>i</button></label>
+                        <label><span data-i18n="admin.tuning.derating_label">Derating %</span><button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","derating"]'>i</button></label>
                         <input type="number" id="iops-derating" min="0" max="89" step="1"
-                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing.">
+                               title="SCRIBE derating: reduces raw IOPS for replication/metadata/scrubbing." data-i18n-title="admin.tuning.derating_input_title">
                     </div>
                     <div class="form-group">
-                        <label>Replication Factor<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","rf"]'>i</button></label>
+                        <label><span data-i18n="admin.tuning.rf_label">Replication Factor</span><button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","rf"]'>i</button></label>
                         <input type="number" id="iops-rf" min="1" step="1"
-                               title="RF write amplification (RF2 = each write costs 2 backend IOPS).">
+                               title="RF write amplification (RF2 = each write costs 2 backend IOPS)." data-i18n-title="admin.tuning.rf_input_title">
                     </div>
                     <div class="form-group">
-                        <label>Read %<button type="button" class="tunable-info-btn" title="What this does" data-click='["showIopsInfo","read"]'>i</button></label>
+                        <label><span data-i18n="admin.tuning.read_label">Read %</span><button type="button" class="tunable-info-btn" title="What this does" data-i18n-title="admin.tuning.info_btn_title" data-click='["showIopsInfo","read"]'>i</button></label>
                         <input type="number" id="iops-read" min="0" max="100" step="1"
-                               title="Read share of the workload (write share = 100 − read).">
+                               title="Read share of the workload (write share = 100 − read)." data-i18n-title="admin.tuning.read_input_title">
                     </div>
-                    <button class="btn btn-primary" data-click='["saveDriveIops"]'>Save IOPS</button>
+                    <button class="btn btn-primary" data-click='["saveDriveIops"]' data-i18n="admin.tuning.save_iops">Save IOPS</button>
                     <span id="iops-status" class="iops-status"></span>
                 </div>
             </div>
             <div class="iops-card">
                 <div class="iops-card-header">
-                    <h3>Sizing &amp; Scoring Tunables</h3>
-                    <p class="muted" style="margin:4px 0 0">
+                    <h3 data-i18n="admin.tuning.sizing_scoring">Sizing &amp; Scoring Tunables</h3>
+                    <p class="muted" style="margin:4px 0 0" data-i18n="admin.tuning.sizing_scoring_desc">
                         Weights and limits used by the recommendation engine. Changes apply to
                         new sizings immediately. Hover a label for what it does.
                     </p>
                 </div>
                 <div id="tunables-groups"></div>
                 <div class="iops-inputs" style="margin-top:14px">
-                    <button class="btn btn-primary" data-click='["saveTunables"]'>Save Tunables</button>
-                    <button class="btn btn-secondary" data-click='["resetTunables"]'>Reset to defaults</button>
+                    <button class="btn btn-primary" data-click='["saveTunables"]' data-i18n="admin.tuning.save_tunables">Save Tunables</button>
+                    <button class="btn btn-secondary" data-click='["resetTunables"]' data-i18n="admin.tuning.reset_defaults">Reset to defaults</button>
                     <span id="tunables-status" class="iops-status"></span>
                 </div>
             </div>
@@ -268,16 +277,16 @@
                 <div class="toolbar-left">
                     <label class="checkbox-inline">
                         <input type="checkbox" id="users-include-disabled" data-change='["loadAdminUsers"]'>
-                        Show disabled
+                        <span data-i18n="admin.users.show_disabled">Show disabled</span>
                     </label>
                     <label class="checkbox-inline">
                         <input type="checkbox" id="users-unverified-only" data-change='["loadAdminUsers"]'>
-                        Unactivated only
+                        <span data-i18n="admin.users.unactivated_only">Unactivated only</span>
                     </label>
                 </div>
                 <div class="toolbar-right">
                     <select id="users-tenant-filter" data-change='["loadAdminUsers"]'>
-                        <option value="">All tenants</option>
+                        <option value="" data-i18n="admin.users.all_tenants">All tenants</option>
                     </select>
                 </div>
             </div>
@@ -286,8 +295,8 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th>Email</th><th>Domain</th><th>Role</th><th>Status</th>
-                            <th>Last login</th><th class="col-actions">Actions</th>
+                            <th data-i18n="common.email">Email</th><th data-i18n="common.domain">Domain</th><th data-i18n="common.role">Role</th><th data-i18n="common.status">Status</th>
+                            <th data-i18n="admin.users.last_login">Last login</th><th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="admin-users-tbody"></tbody>
@@ -300,13 +309,13 @@
             <div class="toolbar">
                 <div class="toolbar-left">
                     <select id="stale-domain-select" data-change='["selectStaleByDomain"]'>
-                        <option value="">Select all from domain…</option>
+                        <option value="" data-i18n="admin.stale.select_from_domain">Select all from domain…</option>
                     </select>
-                    <button class="btn btn-danger" data-click='["purgeSelectedStale"]'>Purge selected</button>
+                    <button class="btn btn-danger" data-click='["purgeSelectedStale"]' data-i18n="admin.stale.purge_selected">Purge selected</button>
                     <span id="stale-selected-count" class="muted"></span>
                 </div>
                 <div class="toolbar-right">
-                    <span class="muted">No successful login in 1 year (or never, and signed up over a year ago).</span>
+                    <span class="muted" data-i18n="admin.stale.hint">No successful login in 1 year (or never, and signed up over a year ago).</span>
                 </div>
             </div>
             <div id="stale-status" class="admin-status" style="display:none"></div>
@@ -315,7 +324,7 @@
                     <thead>
                         <tr>
                             <th style="width:36px"><input type="checkbox" id="stale-select-all" data-click='["toggleSelectAllStale","$this"]'></th>
-                            <th>Email</th><th>Domain</th><th>Role</th><th>Last login</th><th>Signed up</th>
+                            <th data-i18n="common.email">Email</th><th data-i18n="common.domain">Domain</th><th data-i18n="common.role">Role</th><th data-i18n="admin.stale.last_login">Last login</th><th data-i18n="admin.stale.signed_up">Signed up</th>
                         </tr>
                     </thead>
                     <tbody id="stale-users-tbody"></tbody>
@@ -330,8 +339,8 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th>Domain</th><th>Scale</th><th>Members</th><th>Status</th>
-                            <th class="col-actions">Actions</th>
+                            <th data-i18n="common.domain">Domain</th><th data-i18n="admin.tenants.col_scale">Scale</th><th data-i18n="admin.tenants.col_members">Members</th><th data-i18n="common.status">Status</th>
+                            <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="admin-tenants-tbody"></tbody>
@@ -345,11 +354,11 @@
                 <div class="toolbar-left">
                     <label class="checkbox-inline">
                         <input type="checkbox" id="sizings-include-deleted" data-change='["loadAdminSizings"]'>
-                        Show deleted (within 90-day retention)
+                        <span data-i18n="admin.sizings.show_deleted">Show deleted (within 90-day retention)</span>
                     </label>
                 </div>
                 <div class="toolbar-right">
-                    <button class="btn btn-secondary" data-click='["runPurge"]'>Run retention purge</button>
+                    <button class="btn btn-secondary" data-click='["runPurge"]' data-i18n="admin.sizings.run_purge">Run retention purge</button>
                 </div>
             </div>
             <div id="sizings-status-admin" class="admin-status" style="display:none"></div>
@@ -357,8 +366,8 @@
                 <table class="model-table">
                     <thead>
                         <tr>
-                            <th>Name</th><th>Owner</th><th>Domain</th><th>Code</th>
-                            <th>Status</th><th>Updated</th><th class="col-actions">Actions</th>
+                            <th data-i18n="common.name">Name</th><th data-i18n="admin.sizings.col_owner">Owner</th><th data-i18n="common.domain">Domain</th><th data-i18n="admin.sizings.col_code">Code</th>
+                            <th data-i18n="common.status">Status</th><th data-i18n="admin.sizings.col_updated">Updated</th><th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="admin-sizings-tbody"></tbody>
@@ -370,12 +379,12 @@
         <div class="tab-content" id="tab-email">
             <div id="email-status" class="admin-status" style="display:none"></div>
             <div class="email-settings-card">
-                <p class="import-info">
+                <p class="import-info" data-i18n="admin.email.intro">
                     Configure an SMTP server to enable email verification on signup. When
                     no server is set, or the toggle below is off, signup works without
                     verification (current behaviour).
                 </p>
-                <p class="import-info" style="color:#8a6d3b">
+                <p class="import-info" style="color:#8a6d3b" data-i18n-html="admin.email.tip">
                     <strong>Tip:</strong> the <em>From address</em> must usually be on the same
                     domain you authenticate with (the username's domain). Sending from an
                     unrelated domain (e.g. a personal alias) makes most providers and Gmail
@@ -383,37 +392,37 @@
                 </p>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>SMTP Host</label>
+                        <label data-i18n="admin.email.host">SMTP Host</label>
                         <input type="text" id="smtp-host" placeholder="smtp.example.com">
                     </div>
                     <div class="form-group">
-                        <label>Port</label>
+                        <label data-i18n="admin.email.port">Port</label>
                         <input type="text" id="smtp-port" placeholder="587">
                     </div>
                     <div class="form-group">
-                        <label>From address</label>
+                        <label data-i18n="admin.email.from">From address</label>
                         <input type="text" id="smtp-from" placeholder="no-reply@example.com">
                     </div>
                     <div class="form-group">
-                        <label>Username (optional)</label>
-                        <input type="text" id="smtp-username" placeholder="apikey / user">
+                        <label data-i18n="admin.email.username">Username (optional)</label>
+                        <input type="text" id="smtp-username" placeholder="apikey / user" data-i18n-ph="admin.email.username_ph">
                     </div>
                     <div class="form-group">
-                        <label>Password <span id="smtp-pass-set" class="muted"></span></label>
-                        <input type="password" id="smtp-password" placeholder="leave blank to keep" autocomplete="new-password">
+                        <label><span data-i18n="admin.email.password">Password</span> <span id="smtp-pass-set" class="muted"></span></label>
+                        <input type="password" id="smtp-password" placeholder="leave blank to keep" data-i18n-ph="admin.email.password_ph" autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label>&nbsp;</label>
-                        <label class="checkbox-inline"><input type="checkbox" id="smtp-use-tls"> Use STARTTLS</label>
+                        <label class="checkbox-inline"><input type="checkbox" id="smtp-use-tls"> <span data-i18n="admin.email.use_starttls">Use STARTTLS</span></label>
                     </div>
                 </div>
                 <label class="checkbox-inline" style="margin-top:0.75rem">
-                    <input type="checkbox" id="verify-email-enabled"> Require email verification on signup
+                    <input type="checkbox" id="verify-email-enabled"> <span data-i18n="admin.email.require_verification">Require email verification on signup</span>
                 </label>
                 <div class="toolbar" style="margin-top:1rem;padding:0">
                     <div class="toolbar-left">
-                        <button class="btn btn-primary" data-click='["saveEmailSettings"]'>Save settings</button>
-                        <button class="btn btn-secondary" data-click='["sendTestEmail"]'>Send test email</button>
+                        <button class="btn btn-primary" data-click='["saveEmailSettings"]' data-i18n="admin.email.save">Save settings</button>
+                        <button class="btn btn-secondary" data-click='["sendTestEmail"]' data-i18n="admin.email.send_test">Send test email</button>
                     </div>
                     <div class="toolbar-right">
                         <span id="email-active-state" class="muted"></span>
@@ -427,7 +436,7 @@
             <div class="catalog-table-wrap">
                 <table class="model-table">
                     <thead>
-                        <tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+                        <tr><th data-i18n="admin.audit.col_when">When</th><th data-i18n="admin.audit.col_actor">Actor</th><th data-i18n="admin.audit.col_action">Action</th><th data-i18n="admin.audit.col_detail">Detail</th></tr>
                     </thead>
                     <tbody id="admin-audit-tbody"></tbody>
                 </table>
@@ -439,18 +448,18 @@
              data-click='["closeTunableInfoBackdrop","$this","$event"]'>
             <div class="modal" style="max-width:520px">
                 <div class="modal-header">
-                    <h2 id="tun-info-title">Setting</h2>
+                    <h2 id="tun-info-title" data-i18n="admin.modal.tunable_info.title">Setting</h2>
                     <button class="modal-close" data-click='["closeTunableInfo"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="tun-info-section tun-info-what">
-                        <h4>What</h4><p id="tun-info-what"></p>
+                        <h4 data-i18n="admin.modal.tunable_info.what">What</h4><p id="tun-info-what"></p>
                     </div>
                     <div class="tun-info-section tun-info-how">
-                        <h4>How</h4><p id="tun-info-how"></p>
+                        <h4 data-i18n="admin.modal.tunable_info.how">How</h4><p id="tun-info-how"></p>
                     </div>
                     <div class="tun-info-section tun-info-beware">
-                        <h4>Beware</h4><p id="tun-info-beware"></p>
+                        <h4 data-i18n="admin.modal.tunable_info.beware">Beware</h4><p id="tun-info-beware"></p>
                     </div>
                 </div>
             </div>
@@ -460,24 +469,24 @@
         <div class="modal-overlay" id="catalog-import-modal" style="display:none">
             <div class="modal" style="max-width:600px">
                 <div class="modal-header">
-                    <h2>Import from Excel</h2>
+                    <h2 data-i18n="admin.modal.import.title">Import from Excel</h2>
                     <button class="modal-close" data-click='["closeCatalogImport"]'>&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p class="import-info">Upload an Excel file with any combination of these sheets:</p>
-                    <p class="import-info"><strong>Catalog:</strong> CPUs, NICs, Drives</p>
-                    <p class="import-info"><strong>Models:</strong> Models, Model CPU Options, Model RAM Options, Model Storage, Model Drive Options, Model NIC Options</p>
-                    <p class="import-info">Only include the sheets you need. Catalog items are imported first, then models. Existing entries are skipped.</p>
-                    <p class="import-info">Use <strong>Template</strong> to download a file with all sheets and example rows.</p>
+                    <p class="import-info" data-i18n="admin.modal.import.upload_hint">Upload an Excel file with any combination of these sheets:</p>
+                    <p class="import-info" data-i18n-html="admin.modal.import.sheets_catalog"><strong>Catalog:</strong> CPUs, NICs, Drives</p>
+                    <p class="import-info" data-i18n-html="admin.modal.import.sheets_models"><strong>Models:</strong> Models, Model CPU Options, Model RAM Options, Model Storage, Model Drive Options, Model NIC Options</p>
+                    <p class="import-info" data-i18n="admin.modal.import.order_note">Only include the sheets you need. Catalog items are imported first, then models. Existing entries are skipped.</p>
+                    <p class="import-info" data-i18n-html="admin.modal.import.template_note">Use <strong>Template</strong> to download a file with all sheets and example rows.</p>
                     <div class="form-group" style="margin-top:1rem">
-                        <label>Excel file (.xlsx)</label>
+                        <label data-i18n="admin.modal.import.file_label">Excel file (.xlsx)</label>
                         <input type="file" id="catalog-import-file" accept=".xlsx">
                     </div>
                     <div id="catalog-import-status" style="display:none"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-click='["closeCatalogImport"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["doCatalogImport"]'>Import</button>
+                    <button class="btn btn-secondary" data-click='["closeCatalogImport"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["doCatalogImport"]' data-i18n="admin.modal.import.import_btn">Import</button>
                 </div>
             </div>
         </div>
@@ -486,13 +495,13 @@
         <div class="modal-overlay" id="catalog-modal" style="display:none">
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
-                    <h2 id="catalog-modal-title">Add Item</h2>
+                    <h2 id="catalog-modal-title" data-i18n="admin.modal.catalog_item.title">Add Item</h2>
                     <button class="modal-close" data-click='["closeCatalogModal"]'>&times;</button>
                 </div>
                 <div class="modal-body" id="catalog-modal-body"></div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-click='["closeCatalogModal"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["saveCatalogItem"]'>Save</button>
+                    <button class="btn btn-secondary" data-click='["closeCatalogModal"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["saveCatalogItem"]' data-i18n="common.save">Save</button>
                 </div>
             </div>
         </div>
@@ -501,21 +510,21 @@
         <div class="modal-overlay" id="drive-select-modal" style="display:none">
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
-                    <h2>Add Drives</h2>
+                    <h2 data-i18n="admin.modal.drive_picker.title">Add Drives</h2>
                     <button class="modal-close" data-click='["closeDriveSelect"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="drive-select-toolbar">
                         <label class="drive-select-all-lbl">
                             <input type="checkbox" id="drive-select-all" data-change='["toggleAllDriveSelect","$this"]'>
-                            Select all
+                            <span data-i18n="admin.modal.select_all">Select all</span>
                         </label>
                     </div>
                     <div id="drive-select-list"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-click='["closeDriveSelect"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["confirmDriveSelect"]'>Add Selected</button>
+                    <button class="btn btn-secondary" data-click='["closeDriveSelect"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmDriveSelect"]' data-i18n="admin.modal.add_selected">Add Selected</button>
                 </div>
             </div>
         </div>
@@ -524,21 +533,21 @@
         <div class="modal-overlay" id="item-select-modal" style="display:none">
             <div class="modal" style="max-width:600px">
                 <div class="modal-header">
-                    <h2 id="item-select-title">Add</h2>
+                    <h2 id="item-select-title" data-i18n="admin.modal.item_picker.title">Add</h2>
                     <button class="modal-close" data-click='["closeItemSelect"]'>&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="drive-select-toolbar">
                         <label class="drive-select-all-lbl">
                             <input type="checkbox" id="item-select-all" data-change='["toggleAllItemSelect","$this"]'>
-                            Select all
+                            <span data-i18n="admin.modal.select_all">Select all</span>
                         </label>
                     </div>
                     <div id="item-select-list" class="item-select-list"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-click='["closeItemSelect"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["confirmItemSelect"]'>Add Selected</button>
+                    <button class="btn btn-secondary" data-click='["closeItemSelect"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["confirmItemSelect"]' data-i18n="admin.modal.add_selected">Add Selected</button>
                 </div>
             </div>
         </div>
@@ -547,7 +556,7 @@
         <div class="modal-overlay" id="edit-modal" style="display:none">
             <div class="modal modal-wide">
                 <div class="modal-header">
-                    <h2 id="edit-title">Add Model</h2>
+                    <h2 id="edit-title" data-i18n="admin.modal.model_edit.title">Add Model</h2>
                     <button class="modal-close" data-click='["closeEdit"]'>&times;</button>
                 </div>
                 <div class="modal-body">
@@ -555,20 +564,20 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Model Name *</label>
-                            <input type="text" id="edit-name" placeholder="e.g. HC3450F" data-input='["onModelNameInput"]'>
+                            <label data-i18n="admin.modal.model_edit.name_label">Model Name *</label>
+                            <input type="text" id="edit-name" placeholder="e.g. HC3450F" data-i18n-ph="admin.modal.model_edit.name_ph" data-input='["onModelNameInput"]'>
                         </div>
                         <div class="form-group">
-                            <label>Status</label>
+                            <label data-i18n="common.status">Status</label>
                             <select id="edit-status">
-                                <option value="Active">Active</option>
-                                <option value="EOL">EOL</option>
-                                <option value="EOS">EOS</option>
+                                <option value="Active" data-i18n="admin.models.status_active">Active</option>
+                                <option value="EOL" data-i18n="admin.models.status_eol">EOL</option>
+                                <option value="EOS" data-i18n="admin.models.status_eos">EOS</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Category</label>
-                            <input type="text" id="edit-category" placeholder="e.g. 1U All-Flash">
+                            <label data-i18n="admin.modal.model_edit.category_label">Category</label>
+                            <input type="text" id="edit-category" placeholder="e.g. 1U All-Flash" data-i18n-ph="admin.modal.model_edit.category_ph">
                         </div>
                     </div>
 
@@ -576,53 +585,53 @@
                         <div class="form-group">
                             <label class="checkbox-inline">
                                 <input type="checkbox" id="edit-validated-only">
-                                Validated-only (no certified equivalent)
+                                <span data-i18n="admin.modal.model_edit.validated_only">Validated-only (no certified equivalent)</span>
                             </label>
-                            <small class="field-hint">Hidden from Certified recommendations; shown only in Validated mode, labeled by its own name.</small>
+                            <small class="field-hint" data-i18n="admin.modal.model_edit.validated_only_hint">Hidden from Certified recommendations; shown only in Validated mode, labeled by its own name.</small>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Form Factor</label>
-                            <input type="text" id="edit-form-factor" placeholder="e.g. 1U Rack">
+                            <label data-i18n="admin.modal.model_edit.form_factor_label">Form Factor</label>
+                            <input type="text" id="edit-form-factor" placeholder="e.g. 1U Rack" data-i18n-ph="admin.modal.model_edit.form_factor_ph">
                         </div>
                         <div class="form-group">
-                            <label>Chassis</label>
-                            <input type="text" id="edit-chassis" placeholder="e.g. Dell PowerEdge R660">
+                            <label data-i18n="admin.modal.model_edit.chassis_label">Chassis</label>
+                            <input type="text" id="edit-chassis" placeholder="e.g. Dell PowerEdge R660" data-i18n-ph="admin.modal.model_edit.chassis_ph">
                         </div>
                         <div class="form-group">
-                            <label>Socket</label>
+                            <label data-i18n="admin.modal.model_edit.socket_label">Socket</label>
                             <select id="edit-socket">
-                                <option value="single">Single</option>
-                                <option value="dual">Dual</option>
-                                <option value="virtual">Virtual</option>
+                                <option value="single" data-i18n="admin.modal.model_edit.socket_single">Single</option>
+                                <option value="dual" data-i18n="admin.modal.model_edit.socket_dual">Dual</option>
+                                <option value="virtual" data-i18n="admin.modal.model_edit.socket_virtual">Virtual</option>
                             </select>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>PSU</label>
-                            <input type="text" id="edit-psu" placeholder="e.g. 2x 800W">
+                            <label data-i18n="admin.modal.model_edit.psu_label">PSU</label>
+                            <input type="text" id="edit-psu" placeholder="e.g. 2x 800W" data-i18n-ph="admin.modal.model_edit.psu_ph">
                         </div>
                         <div class="form-group">
-                            <label>RAM Slots</label>
+                            <label data-i18n="admin.modal.model_edit.ram_slots_label">RAM Slots</label>
                             <input type="number" id="edit-ram-slots" value="0" min="0">
                         </div>
                         <div class="form-group">
-                            <label>Min Nodes</label>
+                            <label data-i18n="admin.modal.model_edit.min_nodes_label">Min Nodes</label>
                             <input type="number" id="edit-min-nodes" value="1" min="1">
                         </div>
                         <div class="form-group">
-                            <label>Cost</label>
+                            <label data-i18n="admin.modal.model_edit.cost_label">Cost</label>
                             <input type="number" id="edit-cost-tier" value="5" min="0" step="0.5"
-                                   title="Relative cost weight used as a ranking tiebreaker — lower wins among configs that fit equally well. Wider gaps between models steer the recommender away from over-sizing. Roughly: edge 2–5, 1U 8–12, datacenter 1U 14–24, all-flash 26–40, 2U 22–40.">
+                                   title="Relative cost weight used as a ranking tiebreaker — lower wins among configs that fit equally well. Wider gaps between models steer the recommender away from over-sizing. Roughly: edge 2–5, 1U 8–12, datacenter 1U 14–24, all-flash 26–40, 2U 22–40." data-i18n-title="admin.modal.model_edit.cost_title">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Notes</label>
+                        <label data-i18n="admin.modal.model_edit.notes_label">Notes</label>
                         <textarea id="edit-notes" rows="2"></textarea>
                     </div>
 
@@ -631,11 +640,11 @@
                     <!-- CPU Options (picker) -->
                     <div class="sub-section">
                         <div class="sub-header">
-                            <h3>CPU Options</h3>
+                            <h3 data-i18n="admin.modal.model_edit.cpu_options">CPU Options</h3>
                         </div>
                         <div class="picker-row">
-                            <button class="btn btn-small" data-click='["openItemSelect","cpu"]'>+ Add CPUs…</button>
-                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","cpu",true]'>New CPU</button>
+                            <button class="btn btn-small" data-click='["openItemSelect","cpu"]' data-i18n="admin.modal.model_edit.add_cpus">+ Add CPUs…</button>
+                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","cpu",true]' data-i18n="admin.modal.model_edit.new_cpu">New CPU</button>
                         </div>
                         <div id="cpu-chips" class="chip-list"></div>
                     </div>
@@ -643,7 +652,7 @@
                     <!-- RAM Options -->
                     <div class="sub-section">
                         <div class="sub-header">
-                            <h3>RAM Options (GB)</h3>
+                            <h3 data-i18n="admin.modal.model_edit.ram_options">RAM Options (GB)</h3>
                         </div>
                         <div id="ram-list" class="chip-list"></div>
                     </div>
@@ -651,45 +660,45 @@
                     <!-- Storage Config -->
                     <div class="sub-section">
                         <div class="sub-header">
-                            <h3>Storage Configuration</h3>
+                            <h3 data-i18n="admin.modal.model_edit.storage_config">Storage Configuration</h3>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Type</label>
+                                <label data-i18n="admin.modal.model_edit.storage_type">Type</label>
                                 <select id="edit-stor-type" data-change='["updateStorageFields"]'>
-                                    <option value="nvme_only">NVMe Only</option>
-                                    <option value="ssd_only">SSD Only</option>
-                                    <option value="hdd_only">HDD Only</option>
-                                    <option value="hybrid">Hybrid (HDD + SSD)</option>
-                                    <option value="hybrid_nvme">Hybrid (HDD + NVMe)</option>
-                                    <option value="nvme_and_ssd">NVMe + SSD</option>
-                                    <option value="cloud">Cloud</option>
+                                    <option value="nvme_only" data-i18n="admin.modal.model_edit.stor_nvme_only">NVMe Only</option>
+                                    <option value="ssd_only" data-i18n="admin.modal.model_edit.stor_ssd_only">SSD Only</option>
+                                    <option value="hdd_only" data-i18n="admin.modal.model_edit.stor_hdd_only">HDD Only</option>
+                                    <option value="hybrid" data-i18n="admin.modal.model_edit.stor_hybrid">Hybrid (HDD + SSD)</option>
+                                    <option value="hybrid_nvme" data-i18n="admin.modal.model_edit.stor_hybrid_nvme">Hybrid (HDD + NVMe)</option>
+                                    <option value="nvme_and_ssd" data-i18n="admin.modal.model_edit.stor_nvme_and_ssd">NVMe + SSD</option>
+                                    <option value="cloud" data-i18n="admin.modal.model_edit.stor_cloud">Cloud</option>
                                 </select>
                             </div>
                             <div class="form-group" id="stor-drives-per-node-wrap">
-                                <label>Drives Per Node</label>
+                                <label data-i18n="admin.modal.model_edit.drives_per_node">Drives Per Node</label>
                                 <input type="number" id="edit-stor-dpn" min="1" value="1">
                             </div>
                             <div class="form-group" id="stor-hdd-count-wrap" style="display:none">
-                                <label>HDD Count</label>
+                                <label data-i18n="admin.modal.model_edit.hdd_count">HDD Count</label>
                                 <input type="number" id="edit-stor-hdd-count" min="1" value="3">
                             </div>
                             <div class="form-group" id="stor-ssd-count-wrap" style="display:none">
-                                <label>SSD Count</label>
+                                <label data-i18n="admin.modal.model_edit.ssd_count">SSD Count</label>
                                 <input type="number" id="edit-stor-ssd-count" min="1" value="1">
                             </div>
                             <div class="form-group" id="stor-nvme-count-wrap" style="display:none">
-                                <label>NVMe Count</label>
+                                <label data-i18n="admin.modal.model_edit.nvme_count">NVMe Count</label>
                                 <input type="number" id="edit-stor-nvme-count" min="1" value="1">
                             </div>
                         </div>
                         <div id="drive-options-wrap">
                             <div class="sub-header" style="margin-top:0.5rem">
-                                <h4>Drive Size Options</h4>
+                                <h4 data-i18n="admin.modal.model_edit.drive_size_options">Drive Size Options</h4>
                             </div>
                             <div class="picker-row">
-                                <button class="btn btn-small" data-click='["openDriveSelect"]'>+ Add Drives…</button>
-                                <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]'>New Drive</button>
+                                <button class="btn btn-small" data-click='["openDriveSelect"]' data-i18n="admin.modal.model_edit.add_drives">+ Add Drives…</button>
+                                <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","drive",true]' data-i18n="admin.modal.model_edit.new_drive">New Drive</button>
                             </div>
                             <div id="drive-chips" class="chip-list"></div>
                         </div>
@@ -698,28 +707,28 @@
                     <!-- NIC Options (picker) -->
                     <div class="sub-section">
                         <div class="sub-header">
-                            <h3>NIC Options</h3>
+                            <h3 data-i18n="admin.modal.model_edit.nic_options">NIC Options</h3>
                         </div>
                         <div class="picker-row">
-                            <button class="btn btn-small" data-click='["openItemSelect","nic"]'>+ Add NICs…</button>
-                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","nic",true]'>New NIC</button>
+                            <button class="btn btn-small" data-click='["openItemSelect","nic"]' data-i18n="admin.modal.model_edit.add_nics">+ Add NICs…</button>
+                            <button class="btn btn-small btn-secondary" data-click='["openAddCatalogItem","nic",true]' data-i18n="admin.modal.model_edit.new_nic">New NIC</button>
                         </div>
                         <div id="nic-chips" class="chip-list"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-click='["closeEdit"]'>Cancel</button>
-                    <button class="btn btn-primary" data-click='["saveModel"]'>Save Model</button>
+                    <button class="btn btn-secondary" data-click='["closeEdit"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["saveModel"]' data-i18n="admin.modal.model_edit.save">Save Model</button>
                 </div>
             </div>
         </div>
     </main>
 
     <div class="dev-disclaimer" role="note">
-        <span class="dev-disclaimer-tag">In development</span>
-        This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
+        <span class="dev-disclaimer-tag" data-i18n="footer.dev_tag">In development</span>
+        <span data-i18n-html="footer.disclaimer">This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
         best-effort basis only &mdash; no guarantees are made, and no responsibility or liability can be accepted for any
-        decisions taken based on its output. Always validate results before relying on them.
+        decisions taken based on its output. Always validate results before relying on them.</span>
     </div>
 
     <script src="{{ asset('js/delegate.js') }}"></script>

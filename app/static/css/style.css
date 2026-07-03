@@ -39,6 +39,28 @@ header {
     gap: 1rem;
 }
 
+/* i18n: hide the page until translateDOM() has swapped text, so non-English
+   users never see an English flash. Only set on <html> for non-English locales
+   (see the template) and cleared by i18n.js after the first pass. */
+[data-i18n-pending] body { visibility: hidden; }
+
+/* Language switcher in the header. margin-left:auto pulls it (and the
+   account-bar that follows) to the right edge. */
+.lang-switcher {
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.lang-switcher option { color: #2c3e50; }
+/* The account-bar's own margin-left:auto is redundant once the switcher owns the
+   slack; keep them snug together on the right. */
+.lang-switcher + .account-bar { margin-left: 0.75rem; }
+
 header h1 {
     font-size: 1.5rem;
     font-weight: 600;
