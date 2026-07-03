@@ -279,8 +279,12 @@ async function submitAuth(event) {
         closeAuthModal();
         // While login is mandatory the modal can't actually be dismissed, so
         // flip it back to the Sign in tab — that's what the user needs next,
-        // once they've verified via email.
+        // once they've verified via email — and clear the entered credentials.
         setAuthTab('login');
+        document.getElementById('auth-email').value = '';
+        document.getElementById('auth-password').value = '';
+        document.getElementById('auth-confirm').value = '';
+        document.getElementById('auth-accept-privacy').checked = false;
         const note = data.email_sent === false
             ? ' (We could not send the email — please contact your administrator.)'
             : '';
