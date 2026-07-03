@@ -16,8 +16,12 @@
 // and never persists a cookie.
 (function () {
     var LANGS = window.I18N_LANGS || (window.I18N_LANGS = {});
-    var SUPPORTED = ['en', 'de', 'fr', 'nl'];
     var DEFAULT = 'en';
+    // Supported codes come from the server (single source of truth: app.py's
+    // SUPPORTED_LANGS), injected as <html data-langs="en de fr ...">. Never
+    // hardcode the list here — it silently drifts when languages are added.
+    var SUPPORTED = (document.documentElement.getAttribute('data-langs') || DEFAULT)
+        .split(/\s+/).filter(Boolean);
 
     // Active code comes from the server-rendered <html lang="..">. Guard against
     // anything unexpected so we always land on a supported dictionary.
