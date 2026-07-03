@@ -26,12 +26,46 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
 from export_gauges import render_util_bars, util_rows, compute_floor_sentence
+from recommend import _rec_network_svg
+from i18n import translator, font_for, is_cjk
 
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
                          "TMPL - Generic Document Template_2025.docx")
 
 DK2 = RGBColor(0x11, 0x38, 0x59)
 MUTED = RGBColor(0x5A, 0x6B, 0x7D)
+
+# The template's named styles carry the Martel Sans branding font. Martel can't
+# render CJK scripts, so for those languages we force a CJK-capable font on the
+# text runs (Latin is left untouched so branded layout stays pixel-identical).
+BODY_FONT = "Martel Sans"
+
+
+def _apply_lang_font(run, lang):
+    """For CJK languages, set an explicit CJK-capable font on the run (both the
+    Latin ascii/hAnsi slot and the eastAsia slot) so text renders instead of
+    tofu. For Latin languages this is a no-op — runs keep inheriting the
+    template style's Martel Sans variant, preserving the branded typography."""
+    if not is_cjk(lang):
+        return
+    name = font_for(lang, BODY_FONT)
+    run.font.name = name
+    rpr = run._element.get_or_add_rPr()
+    rfonts = rpr.find(qn("w:rFonts"))
+    if rfonts is None:
+        rfonts = OxmlElement("w:rFonts")
+        rpr.insert(0, rfonts)
+    for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        rfonts.set(qn(attr), name)
+
+
+def _apply_lang_font_para(par, lang):
+    """Apply the CJK font to every run in an already-built paragraph (used for
+    heading/title/bullet paragraphs authored via add_heading/add_paragraph)."""
+    if not is_cjk(lang):
+        return
+    for run in par.runs:
+        _apply_lang_font(run, lang)
 
 
 def _clear_body(doc):
@@ -210,7 +244,7 @@ def _keep_table_together(table):
     _pin_heading_to_table(table)
 
 
-def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
+def _style_cell(cell, text, bold=False, color=None, fill=None, align=None, lang="en"):
     cell.text = ""
     pr = cell.paragraphs[0]
     if align is not None:
@@ -219,11 +253,12 @@ def _style_cell(cell, text, bold=False, color=None, fill=None, align=None):
     run.bold = bold
     if color is not None:
         run.font.color.rgb = color
+    _apply_lang_font(run, lang)
     if fill is not None:
         _shade(cell, fill)
 
 
-def _spec_table(doc, rows, total_w, label_w=2.5):
+def _spec_table(doc, rows, total_w, label_w=2.5, lang="en"):
     """Clean two-column spec table: shaded bold labels (left) + values (right),
     spanning the full content width so its right edge matches the paragraphs."""
     t = doc.add_table(rows=0, cols=2)
@@ -231,14 +266,14 @@ def _spec_table(doc, rows, total_w, label_w=2.5):
     _cell_margins(t)
     for k, v in rows:
         cells = t.add_row().cells
-        _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7")
-        _style_cell(cells[1], v)
+        _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7", lang=lang)
+        _style_cell(cells[1], v, lang=lang)
     _fixed_layout(t, [label_w, total_w - label_w])
     _keep_table_together(t)
     return t
 
 
-def _grid_table(doc, headers, rows, total_w, weights=None):
+def _grid_table(doc, headers, rows, total_w, weights=None, lang="en"):
     """Header-row (dark) + data-rows table spanning the full content width.
     weights are relative column proportions (default equal)."""
     t = doc.add_table(rows=1, cols=len(headers))
@@ -246,11 +281,11 @@ def _grid_table(doc, headers, rows, total_w, weights=None):
     _cell_margins(t)
     for i, h in enumerate(headers):
         _style_cell(t.rows[0].cells[i], h, bold=True,
-                    color=RGBColor(0xFF, 0xFF, 0xFF), fill="113859")
+                    color=RGBColor(0xFF, 0xFF, 0xFF), fill="113859", lang=lang)
     for r in rows:
         cells = t.add_row().cells
         for i, val in enumerate(r):
-            _style_cell(cells[i], val)
+            _style_cell(cells[i], val, lang=lang)
     if weights is None:
         weights = [1] * len(headers)
     scale = total_w / sum(weights)
@@ -266,7 +301,7 @@ def _spacer(doc, pts=6):
     return p
 
 
-def _para(doc, text, italic=False, color=None, size=None):
+def _para(doc, text, italic=False, color=None, size=None, lang="en"):
     p = doc.add_paragraph()
     run = p.add_run(text)
     run.italic = italic
@@ -274,12 +309,24 @@ def _para(doc, text, italic=False, color=None, size=None):
         run.font.color.rgb = color
     if size is not None:
         run.font.size = Pt(size)
+    _apply_lang_font(run, lang)
     return p
 
 
-def build_proposal_docx(summary, recommendation, projection, source_perf=None):
+def build_proposal_docx(summary, recommendation, projection, source_perf=None, lang="en"):
+    t9n = translator(lang)
     doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
     _clear_body(doc)
+
+    def _add_heading(text, level=1):
+        h = doc.add_heading(text, level=level)
+        _apply_lang_font_para(h, lang)
+        return h
+
+    def _add_bullet(text):
+        b = doc.add_paragraph(text, style=bullet_style)
+        _apply_lang_font_para(b, lang)
+        return b
     # The template ships with tight 0.75" (~1.9 cm) side margins, which leaves the
     # body running to the page edge. Widen to a comfortable 1" (2.54 cm) so there's
     # real whitespace on the right and full-width tables sit inside the page.
@@ -301,7 +348,7 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
     # Replace the template's "Header" placeholder with the proposal title (plus the
     # customer/cluster name when one is set), on every page.
     _hdr_name = (summary.get("cluster_name") or "").strip()
-    _set_header_text(sec, "Infrastructure Sizing Proposal"
+    _set_header_text(sec, t9n("export.docx.title")
                      + (f" — {_hdr_name}" if _hdr_name else ""))
     r = recommendation
     s = summary
@@ -314,83 +361,85 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
 
     so = r.get("storage_only")
     hci_nodes = r.get("hci_node_count", r["node_count"])
-    nodes_label = (f"{hci_nodes} HCI + {so['count']} storage-only"
-                   if so else f"{r['node_count']} node{'' if r['node_count'] == 1 else 's'}")
+    nodes_label = (t9n("export.common.hci_plus_storage_only",
+                       hci=hci_nodes, storage=so["count"])
+                   if so else t9n("export.common.node_count", count=r["node_count"]))
     num_cl = r.get("num_clusters", 1)
-    cl_label = (f"{num_cl} clusters ({' + '.join(map(str, r.get('cluster_layout', [])))})"
-                if num_cl > 1 else "single cluster")
+    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
+                    layout=" + ".join(map(str, r.get("cluster_layout", []))))
+                if num_cl > 1 else t9n("export.common.single_cluster"))
 
     # ── Title ────────────────────────────────────────────────────────────────
-    doc.add_paragraph("Infrastructure Sizing Proposal", style="Title")
+    _apply_lang_font_para(doc.add_paragraph(t9n("export.docx.title"), style="Title"), lang)
     subtitle = s.get("cluster_name") or s.get("current_platform") or ""
     if subtitle:
-        doc.add_paragraph(subtitle, style="Subtitle")
+        _apply_lang_font_para(doc.add_paragraph(subtitle, style="Subtitle"), lang)
 
     # ── Management overview (executive summary — leads the document) ──────────
-    doc.add_heading("Management Overview", level=1)
+    _add_heading(t9n("export.docx.mgmt_overview"), level=1)
     _para(doc,
-          f"This proposal consolidates the current {s.get('current_platform', 'virtualization')} "
-          f"environment ({s.get('host_count', 0)} hosts, {s.get('active_vms', 0)} active VMs, "
-          f"{s.get('datastore_used_tb', 0)} TB in use) onto a Scale Computing HyperCore cluster. "
-          f"We recommend a {nodes_label} {r['model']} cluster delivering "
-          f"{t['usable_storage_tb']} TB usable capacity and {t['cores']} CPU cores, engineered for "
-          f"N-1 resilience so a complete node can fail without service interruption. The "
-          f"configuration absorbs {p['years']}-year growth at {p['growth_pct']}% annually while "
-          f"maintaining a {r['vcpu_ratio']:.2f}:1 vCPU-to-core ratio.")
-    _para(doc,
-          "Scale Computing SC//HyperCore simplifies your systems and moves beyond "
-          "traditional IT silos. The award-winning, self-healing platform identifies, "
-          "reduces, and corrects problems in real-time — making application uptime "
-          "easier for IT to manage and more affordable to run. Its lightweight, "
-          "all-in-one architecture eliminates the need to combine separate "
-          "virtualization software, disaster recovery software, servers, and shared "
-          "storage from different vendors, deploying fully integrated, highly available "
-          "virtualization right out of the box. Designed to scale as the business grows "
-          "without downtime, disruption, or rigid hardware requirements, it lets teams "
-          "spend less time on infrastructure maintenance and more on strategic projects.")
+          t9n("export.docx.mgmt_overview_intro",
+              platform=s.get("current_platform", "virtualization"),
+              hosts=s.get("host_count", 0), vms=s.get("active_vms", 0),
+              used_tb=s.get("datastore_used_tb", 0), nodes=nodes_label,
+              model=r["model"], usable_tb=t["usable_storage_tb"], cores=t["cores"],
+              years=p["years"], growth=p["growth_pct"],
+              ratio=f"{r['vcpu_ratio']:.2f}"),
+          lang=lang)
+    _para(doc, t9n("export.docx.product_intro"), lang=lang)
     _spacer(doc, 4)
     fits = (p["projected_storage_tb"] <= n1["usable_storage_tb"]
             and p["projected_vcpus"] <= n1["cores"] * r["vcpu_ratio"])
-    proj_fits = "within the proposed N-1 capacity" if fits else "approaching the proposed capacity"
+    proj_fits = (t9n("export.docx.proj_fits_within") if fits
+                 else t9n("export.docx.proj_fits_approaching"))
     _spec_table(doc, [
-        ("Recommended platform", f"{r['model']} · {nodes_label} · {cl_label}"),
-        ("Usable capacity", f"{t['usable_storage_tb']} TB (N-1 protected: "
-                            f"{n1['usable_storage_tb']} TB)"),
-        ("Compute", f"{t['cores']} cores @ {r['vcpu_ratio']:.2f}:1 vCPU:core"),
-        (f"{p['years']}-year outlook", f"~{_fmt_num(p['projected_vcpus'])} vCPUs / "
-                                       f"{p['projected_storage_tb']} TB projected — {proj_fits}"),
-    ], total_w=cw, label_w=2.5)
+        (t9n("export.docx.recommended_platform"), f"{r['model']} · {nodes_label} · {cl_label}"),
+        (t9n("export.docx.usable_capacity"),
+         t9n("export.docx.usable_capacity_val",
+             usable_tb=t["usable_storage_tb"], n1_tb=n1["usable_storage_tb"])),
+        (t9n("export.docx.compute"),
+         t9n("export.docx.compute_val", cores=t["cores"], ratio=f"{r['vcpu_ratio']:.2f}")),
+        (t9n("export.docx.year_outlook", years=p["years"]),
+         t9n("export.docx.year_outlook_val",
+             vcpus=_fmt_num(p["projected_vcpus"]),
+             storage_tb=p["projected_storage_tb"], fits=proj_fits)),
+    ], total_w=cw, label_w=2.5, lang=lang)
     _spacer(doc)
 
     # ── Recommended configuration ────────────────────────────────────────────
-    doc.add_heading("Recommended Configuration", level=1)
-    _para(doc, f"{r['model']} — {nodes_label}, {cl_label}. "
-               f"{r['form_factor']} ({r['chassis']}).")
+    _add_heading(t9n("export.docx.recommended_configuration"), level=1)
+    _para(doc, t9n("export.docx.recommended_config_intro",
+                   model=r["model"], nodes=nodes_label, clusters=cl_label,
+                   form_factor=r["form_factor"], chassis=r["chassis"]),
+          lang=lang)
     spec_rows = [
-        ("Per-node CPU", r["cpu"]),
-        ("Per-node cores / threads", f"{r['cores_per_node']} cores / {r['threads_per_node']} threads"),
-        ("Per-node RAM", _fmt_ram(r["ram_per_node_gb"])),
-        ("Per-node storage", r["storage_config"]["desc"]),
-        ("Cluster cores", str(t["cores"])),
-        ("Cluster RAM", _fmt_ram(t["ram_gb"])),
-        ("Cluster usable storage", f"{t['usable_storage_tb']} TB"),
+        (t9n("export.docx.per_node_cpu"), r["cpu"]),
+        (t9n("export.docx.per_node_cores_threads"),
+         t9n("export.docx.cores_threads_val",
+             cores=r["cores_per_node"], threads=r["threads_per_node"])),
+        (t9n("export.docx.per_node_ram"), _fmt_ram(r["ram_per_node_gb"])),
+        (t9n("export.docx.per_node_storage"), r["storage_config"]["desc"]),
+        (t9n("export.docx.cluster_cores"), str(t["cores"])),
+        (t9n("export.docx.cluster_ram"), _fmt_ram(t["ram_gb"])),
+        (t9n("export.docx.cluster_usable_storage"), f"{t['usable_storage_tb']} TB"),
     ]
     if iops:
-        spec_rows.append(("Cluster net IOPS", f"{iops['total']:,}"))
+        spec_rows.append((t9n("export.docx.cluster_net_iops"), f"{iops['total']:,}"))
     spec_rows += [
-        ("N-1 (resilient)", f"{n1['cores']} cores · {_fmt_ram(n1['ram_gb'])} · "
-                            f"{n1['usable_storage_tb']} TB usable"),
-        ("vCPU : core ratio", f"{r['vcpu_ratio']:.2f} : 1"),
+        (t9n("export.docx.n1_resilient"),
+         t9n("export.docx.n1_resilient_val", cores=n1["cores"],
+             ram=_fmt_ram(n1["ram_gb"]), usable_tb=n1["usable_storage_tb"])),
+        (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
     ]
-    _spec_table(doc, spec_rows, total_w=cw)
+    _spec_table(doc, spec_rows, total_w=cw, lang=lang)
     _spacer(doc)
 
-    # Network diagram
-    svg = r.get("network_svg")
+    # Network diagram — regenerate in the document language (fall back to stored).
+    svg = _rec_network_svg(r, lang) or r.get("network_svg")
     if svg:
         png = _svg_to_png_bytes(svg, out_width=2200)
         if png:
-            doc.add_heading("Cluster Network", level=2)
+            _add_heading(t9n("export.docx.cluster_network"), level=2)
             doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             # Start the sizing rationale on a fresh page (only when the diagram
@@ -402,47 +451,47 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
     if u:
         rows_u, any_ha = util_rows(u)
         if rows_u:
-            doc.add_heading("Sizing Rationale", level=1)
+            _add_heading(t9n("export.docx.sizing_rationale"), level=1)
             png = render_util_bars(
                 rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
-                any_ha=any_ha)
+                any_ha=any_ha, lang=lang)
             doc.add_picture(io.BytesIO(png), width=Inches(cw))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
             _spacer(doc, 4)
             det = r.get("determinant") or {}
             res, hr = det.get("resource"), det.get("headroom_pct")
             if res == "CPU":
-                _para(doc, f"Determined by CPU — {s.get('total_vcpus')} vCPUs ÷ "
-                           f"{r.get('vcpu_ratio', 0):.2f}:1 overcommit = {det.get('required'):.0f} "
-                           f"cores required, vs {det.get('achieved'):.0f} usable cores available at "
-                           f"N-1 ({hr:.1f}% headroom).")
+                _para(doc, t9n("export.docx.rationale_cpu",
+                               vcpus=s.get("total_vcpus"),
+                               ratio=f"{r.get('vcpu_ratio', 0):.2f}",
+                               required=f"{det.get('required'):.0f}",
+                               achieved=f"{det.get('achieved'):.0f}",
+                               headroom=f"{hr:.1f}"), lang=lang)
             elif res in ("RAM", "Storage"):
                 unit = det.get("unit", "")
-                _para(doc, f"Determined by {res} — {det.get('required')} {unit} required, vs "
-                           f"{det.get('achieved')} {unit} available at N-1 ({hr:.1f}% headroom).")
+                _para(doc, t9n("export.docx.rationale_ram_storage",
+                               resource=res, required=det.get("required"),
+                               unit=unit, achieved=det.get("achieved"),
+                               headroom=f"{hr:.1f}"), lang=lang)
             elif res == "Compute":
                 cf = r.get("compute_floor") or {}
                 util = cf.get("source_cpu_util_pct", 100)
-                _para(doc, f"Determined by CPU performance — this cluster delivers "
-                           f"{det.get('achieved'):.0f}% of your current environment's compute "
-                           f"demand (rated throughput scaled to {util:.0f}% measured peak "
-                           f"utilization, grown to the horizon); the node count was raised to "
-                           f"clear that floor.")
+                _para(doc, t9n("export.docx.rationale_compute",
+                               achieved=f"{det.get('achieved'):.0f}",
+                               util=f"{util:.0f}"), lang=lang)
             # Show compute-floor coverage even when another resource was binding.
             if res != "Compute":
-                cfs = compute_floor_sentence(r)
+                cfs = compute_floor_sentence(r, lang)
                 if cfs:
-                    _para(doc, cfs, italic=True, size=9)
-            _para(doc, "Each bar is 100% of the full cluster: solid = today's load, light hatch = "
-                       "growth + snapshot reserve the workload is sized to, dark hatch = HA failover "
-                       "capacity held back so the cluster still meets the workload with one node down "
-                       "(N-1).", italic=True, size=9)
+                    _para(doc, cfs, italic=True, size=9, lang=lang)
+            _para(doc, t9n("export.docx.rationale_bar_legend"),
+                  italic=True, size=9, lang=lang)
             _spacer(doc)
 
     # ── Performance vs current environment (benchmark comparison) ─────────────
     tgt = t.get("perf_index")
     if source_perf and source_perf.get("total_specrate") and tgt:
-        doc.add_heading("Performance vs Current Environment", level=1)
+        _add_heading(t9n("export.docx.performance_vs_current"), level=1)
         src_total = source_perf["total_specrate"]
         ratio = tgt / src_total if src_total else 0
         used_pm = False
@@ -453,165 +502,110 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None):
             grid_rows.append([c.get("model", ""), str(c.get("sockets", "")),
                               f"{_fmt_num(c.get('score', 0))} {'PassMark' if is_pm else 'SPECrate'}",
                               _fmt_num(c.get("total", 0))])
-        grid_rows.append(["Total environment", "", "", _fmt_num(src_total)])
-        _grid_table(doc, ["Your current CPUs", "Sockets", "Score", "SPECrate"],
-                    grid_rows, total_w=cw, weights=[3.4, 1.0, 1.6, 1.0])
+        grid_rows.append([t9n("export.docx.total_environment"), "", "", _fmt_num(src_total)])
+        _grid_table(doc, [t9n("export.docx.your_current_cpus"),
+                          t9n("export.docx.sockets"), t9n("export.docx.score"),
+                          "SPECrate"],
+                    grid_rows, total_w=cw, weights=[3.4, 1.0, 1.6, 1.0], lang=lang)
         _spacer(doc, 4)
         used_pm = used_pm or bool(r.get("cpu_perf_is_passmark"))
-        verdict = (f"{ratio:.1f}× the compute throughput of your current environment"
+        verdict = (t9n("export.docx.verdict_multiple", ratio=f"{ratio:.1f}")
                    if ratio >= 1 else
-                   f"{round(ratio * 100)}% of your current environment's compute throughput")
+                   t9n("export.docx.verdict_fraction", pct=round(ratio * 100)))
         _spec_table(doc, [
-            ("Recommended cluster", f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
-            ("Cluster SPECrate2017", _fmt_num(tgt)),
-            ("In a benchmark, this should deliver", verdict),
-        ], total_w=cw, label_w=2.6)
+            (t9n("export.docx.recommended_cluster"),
+             f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
+            (t9n("export.docx.cluster_specrate2017"), _fmt_num(tgt)),
+            (t9n("export.docx.benchmark_should_deliver"), verdict),
+        ], total_w=cw, label_w=2.6, lang=lang)
         _spacer(doc, 4)
         if used_pm:
-            _para(doc, "Figures marked PassMark are converted to the SPECrate scale "
-                       "(~0.00386 per CPU Mark, roughly ±20%).", italic=True, size=9)
-        _para(doc, "Disclaimer: benchmark data is externally sourced (public SPEC and PassMark "
-                   "results); provided for guidance only — no rights can be derived from these "
-                   "figures.", italic=True, size=9)
+            _para(doc, t9n("export.docx.passmark_note"), italic=True, size=9, lang=lang)
+        _para(doc, t9n("export.docx.benchmark_disclaimer"),
+              italic=True, size=9, lang=lang)
         _spacer(doc)
 
     # ── Management & operations ──────────────────────────────────────────────
-    doc.add_heading("Management & Operations", level=1)
-    _para(doc, "Scale Computing HyperCore runs the hypervisor, storage, and "
-               "orchestration as a single integrated fabric — managed from one "
-               "interface with no external SAN, no separate hypervisor licensing, and "
-               "no specialist virtualization administration required.")
-    for note in [
-        "Single-pane management — compute, storage, networking, and VMs are administered from "
-        "the built-in HyperCore web interface; no separate storage console or vCenter-equivalent.",
-        "SC Fleet Manager — cloud-based monitoring, alerting, and fleet-wide management across "
-        "clusters and sites from one dashboard.",
-        "Self-healing storage — RF2 mirroring rebuilds automatically on a disk or node failure, "
-        "with no administrator intervention.",
-        "Non-disruptive operations — rolling updates and node additions complete with VMs running; "
-        "scale out by adding a node, no forklift upgrades.",
-        "Built-in data protection — native VM snapshots and replication for backup and DR without "
-        "third-party software.",
-    ]:
-        doc.add_paragraph(note, style=bullet_style)
+    _add_heading(t9n("export.docx.mgmt_operations"), level=1)
+    _para(doc, t9n("export.docx.mgmt_operations_intro"), lang=lang)
+    for key in ("export.docx.mgmt_bullet_1", "export.docx.mgmt_bullet_2",
+                "export.docx.mgmt_bullet_3", "export.docx.mgmt_bullet_4",
+                "export.docx.mgmt_bullet_5"):
+        _add_bullet(t9n(key))
     _spacer(doc)
 
     # ── Current environment & workload ───────────────────────────────────────
-    doc.add_heading("Current Environment & Workload", level=1)
+    _add_heading(t9n("export.docx.current_environment"), level=1)
     _spec_table(doc, [
-        ("Platform", s.get("current_platform", "")),
-        ("Hosts", f"{s.get('host_count', 0)} · {_fmt_num(s.get('total_host_cores', 0))} cores · "
-                  f"{_fmt_ram(s.get('total_host_ram_gb', 0))}"),
-        ("VMs", f"{s.get('active_vms', 0)} active of {s.get('total_vms', 0)} total"),
-        ("Workload", f"{_fmt_num(s.get('total_vcpus', 0))} vCPUs · "
-                     f"{_fmt_ram(s.get('total_vm_provisioned_memory_gb', 0))} RAM · "
-                     f"{s.get('datastore_used_tb', 0)} TB used"),
-        ("Measured ratio", f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
-    ], total_w=cw)
+        (t9n("export.common.platform"), s.get("current_platform", "")),
+        (t9n("export.common.hosts"),
+         t9n("export.docx.hosts_val", count=s.get("host_count", 0),
+             cores=_fmt_num(s.get("total_host_cores", 0)),
+             ram=_fmt_ram(s.get("total_host_ram_gb", 0)))),
+        (t9n("export.common.vms"),
+         t9n("export.docx.vms_val", active=s.get("active_vms", 0),
+             total=s.get("total_vms", 0))),
+        (t9n("export.docx.workload"),
+         t9n("export.docx.workload_val",
+             vcpus=_fmt_num(s.get("total_vcpus", 0)),
+             ram=_fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
+             used_tb=s.get("datastore_used_tb", 0))),
+        (t9n("export.docx.measured_ratio"), f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
+    ], total_w=cw, lang=lang)
     _spacer(doc)
 
     # ── Capacity planning ────────────────────────────────────────────────────
-    doc.add_heading(f"Capacity Planning — {p['years']}-Year Projection", level=1)
-    _para(doc, f"{p['growth_pct']}% YoY growth, {p['snapshot_pct']}% snapshot overhead "
-               f"(growth factor {p.get('growth_factor', 1)}×).", italic=True, color=MUTED)
+    _add_heading(t9n("export.docx.capacity_planning", years=p["years"]), level=1)
+    _para(doc, t9n("export.docx.capacity_planning_intro",
+                   growth=p["growth_pct"], snapshot=p["snapshot_pct"],
+                   factor=p.get("growth_factor", 1)),
+          italic=True, color=MUTED, lang=lang)
     _grid_table(doc,
-                ["Resource", "Current", f"Year {p['years']}", "Proposed (N-1)"],
+                [t9n("export.common.resource"), t9n("export.common.current"),
+                 t9n("export.docx.year_n", years=p["years"]),
+                 t9n("export.docx.proposed_n1")],
                 [["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
-                  f"{n1['cores']} cores @ {r['vcpu_ratio']:.1f}:1"],
+                  t9n("export.docx.cores_at_ratio", cores=n1["cores"],
+                      ratio=f"{r['vcpu_ratio']:.1f}")],
                  ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]),
                   _fmt_ram(n1["ram_gb"])],
-                 ["Storage", f"{p['base_storage_tb']} TB", f"{p['projected_storage_tb']} TB",
-                  f"{n1['usable_storage_tb']} TB usable"]],
-                total_w=cw, weights=[1.6, 1.8, 1.8, 1.8])
+                 [t9n("export.common.storage"), f"{p['base_storage_tb']} TB",
+                  f"{p['projected_storage_tb']} TB",
+                  t9n("export.docx.tb_usable", tb=n1["usable_storage_tb"])]],
+                total_w=cw, weights=[1.6, 1.8, 1.8, 1.8], lang=lang)
     _spacer(doc)
 
     # ── Assumptions ──────────────────────────────────────────────────────────
-    doc.add_heading("Assumptions & Notes", level=1)
-    for note in [
-        f"Sized for N-1 resilience ({cl_label}); usable capacity reflects RF2 mirroring.",
-        f"vCPU:core ratio {r['vcpu_ratio']:.2f}:1; OS overhead and growth/snapshot reserve included.",
-        "No LAG — networking is active/passive failover across two switches.",
-    ]:
-        doc.add_paragraph(note, style=bullet_style)
+    _add_heading(t9n("export.docx.assumptions"), level=1)
+    _add_bullet(t9n("export.docx.assumption_1", clusters=cl_label))
+    _add_bullet(t9n("export.docx.assumption_2", ratio=f"{r['vcpu_ratio']:.2f}"))
+    _add_bullet(t9n("export.docx.assumption_3"))
 
     # ── HEAT automated tiering ───────────────────────────────────────────────
-    doc.add_heading("HEAT — HyperCore Enhanced Automated Tiering", level=1)
-    _para(doc,
-          "Optimizing storage efficiency with HEAT. In flash-equipped SC//HyperCore "
-          "nodes, HyperCore Enhanced Automated Tiering (HEAT) meters real-time IOPS for "
-          "each virtual disk and intelligently places data blocks across the flash and "
-          "spinning tiers based on block I/O heat mapping assessed from historical "
-          "activity — striking the correct balance of IOPS efficiency across virtual "
-          "disks and VMs.")
-    for note in [
-        "Per-disk flash priority — configurable flash allocation at the individual "
-        "virtual-disk level through an easy-to-use slide bar in the HyperCore UI.",
-        "Intelligent data placement — data-block priority based on block I/O heat "
-        "mapping assessed from historical information.",
-        "Automatic warm-up — new writes are assigned to the flash tier until SCRIBE can "
-        "accurately assess their activity.",
-        "Exponential priority scale — the 0–11 scale is exponential; raising a virtual "
-        "disk from 4 to 5 doubles its priority for flash placement.",
-        "Flexible tiering — setting 0 keeps static data off flash, while setting 11 "
-        "multiplies flash priority by an order of magnitude.",
-    ]:
-        doc.add_paragraph(note, style=bullet_style)
+    _add_heading(t9n("export.docx.heat_heading"), level=1)
+    _para(doc, t9n("export.docx.heat_intro"), lang=lang)
+    for key in ("export.docx.heat_bullet_1", "export.docx.heat_bullet_2",
+                "export.docx.heat_bullet_3", "export.docx.heat_bullet_4",
+                "export.docx.heat_bullet_5"):
+        _add_bullet(t9n(key))
 
     # ── SCRIBE block engine ──────────────────────────────────────────────────
-    doc.add_heading("SCRIBE Block Engine", level=1)
-    _para(doc,
-          "Efficiency redefined. The Scale Computing Reliable Independent Block "
-          "Engine (SCRIBE) is a critical software component of the SC//HyperCore "
-          "virtualization suite — an enterprise-class, clustered, block storage layer "
-          "purpose-built to be consumed directly by the KVM-based SC//HyperCore "
-          "hypervisor. By interfacing directly with the hypervisor rather than "
-          "repurposing a traditional file system, SCRIBE eliminates the performance "
-          "bottlenecks, latency, and alignment issues associated with repurposed file "
-          "systems.")
-    for note in [
-        "Performance — hypervisor-integrated block storage eliminates file-system "
-        "latency, disk-partition misalignment, and snapshot delta-file merging.",
-        "Simplified management — complex storage management tasks are abstracted away "
-        "for automated storage with minimal manual intervention.",
-        "Reliability — avoiding intermediary file-system abstractions minimizes the "
-        "risk of data corruption or performance degradation.",
-        "Native snapshots — fast, native snapshots with no merge penalties or "
-        "performance hit.",
-        "Storage efficiency — purpose-built for virtualized workloads with zero "
-        "alignment issues.",
-        "Effortless scale — simply add nodes; SCRIBE scales storage automatically with "
-        "no downtime.",
-        "Hardware-agnostic — runs on industry-standard hardware.",
-    ]:
-        doc.add_paragraph(note, style=bullet_style)
+    _add_heading(t9n("export.docx.scribe_heading"), level=1)
+    _para(doc, t9n("export.docx.scribe_intro"), lang=lang)
+    for key in ("export.docx.scribe_bullet_1", "export.docx.scribe_bullet_2",
+                "export.docx.scribe_bullet_3", "export.docx.scribe_bullet_4",
+                "export.docx.scribe_bullet_5", "export.docx.scribe_bullet_6",
+                "export.docx.scribe_bullet_7"):
+        _add_bullet(t9n(key))
 
     # ── AIME autonomous infrastructure management ────────────────────────────
-    doc.add_heading("AIME — Autonomous Infrastructure Management Engine", level=1)
-    _para(doc,
-          "AIME by Scale Computing — the AIOps platform for intelligent "
-          "infrastructure. AIME is the artificial-intelligence orchestration and "
-          "management functionality that powers the SC//HyperCore virtualization "
-          "suite. Acting as a digital twin — a hand-built model of the environment the "
-          "cluster runs in — it continuously thinks about the state the system is in, "
-          "modelling the hardware, cluster operations, and surrounding environment so "
-          "SC//HyperCore can handle day-to-day operational and maintenance tasks "
-          "automatically. AIME monitors for security, hardware, and software errors, "
-          "remediates issues where possible, and identifies root causes to minimize "
-          "impact when automatic repair isn't feasible.")
-    for note in [
-        "Reduce manual intervention — comprehensive monitoring, proactive problem "
-        "detection, and automated remediation keep the cluster healthy.",
-        "Simplified troubleshooting — precise problem determination and actionable "
-        "insights replace the guesswork of log interpretation.",
-        "Autonomous remediation — automatically addresses issues to minimize downtime.",
-        "Predictive anomaly detection — continuous monitoring surfaces problems before "
-        "they escalate.",
-        "Zero-touch deployment — automated provisioning of new nodes and resources.",
-        "Resource optimization — dynamic workload balancing and automatic resource "
-        "rerouting.",
-        "Policy-based security automation — enforced without manual scripting.",
-    ]:
-        doc.add_paragraph(note, style=bullet_style)
+    _add_heading(t9n("export.docx.aime_heading"), level=1)
+    _para(doc, t9n("export.docx.aime_intro"), lang=lang)
+    for key in ("export.docx.aime_bullet_1", "export.docx.aime_bullet_2",
+                "export.docx.aime_bullet_3", "export.docx.aime_bullet_4",
+                "export.docx.aime_bullet_5", "export.docx.aime_bullet_6",
+                "export.docx.aime_bullet_7"):
+        _add_bullet(t9n(key))
 
     # Final pass: clear any indent inherited from docDefaults on every paragraph.
     for par in doc.paragraphs:
