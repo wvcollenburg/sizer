@@ -549,6 +549,10 @@
                          sizing clusters separately). -->
                     <div id="replication-options" class="replication-options" style="display:none"></div>
 
+                    <!-- Single/combined-workload replication (populated by JS;
+                         shown when NOT sizing each cluster separately). -->
+                    <div id="dr-cluster-option" class="replication-options" style="display:none"></div>
+
                 </div>
 
                 <div class="growth-control">
@@ -600,6 +604,12 @@
                     <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
                     <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
                     <div id="rec-list"></div>
+                </div>
+                <!-- Replication (DR) cluster sizing for the single/combined workload. -->
+                <div id="dr-recommendations" class="import-recommendations" style="display:none">
+                    <h3 data-i18n="results.dr_recommendations">Replication (DR) Cluster</h3>
+                    <p class="rec-desc" data-i18n="results.dr_rec_desc">Sized to host the replicated workload (compute + storage reserve).</p>
+                    <div id="dr-rec-list"></div>
                 </div>
                 <!-- Multi-site "Selected clusters" review tab content (hidden until that tab is active). -->
                 <div id="cluster-review" style="display:none"></div>

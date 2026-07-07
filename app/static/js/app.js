@@ -64,6 +64,9 @@ let clusterSelectedRec = {};                 // name -> chosen recommendation in
 // hosts inbound replicas: 'reserved' (held steady-state) or 'failover'.
 let clusterReplication = {};
 let dedicatedClusters = [];                  // names of workload-less DR target clusters
+// Single/combined-workload DR cluster (shown when NOT sizing each cluster
+// separately): one replication target for the whole workload.
+let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
 // The source-cluster a VM belongs to, blanks bucketed like the backend.
@@ -1236,6 +1239,9 @@ async function recalcRecommendations() {
         if (data.projection) {
             renderProjectionTo(data.projection, 'projection-summary');
         }
+        // Single/combined-workload DR cluster (no-op in separate mode / when off).
+        renderDrClusterOption();
+        sizeDrCluster(summary);
     } catch (e) {
         console.error('Recalc failed:', e);
     }
@@ -2837,6 +2843,7 @@ function initClusters(data) {
     clusterResults = {};
     clusterReplication = {};
     dedicatedClusters = [];
+    drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
     const cb = document.getElementById('separate-clusters-cb');
     if (cb) cb.checked = false;
     const toggle = document.getElementById('cluster-separate-toggle');
@@ -3123,6 +3130,115 @@ function removeDedicatedCluster() {
     _selectClusterKey(activeCluster, /*skipSave=*/true);
 }
 
+// ---- Single/combined-workload DR cluster ----------------------------------
+// A replication target for the whole workload, available when NOT sizing each
+// cluster separately (in separate mode the per-cluster replication UI is used).
+
+function renderDrClusterOption() {
+    const el = document.getElementById('dr-cluster-option');
+    if (!el) return;
+    const show = !separateClusters && (activeMode === 'import' || activeMode === 'manual');
+    if (!show) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    const on = drCluster.enabled;
+    el.innerHTML = `
+        <div class="rep-head">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="dr-enable" ${on ? 'checked' : ''} data-change='["toggleDrCluster","$checked"]'>
+                <span>${window.t('cluster.dr_enable')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.dr_info"
+                  title="Add a replication (DR) target sized to host this workload's replica. Compute (CPU + RAM) and storage reserves are set separately; storage always includes the snapshot reserve.">i</span>
+        </div>
+        ${on ? `<div class="rep-grid">
+            <div class="form-group">
+                <label>${window.t('cluster.rep_compute_pct')}</label>
+                <input type="number" id="dr-compute" min="0" max="100" step="1" value="${drCluster.computePct}" data-change='["setDrPct","compute","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_storage_pct')}</label>
+                <input type="number" id="dr-storage" min="0" max="100" step="1" value="${drCluster.storagePct}" data-change='["setDrPct","storage","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_mode')}
+                    <span class="info-icon" tabindex="0" data-i18n-title="cluster.rep_mode_info"
+                          title="Applies to replication compute (CPU and RAM). Reserved holds it at N-1; Failover-only sizes it against the full cluster. Storage is always held.">i</span>
+                </label>
+                <select id="dr-mode" data-change='["setDrMode","$value"]'>
+                    <option value="reserved" ${drCluster.mode !== 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_reserved')}</option>
+                    <option value="failover" ${drCluster.mode === 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_failover')}</option>
+                </select>
+            </div>
+        </div>` : ''}`;
+}
+
+function toggleDrCluster(checked) {
+    drCluster.enabled = !!checked;
+    renderDrClusterOption();
+    recalcRecommendations();
+}
+function setDrPct(which, value) {
+    const v = Math.max(0, Math.min(100, Math.round(parseFloat(value) || 0)));
+    if (which === 'compute') drCluster.computePct = v; else drCluster.storagePct = v;
+    recalcRecommendations();
+}
+function setDrMode(value) {
+    drCluster.mode = (value === 'failover') ? 'failover' : 'reserved';
+    recalcRecommendations();
+}
+
+// A zeroed sizing summary (no own workload) derived from a primary summary,
+// keeping the largest-VM constraints so DR nodes can host the biggest replica.
+function makeZeroBaseFrom(summary) {
+    const b = JSON.parse(JSON.stringify(summary));
+    ['total_vcpus', 'total_vm_provisioned_memory_gb', 'total_vm_used_memory_gb',
+     'datastore_used_tb', 'datastore_total_tb', 'total_vm_provisioned_storage_gb',
+     'total_vm_provisioned_storage_tb', 'total_vm_used_storage_gb', 'total_vm_used_storage_tb',
+     'active_vms', 'total_vms', 'host_count', 'total_host_cores', 'total_host_threads',
+     'total_host_ghz', 'total_host_ram_gb', 'peak_cpu_ghz', 'peak_cpu_pct', 'avg_cpu_pct',
+     'peak_mem_pct', 'avg_mem_pct', 'total_peak_iops', 'total_avg_iops', 'p95_iops',
+     'local_used_tb', 'local_total_tb', 'local_used_gb',
+    ].forEach(k => { if (k in b) b[k] = 0; });
+    b.source_cpus = [];
+    return b;
+}
+
+// Size + render the single-mode DR cluster from the primary summary. Fire-and-
+// forget from recalcRecommendations after the primary render.
+async function sizeDrCluster(primarySummary) {
+    const sec = document.getElementById('dr-recommendations');
+    if (!sec) return;
+    const active = !separateClusters && drCluster.enabled && primarySummary
+        && (activeMode === 'import' || activeMode === 'manual');
+    if (!active) { sec.style.display = 'none'; return; }
+
+    const reserve = {
+        vcpus: (primarySummary.total_vcpus || 0) * drCluster.computePct / 100,
+        ram_gb: (primarySummary.total_vm_provisioned_memory_gb || 0) * drCluster.computePct / 100,
+        storage_tb: (primarySummary.datastore_used_tb || 0) * drCluster.storagePct / 100,
+    };
+    const body = _recommendBodyFromOpts(makeZeroBaseFrom(primarySummary), _captureFields('import'));
+    body.replication_reserve = reserve;
+    body.replication_compute_mode = drCluster.mode;
+
+    sec.style.display = 'block';
+    const list = document.getElementById('dr-rec-list');
+    list.innerHTML = `<div class="review-loading">${window.t('results.generating')}</div>`;
+    try {
+        const resp = await fetch('/api/recommend', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        const demand = (data.projection || {}).iops_demand || null;
+        const recs = (data.recommendations || []).slice(0, 3);
+        list.innerHTML = recs.length
+            ? recs.map((r, i) => recCardHtml(r, i, '__dr__', demand, { showPicker: false, footerActions: false })).join('')
+            : `<div class="no-recs">${window.t('results.no_matching_configs')}</div>`;
+    } catch (e) {
+        list.innerHTML = `<div class="rec-warning">${window.t('results.export_failed')}</div>`;
+    }
+}
+
 // Render the "include local storage" checkbox (hidden when there is none, e.g.
 // RVTools imports). Reflects current toggle state across re-renders.
 function renderLocalStorageOption(s) {
@@ -3195,6 +3311,8 @@ function _captureFields(mode) {
 // Build a complete, restorable snapshot of the current screen.
 function captureSizingState() {
     const snap = { version: SNAPSHOT_VERSION, mode: currentMode, fields: _captureFields(currentMode) };
+    // Single/combined-workload DR cluster (shared across import + manual).
+    snap.drCluster = drCluster;
 
     if (currentMode === 'validated') {
         const tier = document.querySelector('input[name="disk-tier-mode"]:checked');
@@ -3244,6 +3362,7 @@ function hasSizingToSave() {
 async function restoreSizingState(snap) {
     if (!snap || !snap.mode) return;
     switchMode(snap.mode);
+    drCluster = snap.drCluster || { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
     const f = snap.fields || {};
 
     if (snap.mode === 'appliance') {
