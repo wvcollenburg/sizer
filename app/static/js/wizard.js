@@ -417,6 +417,17 @@
 
     function deactivate() {
         if (!state.active) return;
+        // If leaving from the multi-site review/export step, exit review mode
+        // FIRST. Otherwise setClusterReviewMode(true)'s inline display:none on the
+        // shared options/growth/recommendation/env panels persists when we hand
+        // them back to classic (or Manual) view — leaving only the review panel
+        // visible and everything else blank.
+        var s = S();
+        if (typeof _selectClusterKey === 'function' && s.active === s.selectedKey && s.clusters && s.clusters.length) {
+            _selectClusterKey(s.clusters[0].name);
+        } else if (typeof setClusterReviewMode === 'function') {
+            setClusterReviewMode(false);
+        }
         state.active = false;
         document.body.classList.remove('wiz-active', 'wiz-adv-collapsed');
         restoreAll();
@@ -478,7 +489,10 @@
     };
     window.wizardToGuided = function () {
         setViewPref('guided');
-        activate(state.imported ? 2 : 1);
+        // Resume on the step the user was on when they switched to classic, not
+        // always step 2. (state persists across the toggle; deactivate doesn't
+        // reset it.)
+        activate(state.imported ? Math.max(2, Math.min(state.step, lastStep())) : 1);
     };
 
     // Inject a "Switch to guided wizard" control atop the classic import layout.
