@@ -2375,8 +2375,10 @@ body.wiz-adv-collapsed #import-wizard .wiz-adv { display: none !important; }
    sticky rule, which now sticks to THIS scroll container); the wizard nav lands
    just below the list. */
 body.wiz-active #vm-triage-panel .vm-table-wrap {
-    max-height: 55vh;
-    min-height: 180px;
+    /* 55vh minus ~5 rows (a row is ~30px) so the Back/Next nav sits in view
+       without scrolling. */
+    max-height: calc(55vh - 150px);
+    min-height: 150px;
     overflow: auto;
 }
 
