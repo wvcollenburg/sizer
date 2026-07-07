@@ -938,5 +938,10 @@
   "wizard.step.vms": "Gennemgå VM'er",
   "wizard.title": "Guidet import",
   "wizard.to_classic": "Skift til klassisk visning",
-  "wizard.to_guided": "Skift til guidet wizard"
+  "wizard.to_guided": "Skift til guidet wizard",
+  "wizard.warn.assumed_ratio": "Fysisk server-scan — et vCPU:kerne-forhold på {ratio}:1 blev antaget (intet blev målt).",
+  "wizard.warn.local_only_storage": "Kun lokal lagring (pr. vært) blev registreret — aktivér “Medtag lokal lagring” i Dimensionering-trinnet for at dimensionere mod den.",
+  "wizard.warn.no_iops": "Der blev ikke fundet nogen IOPS-data i denne import — lagring dimensioneres med standard-IOPS pr. disk i stedet for målt behov.",
+  "wizard.warn.no_perf": "Der blev ikke fundet nogen CPU-/hukommelsesydelsesdata — dimensioneringen bruger provisionerede tal i stedet for målt udnyttelse.",
+  "wizard.warn.unclustered_hosts": "{count} vært(er) har ingen clustertildeling og grupperes sammen."
 };

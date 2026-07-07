@@ -938,5 +938,10 @@
   "wizard.step.vms": "Revisar VMs",
   "wizard.title": "Importación guiada",
   "wizard.to_classic": "Cambiar a la vista clásica",
-  "wizard.to_guided": "Cambiar al asistente guiado"
+  "wizard.to_guided": "Cambiar al asistente guiado",
+  "wizard.warn.assumed_ratio": "Escaneo de servidores físicos — se asumió una relación vCPU:núcleo de {ratio}:1 (no se midió ninguna).",
+  "wizard.warn.local_only_storage": "Solo se detectó almacenamiento local (por host) — habilite “Incluir almacenamiento local” en el paso de Dimensionamiento para dimensionar en función de él.",
+  "wizard.warn.no_iops": "No se encontraron datos de IOPS en esta importación — el almacenamiento se dimensiona con las IOPS por disco predeterminadas en lugar de la demanda medida.",
+  "wizard.warn.no_perf": "No se encontraron datos de rendimiento de CPU/memoria — el dimensionamiento usa cifras aprovisionadas en lugar de la utilización medida.",
+  "wizard.warn.unclustered_hosts": "{count} host(s) no tienen asignación de clúster y se agrupan juntos."
 };

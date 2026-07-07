@@ -938,5 +938,10 @@
   "wizard.step.vms": "Pārskatīt VM",
   "wizard.title": "Vadīts imports",
   "wizard.to_classic": "Pārslēgties uz klasisko skatu",
-  "wizard.to_guided": "Pārslēgties uz vadīto vedni"
+  "wizard.to_guided": "Pārslēgties uz vadīto vedni",
+  "wizard.warn.assumed_ratio": "Fiziska servera skenēšana — tika pieņemta {ratio}:1 vCPU:kodols attiecība (neviena netika izmērīta).",
+  "wizard.warn.local_only_storage": "Tika atklāta tikai vietējā (uz resursdatoru) krātuve — iespējojiet “Iekļaut vietējo krātuvi” aprēķina solī, lai to izmērotu.",
+  "wizard.warn.no_iops": "Šajā importā netika atrasti IOPS dati — krātuve tiek izmērota ar noklusējuma IOPS uz disku, nevis pēc izmērīta pieprasījuma.",
+  "wizard.warn.no_perf": "Netika atrasti CPU/atmiņas veiktspējas dati — aprēķins izmanto piešķirtos rādītājus, nevis izmērītu noslodzi.",
+  "wizard.warn.unclustered_hosts": "{count} resursdatoram(-iem) nav klastera piešķīruma, un tie ir grupēti kopā."
 };

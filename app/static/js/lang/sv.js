@@ -938,5 +938,10 @@
   "wizard.step.vms": "Granska VM:ar",
   "wizard.title": "Guidad import",
   "wizard.to_classic": "Byt till klassisk vy",
-  "wizard.to_guided": "Byt till guidad import"
+  "wizard.to_guided": "Byt till guidad import",
+  "wizard.warn.assumed_ratio": "Fysisk serverskanning — ett vCPU:kärna-förhållande på {ratio}:1 antogs (inget uppmättes).",
+  "wizard.warn.local_only_storage": "Endast lokal lagring (per värd) detekterades — aktivera “Inkludera lokal lagring” i steget Dimensionering för att dimensionera mot den.",
+  "wizard.warn.no_iops": "Inga IOPS-data hittades i denna import — lagringen dimensioneras med standardvärden för IOPS per disk i stället för uppmätt efterfrågan.",
+  "wizard.warn.no_perf": "Inga prestandadata för CPU/minne hittades — dimensioneringen använder tilldelade siffror i stället för uppmätt utnyttjande.",
+  "wizard.warn.unclustered_hosts": "{count} värd(ar) har ingen klustertilldelning och grupperas tillsammans."
 };

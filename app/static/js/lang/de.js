@@ -938,5 +938,10 @@
   "wizard.step.vms": "VMs prüfen",
   "wizard.title": "Geführter Import",
   "wizard.to_classic": "Zur klassischen Ansicht wechseln",
-  "wizard.to_guided": "Zum geführten Assistenten wechseln"
+  "wizard.to_guided": "Zum geführten Assistenten wechseln",
+  "wizard.warn.assumed_ratio": "Scan physischer Server — es wurde ein vCPU:Kern-Verhältnis von {ratio}:1 angenommen (keines wurde gemessen).",
+  "wizard.warn.local_only_storage": "Es wurde nur lokaler (Host-eigener) Speicher erkannt — aktivieren Sie „Lokalen Speicher einbeziehen“ im Sizing-Schritt, um damit zu dimensionieren.",
+  "wizard.warn.no_iops": "In diesem Import wurden keine IOPS-Daten gefunden — der Speicher wird mit Standard-IOPS pro Laufwerk statt anhand des gemessenen Bedarfs dimensioniert.",
+  "wizard.warn.no_perf": "Es wurden keine CPU-/Speicher-Leistungsdaten gefunden — das Sizing verwendet bereitgestellte Werte statt der gemessenen Auslastung.",
+  "wizard.warn.unclustered_hosts": "{count} Host(s) haben keine Cluster-Zuweisung und werden zusammengefasst."
 };

@@ -18,6 +18,7 @@ from orm_models import (
 from models import RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
+from import_checks import build_import_warnings
 from recommend import (
     generate_recommendations, _cluster_layout, _cluster_usable_storage,
 )
@@ -260,6 +261,10 @@ def create_app():
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
                 "warnings": result.get("warnings", []),
+                # Data-quality caveats about the import itself (no IOPS/perf,
+                # assumed ratio, unclustered hosts, ...). {code, params} objects
+                # translated client-side; shown on the wizard's Environment step.
+                "import_warnings": build_import_warnings(data, file_type),
                 "source": file_type,
             })
         except Exception as e:

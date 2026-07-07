@@ -938,5 +938,10 @@
   "wizard.step.vms": "VM's controleren",
   "wizard.title": "Begeleide import",
   "wizard.to_classic": "Overschakelen naar klassieke weergave",
-  "wizard.to_guided": "Overschakelen naar begeleide wizard"
+  "wizard.to_guided": "Overschakelen naar begeleide wizard",
+  "wizard.warn.assumed_ratio": "Fysieke-serverscan — er is een vCPU:core-verhouding van {ratio}:1 aangenomen (er is geen gemeten).",
+  "wizard.warn.local_only_storage": "Er is alleen lokale opslag (per host) gedetecteerd — schakel “Lokale opslag opnemen” in bij de Sizing-stap om ertegen te bemeten.",
+  "wizard.warn.no_iops": "Er is geen IOPS-data gevonden in deze import — opslag wordt bemeten met standaard IOPS per schijf in plaats van gemeten vraag.",
+  "wizard.warn.no_perf": "Er is geen CPU-/geheugenprestatiedata gevonden — de sizing gebruikt toegewezen cijfers in plaats van gemeten benutting.",
+  "wizard.warn.unclustered_hosts": "{count} host(s) hebben geen clustertoewijzing en worden samengevoegd."
 };

@@ -938,5 +938,10 @@
   "wizard.step.vms": "VMを確認",
   "wizard.title": "ガイド付きインポート",
   "wizard.to_classic": "クラシック表示に切り替え",
-  "wizard.to_guided": "ガイド付きウィザードに切り替え"
+  "wizard.to_guided": "ガイド付きウィザードに切り替え",
+  "wizard.warn.assumed_ratio": "物理サーバースキャン — {ratio}:1 の vCPU:コア比率を想定しました (実測なし)。",
+  "wizard.warn.local_only_storage": "ローカル (ホストごと) のストレージのみが検出されました — これを基準にサイジングするには、サイジングステップで“ローカルストレージを含める”を有効にしてください。",
+  "wizard.warn.no_iops": "このインポートではIOPSデータが見つかりませんでした — ストレージは実測の需要ではなく、ドライブあたりのデフォルトIOPSでサイジングされます。",
+  "wizard.warn.no_perf": "CPU/メモリの性能データが見つかりませんでした — サイジングは実測の利用率ではなく、プロビジョニング済みの数値を使用します。",
+  "wizard.warn.unclustered_hosts": "{count} 台のホストにクラスターの割り当てがなく、まとめてグループ化されています。"
 };

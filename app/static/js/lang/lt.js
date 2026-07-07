@@ -938,5 +938,10 @@
   "wizard.step.vms": "Peržiūrėti VM",
   "wizard.title": "Vadovaujamas importas",
   "wizard.to_classic": "Perjungti į klasikinį rodinį",
-  "wizard.to_guided": "Perjungti į vadovaujamą vediklį"
+  "wizard.to_guided": "Perjungti į vadovaujamą vediklį",
+  "wizard.warn.assumed_ratio": "Fizinių serverių nuskaitymas — priimta {ratio}:1 vCPU:branduolys santykio prielaida (nieko nebuvo išmatuota).",
+  "wizard.warn.local_only_storage": "Aptikta tik vietinė (kiekvieno prieglobos serverio) saugykla — įjunkite “Įtraukti vietinę saugyklą” Dydžio parinkimo žingsnyje, kad ji būtų įtraukta į dydžio parinkimą.",
+  "wizard.warn.no_iops": "Šiame importe IOPS duomenų nerasta — saugyklos dydis parenkamas pagal numatytąjį IOPS vienam diskui, o ne pagal išmatuotą paklausą.",
+  "wizard.warn.no_perf": "CPU/atminties našumo duomenų nerasta — dydžio parinkimas naudoja suteiktus skaičius, o ne išmatuotą naudojimą.",
+  "wizard.warn.unclustered_hosts": "{count} prieglobos serveris (-iai) neturi klasterio priskyrimo ir yra sugrupuoti kartu."
 };

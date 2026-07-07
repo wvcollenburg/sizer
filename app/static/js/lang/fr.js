@@ -938,5 +938,10 @@
   "wizard.step.vms": "Vérifier les VM",
   "wizard.title": "Import guidé",
   "wizard.to_classic": "Passer à la vue classique",
-  "wizard.to_guided": "Passer à l'assistant guidé"
+  "wizard.to_guided": "Passer à l'assistant guidé",
+  "wizard.warn.assumed_ratio": "Analyse de serveur physique — un ratio vCPU:cœur de {ratio}:1 a été supposé (aucun n'a été mesuré).",
+  "wizard.warn.local_only_storage": "Seul le stockage local (par hôte) a été détecté — activez « Inclure le stockage local » à l'étape Dimensionnement pour le prendre en compte.",
+  "wizard.warn.no_iops": "Aucune donnée d'IOPS n'a été trouvée dans cet import — le stockage est dimensionné avec des IOPS par disque par défaut plutôt qu'avec une demande mesurée.",
+  "wizard.warn.no_perf": "Aucune donnée de performance CPU/mémoire n'a été trouvée — le dimensionnement utilise les valeurs provisionnées plutôt que l'utilisation mesurée.",
+  "wizard.warn.unclustered_hosts": "{count} hôte(s) n'ont aucune affectation de cluster et sont regroupés."
 };

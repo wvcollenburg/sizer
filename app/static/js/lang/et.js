@@ -938,5 +938,10 @@
   "wizard.step.vms": "Vaata VM-e üle",
   "wizard.title": "Juhendatud import",
   "wizard.to_classic": "Lülitu klassikalisele vaatele",
-  "wizard.to_guided": "Lülitu juhendatud viisardile"
+  "wizard.to_guided": "Lülitu juhendatud viisardile",
+  "wizard.warn.assumed_ratio": "Füüsilise serveri skannimine — eeldati {ratio}:1 vCPU:tuum suhet (ühtegi ei mõõdetud).",
+  "wizard.warn.local_only_storage": "Tuvastati ainult kohalik (hostipõhine) salvestusruum — selle arvestamiseks lubage Sizingu etapis „Kaasa kohalik salvestusruum”.",
+  "wizard.warn.no_iops": "Selles impordis ei leitud IOPS-i andmeid — salvestusruum mõõdetakse vaikimisi IOPS-iga ketta kohta, mitte mõõdetud nõudluse alusel.",
+  "wizard.warn.no_perf": "CPU/mälu jõudluse andmeid ei leitud — mõõtmine kasutab eraldatud näitajaid, mitte mõõdetud kasutust.",
+  "wizard.warn.unclustered_hosts": "{count} hostil puudub klastrimääramine ja need on koondatud kokku."
 };

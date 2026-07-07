@@ -939,5 +939,10 @@
   "wizard.step.vms": "Review VMs",
   "wizard.title": "Guided Import",
   "wizard.to_classic": "Switch to classic view",
-  "wizard.to_guided": "Switch to guided wizard"
+  "wizard.to_guided": "Switch to guided wizard",
+  "wizard.warn.assumed_ratio": "Physical-server scan — a {ratio}:1 vCPU:core ratio was assumed (none was measured).",
+  "wizard.warn.local_only_storage": "Only local (per-host) storage was detected — enable “Include local storage” in the Sizing step to size against it.",
+  "wizard.warn.no_iops": "No IOPS data was found in this import — storage is sized with default per-drive IOPS rather than measured demand.",
+  "wizard.warn.no_perf": "No CPU/memory performance data was found — sizing uses provisioned figures rather than measured utilization.",
+  "wizard.warn.unclustered_hosts": "{count} host(s) have no cluster assignment and are grouped together."
 };

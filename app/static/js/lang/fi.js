@@ -938,5 +938,10 @@
   "wizard.step.vms": "Tarkista VM:t",
   "wizard.title": "Ohjattu tuonti",
   "wizard.to_classic": "Vaihda perinteiseen näkymään",
-  "wizard.to_guided": "Vaihda ohjattuun tuontiin"
+  "wizard.to_guided": "Vaihda ohjattuun tuontiin",
+  "wizard.warn.assumed_ratio": "Fyysisten palvelinten kartoitus — vCPU:ydin-suhteeksi oletettiin {ratio}:1 (mitään ei mitattu).",
+  "wizard.warn.local_only_storage": "Havaittiin vain paikallinen (isäntäkohtainen) tallennustila — ota käyttöön “Sisällytä paikallinen tallennustila” Mitoitus-vaiheessa mitoittaaksesi sen mukaan.",
+  "wizard.warn.no_iops": "Tästä tuonnista ei löytynyt IOPS-tietoja — tallennustila mitoitetaan oletusarvoisilla levykohtaisilla IOPS-arvoilla mitatun kysynnän sijaan.",
+  "wizard.warn.no_perf": "CPU:n/muistin suorituskykytietoja ei löytynyt — mitoitus käyttää varattuja lukuja mitatun käyttöasteen sijaan.",
+  "wizard.warn.unclustered_hosts": "{count} isännällä ei ole klusterimääritystä, ja ne on ryhmitelty yhteen."
 };

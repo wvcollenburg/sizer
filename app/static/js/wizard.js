@@ -215,9 +215,13 @@
         if (!after) return;
         var w = window._wizImportWarnings || [];
         if (!w.length) { after.innerHTML = ''; return; }
+        // Each item is {code, params} from import_checks.py; translate here.
         after.innerHTML = '<div class="wiz-caveats"><div class="wiz-caveats-title">' +
             esc(t('wizard.env.caveats')) + '</div><ul>' +
-            w.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></div>';
+            w.map(function (m) {
+                var txt = m && m.code ? t('wizard.warn.' + m.code, m.params || {}) : String(m);
+                return '<li>' + esc(txt) + '</li>';
+            }).join('') + '</ul></div>';
     }
 
     function renderLayoutStep() {
@@ -472,7 +476,7 @@
             // (applyVmExclusions, toggleLocalStorage) — those must not navigate,
             // or leaving step 4 would bounce the wizard back to step 2.
             if (state.active && state.step === 1) {
-                window._wizImportWarnings = (data && data.warnings) || [];
+                window._wizImportWarnings = (data && data.import_warnings) || [];
                 state.reached = Math.max(state.reached, 2);
                 renderStep(2);
             }

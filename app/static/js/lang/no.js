@@ -938,5 +938,10 @@
   "wizard.step.vms": "Gjennomgå VM-er",
   "wizard.title": "Veiledet import",
   "wizard.to_classic": "Bytt til klassisk visning",
-  "wizard.to_guided": "Bytt til veiledet veiviser"
+  "wizard.to_guided": "Bytt til veiledet veiviser",
+  "wizard.warn.assumed_ratio": "Skanning av fysisk server — et vCPU:kjerne-forhold på {ratio}:1 ble antatt (ingen ble målt).",
+  "wizard.warn.local_only_storage": "Kun lokal lagring (per vert) ble oppdaget — aktiver “Inkluder lokal lagring” i Dimensjonering-steget for å dimensjonere mot den.",
+  "wizard.warn.no_iops": "Ingen IOPS-data ble funnet i denne importen — lagring dimensjoneres med standard IOPS per disk i stedet for målt etterspørsel.",
+  "wizard.warn.no_perf": "Ingen ytelsesdata for CPU/minne ble funnet — dimensjoneringen bruker tildelte tall i stedet for målt utnyttelse.",
+  "wizard.warn.unclustered_hosts": "{count} vert(er) har ingen klyngetilordning og grupperes sammen."
 };
