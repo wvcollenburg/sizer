@@ -48,7 +48,8 @@ let vmPowerFilter = 'all';   // table view filter: 'all' | 'on' | 'off'
 // it, and each cluster carries its own base summary, sizing options, and
 // results. Everything below is inert when separateClusters is false — the
 // single-cluster/combined path is unchanged.
-const COMBINED_KEY = '__combined__';         // pseudo-cluster: the whole dataset
+const COMBINED_KEY = '__combined__';         // internal key: the whole dataset (non-separate path)
+const SELECTED_KEY = '__selected__';         // review tab: the per-cluster export selection
 const UNCLUSTERED_KEY = '(unclustered)';     // mirrors cluster_split.UNCLUSTERED
 let sourceClusters = [];                     // [{name, host_count, vm_count}] from import
 let clusterBase = {};                        // name -> pristine per-cluster summary
@@ -1495,7 +1496,8 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     // In separate-clusters mode each source cluster contributes one chosen
     // recommendation to the combined export; surface a per-card picker (the
     // Combined tab isn't part of that export, so no picker there).
-    const showRecPicker = mode === 'import' && separateClusters && activeCluster !== COMBINED_KEY;
+    const showRecPicker = mode === 'import' && separateClusters
+        && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY;
     const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
 
     recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
@@ -2271,8 +2273,12 @@ const CVM_PATTERNS = [
 
 function openVmExclusionModal() {
     if (!importVms.length) return;
-    // Open the modal on the tab matching the cluster being sized.
-    if (separateClusters) vmModalCluster = activeCluster;
+    // Open the modal on the tab matching the cluster being sized; on the review
+    // tab (no single active cluster) default to All VMs.
+    if (separateClusters) {
+        vmModalCluster = (activeCluster === SELECTED_KEY || activeCluster === COMBINED_KEY)
+            ? COMBINED_KEY : activeCluster;
+    }
     renderClusterTabs();
     renderVmTable();
     updateVmExclusionSummary();
@@ -2705,8 +2711,74 @@ function activeClusterKey() {
 
 function clusterDisplayName(key) {
     if (key === COMBINED_KEY) return window.t('cluster.combined');
+    if (key === SELECTED_KEY) return window.t('cluster.selected_tab');
     if (key === UNCLUSTERED_KEY) return window.t('cluster.unclustered');
     return key;
+}
+
+// Toggle the per-cluster editing sections (env/workload cards, sizing options,
+// growth, recommendation list) off in favour of the "Selected clusters" review
+// panel — and back.
+function setClusterReviewMode(on) {
+    document.querySelectorAll('.import-workload, .ratio-control, .growth-control, .import-recommendations')
+        .forEach(el => { el.style.display = on ? 'none' : ''; });
+    const env = document.getElementById('env-summary');
+    if (env) env.style.display = on ? 'none' : '';
+    const review = document.getElementById('cluster-review');
+    if (review) review.style.display = on ? 'block' : 'none';
+}
+
+// The "Selected clusters" review tab: a summary of each source cluster's chosen
+// recommendation, with the combined-export buttons. Sizes any not-yet-viewed
+// cluster so the review (and export) is complete.
+async function renderSelectedClustersTab() {
+    const review = document.getElementById('cluster-review');
+    if (!review) return;
+    review.innerHTML = `<div class="review-loading">${window.t('cluster.review_loading')}</div>`;
+    await ensureAllClusterResults();
+    if (activeCluster !== SELECTED_KEY) return;  // user tabbed away while sizing
+
+    const rows = sourceClusters.map(c => {
+        const res = clusterResults[c.name];
+        if (!res || !res.recommendations || !res.recommendations.length) {
+            return `<tr><td>${esc(c.name)}</td><td colspan="6" class="review-none">${window.t('cluster.review_no_rec')}</td></tr>`;
+        }
+        const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+        const r = res.recommendations[sel];
+        return `<tr>
+            <td class="review-cluster">${esc(c.name)}</td>
+            <td>#${sel + 1}</td>
+            <td>${esc(r.model)}</td>
+            <td>${r.node_count}</td>
+            <td>${r.totals.cores}</td>
+            <td>${formatRam(r.totals.ram_gb)}</td>
+            <td>${r.totals.usable_storage_tb} TB</td>
+        </tr>`;
+    }).join('');
+
+    review.innerHTML = `
+        <div class="review-header">
+            <h3>${window.t('cluster.review_title')}</h3>
+            <span class="cluster-export-all">
+                <span class="cluster-export-label">${window.t('cluster.export_all')}</span>
+                <button class="btn btn-sm" data-click='["exportMultisite","pptx"]'>PPTX</button>
+                <button class="btn btn-sm" data-click='["exportMultisite","docx"]'>Word</button>
+                <button class="btn btn-sm" data-click='["exportMultisite","pdf"]'>PDF</button>
+            </span>
+        </div>
+        <p class="rec-desc">${window.t('cluster.review_desc')}</p>
+        <table class="review-table">
+            <thead><tr>
+                <th>${window.t('cluster.review_col_cluster')}</th>
+                <th>${window.t('cluster.review_col_selected')}</th>
+                <th>${window.t('cluster.review_col_model')}</th>
+                <th>${window.t('cluster.review_col_nodes')}</th>
+                <th>${window.t('results.row.cores')}</th>
+                <th>${window.t('results.row.ram')}</th>
+                <th>${window.t('results.row.usable_storage')}</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
 }
 
 // Seed cluster state from an import response. Called on every upload.
@@ -2727,6 +2799,7 @@ function initClusters(data) {
     if (cb) cb.checked = false;
     const toggle = document.getElementById('cluster-separate-toggle');
     if (toggle) toggle.style.display = sourceClusters.length > 1 ? 'inline-flex' : 'none';
+    setClusterReviewMode(false);  // clear any leftover review panel from a prior import
     renderClusterTabs();
 }
 
@@ -2758,13 +2831,23 @@ function selectCluster(i) {
 // target's, recompute its summary, re-render its cards, and re-size it.
 function _selectClusterKey(key, skipSave) {
     if (!key) return;
-    if (!skipSave && separateClusters) {
+    // Capture the outgoing tab's options (unless leaving the review tab, which
+    // has no active per-cluster options).
+    if (!skipSave && separateClusters && activeCluster !== SELECTED_KEY) {
         clusterOptions[activeCluster] = _captureFields('import');
     }
     activeCluster = key;
+    renderClusterTabs();
+
+    if (key === SELECTED_KEY) {
+        setClusterReviewMode(true);
+        renderSelectedClustersTab();
+        return;
+    }
+    setClusterReviewMode(false);
+
     importSummary = computeAdjustedImportSummary(key === COMBINED_KEY ? null : key);
     lastSummary['import'] = importSummary;
-    renderClusterTabs();
     renderRatioContext(importSummary, false);
     // Rebuild the cards first (they reset per-summary inputs like p95-iops),
     // then restore this cluster's saved option values so they win.
@@ -2791,7 +2874,7 @@ function applyOptionsToAllClusters() {
 // Pick which recommendation the active cluster contributes to the combined
 // multi-site export, then re-render the cards to reflect the selection.
 function selectClusterRec(i) {
-    if (!separateClusters || activeCluster === COMBINED_KEY) return;
+    if (!separateClusters || activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
     clusterSelectedRec[activeCluster] = i;
     renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
 }
@@ -2812,27 +2895,25 @@ function renderClusterTabs() {
     if (modalBar) modalBar.style.display = show ? 'flex' : 'none';
     if (!show) return;
 
-    // Recommendation tabs: each source cluster, then the Combined view.
-    _recTabKeys = [...sourceClusters.map(c => c.name), COMBINED_KEY];
+    // Recommendation tabs: each source cluster, then the "Selected clusters"
+    // review tab (which hosts the combined export).
+    _recTabKeys = [...sourceClusters.map(c => c.name), SELECTED_KEY];
     if (bar) {
         const tabs = _recTabKeys.map((k, i) => {
             const c = sourceClusters.find(x => x.name === k);
             const badge = c ? `<span class="cluster-tab-badge">${window.t('cluster.tab_badge', {hosts: c.host_count, vms: c.vm_count})}</span>` : '';
-            const cls = 'cluster-tab' + (k === activeCluster ? ' active' : '');
+            const cls = 'cluster-tab' + (k === activeCluster ? ' active' : '')
+                        + (k === SELECTED_KEY ? ' cluster-tab-review' : '');
             return `<button class="${cls}" data-click='["selectCluster",${i}]'>${esc(clusterDisplayName(k))}${badge}</button>`;
         }).join('');
+        // Apply-options-to-all lives in the bar for real cluster tabs; hidden on
+        // the review tab (there's no active per-cluster options there).
+        const applyAll = activeCluster === SELECTED_KEY ? '' :
+            `<button class="btn btn-sm btn-muted cluster-apply-all" data-click='["applyOptionsToAllClusters"]'
+                     data-i18n-title="cluster.apply_all_info"
+                     title="Copy this tab's sizing options to every cluster.">${window.t('cluster.apply_all')}</button>`;
         bar.innerHTML = `<div class="cluster-tab-row">${tabs}</div>
-            <div class="cluster-tab-actions">
-                <button class="btn btn-sm btn-muted cluster-apply-all" data-click='["applyOptionsToAllClusters"]'
-                        data-i18n-title="cluster.apply_all_info"
-                        title="Copy this tab's sizing options to every cluster.">${window.t('cluster.apply_all')}</button>
-                <span class="cluster-export-all">
-                    <span class="cluster-export-label">${window.t('cluster.export_all')}</span>
-                    <button class="btn btn-sm" data-click='["exportMultisite","pptx"]'>PPTX</button>
-                    <button class="btn btn-sm" data-click='["exportMultisite","docx"]'>Word</button>
-                    <button class="btn btn-sm" data-click='["exportMultisite","pdf"]'>PDF</button>
-                </span>
-            </div>`;
+            <div class="cluster-tab-actions">${applyAll}</div>`;
     }
 
     // Modal tabs: All (combined) first, then each source cluster.
@@ -3017,6 +3098,12 @@ async function restoreSizingState(snap) {
         clusterSelectedRec = im.clusterSelectedRec || {};
         clusterResults = {};
         activeCluster = im.activeCluster || COMBINED_KEY;
+        // Restore into a concrete cluster tab, not the review tab (which needs a
+        // full re-size pass); the user can reopen it.
+        if (activeCluster === SELECTED_KEY) {
+            activeCluster = sourceClusters.length ? sourceClusters[0].name : COMBINED_KEY;
+        }
+        setClusterReviewMode(false);
         vmModalCluster = separateClusters ? activeCluster : COMBINED_KEY;
         const sepCb = document.getElementById('separate-clusters-cb');
         if (sepCb) sepCb.checked = separateClusters;

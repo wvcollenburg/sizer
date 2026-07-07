@@ -2083,6 +2083,36 @@ body.auth-required footer { display: none; }
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent) inset;
 }
+/* "Selected clusters" review tab. */
+.cluster-tab-review { font-weight: 700; }
+#cluster-review .review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.review-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.75rem;
+}
+.review-table th, .review-table td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+.review-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.review-table .review-cluster { font-weight: 600; }
+.review-table .review-none { color: var(--text-muted); font-style: italic; }
+.review-loading { color: var(--text-muted); padding: 1rem 0; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
