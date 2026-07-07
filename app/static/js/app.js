@@ -1500,39 +1500,66 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY;
     const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
 
-    recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
-        const isSelected = i === selIdx;
-        const recPicker = showRecPicker
-            ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
-                    title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
-            : '';
-        const clusterInfo = r.num_clusters > 1
-            ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
-            : window.t('results.one_cluster');
-        const n1Label = r.num_clusters > 1
-            ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
-            : window.t('results.n1_available');
-        const modelLabel = r.validated_only
-            ? r.model
-            : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
-        const ratioBadge = r.sized_full_cluster
-            ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
-            : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
-        const iops = r.iops || null;
-        const iopsRow = (val) => iops ? `<tr><td>${window.t('results.row.net_iops')}</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
-        const iopsHeadroom = buildIopsHeadroom(iops, demand);
-        const utilBars = buildUtilizationBars(r);
-        const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
-        const so = r.storage_only || null;
-        const nodesLabel = so
-            ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
-            : window.t('results.nodes_count', {count: r.node_count});
-        const soRows = so ? `
-                        <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_divider', {count: so.count})}</td></tr>
-                        <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
-                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
-                        <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
-        return `
+    recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
+        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx })
+    ).join('');
+}
+
+// Build one recommendation card's HTML. Shared by the per-cluster / manual rec
+// lists and the multi-site "Selected clusters" review tab. opts:
+//   showPicker    — show the per-card "use in export" selector
+//   selIdx        — currently-selected index (for the picker highlight)
+//   footerActions — show export/diagram action buttons (false on review cards,
+//                   which are for screenshotting the finished solution)
+function recCardHtml(r, i, mode, demand, opts) {
+    opts = opts || {};
+    const showRecPicker = !!opts.showPicker;
+    const selIdx = opts.selIdx == null ? -1 : opts.selIdx;
+    const footerActions = opts.footerActions !== false;
+    const recTotalNodes = rr => rr.storage_only
+        ? (rr.hci_node_count || rr.node_count) + rr.storage_only.count
+        : rr.node_count;
+
+    const isSelected = i === selIdx;
+    const recPicker = showRecPicker
+        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
+                title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+        : '';
+    const clusterInfo = r.num_clusters > 1
+        ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
+        : window.t('results.one_cluster');
+    const n1Label = r.num_clusters > 1
+        ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
+        : window.t('results.n1_available');
+    const modelLabel = r.validated_only
+        ? r.model
+        : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
+    const ratioBadge = r.sized_full_cluster
+        ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
+        : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
+    const iops = r.iops || null;
+    const iopsRow = (val) => iops ? `<tr><td>${window.t('results.row.net_iops')}</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
+    const iopsHeadroom = buildIopsHeadroom(iops, demand);
+    const utilBars = buildUtilizationBars(r);
+    const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
+    const so = r.storage_only || null;
+    const nodesLabel = so
+        ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
+        : window.t('results.nodes_count', {count: r.node_count});
+    const soRows = so ? `
+                    <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_divider', {count: so.count})}</td></tr>
+                    <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
+                    <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
+                    <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
+    const footerActionsHtml = footerActions ? `
+                <div class="rec-footer-actions">
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
+                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
+                </div>` : '';
+    return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
@@ -1586,17 +1613,10 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             ${iopsHeadroom}
             ${witnessNote}
             <div class="rec-footer">
-                <span>${r.form_factor} &mdash; ${r.chassis}</span>
-                <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
-                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
-                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
-                </div>
+                <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
             </div>
         </div>
-    `}).join('');
+    `;
 }
 
 // Per-resource utilization bars (demand / available capacity at N-1) for a
@@ -2738,22 +2758,23 @@ async function renderSelectedClustersTab() {
     await ensureAllClusterResults();
     if (activeCluster !== SELECTED_KEY) return;  // user tabbed away while sizing
 
-    const rows = sourceClusters.map(c => {
+    // One full recommendation card per cluster (the selected one) — a
+    // screenshot-ready view of the finished multi-site solution.
+    const blocks = sourceClusters.map(c => {
         const res = clusterResults[c.name];
         if (!res || !res.recommendations || !res.recommendations.length) {
-            return `<tr><td>${esc(c.name)}</td><td colspan="6" class="review-none">${window.t('cluster.review_no_rec')}</td></tr>`;
+            return `<div class="review-cluster-block">
+                <h4 class="review-cluster-title">${esc(c.name)}</h4>
+                <div class="review-none">${window.t('cluster.review_no_rec')}</div>
+            </div>`;
         }
         const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
         const r = res.recommendations[sel];
-        return `<tr>
-            <td class="review-cluster">${esc(c.name)}</td>
-            <td>#${sel + 1}</td>
-            <td>${esc(r.model)}</td>
-            <td>${r.node_count}</td>
-            <td>${r.totals.cores}</td>
-            <td>${formatRam(r.totals.ram_gb)}</td>
-            <td>${r.totals.usable_storage_tb} TB</td>
-        </tr>`;
+        const demand = (res.projection || {}).iops_demand || null;
+        return `<div class="review-cluster-block">
+            <h4 class="review-cluster-title">${esc(c.name)} <span class="review-cluster-rank">${window.t('cluster.review_selected_rank', {rank: sel + 1})}</span></h4>
+            ${recCardHtml(r, sel, 'import', demand, { showPicker: false, footerActions: false })}
+        </div>`;
     }).join('');
 
     review.innerHTML = `
@@ -2767,18 +2788,7 @@ async function renderSelectedClustersTab() {
             </span>
         </div>
         <p class="rec-desc">${window.t('cluster.review_desc')}</p>
-        <table class="review-table">
-            <thead><tr>
-                <th>${window.t('cluster.review_col_cluster')}</th>
-                <th>${window.t('cluster.review_col_selected')}</th>
-                <th>${window.t('cluster.review_col_model')}</th>
-                <th>${window.t('cluster.review_col_nodes')}</th>
-                <th>${window.t('results.row.cores')}</th>
-                <th>${window.t('results.row.ram')}</th>
-                <th>${window.t('results.row.usable_storage')}</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-        </table>`;
+        ${blocks}`;
 }
 
 // Seed cluster state from an import response. Called on every upload.

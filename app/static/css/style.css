@@ -2092,26 +2092,20 @@ body.auth-required footer { display: none; }
     gap: 1rem;
     flex-wrap: wrap;
 }
-.review-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 0.75rem;
+.review-cluster-block { margin-top: 1.25rem; }
+.review-cluster-title {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
 }
-.review-table th, .review-table td {
-    text-align: left;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.9rem;
-}
-.review-table th {
-    color: var(--text-muted);
-    font-weight: 600;
+.review-cluster-rank {
     font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-weight: 600;
+    color: var(--accent);
 }
-.review-table .review-cluster { font-weight: 600; }
-.review-table .review-none { color: var(--text-muted); font-style: italic; }
+.review-none { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
 .review-loading { color: var(--text-muted); padding: 1rem 0; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
