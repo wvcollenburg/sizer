@@ -29,8 +29,18 @@
     'use strict';
 
     var VIEW_KEY = 'sizerImportView';           // 'guided' (default) | 'classic'
-    var LAST = 7;                                // number of steps
+    var PANES = 7;                              // panes built; step 7 (combined
+                                                // export) only applies to multi-site
     var state = { active: false, step: 1, reached: 1, imported: false, advOpen: false };
+
+    // Step 7 (combined multi-site export/review) only exists when sizing clusters
+    // separately. For a single cluster, export lives on each recommendation card
+    // in step 6, so the wizard ends there.
+    function isMulti() {
+        var s = S();
+        return !!(s.separate && s.clusters && s.clusters.length > 1);
+    }
+    function lastStep() { return isMulti() ? 7 : 6; }
 
     function t(k, vars) { return window.t ? window.t(k, vars) : k; }
     function esc(s) {
@@ -90,7 +100,7 @@
         var host = $('import-wizard');
         if (!host || host._built) return;
         var panes = '';
-        for (var n = 1; n <= LAST; n++) {
+        for (var n = 1; n <= PANES; n++) {
             panes += '<div class="wiz-pane" id="wiz-pane-' + n + '" style="display:none">' +
                 '<div class="wiz-pane-head"><h3 id="wiz-title-' + n + '"></h3>' +
                 '<p class="wiz-intro" id="wiz-intro-' + n + '"></p></div>' +
@@ -115,7 +125,8 @@
         var rail = $('wizard-rail');
         if (!rail) return;
         var html = '';
-        for (var n = 1; n <= LAST; n++) {
+        var last = lastStep();
+        for (var n = 1; n <= last; n++) {
             var cls = 'wiz-railstep';
             if (n === state.step) cls += ' active';
             if (n < state.step) cls += ' done';
@@ -136,7 +147,7 @@
             ? '<button class="btn btn-muted" data-click=\'["wizardBack"]\'>' + esc(t('wizard.back')) + '</button>'
             : '<span></span>';
         var next;
-        if (state.step < LAST) {
+        if (state.step < lastStep()) {
             var disabled = (state.step === 1 && !state.imported) ? ' disabled' : '';
             next = '<button class="btn btn-primary" data-click=\'["wizardNext"]\'' + disabled + '>' +
                    esc(t('wizard.next')) + '</button>';
@@ -312,7 +323,7 @@
 
     // ---- Navigation ---------------------------------------------------------
     function showPane(n) {
-        for (var i = 1; i <= LAST; i++) {
+        for (var i = 1; i <= PANES; i++) {
             var p = $('wiz-pane-' + i);
             if (p) p.style.display = (i === n) ? 'block' : 'none';
         }
@@ -362,7 +373,7 @@
     }
 
     function goto(n) {
-        if (n < 1 || n > LAST) return;
+        if (n < 1 || n > lastStep()) return;
         if (n > state.reached) return;
         if (n === 1 || state.imported) {
             if (n !== state.step) onLeave(state.step);
@@ -380,7 +391,7 @@
     };
     window.wizardNext = function () {
         if (state.step === 1 && !state.imported) return;
-        if (state.step >= LAST) return;
+        if (state.step >= lastStep()) return;
         var target = state.step + 1;
         onLeave(state.step);
         renderStep(target);
@@ -430,6 +441,18 @@
         onModeLeave: function () {
             deactivate();
             var sizing = $('sizing-results'); if (sizing) sizing.style.display = 'none';
+        },
+        // Snapshot the current step so a saved sizing can resume where the user
+        // left off (see captureSizingState / restoreSizingState in app.js).
+        getStep: function () { return { step: state.step, reached: state.reached }; },
+        // Jump to a saved step after restore has rebuilt the import state. No-op
+        // in classic view (the wizard isn't active).
+        restoreToStep: function (n) {
+            if (!state.active) return;
+            state.imported = true;
+            n = Math.max(1, Math.min(lastStep(), n || 2));
+            state.reached = Math.max(state.reached, n);
+            renderStep(n);
         },
         onImported: function (data) {
             state.imported = true;
