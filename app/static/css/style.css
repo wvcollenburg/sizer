@@ -2016,36 +2016,42 @@ body.auth-required footer { display: none; }
     justify-content: space-between;
     gap: 0.5rem;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--border);
     margin: 0.25rem 0 1rem;
 }
 .cluster-tab-row {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.4rem;
     flex-wrap: wrap;
 }
+/* Pill / button-style tabs so it's obvious they're clickable and which one is
+   selected (shared by the wizard bar, classic bar, VM-modal bar, DR tabs). */
 .cluster-tab {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    padding: 0.55rem 0.9rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.9rem;
     cursor: pointer;
     color: var(--text-muted);
     font-size: 0.9rem;
     font-weight: 600;
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.4rem;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.cluster-tab:hover { color: var(--text); }
-.cluster-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.cluster-tab:hover { color: var(--text); border-color: var(--accent); }
+.cluster-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
 .cluster-tab-badge {
     font-size: 0.72rem;
     font-weight: 500;
     color: var(--text-muted);
-    opacity: 0.8;
+    opacity: 0.85;
 }
+.cluster-tab.active .cluster-tab-badge { color: #fff; opacity: 0.9; }
 .cluster-apply-all { white-space: nowrap; }
 .cluster-tab-actions {
     display: flex;
@@ -2065,7 +2071,11 @@ body.auth-required footer { display: none; }
 }
 .cluster-tabs-modal {
     padding: 0 1.5rem;
-    margin: 0;
+    margin: 0 0 0.75rem;
+    /* Buttons are direct children of this bar (no .cluster-tab-row wrapper), so
+       override the space-between spread and keep them grouped on the left. */
+    justify-content: flex-start;
+    gap: 0.4rem;
 }
 /* Per-card "use in combined export" picker (separate-clusters mode only). */
 .rec-select {
@@ -2284,4 +2294,112 @@ body.auth-required footer { display: none; }
     font-size: 0.85rem;
     text-decoration: underline;
     cursor: pointer;
+}
+
+/* ==================== GUIDED IMPORT WIZARD ==================== */
+#import-wizard { display: none; }
+.wiz-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem; gap: 1rem;
+}
+.wiz-brand { font-weight: 600; color: var(--text-muted); font-size: 0.9rem; letter-spacing: 0.02em; text-transform: uppercase; }
+
+/* Progress rail */
+.wizard-rail {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none;
+    padding: 0; margin: 0 0 1.4rem 0;
+}
+.wiz-railstep {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.45rem 0.8rem; border-radius: var(--radius);
+    background: var(--surface2); color: var(--text-muted);
+    font-size: 0.85rem; border: 1px solid var(--border); flex: 1 1 auto;
+    min-width: 0; cursor: default;
+}
+.wiz-railstep[data-click] { cursor: pointer; }
+.wiz-railstep[data-click]:hover { border-color: var(--accent); }
+.wiz-railstep.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.wiz-railstep.done { color: var(--text); }
+.wiz-railstep.done .wiz-railnum { background: var(--green); color: #fff; }
+.wiz-railstep.locked { opacity: 0.5; }
+.wiz-railnum {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    background: var(--border); color: var(--text); font-size: 0.78rem; font-weight: 600; flex: 0 0 auto;
+}
+.wiz-railstep.active .wiz-railnum { background: #fff; color: var(--accent); }
+.wiz-raillabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Step panes */
+.wiz-pane { animation: wizfade 0.18s ease; }
+@keyframes wizfade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wiz-pane-head h3 { margin: 0 0 0.25rem 0; }
+.wiz-intro { color: var(--text-muted); margin: 0 0 1.1rem 0; font-size: 0.92rem; }
+.wiz-chrome { margin-bottom: 1rem; }
+.wiz-chrome-after, .wiz-after-5 { margin-top: 1rem; }
+
+/* Navigation */
+.wizard-nav {
+    display: flex; justify-content: space-between; gap: 1rem;
+    margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--border);
+}
+
+/* Layout step */
+.wiz-layout-detected, .wiz-layout-single { color: var(--text); margin: 0 0 0.8rem 0; }
+.wiz-cluster-list { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.8rem 0; }
+.wiz-cluster-row {
+    display: flex; align-items: center; gap: 0.8rem;
+    padding: 0.55rem 0.8rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: var(--radius);
+}
+.wiz-cluster-row.dedicated { border-style: dashed; }
+.wiz-cluster-name { font-weight: 600; }
+.wiz-cluster-meta { color: var(--text-muted); font-size: 0.85rem; }
+.wiz-cluster-tag { margin-left: auto; font-size: 0.78rem; color: var(--accent); }
+.wiz-layout-actions { margin-top: 0.6rem; }
+
+/* Environment caveats */
+.wiz-caveats {
+    background: var(--surface2); border: 1px solid var(--yellow);
+    border-radius: var(--radius); padding: 0.8rem 1rem; margin-top: 1rem;
+}
+.wiz-caveats-title { font-weight: 600; margin-bottom: 0.4rem; }
+.wiz-caveats ul { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: 0.88rem; }
+
+/* Options step */
+.wiz-clusterbar { margin-bottom: 1rem; }
+.wiz-opts-actions { margin: 0.4rem 0; }
+.wiz-adv-toggle { padding-left: 0; }
+.btn-link {
+    background: none; border: none; color: var(--accent); cursor: pointer;
+    text-decoration: underline; padding: 0.2rem 0; font-size: 0.88rem;
+}
+.btn-link:hover { color: var(--accent-dark); background: none; }
+/* Advanced sizing options are hidden on the wizard's options step until the
+   user expands them. Elsewhere (classic view / Manual mode) the class is inert. */
+body.wiz-adv-collapsed #import-wizard .wiz-adv { display: none !important; }
+
+/* VM-triage step (4): bound the VM list to its own scroll area so a long list
+   doesn't push the Back/Next nav far below the fold. The toolbar and cluster
+   tabs stay above it; the column headers stick (via the shared .vm-table thead
+   sticky rule, which now sticks to THIS scroll container); the wizard nav lands
+   just below the list. */
+body.wiz-active #vm-triage-panel .vm-table-wrap {
+    /* 55vh minus ~5 rows (a row is ~30px) so the Back/Next nav sits in view
+       without scrolling. */
+    max-height: calc(55vh - 150px);
+    min-height: 150px;
+    overflow: auto;
+}
+
+/* Export step */
+.wiz-export-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0; }
+.wiz-export-note { color: var(--text-muted); font-size: 0.85rem; }
+
+/* Classic view: link back to the guided wizard */
+.wiz-to-guided-bar { margin-bottom: 1rem; text-align: right; }
+
+@media (max-width: 640px) {
+    .wiz-raillabel { display: none; }
+    .wiz-railstep { flex: 0 0 auto; }
 }

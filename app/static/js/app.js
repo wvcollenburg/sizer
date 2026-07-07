@@ -166,7 +166,18 @@ function switchMode(mode) {
     const summary = mode === 'import' ? importSummary
                   : mode === 'manual' ? manualSummary : null;
     const sizing = document.getElementById('sizing-results');
-    if (summary) {
+
+    // Leaving import mode: hand the shared panels back to their classic homes so
+    // Manual mode (which reuses #sizing-results) finds them in place.
+    if (mode !== 'import' && window.WizardAPI) window.WizardAPI.onModeLeave();
+
+    if (mode === 'import' && window.WizardAPI) {
+        // The guided wizard owns the import layout; it decides guided vs classic
+        // and manages #sizing-results visibility itself.
+        activeMode = 'import';
+        window.WizardAPI.onModeEnter(!!summary);
+        if (summary) recalcRecommendations();
+    } else if (summary) {
         activeMode = mode;
         sizing.style.display = 'block';
         recalcRecommendations();
@@ -1437,8 +1448,13 @@ function renderEnvWorkloadCards(s) {
 function displayImportResults(data) {
     const s = data.summary;
     activeMode = 'import';
-    document.getElementById('import-results').style.display = 'block';
-    document.getElementById('sizing-results').style.display = 'block';
+    // In guided mode the wizard controls which panel is visible; only the classic
+    // all-at-once view reveals both blocks here.
+    const wizActive = window.WizardAPI && window.WizardAPI.isActive();
+    if (!wizActive) {
+        document.getElementById('import-results').style.display = 'block';
+        document.getElementById('sizing-results').style.display = 'block';
+    }
 
     renderRatioContext(s, true);
     renderEnvWorkloadCards(s);
@@ -1454,7 +1470,11 @@ function displayImportResults(data) {
     });
     renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', 'import', data.warnings);
     if (data.projection) renderProjectionTo(data.projection, 'projection-summary');
-    document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
+    if (wizActive) {
+        window.WizardAPI.onImported(data);
+    } else {
+        document.getElementById('import-results').scrollIntoView({behavior: 'smooth'});
+    }
 }
 
 // "Determined by" line: which resource drove this config's node count, with the
@@ -3446,6 +3466,9 @@ function captureSizingState() {
             clusterReplication,
             dedicatedClusters,
             activeCluster,
+            // Which guided-wizard step the user was on, so a reload resumes there
+            // (finished => step 7; stopped mid-flow => that step). null in classic.
+            wizardStep: (window.WizardAPI ? window.WizardAPI.getStep() : null),
         };
     }
 
@@ -3548,6 +3571,12 @@ async function restoreSizingState(snap) {
         }
         updateRatioDisplay();
         recalcRecommendations();
+        // Resume the guided wizard on the step the user saved from (default 2 for
+        // older snapshots with no wizard step). No-op in classic view.
+        if (window.WizardAPI) {
+            const ws = im.wizardStep;
+            window.WizardAPI.restoreToStep(ws && ws.step ? ws.step : 2);
+        }
         return;
     }
 

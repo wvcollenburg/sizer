@@ -276,6 +276,12 @@
 
         <!-- IMPORT MODE -->
         <section id="import-form" class="config-form" style="display:none">
+            <!-- Guided import wizard chrome (rail + step panes + nav). Built and
+                 populated by wizard.js; hidden in classic view. -->
+            <div id="import-wizard" style="display:none"></div>
+            <!-- Classic (all-at-once) import layout. The wizard relocates pieces
+                 of this into its step panes, and restores them here on "classic". -->
+            <div id="import-classic">
             <div class="import-upload">
                 <h3 data-i18n="import.upload_title">Upload VMware Environment Export</h3>
                 <p class="import-desc" data-i18n="import.upload_desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
@@ -314,6 +320,7 @@
                     <div class="summary-grid" id="workload-summary"></div>
                 </div>
             </div>
+            </div><!-- /#import-classic -->
         </section>
 
         <!-- MANUAL INPUT MODE -->
@@ -472,7 +479,7 @@
                     </div>
 
                     <div class="sizing-options-grid">
-                        <div class="form-group">
+                        <div class="form-group wiz-adv">
                             <label data-i18n="results.target_node_count">Target Node Count</label>
                             <input type="number" id="target-nodes" placeholder="No target" min="2" step="1"
                                    data-i18n-ph="results.no_target_ph"
@@ -501,7 +508,7 @@
                                 <option value="spinning" data-i18n="results.storage_spinning">All-Spinning</option>
                             </select>
                             <!-- Storage-related options grouped under storage type. -->
-                            <div class="toggle-item">
+                            <div class="toggle-item wiz-adv">
                                 <label class="checkbox-inline">
                                     <input type="checkbox" id="allow-storage-only" data-change='["recalcRecommendations"]'>
                                     <span data-i18n="results.allow_storage_only">Allow storage-only nodes</span>
@@ -510,9 +517,9 @@
                                       data-i18n-title="results.allow_storage_only_info"
                                       title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
                             </div>
-                            <div id="local-storage-option"></div>
+                            <div id="local-storage-option" class="wiz-adv"></div>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group wiz-adv">
                             <label><span data-i18n="results.sizing_mode">Sizing Mode</span>
                                 <span class="info-icon" tabindex="0"
                                       data-i18n-title="results.sizing_mode_info"
@@ -523,7 +530,7 @@
                                 <option value="validated" data-i18n="results.mode_validated">Validated (Software-Only)</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group wiz-adv">
                             <label><span data-i18n="results.size_for_model">Size For Model</span>
                                 <span class="info-icon" tabindex="0"
                                       data-i18n-title="results.size_for_model_info"
@@ -578,7 +585,7 @@
                             <input type="number" id="snapshot-pct" value="20" min="0" max="100" step="5"
                                    data-change='["recalcRecommendations"]'>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group wiz-adv">
                             <label><span data-i18n="results.max_day_one_storage">Max Day-One Storage %</span>
                                 <span class="info-icon" tabindex="0"
                                       data-i18n-title="results.max_day_one_storage_info"
@@ -587,7 +594,7 @@
                             <input type="number" id="max-day-one-storage" value="{{ max_day_one_storage_pct }}"
                                    min="1" max="100" step="1" data-change='["recalcRecommendations"]'>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group wiz-adv">
                             <label><span data-i18n="results.max_day_one_ram">Max Day-One RAM %</span>
                                 <span class="info-icon" tabindex="0"
                                       data-i18n-title="results.max_day_one_ram_info"
@@ -665,6 +672,9 @@
                 <h2 data-i18n="modal.vmexcl.title">Configure VMs for Sizing</h2>
                 <button class="modal-close" data-click='["closeVmExclusionModal"]'>&times;</button>
             </div>
+            <!-- Portable VM-triage panel: the wizard relocates this whole block
+                 into its "Review VMs" step; in classic view it stays in the modal. -->
+            <div id="vm-triage-panel">
             <div id="vm-cluster-tabs" class="cluster-tabs cluster-tabs-modal" style="display:none"></div>
             <div class="modal-toolbar">
                 <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-i18n-ph="modal.vmexcl.search_ph" data-input='["filterVmTable"]'>
@@ -705,8 +715,9 @@
                     </table>
                 </div>
             </div>
+            <div class="vm-exclusion-summary" id="vm-exclusion-summary"></div>
+            </div><!-- /#vm-triage-panel -->
             <div class="modal-footer">
-                <div class="vm-exclusion-summary" id="vm-exclusion-summary"></div>
                 <div class="modal-footer-actions">
                     <button class="btn btn-sm btn-muted" data-click='["resetVmConfig"]' data-i18n="modal.vmexcl.reset_edits">Reset edits</button>
                     <button class="btn btn-muted" data-click='["closeVmExclusionModal"]' data-i18n="common.cancel">Cancel</button>
@@ -1065,6 +1076,7 @@
          attribute (read by app.js) — no inline script, so the CSP can forbid it. -->
     <script src="{{ asset('js/delegate.js') }}"></script>
     <script src="{{ asset('js/app.js') }}"></script>
+    <script src="{{ asset('js/wizard.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>
 </body>
 </html>
