@@ -472,7 +472,9 @@ def create_app():
 
     # ---- Combined multi-site exports (one document, per-cluster sections) ----
     def _multisite_payload():
-        data = request.json or {}
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return None
         clusters = data.get("clusters")
         if not isinstance(clusters, list) or not clusters:
             return None
