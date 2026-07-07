@@ -370,10 +370,20 @@
         }
     }
     window.wizardGoto = function (n) { goto(n); };
-    window.wizardBack = function () { if (state.step > 1) { onLeave(state.step); renderStep(state.step - 1); } };
+    window.wizardBack = function () {
+        if (state.step <= 1) return;
+        // Capture the target BEFORE onLeave: onLeave side-effects (e.g.
+        // applyVmExclusions → displayImportResults) can mutate state.step.
+        var target = state.step - 1;
+        onLeave(state.step);
+        renderStep(target);
+    };
     window.wizardNext = function () {
         if (state.step === 1 && !state.imported) return;
-        if (state.step < LAST) { onLeave(state.step); renderStep(state.step + 1); }
+        if (state.step >= LAST) return;
+        var target = state.step + 1;
+        onLeave(state.step);
+        renderStep(target);
     };
 
     // ---- Activation / view switching ---------------------------------------
@@ -423,8 +433,12 @@
         },
         onImported: function (data) {
             state.imported = true;
-            window._wizImportWarnings = (data && data.warnings) || [];
-            if (state.active) {
+            // Only auto-advance on a genuine new upload (user is on the upload
+            // step). displayImportResults is ALSO called for internal re-renders
+            // (applyVmExclusions, toggleLocalStorage) — those must not navigate,
+            // or leaving step 4 would bounce the wizard back to step 2.
+            if (state.active && state.step === 1) {
+                window._wizImportWarnings = (data && data.warnings) || [];
                 state.reached = Math.max(state.reached, 2);
                 renderStep(2);
             }
