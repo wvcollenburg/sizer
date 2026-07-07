@@ -55,7 +55,8 @@ let clusterBase = {};                        // name -> pristine per-cluster sum
 let separateClusters = false;                // the "size each cluster separately" toggle
 let activeCluster = COMBINED_KEY;            // active recommendation tab (a name or COMBINED_KEY)
 let clusterOptions = {};                     // name -> captured sizing-option fields
-let clusterResults = {};                     // name -> {recommendations, projection, perfSource, selectedRec}
+let clusterResults = {};                     // name -> {recommendations, projection, perfSource}
+let clusterSelectedRec = {};                 // name -> chosen recommendation index for the combined export
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
 // The source-cluster a VM belongs to, blanks bucketed like the backend.
@@ -1491,7 +1492,18 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         ? (r.hci_node_count || r.node_count) + r.storage_only.count
         : r.node_count;
 
+    // In separate-clusters mode each source cluster contributes one chosen
+    // recommendation to the combined export; surface a per-card picker (the
+    // Combined tab isn't part of that export, so no picker there).
+    const showRecPicker = mode === 'import' && separateClusters && activeCluster !== COMBINED_KEY;
+    const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
+
     recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
+        const isSelected = i === selIdx;
+        const recPicker = showRecPicker
+            ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
+                    title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+            : '';
         const clusterInfo = r.num_clusters > 1
             ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
             : window.t('results.one_cluster');
@@ -1519,7 +1531,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                         <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
                         <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
         return `
-        <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
+        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
                 <span class="rec-model">${modelLabel}</span>
@@ -1527,6 +1539,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 ${ratioBadge}
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
+                ${recPicker}
             </div>
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
@@ -2161,10 +2174,13 @@ async function exportMultisite(fmt = 'pptx') {
         const payloadClusters = sourceClusters.map(c => {
             const res = clusterResults[c.name];
             if (!res || !res.recommendations || !res.recommendations.length) return null;
+            // Use the cluster's chosen recommendation (defaults to #1), clamped
+            // in case a re-size shortened the list.
+            const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
             return {
                 name: c.name,
                 summary: res.summary,
-                recommendation: res.recommendations[0],
+                recommendation: res.recommendations[sel],
                 projection: res.projection,
                 source_perf: null,
             };
@@ -2772,6 +2788,14 @@ function applyOptionsToAllClusters() {
     showUploadStatus(window.t('cluster.applied_all'), false);
 }
 
+// Pick which recommendation the active cluster contributes to the combined
+// multi-site export, then re-render the cards to reflect the selection.
+function selectClusterRec(i) {
+    if (!separateClusters || activeCluster === COMBINED_KEY) return;
+    clusterSelectedRec[activeCluster] = i;
+    renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+}
+
 // Configure-VMs modal tab click (by index into _modalTabKeys).
 function selectVmModalCluster(i) {
     vmModalCluster = _modalTabKeys[i];
@@ -2918,6 +2942,7 @@ function captureSizingState() {
             clusterBase,
             separateClusters,
             clusterOptions,
+            clusterSelectedRec,
             activeCluster,
         };
     }
@@ -2989,6 +3014,7 @@ async function restoreSizingState(snap) {
         clusterBase = im.clusterBase || {};
         separateClusters = !!im.separateClusters;
         clusterOptions = im.clusterOptions || {};
+        clusterSelectedRec = im.clusterSelectedRec || {};
         clusterResults = {};
         activeCluster = im.activeCluster || COMBINED_KEY;
         vmModalCluster = separateClusters ? activeCluster : COMBINED_KEY;

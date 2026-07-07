@@ -2060,6 +2060,29 @@ body.auth-required footer { display: none; }
     padding: 0 1.5rem;
     margin: 0;
 }
+/* Per-card "use in combined export" picker (separate-clusters mode only). */
+.rec-select {
+    margin-left: auto;
+    background: var(--surface);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.rec-select:hover { background: var(--accent); color: #fff; }
+.rec-select.selected {
+    background: var(--accent);
+    color: #fff;
+    cursor: default;
+}
+.rec-card.rec-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent) inset;
+}
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
