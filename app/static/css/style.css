@@ -2016,36 +2016,42 @@ body.auth-required footer { display: none; }
     justify-content: space-between;
     gap: 0.5rem;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--border);
     margin: 0.25rem 0 1rem;
 }
 .cluster-tab-row {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.4rem;
     flex-wrap: wrap;
 }
+/* Pill / button-style tabs so it's obvious they're clickable and which one is
+   selected (shared by the wizard bar, classic bar, VM-modal bar, DR tabs). */
 .cluster-tab {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    padding: 0.55rem 0.9rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.45rem 0.9rem;
     cursor: pointer;
     color: var(--text-muted);
     font-size: 0.9rem;
     font-weight: 600;
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.4rem;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
-.cluster-tab:hover { color: var(--text); }
-.cluster-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.cluster-tab:hover { color: var(--text); border-color: var(--accent); }
+.cluster-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
 .cluster-tab-badge {
     font-size: 0.72rem;
     font-weight: 500;
     color: var(--text-muted);
-    opacity: 0.8;
+    opacity: 0.85;
 }
+.cluster-tab.active .cluster-tab-badge { color: #fff; opacity: 0.9; }
 .cluster-apply-all { white-space: nowrap; }
 .cluster-tab-actions {
     display: flex;
