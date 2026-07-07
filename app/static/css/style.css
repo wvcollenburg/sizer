@@ -2071,7 +2071,11 @@ body.auth-required footer { display: none; }
 }
 .cluster-tabs-modal {
     padding: 0 1.5rem;
-    margin: 0;
+    margin: 0 0 0.75rem;
+    /* Buttons are direct children of this bar (no .cluster-tab-row wrapper), so
+       override the space-between spread and keep them grouped on the left. */
+    justify-content: flex-start;
+    gap: 0.4rem;
 }
 /* Per-card "use in combined export" picker (separate-clusters mode only). */
 .rec-select {
