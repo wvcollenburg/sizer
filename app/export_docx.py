@@ -372,10 +372,194 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None, l
     return buf
 
 
+def _heading(doc, text, lang, level=1):
+    h = doc.add_heading(text, level=level)
+    _apply_lang_font_para(h, lang)
+    return h
+
+
+def _bullet(doc, text, lang):
+    style = "List Bullet" if "List Bullet" in [st.name for st in doc.styles] else "Normal"
+    b = doc.add_paragraph(text, style=style)
+    _apply_lang_font_para(b, lang)
+    return b
+
+
+def _is_dedicated(summary):
+    """A dedicated DR target has no primary workload of its own."""
+    return (summary.get("host_count", 0) == 0 and summary.get("active_vms", 0) == 0)
+
+
+def _platform_capabilities(doc, lang):
+    """The Scale Computing HyperCore platform pitch — management, HEAT, SCRIBE,
+    AIME. Emitted ONCE in a multi-site proposal (not repeated per site)."""
+    t9n = translator(lang)
+    _heading(doc, t9n("export.docx.multisite_platform_heading"), lang, level=1)
+    _para(doc, t9n("export.docx.product_intro"), lang=lang)
+
+    _heading(doc, t9n("export.docx.mgmt_operations"), lang, level=2)
+    _para(doc, t9n("export.docx.mgmt_operations_intro"), lang=lang)
+    for k in ("export.docx.mgmt_bullet_1", "export.docx.mgmt_bullet_2",
+              "export.docx.mgmt_bullet_3", "export.docx.mgmt_bullet_4",
+              "export.docx.mgmt_bullet_5"):
+        _bullet(doc, t9n(k), lang)
+
+    _heading(doc, t9n("export.docx.heat_heading"), lang, level=2)
+    _para(doc, t9n("export.docx.heat_intro"), lang=lang)
+    for k in ("export.docx.heat_bullet_1", "export.docx.heat_bullet_2",
+              "export.docx.heat_bullet_3", "export.docx.heat_bullet_4",
+              "export.docx.heat_bullet_5"):
+        _bullet(doc, t9n(k), lang)
+
+    _heading(doc, t9n("export.docx.scribe_heading"), lang, level=2)
+    _para(doc, t9n("export.docx.scribe_intro"), lang=lang)
+    for k in ("export.docx.scribe_bullet_1", "export.docx.scribe_bullet_2",
+              "export.docx.scribe_bullet_3", "export.docx.scribe_bullet_4",
+              "export.docx.scribe_bullet_5", "export.docx.scribe_bullet_6",
+              "export.docx.scribe_bullet_7"):
+        _bullet(doc, t9n(k), lang)
+
+    _heading(doc, t9n("export.docx.aime_heading"), lang, level=2)
+    _para(doc, t9n("export.docx.aime_intro"), lang=lang)
+    for k in ("export.docx.aime_bullet_1", "export.docx.aime_bullet_2",
+              "export.docx.aime_bullet_3", "export.docx.aime_bullet_4",
+              "export.docx.aime_bullet_5", "export.docx.aime_bullet_6",
+              "export.docx.aime_bullet_7"):
+        _bullet(doc, t9n(k), lang)
+
+
+def _append_site_sizing(doc, cl, lang, cw):
+    """Per-site engineering detail only (config, network, sizing rationale,
+    capacity, benchmark) — no repeated marketing. Used by the multi-site doc."""
+    t9n = translator(lang)
+    r = cl["recommendation"]
+    s = cl["summary"]
+    p = cl["projection"]
+    t = r["totals"]
+    n1 = r["n_minus_1"]
+    iops = r.get("iops") or {}
+    dedicated = _is_dedicated(s)
+
+    so = r.get("storage_only")
+    hci_nodes = r.get("hci_node_count", r["node_count"])
+    nodes_label = (t9n("export.common.hci_plus_storage_only", hci=hci_nodes, storage=so["count"])
+                   if so else t9n("export.common.node_count", count=r["node_count"]))
+    num_cl = r.get("num_clusters", 1)
+    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
+                    layout=" + ".join(map(str, r.get("cluster_layout", []))))
+                if num_cl > 1 else t9n("export.common.single_cluster"))
+
+    # Site intro — dedicated DR vs a workload-bearing site.
+    if dedicated:
+        _para(doc, t9n("export.docx.multisite_dedicated_intro", name=cl.get("name", "")), lang=lang)
+    else:
+        _para(doc, t9n("export.docx.multisite_site_intro",
+                       name=cl.get("name", ""), vms=s.get("active_vms", 0),
+                       vcpus=_fmt_num(s.get("total_vcpus", 0)),
+                       ram=_fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
+                       used_tb=s.get("datastore_used_tb", 0), years=p["years"]), lang=lang)
+
+    # Recommended configuration
+    _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=2)
+    spec_rows = [
+        (t9n("export.docx.recommended_platform"), f"{r['model']} · {nodes_label} · {cl_label}"),
+        (t9n("export.docx.per_node_cpu"), r["cpu"]),
+        (t9n("export.docx.per_node_cores_threads"),
+         t9n("export.docx.cores_threads_val", cores=r["cores_per_node"], threads=r["threads_per_node"])),
+        (t9n("export.docx.per_node_ram"), _fmt_ram(r["ram_per_node_gb"])),
+        (t9n("export.docx.per_node_storage"), r["storage_config"]["desc"]),
+        (t9n("export.docx.cluster_cores"), str(t["cores"])),
+        (t9n("export.docx.cluster_ram"), _fmt_ram(t["ram_gb"])),
+        (t9n("export.docx.cluster_usable_storage"), f"{t['usable_storage_tb']} TB"),
+    ]
+    if iops:
+        spec_rows.append((t9n("export.docx.cluster_net_iops"), f"{iops['total']:,}"))
+    spec_rows += [
+        (t9n("export.docx.n1_resilient"),
+         t9n("export.docx.n1_resilient_val", cores=n1["cores"],
+             ram=_fmt_ram(n1["ram_gb"]), usable_tb=n1["usable_storage_tb"])),
+        (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
+    ]
+    _spec_table(doc, spec_rows, total_w=cw, lang=lang)
+    if r.get("single_node"):
+        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    _spacer(doc)
+
+    # Network diagram
+    svg = _rec_network_svg(r, lang) or r.get("network_svg")
+    if svg:
+        png = _svg_to_png_bytes(svg, out_width=2200)
+        if png:
+            _heading(doc, t9n("export.docx.cluster_network"), lang, level=3)
+            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Sizing rationale (utilization bars + determinant)
+    u = r.get("utilization")
+    if u:
+        rows_u, any_ha = util_rows(u)
+        if rows_u:
+            _heading(doc, t9n("export.docx.sizing_rationale"), lang, level=2)
+            png = render_util_bars(rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
+                                   any_ha=any_ha, lang=lang)
+            doc.add_picture(io.BytesIO(png), width=Inches(cw))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _spacer(doc, 4)
+            det = r.get("determinant") or {}
+            res, hr = det.get("resource"), det.get("headroom_pct")
+            if res == "CPU":
+                _para(doc, t9n("export.docx.rationale_cpu", vcpus=s.get("total_vcpus"),
+                               ratio=f"{r.get('vcpu_ratio', 0):.2f}",
+                               required=f"{det.get('required'):.0f}", achieved=f"{det.get('achieved'):.0f}",
+                               headroom=f"{hr:.1f}"), lang=lang)
+            elif res in ("RAM", "Storage"):
+                _para(doc, t9n("export.docx.rationale_ram_storage", resource=res,
+                               required=det.get("required"), unit=det.get("unit", ""),
+                               achieved=det.get("achieved"), headroom=f"{hr:.1f}"), lang=lang)
+            elif res == "Compute":
+                cf = r.get("compute_floor") or {}
+                _para(doc, t9n("export.docx.rationale_compute", achieved=f"{det.get('achieved'):.0f}",
+                               util=f"{cf.get('source_cpu_util_pct', 100):.0f}"), lang=lang)
+            _para(doc, t9n("export.docx.rationale_bar_legend"), italic=True, size=9, lang=lang)
+            _spacer(doc)
+
+    # Capacity planning (skip for a dedicated DR — its growth mirrors the sources)
+    if not dedicated:
+        _heading(doc, t9n("export.docx.capacity_planning", years=p["years"]), lang, level=2)
+        _grid_table(doc,
+                    [t9n("export.common.resource"), t9n("export.common.current"),
+                     t9n("export.docx.year_n", years=p["years"]), t9n("export.docx.proposed_n1")],
+                    [["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
+                      t9n("export.docx.cores_at_ratio", cores=n1["cores"], ratio=f"{r['vcpu_ratio']:.1f}")],
+                     ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]), _fmt_ram(n1["ram_gb"])],
+                     [t9n("export.common.storage"), f"{p['base_storage_tb']} TB",
+                      f"{p['projected_storage_tb']} TB", t9n("export.docx.tb_usable", tb=n1["usable_storage_tb"])]],
+                    total_w=cw, weights=[1.6, 1.8, 1.8, 1.8], lang=lang)
+        _spacer(doc)
+
+    # Benchmark vs current (only when a source benchmark was provided)
+    tgt = t.get("perf_index")
+    sp = cl.get("source_perf")
+    if sp and sp.get("total_specrate") and tgt:
+        _heading(doc, t9n("export.docx.performance_vs_current"), lang, level=2)
+        src_total = sp["total_specrate"]
+        ratio = tgt / src_total if src_total else 0
+        verdict = (t9n("export.docx.verdict_multiple", ratio=f"{ratio:.1f}") if ratio >= 1
+                   else t9n("export.docx.verdict_fraction", pct=round(ratio * 100)))
+        _spec_table(doc, [
+            (t9n("export.docx.recommended_cluster"), f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
+            (t9n("export.docx.cluster_specrate2017"), _fmt_num(tgt)),
+            (t9n("export.docx.benchmark_should_deliver"), verdict),
+        ], total_w=cw, label_w=2.6, lang=lang)
+        _spacer(doc)
+
+
 def build_multisite_proposal_docx(clusters, lang="en"):
-    """One combined document: a multi-site overview table, then the full
-    per-cluster proposal body for each source cluster on its own page.
-    `clusters` = [{name, summary, recommendation, projection, source_perf}]."""
+    """A single commercial multi-site proposal with one narrative flow:
+    executive summary → solution at a glance (overview + topology) → why
+    HyperCore (platform pitch, once) → per-site sizing detail → assumptions.
+    `clusters` = [{name, summary, recommendation, projection, source_perf,
+    replicates_to}]."""
     t9n = translator(lang)
     doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
     _clear_body(doc)
@@ -386,7 +570,26 @@ def build_multisite_proposal_docx(clusters, lang="en"):
     _apply_lang_font_para(doc.add_paragraph(
         t9n("export.docx.multisite_subtitle", count=len(clusters)), style="Subtitle"), lang)
 
-    _apply_lang_font_para(doc.add_heading(t9n("export.docx.multisite_overview"), level=1), lang)
+    # ── aggregate figures across all sites ────────────────────────────────────
+    sites = len(clusters)
+    agg_hosts = sum(cl["summary"].get("host_count", 0) for cl in clusters)
+    agg_vms = sum(cl["summary"].get("active_vms", 0) for cl in clusters)
+    agg_used_tb = round(sum(cl["summary"].get("datastore_used_tb", 0) for cl in clusters), 1)
+    tot_nodes = sum(cl["recommendation"].get("node_count", 0) for cl in clusters)
+    tot_cores = sum(cl["recommendation"]["totals"].get("cores", 0) for cl in clusters)
+    tot_ram = sum(cl["recommendation"]["totals"].get("ram_gb", 0) for cl in clusters)
+    tot_usable = round(sum(cl["recommendation"]["totals"].get("usable_storage_tb", 0) for cl in clusters), 1)
+    years = clusters[0]["projection"].get("years", 5) if clusters else 5
+
+    # ── Executive summary ─────────────────────────────────────────────────────
+    _heading(doc, t9n("export.docx.multisite_exec_heading"), lang, level=1)
+    _para(doc, t9n("export.docx.multisite_exec_intro",
+                   sites=sites, hosts=agg_hosts, vms=agg_vms, used_tb=agg_used_tb,
+                   years=years, nodes=tot_nodes, cores=_fmt_num(tot_cores),
+                   ram=_fmt_ram(tot_ram), usable_tb=tot_usable), lang=lang)
+
+    # ── Solution at a glance: overview table + combined totals + topology ─────
+    _heading(doc, t9n("export.docx.multisite_solution_heading"), lang, level=1)
     show_rep = any(cl.get("replicates_to") for cl in clusters)
     header = [t9n("export.pptx.multisite_col_cluster"), t9n("export.pptx.multisite_col_model"),
               t9n("export.pptx.multisite_col_nodes"), t9n("export.pptx.multisite_col_cores"),
@@ -405,23 +608,50 @@ def build_multisite_proposal_docx(clusters, lang="en"):
         rows.append(row)
     weights = [1.5, 2.0, 0.8, 0.9, 1.1, 1.2, 1.3] if show_rep else [1.6, 2.2, 0.9, 1.0, 1.2, 1.3]
     _grid_table(doc, header, rows, total_w=cw, weights=weights, lang=lang)
+    _spacer(doc)
+    _spec_table(doc, [
+        (t9n("export.docx.multisite_total_nodes"), str(tot_nodes)),
+        (t9n("export.docx.multisite_total_cores"), _fmt_num(tot_cores)),
+        (t9n("export.docx.multisite_total_ram"), _fmt_ram(tot_ram)),
+        (t9n("export.docx.multisite_total_storage"), f"{tot_usable} TB"),
+    ], total_w=cw, label_w=2.6, lang=lang)
+    _spacer(doc)
 
-    # Routed replication topology diagram (only when something replicates).
+    # Replication & DR (topology diagram + one explanation) — only if configured.
     topo_svg = render_replication_topology_svg(clusters, lang)
     if topo_svg:
         png = _svg_to_png_bytes(topo_svg, out_width=2200)
         if png:
-            _spacer(doc)
-            _apply_lang_font_para(doc.add_heading(t9n("export.net.replication_topology"), level=2), lang)
+            _heading(doc, t9n("export.docx.multisite_replication_heading"), lang, level=2)
+            _para(doc, t9n("export.docx.multisite_replication_intro"), lang=lang)
             doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
             doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            _spacer(doc)
 
+            # SC//Connect — the secure connectivity layer that carries the
+            # routed replication traffic between sites (cross-sell).
+            _heading(doc, t9n("export.docx.sc_connect_heading"), lang, level=3)
+            _para(doc, t9n("export.docx.sc_connect_intro"), lang=lang)
+            for k in ("export.docx.sc_connect_bullet_1", "export.docx.sc_connect_bullet_2",
+                      "export.docx.sc_connect_bullet_3", "export.docx.sc_connect_bullet_4",
+                      "export.docx.sc_connect_bullet_5"):
+                _bullet(doc, t9n(k), lang)
+            _spacer(doc)
+
+    # ── Why Scale Computing HyperCore (platform pitch, ONCE) ──────────────────
+    _platform_capabilities(doc, lang)
+
+    # ── Per-site sizing detail ────────────────────────────────────────────────
     for cl in clusters:
         doc.add_page_break()
-        _apply_lang_font_para(
-            doc.add_heading(t9n("export.docx.cluster_section", name=cl.get("name", "")), level=1), lang)
-        _append_proposal_body(doc, cl["summary"], cl["recommendation"],
-                              cl["projection"], cl.get("source_perf"), lang)
+        _heading(doc, t9n("export.docx.multisite_site_heading", name=cl.get("name", "")), lang, level=1)
+        _append_site_sizing(doc, cl, lang, cw)
+
+    # ── Assumptions (once) ────────────────────────────────────────────────────
+    _spacer(doc)
+    _heading(doc, t9n("export.docx.assumptions"), lang, level=1)
+    _bullet(doc, t9n("export.docx.multisite_assumption_sites"), lang)
+    _bullet(doc, t9n("export.docx.assumption_3"), lang)
 
     _finalize_doc(doc)
     buf = io.BytesIO()
