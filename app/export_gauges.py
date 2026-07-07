@@ -22,6 +22,7 @@ NOW_LOW = "#2e7d32"      # < 70% load
 NOW_MID = "#e67e22"      # 70-90%
 NOW_HIGH = "#c0392b"     # > 90%
 RESERVE_HATCH = ("#8ca3c6", "#b9c7de")   # growth + snapshot, +45deg
+REPLICATION_HATCH = ("#b8860b", "#d4af37")  # replication (DR) reserve, +45deg dark yellow
 HA_HATCH = ("#5f7aa6", "#93a8cb")        # HA failover reserve, -45deg
 TRACK = "#cfe0f4"        # free / unused — light blue, enough contrast to read
 HAIRLINE = "#9fb2cf"     # thin outline around each bar pill
@@ -61,7 +62,9 @@ def now_color(now_pct):
 
 def util_rows(utilization):
     """Build render_util_bars() rows + an any_ha flag from a recommendation's
-    utilization dict: {cpu/ram/storage: {current, total, ha_reserve}}."""
+    utilization dict: {cpu/ram/storage: {current, total, replication, ha_reserve}}.
+    `sized` (total) already includes any replication reserve; `rep` carries the
+    replication portion so the bar can draw it as its own dark-yellow band."""
     rows, any_ha = [], False
     for label, key in (("CPU", "cpu"), ("RAM", "ram"), ("Storage", "storage")):
         v = (utilization or {}).get(key)
@@ -70,8 +73,10 @@ def util_rows(utilization):
         now = max(0, round(v.get("current", 0)))
         tot = max(now, round(v.get("total", 0)))
         ha = max(0, round(v.get("ha_reserve", 0)))
+        rep = max(0, round(v.get("replication", 0)))
+        rep = min(rep, tot - now)   # the rep band lives within [now, sized]
         any_ha = any_ha or ha > 0
-        rows.append({"label": label, "now": now, "sized": tot, "ha": ha})
+        rows.append({"label": label, "now": now, "sized": tot, "ha": ha, "rep": rep})
     return rows, any_ha
 
 
@@ -112,8 +117,11 @@ def _hatch(size, sign, c1, c2, period, lw):
     return layer
 
 
-def _bar(img, x, y, w, h, now, sized, ha, color):
-    """Paint one stacked bar (rounded) onto img at (x, y)."""
+def _bar(img, x, y, w, h, now, sized, ha, color, rep=0):
+    """Paint one stacked bar (rounded) onto img at (x, y). Segments, left→right:
+    now (solid) · growth+snapshot (light hatch) · replication reserve (dark-yellow
+    hatch) · free (track) · HA reserve (dark hatch, right edge). `sized` includes
+    the replication reserve; `rep` is the replication portion carved out of it."""
     def px(p):
         return int(round(max(0, min(100, p)) / 100 * w))
 
@@ -122,8 +130,14 @@ def _bar(img, x, y, w, h, now, sized, ha, color):
     if now > 0:
         d.rectangle([0, 0, px(now), h], fill=color)                 # now (solid)
     if sized > now:
-        x0, x1 = px(now), px(sized)
-        layer.paste(_hatch((x1 - x0, h), +1, *RESERVE_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
+        own_end = px(sized - rep)                                   # own growth+snap ends here
+        x0 = px(now)
+        if own_end > x0:
+            layer.paste(_hatch((own_end - x0, h), +1, *RESERVE_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
+        if rep > 0:                                                 # replication reserve band
+            x1 = px(sized)
+            if x1 > own_end:
+                layer.paste(_hatch((x1 - own_end, h), +1, *REPLICATION_HATCH, 7 * _SS, 3 * _SS), (own_end, 0))
     if ha > 0:
         x0 = px(100 - ha)
         layer.paste(_hatch((w - x0, h), -1, *HA_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
@@ -145,7 +159,12 @@ def _swatch(img, d, x, y, kind, label, font):
     if kind == "now":
         d.rounded_rectangle([x, y, x + sz, y + sz], radius=3 * _SS, fill=NOW_LOW)
     else:
-        sign, cols = (+1, RESERVE_HATCH) if kind == "growth" else (-1, HA_HATCH)
+        if kind == "growth":
+            sign, cols = +1, RESERVE_HATCH
+        elif kind == "replication":
+            sign, cols = +1, REPLICATION_HATCH
+        else:
+            sign, cols = -1, HA_HATCH
         tile = _hatch((sz, sz), sign, *cols, 7 * _SS, 3 * _SS)
         m = Image.new("L", (sz, sz), 0)
         ImageDraw.Draw(m).rounded_rectangle([0, 0, sz, sz], radius=3 * _SS, fill=255)
@@ -187,9 +206,12 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
     # title (left) + legend (right)
     _text(d, (pad, title_h // 2), t("export.gauge.title"),
           f_title, TEXT, anchor="lm")
+    any_rep = any(r.get("rep", 0) > 0 for r in rows)
     lx = W - pad
     legend = [("now", t("export.gauge.legend_now"))]
     legend.append(("growth", t("export.gauge.legend_growth")))
+    if any_rep:
+        legend.append(("replication", t("export.gauge.legend_replication")))
     if any_ha:
         legend.append(("ha", t("export.gauge.legend_ha")))
     # measure from the right: lay out left-to-right but start far enough left
@@ -212,7 +234,7 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
 
     y = top
     for r in rows:
-        now, sized, ha = r["now"], r["sized"], r.get("ha", 0)
+        now, sized, ha, rep = r["now"], r["sized"], r.get("ha", 0), r.get("rep", 0)
         # label + optional LIMITING badge
         disp = res_label(r["label"])
         _text(d, (pad, y + bar_h // 2), disp, f_label, TEXT, anchor="lm")
@@ -221,7 +243,7 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
             bx = pad + (rr - l) + 10 * _SS
             _badge(img, d, bx, y + bar_h // 2, t("export.gauge.limiting"), f_badge)
         # bar
-        _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now))
+        _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now), rep)
         d = ImageDraw.Draw(img)
         # pct: "35% / 57%"
         px = bar_x + bar_w + 16 * _SS

@@ -18,6 +18,7 @@ The SVG has a transparent background so it drops onto the branded slide / PDF;
 colours come from the house palette (LAN = blue, backplane = yellow).
 """
 
+import math
 from xml.sax.saxutils import escape
 
 from i18n import translator
@@ -70,6 +71,21 @@ class _SVG:
         self.parts.append(
             f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{sw}" '
             f'stroke-linejoin="round" stroke-linecap="round"/>')
+
+    def curve(self, x1, y1, cx, cy, x2, y2, stroke, sw=2, dash=None):
+        s = (f'<path d="M {x1:.1f} {y1:.1f} Q {cx:.1f} {cy:.1f} {x2:.1f} {y2:.1f}" '
+             f'fill="none" stroke="{stroke}" stroke-width="{sw}" stroke-linecap="round"')
+        if dash:
+            s += f' stroke-dasharray="{dash}"'
+        self.parts.append(s + "/>")
+
+    def arrowhead(self, x, y, dx, dy, fill, size=9):
+        ang = math.atan2(dy, dx)
+        a1 = (x - size * math.cos(ang - 0.45), y - size * math.sin(ang - 0.45))
+        a2 = (x - size * math.cos(ang + 0.45), y - size * math.sin(ang + 0.45))
+        self.parts.append(
+            f'<polygon points="{x:.1f},{y:.1f} {a1[0]:.1f},{a1[1]:.1f} '
+            f'{a2[0]:.1f},{a2[1]:.1f}" fill="{fill}"/>')
 
     def svg(self):
         body = "\n".join(self.parts)
@@ -230,6 +246,92 @@ def network_svg_for(hci_count, storage_count=0, nic_ports=2, lang="en"):
                                   lang=lang)
     except Exception:
         return None
+
+
+REP_ARROW = "#B8860B"    # replication flow — matches the reserve band's dark yellow
+GW_FILL = "#EEF2F7"      # gateway box (same light fill as the existing-network box)
+
+
+def render_replication_topology_svg(clusters, lang="en"):
+    """Multi-site replication topology: each cluster as a box plugged into a
+    gateway on a routed network segment (replication can be routed across
+    subnets), with directional arrows for each replication relationship.
+
+    clusters: [{"name", "model", "node_count", "replicates_to"}]. Returns an SVG
+    string, or None when nothing replicates (no topology to draw)."""
+    t = translator(lang)
+    idx = {c.get("name"): i for i, c in enumerate(clusters)}
+    rels = []
+    for i, c in enumerate(clusters):
+        tgt = (c.get("replicates_to") or "").strip()
+        j = idx.get(tgt)
+        if j is not None and j != i:
+            rels.append((i, j))
+    if not rels:
+        return None
+
+    n = len(clusters)
+    box_w, box_h, gap, margin = 190, 66, 46, 46
+    cx = [margin + box_w / 2 + i * (box_w + gap) for i in range(n)]
+
+    def peak_for(i, j):
+        hop = abs(i - j)
+        return 30 + hop * 26 + (14 if i > j else 0)   # split the two directions of a pair
+    max_peak = max((peak_for(i, j) for i, j in rels), default=40)
+
+    box_y = max_peak + 30
+    gw_w, gw_h = 150, 42
+    gw_y = box_y + box_h + 64
+    rail_y = gw_y + gw_h + 34
+    W = margin * 2 + n * box_w + (n - 1) * gap
+    H = rail_y + 54
+    svg = _SVG(W, H)
+
+    # ── routed network segment (the rail all gateways plug into) ──────────────
+    rail_x0, rail_x1 = cx[0], cx[-1]
+    if n == 1:
+        rail_x0, rail_x1 = cx[0] - 60, cx[0] + 60
+    svg.line(rail_x0, rail_y, rail_x1, rail_y, DK2, sw=2.5)
+    svg.text((rail_x0 + rail_x1) / 2, rail_y + 24, t("export.net.routed_segment"),
+             size=12, fill=MUTED)
+
+    # ── cluster boxes + gateways ──────────────────────────────────────────────
+    for i, c in enumerate(clusters):
+        bx = cx[i] - box_w / 2
+        svg.rect(bx, box_y, box_w, box_h, DK2, rx=8)
+        svg.text(cx[i], box_y + 20, c.get("name", ""), size=15, fill=WHITE, weight="bold")
+        svg.text(cx[i], box_y + 40, c.get("model", ""), size=12, fill=ROLE_LABEL)
+        nc = c.get("node_count")
+        if nc:
+            svg.text(cx[i], box_y + 55, t("export.net.node_count", count=nc), size=10, fill=ROLE_LABEL)
+
+        # gateway below, connected up to the cluster and down to the rail
+        gwx = cx[i] - gw_w / 2
+        svg.line(cx[i], box_y + box_h, cx[i], gw_y, DK2, sw=1.5, dash="5 4")
+        svg.rect(gwx, gw_y, gw_w, gw_h, GW_FILL, rx=6, stroke=DK2, sw=1.2)
+        svg.text(cx[i], gw_y + 16, t("export.net.gateway"), size=12, fill=DK2, weight="bold")
+        svg.text(cx[i], gw_y + 31, t("export.net.gateway_sub"), size=9, fill=MUTED)
+        svg.line(cx[i], gw_y + gw_h, cx[i], rail_y, DK2, sw=1.5)
+
+    # ── replication arcs (source → target) ────────────────────────────────────
+    for i, j in rels:
+        peak = peak_for(i, j)
+        x1, y1 = cx[i], box_y
+        x2, y2 = cx[j], box_y
+        cxp, cyp = (x1 + x2) / 2, box_y - peak
+        svg.curve(x1, y1, cxp, cyp, x2, y2, REP_ARROW, sw=2.5)
+        # arrowhead at the target end, tangent ≈ from control point to end
+        svg.arrowhead(x2, y2 - 1, x2 - cxp, y2 - cyp, REP_ARROW, size=9)
+
+    # ── legend ────────────────────────────────────────────────────────────────
+    ly = H - 16
+    svg.line(margin, ly, margin + 26, ly, REP_ARROW, sw=2.5)
+    svg.arrowhead(margin + 26, ly, 1, 0, REP_ARROW, size=8)
+    svg.text(margin + 34, ly, t("export.net.replication_flow"), size=12, fill=DK2, anchor="start")
+
+    if n:
+        svg.text(W / 2, 16, t("export.net.replication_topology"), size=18, fill=DK2, weight="bold")
+    return svg.svg()
 
 
 if __name__ == "__main__":

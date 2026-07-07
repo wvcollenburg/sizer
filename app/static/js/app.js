@@ -41,6 +41,47 @@ let vmAdded = new Set();
 let vmRemoved = new Set();
 let vmPowerFilter = 'all';   // table view filter: 'all' | 'on' | 'off'
 
+// ---- Multi-site (source-cluster) state ----------------------------------
+// When an import holds more than one source (vSphere) cluster, the user can
+// opt to size each cluster separately. importVms stays a single whole-dataset
+// list (VM state is keyed by index into it); a cluster is a filtered VIEW of
+// it, and each cluster carries its own base summary, sizing options, and
+// results. Everything below is inert when separateClusters is false — the
+// single-cluster/combined path is unchanged.
+const COMBINED_KEY = '__combined__';         // internal key: the whole dataset (non-separate path)
+const SELECTED_KEY = '__selected__';         // review tab: the per-cluster export selection
+const UNCLUSTERED_KEY = '(unclustered)';     // mirrors cluster_split.UNCLUSTERED
+let sourceClusters = [];                     // [{name, host_count, vm_count}] from import
+let clusterBase = {};                        // name -> pristine per-cluster summary
+let separateClusters = false;                // the "size each cluster separately" toggle
+let activeCluster = COMBINED_KEY;            // active recommendation tab (a name or COMBINED_KEY)
+let clusterOptions = {};                     // name -> captured sizing-option fields
+let clusterResults = {};                     // name -> {recommendations, projection, perfSource}
+let clusterSelectedRec = {};                 // name -> chosen recommendation index for the combined export
+// Replication topology: source cluster -> { target, computePct, storagePct, mode }.
+// A cluster has at most one outbound target (star / circular / bidirectional all
+// fall out of each cluster naming its own target). mode is how THIS cluster
+// hosts inbound replicas: 'reserved' (held steady-state) or 'failover'.
+let clusterReplication = {};
+let dedicatedClusters = [];                  // names of workload-less DR target clusters
+// Single/combined-workload DR cluster (shown when NOT sizing each cluster
+// separately): one replication target for the whole workload.
+let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
+let drTab = 'primary';                       // active tab in single-workload mode: 'primary' | 'dr'
+let lastDrResult = null;                      // {summary, recommendations, projection} for the single-mode DR
+let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
+
+// The source-cluster a VM belongs to, blanks bucketed like the backend.
+function vmClusterKey(vm) {
+    return ((vm && vm.cluster) || '').trim() || UNCLUSTERED_KEY;
+}
+
+// Is this VM in scope for the given cluster? COMBINED_KEY (or null) = all VMs.
+function vmInCluster(vm, clusterName) {
+    if (!clusterName || clusterName === COMBINED_KEY) return true;
+    return vmClusterKey(vm) === clusterName;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     // Seed the tier defaults only after the disk-size catalog has loaded.
@@ -922,6 +963,7 @@ async function uploadFile(file) {
         vmAdded = new Set();
         vmRemoved = new Set();
         vmPowerFilter = 'all';
+        initClusters(data);  // sets up (or clears) the multi-site cluster tabs
         updateExclusionCountBadge();
         activeMode = 'import';
         document.getElementById('target-nodes').value = '';  // fresh upload starts uncapped
@@ -1141,6 +1183,17 @@ async function recalcRecommendations() {
     const sourcePerfType = 'specrate';
     updateSourcePerfCard();
 
+    // Multi-site: the inbound replication reserve this cluster must host, and
+    // how it reserves the compute for it.
+    let replicationReserve = null, replicationMode = 'reserved', allowSingleNode = false;
+    if (activeMode === 'import' && separateClusters
+        && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY) {
+        replicationReserve = inboundReserveFor(activeCluster);
+        replicationMode = _repCfg(activeCluster).mode || 'reserved';
+        // Single-node is only offered on dedicated DR clusters.
+        allowSingleNode = !!_repCfg(activeCluster).singleNode;
+    }
+
     try {
         const resp = await fetch('/api/recommend', {
             method: 'POST',
@@ -1162,6 +1215,9 @@ async function recalcRecommendations() {
                 max_day_one_ram_pct: maxDayOneRam,
                 source_perf_index: sourcePerfIndex,
                 source_perf_type: sourcePerfType,
+                replication_reserve: replicationReserve,
+                replication_compute_mode: replicationMode,
+                allow_single_node: allowSingleNode,
             }),
         });
         const data = await resp.json();
@@ -1172,12 +1228,25 @@ async function recalcRecommendations() {
         if (data.recommendations) {
             lastRecommendations[activeMode] = data.recommendations;
             lastSummary[activeMode] = summary;
+            // Cache per-cluster so a multi-cluster export can gather each
+            // cluster's sized result (only meaningful in separate-clusters mode).
+            if (activeMode === 'import' && separateClusters) {
+                clusterResults[activeCluster] = {
+                    recommendations: data.recommendations,
+                    projection: data.projection,
+                    perfSource: data.perf_comparison || null,
+                    summary: summary,
+                };
+            }
             renderRecommendationsTo(data.recommendations, 'rec-list', 'ratio-slider', activeMode, data.warnings);
             updateFullClusterInfo(sizeFullCluster, data.recommendations);
         }
         if (data.projection) {
             renderProjectionTo(data.projection, 'projection-summary');
         }
+        // Single/combined-workload DR cluster (no-op in separate mode / when off).
+        renderDrClusterOption();
+        sizeDrCluster(summary);
     } catch (e) {
         console.error('Recalc failed:', e);
     }
@@ -1247,18 +1316,17 @@ function iopsDemandNote(d) {
     return `<div class="proj-note">${window.t('results.workload_iops_demand', {values: bits.join(' &middot; ')})}</div>`;
 }
 
-function displayImportResults(data) {
-    const s = data.summary;
-    activeMode = 'import';
-    document.getElementById('import-results').style.display = 'block';
-    document.getElementById('sizing-results').style.display = 'block';
-
+// The current-environment ratio marker + label under the slider. resetSlider
+// starts a fresh sizing at the default ratio (used on first display); tab
+// switches leave the slider on the cluster's own saved value.
+function renderRatioContext(s, resetSlider) {
     const currentRatio = s.vcpu_per_core_ratio || 3.0;
-    const slider = document.getElementById('ratio-slider');
-    // Start sizing at the standard default ratio; the detected ratio is still
-    // reported below via the marker and label.
-    slider.value = DEFAULT_SIZING_RATIO;
-    updateRatioDisplay();
+    if (resetSlider) {
+        // Start sizing at the standard default ratio; the detected ratio is
+        // still reported below via the marker and label.
+        document.getElementById('ratio-slider').value = DEFAULT_SIZING_RATIO;
+        updateRatioDisplay();
+    }
 
     const markerPct = ((currentRatio - 1) / 7) * 100;
     const marker = document.getElementById('ratio-bar-marker');
@@ -1274,7 +1342,11 @@ function displayImportResults(data) {
         document.getElementById('ratio-current').innerHTML =
             window.t('results.ratio_current', {ratio: currentRatio.toFixed(2), vcpus: s.total_vcpus, cores: s.total_host_cores});
     }
+}
 
+// Env-summary + workload cards for a summary. Factored out so a cluster tab
+// switch can re-render them without re-running the whole import display.
+function renderEnvWorkloadCards(s) {
     document.getElementById('env-summary').innerHTML = `
         <div class="summary-card">
             <div class="summary-label">${window.t('import.current_platform')}</div>
@@ -1360,6 +1432,16 @@ function displayImportResults(data) {
     `;
 
     renderLocalStorageOption(s);
+}
+
+function displayImportResults(data) {
+    const s = data.summary;
+    activeMode = 'import';
+    document.getElementById('import-results').style.display = 'block';
+    document.getElementById('sizing-results').style.display = 'block';
+
+    renderRatioContext(s, true);
+    renderEnvWorkloadCards(s);
 
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
@@ -1439,35 +1521,77 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         ? (r.hci_node_count || r.node_count) + r.storage_only.count
         : r.node_count;
 
-    recList.innerHTML = warningsHtml + recommendations.map((r, i) => {
-        const clusterInfo = r.num_clusters > 1
-            ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
-            : window.t('results.one_cluster');
-        const n1Label = r.num_clusters > 1
-            ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
-            : window.t('results.n1_available');
-        const modelLabel = r.validated_only
-            ? r.model
-            : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
-        const ratioBadge = r.sized_full_cluster
-            ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
-            : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
-        const iops = r.iops || null;
-        const iopsRow = (val) => iops ? `<tr><td>${window.t('results.row.net_iops')}</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
-        const iopsHeadroom = buildIopsHeadroom(iops, demand);
-        const utilBars = buildUtilizationBars(r);
-        const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
-        const so = r.storage_only || null;
-        const nodesLabel = so
-            ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
-            : window.t('results.nodes_count', {count: r.node_count});
-        const soRows = so ? `
-                        <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_divider', {count: so.count})}</td></tr>
-                        <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
-                        <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
-                        <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
-        return `
-        <div class="rec-card ${i === 0 ? 'rec-best' : ''}">
+    // In separate-clusters mode each source cluster contributes one chosen
+    // recommendation to the combined export; surface a per-card picker (the
+    // Combined tab isn't part of that export, so no picker there).
+    const showRecPicker = mode === 'import' && separateClusters
+        && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY;
+    const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
+
+    recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
+        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx })
+    ).join('');
+}
+
+// Build one recommendation card's HTML. Shared by the per-cluster / manual rec
+// lists and the multi-site "Selected clusters" review tab. opts:
+//   showPicker    — show the per-card "use in export" selector
+//   selIdx        — currently-selected index (for the picker highlight)
+//   footerActions — show export/diagram action buttons (false on review cards,
+//                   which are for screenshotting the finished solution)
+function recCardHtml(r, i, mode, demand, opts) {
+    opts = opts || {};
+    const showRecPicker = !!opts.showPicker;
+    const selIdx = opts.selIdx == null ? -1 : opts.selIdx;
+    const footerActions = opts.footerActions !== false;
+    const recTotalNodes = rr => rr.storage_only
+        ? (rr.hci_node_count || rr.node_count) + rr.storage_only.count
+        : rr.node_count;
+
+    const isSelected = i === selIdx;
+    const recPicker = showRecPicker
+        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
+                title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+        : '';
+    const clusterInfo = r.num_clusters > 1
+        ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
+        : window.t('results.one_cluster');
+    const n1Label = r.num_clusters > 1
+        ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
+        : window.t('results.n1_available');
+    const modelLabel = r.validated_only
+        ? r.model
+        : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
+    const ratioBadge = r.sized_full_cluster
+        ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
+        : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
+    const iops = r.iops || null;
+    const iopsRow = (val) => iops ? `<tr><td>${window.t('results.row.net_iops')}</td><td>${Math.round(val).toLocaleString()}</td></tr>` : '';
+    const iopsHeadroom = buildIopsHeadroom(iops, demand);
+    const utilBars = buildUtilizationBars(r);
+    const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
+    const singleNodeNote = r.single_node
+        ? `<div class="info-bar"><span class="info-bar-icon">i</span><span><strong>${window.t('results.single_node_title')}</strong> ${window.t('results.single_node_note')}</span></div>`
+        : '';
+    const so = r.storage_only || null;
+    const nodesLabel = so
+        ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
+        : window.t('results.nodes_count', {count: r.node_count});
+    const soRows = so ? `
+                    <tr class="so-divider"><td colspan="2">${window.t('results.storage_only_divider', {count: so.count})}</td></tr>
+                    <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
+                    <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
+                    <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
+    const footerActionsHtml = footerActions ? `
+                <div class="rec-footer-actions">
+                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
+                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
+                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
+                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
+                </div>` : '';
+    return `
+        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
                 <span class="rec-model">${modelLabel}</span>
@@ -1475,6 +1599,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
                 ${ratioBadge}
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
+                ${recPicker}
             </div>
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
@@ -1518,18 +1643,12 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
             ${utilBars}
             ${iopsHeadroom}
             ${witnessNote}
+            ${singleNodeNote}
             <div class="rec-footer">
-                <span>${r.form_factor} &mdash; ${r.chassis}</span>
-                <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
-                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
-                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
-                </div>
+                <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
             </div>
         </div>
-    `}).join('');
+    `;
 }
 
 // Per-resource utilization bars (demand / available capacity at N-1) for a
@@ -1542,23 +1661,27 @@ function buildUtilizationBars(r) {
     const binding = (r.determinant && r.determinant.resource) || '';
     const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
     const labelFor = k => k === 'Storage' ? window.t('results.util.storage') : k;
-    let anyHa = false;
+    let anyHa = false, anyRep = false;
     const bars = rows.map(([key, val]) => {
         if (!val) return '';
         // Bar = full (all-nodes) capacity. `current` is today's load; up to
-        // `total` is growth + snapshot reserve; `ha_reserve` is capacity held for
-        // failover (the N-1→full gap, CPU/RAM only). Colour by CURRENT load (the
-        // real risk now) so a config sized tight against N-1 doesn't read as
-        // near-full load today. The failover node sits at the right edge.
+        // `total` is growth + snapshot reserve (which now includes any inbound
+        // replication reserve, carved out as its own dark-yellow band);
+        // `ha_reserve` is capacity held for failover (the N-1→full gap, CPU/RAM
+        // only). Colour by CURRENT load (the real risk now). Failover sits at the
+        // right edge; replication reserve sits just before free space.
         const cur = Math.max(0, Math.round(val.current || 0));
         const tot = Math.max(cur, Math.round(val.total || 0));
-        const reserve = tot - cur;
+        const rep = Math.max(0, Math.round(val.replication || 0));
+        const reserve = Math.max(0, tot - cur - rep);   // own growth + snapshot
+        if (rep > 0) anyRep = true;
         const ha = Math.max(0, Math.round(val.ha_reserve || 0));
         if (ha > 0) anyHa = true;
         const curW = Math.min(cur, 100);
         const resW = Math.min(reserve, 100 - curW);
-        const haW = Math.min(ha, 100 - curW - resW);
-        const freeW = Math.max(0, 100 - curW - resW - haW);
+        const repW = Math.min(rep, 100 - curW - resW);
+        const haW = Math.min(ha, 100 - curW - resW - repW);
+        const freeW = Math.max(0, 100 - curW - resW - repW - haW);
         const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
         const label = labelFor(key);
         const bind = key === binding
@@ -1568,6 +1691,7 @@ function buildUtilizationBars(r) {
             window.t('results.util.tip_now', {pct: cur}),
             window.t('results.util.tip_reserve', {pct: reserve}),
         ];
+        if (rep > 0) tipParts.push(window.t('results.util.tip_replication', {pct: rep}));
         if (ha > 0) tipParts.push(window.t('results.util.tip_ha', {pct: ha}));
         tipParts.push(window.t('results.util.tip_free', {pct: freeW}));
         const tip = window.t('results.util.tip', {label, parts: tipParts.join(' · '), tot});
@@ -1576,12 +1700,16 @@ function buildUtilizationBars(r) {
             <span class="util-track">
                 <span class="util-fill ${cls}" style="width:${curW}%"></span>
                 <span class="util-fill util-reserve" style="width:${resW}%"></span>
+                <span class="util-fill util-replication" style="width:${repW}%"></span>
                 <span class="util-fill util-free" style="width:${freeW}%"></span>
                 <span class="util-fill util-ha" style="width:${haW}%"></span>
             </span>
             <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
         </div>`;
     }).join('');
+    const repKey = anyRep
+        ? `<span class="util-key"><i class="util-sw util-sw-replication"></i>${window.t('results.util.replication_reserve')}</span>`
+        : '';
     const haKey = anyHa
         ? `<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}</span>`
         : '';
@@ -1591,6 +1719,7 @@ function buildUtilizationBars(r) {
             <span class="util-legend">
                 <span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}</span>
                 <span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}</span>
+                ${repKey}
                 ${haKey}
             </span>
         </div>${bars}
@@ -2000,17 +2129,42 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     btn.textContent = window.t('results.generating');
     btn.disabled = true;
 
+    // With a single-mode DR cluster configured, export one combined document
+    // covering the primary workload AND its DR target (reuses the multi-site
+    // builder). Otherwise export the single recommendation as before.
+    const drExport = !separateClusters && drCluster.enabled
+        && lastDrResult && lastDrResult.recommendations && lastDrResult.recommendations.length
+        && (mode === 'import' || mode === 'manual');
+
     try {
-        const resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                summary: summary,
-                recommendation: recs[recIndex],
-                projection: projection,
-                source_perf: buildSourcePerfExport(),
-            }),
-        });
+        let resp, fallbackName;
+        if (drExport) {
+            const clusters = [
+                { name: window.t('cluster.dr_tab_primary'), summary,
+                  recommendation: recs[recIndex], projection, source_perf: buildSourcePerfExport(),
+                  replicates_to: window.t('cluster.dr_tab_dr') },
+                { name: window.t('cluster.dr_tab_dr'), summary: lastDrResult.summary,
+                  recommendation: lastDrResult.recommendations[0], projection: lastDrResult.projection,
+                  source_perf: null, replicates_to: '' },
+            ];
+            resp = await fetch(_MULTISITE_ENDPOINTS[fmt] || _MULTISITE_ENDPOINTS.pptx, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ clusters }),
+            });
+            fallbackName = `SC_Proposal_Primary_plus_DR.${fmt}`;
+        } else {
+            resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    summary: summary,
+                    recommendation: recs[recIndex],
+                    projection: projection,
+                    source_perf: buildSourcePerfExport(),
+                }),
+            });
+            fallbackName = `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
+        }
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
@@ -2022,8 +2176,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
+        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1] || fallbackName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2033,6 +2186,128 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;
+    }
+}
+
+// ---- Combined multi-site export (one document, all clusters) --------------
+const _MULTISITE_ENDPOINTS = {
+    pptx: '/api/export-multisite-proposal',
+    docx: '/api/export-multisite-docx',
+    pdf: '/api/export-multisite-pdf',
+    'presentation-pdf': '/api/export-multisite-presentation-pdf',
+};
+
+function _optVal(opts, id, dflt) {
+    const v = opts ? opts[id] : undefined;
+    return v === undefined ? dflt : v;
+}
+
+// Build a /api/recommend body from a captured options object (field-id -> value)
+// rather than the live DOM, so clusters not currently in view can be sized.
+function _recommendBodyFromOpts(summary, opts) {
+    const targetNodes = _optVal(opts, 'target-nodes', '');
+    return {
+        summary,
+        vcpu_ratio: parseFloat(_optVal(opts, 'ratio-slider', DEFAULT_SIZING_RATIO)),
+        years: parseInt(_optVal(opts, 'growth-years', 5), 10),
+        growth_pct: parseFloat(_optVal(opts, 'growth-pct', 10)),
+        snapshot_pct: parseFloat(_optVal(opts, 'snapshot-pct', 20)),
+        target_nodes: targetNodes ? parseInt(targetNodes, 10) : null,
+        storage_pref: _optVal(opts, 'storage-pref', 'auto'),
+        size_full_cluster: !!_optVal(opts, 'size-full-cluster', false),
+        sizing_mode: _optVal(opts, 'sizing-mode', 'certified'),
+        allow_storage_only: !!_optVal(opts, 'allow-storage-only', false),
+        target_model: _optVal(opts, 'sizing-model-select', '') || null,
+        include_eol_eos: !!_optVal(opts, 'sizing-include-eol', false),
+        max_day_one_storage_pct: parseFloat(_optVal(opts, 'max-day-one-storage', 100)),
+        max_day_one_ram_pct: parseFloat(_optVal(opts, 'max-day-one-ram', 100)),
+        source_perf_index: null,
+        source_perf_type: 'specrate',
+    };
+}
+
+// Size any cluster the user hasn't opened yet, so the combined export covers
+// all of them. The active cluster's options are captured first so its latest
+// tuning is used.
+async function ensureAllClusterResults() {
+    if (separateClusters) clusterOptions[activeCluster] = _captureFields('import');
+    for (const c of sourceClusters) {
+        const cached = clusterResults[c.name];
+        if (cached && cached.recommendations && cached.recommendations.length) continue;
+        const summary = computeAdjustedImportSummary(c.name);
+        const opts = clusterOptions[c.name] || clusterOptions[COMBINED_KEY];
+        const body = _recommendBodyFromOpts(summary, opts);
+        body.replication_reserve = inboundReserveFor(c.name);
+        body.replication_compute_mode = (clusterReplication[c.name] || {}).mode || 'reserved';
+        body.allow_single_node = !!(clusterReplication[c.name] || {}).singleNode;
+        const resp = await fetch('/api/recommend', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        clusterResults[c.name] = {
+            recommendations: data.recommendations || [],
+            projection: data.projection,
+            perfSource: data.perf_comparison || null,
+            summary,
+        };
+    }
+}
+
+// Export one combined document covering every source cluster (each uses its
+// top recommendation). Only meaningful in separate-clusters mode.
+async function exportMultisite(fmt = 'pptx') {
+    if (!separateClusters) return;
+    const btn = (event && event.target.closest && event.target.closest('button')) || (event && event.target);
+    const origHtml = btn && btn.innerHTML;
+    if (btn) { btn.textContent = window.t('results.generating'); btn.disabled = true; }
+    try {
+        await ensureAllClusterResults();
+        const payloadClusters = sourceClusters.map(c => {
+            const res = clusterResults[c.name];
+            if (!res || !res.recommendations || !res.recommendations.length) return null;
+            // Use the cluster's chosen recommendation (defaults to #1), clamped
+            // in case a re-size shortened the list.
+            const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+            const target = (clusterReplication[c.name] || {}).target || '';
+            return {
+                name: c.name,
+                summary: res.summary,
+                recommendation: res.recommendations[sel],
+                projection: res.projection,
+                source_perf: null,
+                replicates_to: target ? clusterDisplayName(target) : '',
+            };
+        }).filter(Boolean);
+
+        if (!payloadClusters.length) {
+            alert(window.t('results.export_missing_data'));
+            return;
+        }
+
+        const resp = await fetch(_MULTISITE_ENDPOINTS[fmt] || _MULTISITE_ENDPOINTS.pptx, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ clusters: payloadClusters }),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            alert(err.error || window.t('results.export_failed'));
+            return;
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
+            || `SC_Proposal_MultiSite.${fmt}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert(window.t('results.export_failed_detail', {error: e.message}));
+    } finally {
+        if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
     }
 }
 
@@ -2090,6 +2365,13 @@ const CVM_PATTERNS = [
 
 function openVmExclusionModal() {
     if (!importVms.length) return;
+    // Open the modal on the tab matching the cluster being sized; on the review
+    // tab (no single active cluster) default to All VMs.
+    if (separateClusters) {
+        vmModalCluster = (activeCluster === SELECTED_KEY || activeCluster === COMBINED_KEY)
+            ? COMBINED_KEY : activeCluster;
+    }
+    renderClusterTabs();
     renderVmTable();
     updateVmExclusionSummary();
     document.getElementById('vm-exclusion-modal').style.display = 'flex';
@@ -2109,7 +2391,12 @@ function vmVal(vm, idx, field) {
 }
 
 function renderVmTable() {
-    const sorted = importVms.map((vm, i) => ({ ...vm, _idx: i }));
+    // In separate-clusters mode the modal shows one cluster's VMs per tab
+    // (COMBINED_KEY = all). Indices are preserved into the full importVms list.
+    const modalKey = separateClusters ? vmModalCluster : COMBINED_KEY;
+    const sorted = importVms
+        .map((vm, i) => ({ ...vm, _idx: i }))
+        .filter(vm => vmInCluster(vm, modalKey));
     sorted.sort((a, b) => {
         // Sort on the effective (possibly edited) values so order matches the
         // displayed Model / Cores / RAM.
@@ -2212,10 +2499,14 @@ function setVmPowerFilter(val) {
 // compute/RAM fall out of the summary recompute; its storage is added there.
 function addVm() {
     const idx = importVms.length;
+    // Tag net-new VMs with the cluster whose tab is active so they count toward
+    // that cluster's sizing (harmless '' when not sizing separately).
+    const cluster = (separateClusters && vmModalCluster !== COMBINED_KEY) ? vmModalCluster : '';
     importVms.push({
         name: window.t('import.new_vm_name'), powered_on: true, is_template: false, os: '', model: '',
         vcpus: 2, provisioned_memory_gb: 4, consumed_memory_gb: 0, used_memory_gb: 0,
         disk_capacity_gb: 0, disk_used_gb: 0, vdisk_size_gb: 0, vdisk_used_gb: 0,
+        cluster: cluster,
     });
     vmAdded.add(idx);
     renderVmTable();
@@ -2379,8 +2670,14 @@ function updateExclusionCountBadge() {
 // Rebuild the working summary from the pristine import: apply VM exclusions,
 // then add per-host local storage when opted in. Used by both the Exclude-VMs
 // flow and the include-local toggle so the two compose.
-function computeAdjustedImportSummary() {
-    const adjusted = JSON.parse(JSON.stringify(originalImportSummary));
+// Rebuild a working summary from the pristine base. With no clusterName (or
+// COMBINED_KEY) this is the whole dataset against originalImportSummary — the
+// original single-cluster behavior. With a source-cluster name it uses that
+// cluster's base summary and only its VMs, so each cluster sizes independently.
+function computeAdjustedImportSummary(clusterName) {
+    const scoped = clusterName && clusterName !== COMBINED_KEY;
+    const base = scoped ? clusterBase[clusterName] : originalImportSummary;
+    const adjusted = JSON.parse(JSON.stringify(base));
 
     // Recompute compute/RAM totals straight from the (possibly user-edited) VM
     // list rather than subtracting from the original, so per-VM Cores/RAM edits
@@ -2388,6 +2685,7 @@ function computeAdjustedImportSummary() {
     let sumVcpus = 0, sumProvRam = 0, sumUsedRam = 0, activeIncluded = 0;
     let maxVmRam = 0, maxVmCores = 0;
     importVms.forEach((vm, i) => {
+        if (!vmInCluster(vm, clusterName)) return;
         if (!vm.powered_on || vm.is_template || vmExclusions.compute.has(i)) return;
         const cores = vmVal(vm, i, 'vcpus');
         const ram = vmVal(vm, i, 'provisioned_memory_gb');
@@ -2419,6 +2717,7 @@ function computeAdjustedImportSummary() {
     vmExclusions.storage.forEach(i => {
         if (vmAdded.has(i)) return;
         const vm = importVms[i];
+        if (!vmInCluster(vm, clusterName)) return;
         exclStorGbAll += vm.vdisk_used_gb;
         if (vm.powered_on && !vm.is_template) {
             exclStorGbActive += vm.vdisk_used_gb;
@@ -2432,6 +2731,7 @@ function computeAdjustedImportSummary() {
     vmAdded.forEach(i => {
         if (vmRemoved.has(i) || vmExclusions.storage.has(i)) return;
         const vm = importVms[i];
+        if (!vmInCluster(vm, clusterName)) return;
         const used = vmVal(vm, i, 'vdisk_used_gb') || 0;
         addStorGbAll += used;
         if (vm.powered_on && !vm.is_template) {
@@ -2440,10 +2740,10 @@ function computeAdjustedImportSummary() {
         }
     });
 
-    adjusted.datastore_used_tb = Math.round((originalImportSummary.datastore_used_tb - exclStorGbAll / 1024 + addStorGbAll / 1024) * 100) / 100;
-    adjusted.total_vm_provisioned_storage_gb = Math.round((originalImportSummary.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
+    adjusted.datastore_used_tb = Math.round((base.datastore_used_tb - exclStorGbAll / 1024 + addStorGbAll / 1024) * 100) / 100;
+    adjusted.total_vm_provisioned_storage_gb = Math.round((base.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
     adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / 1024 * 100) / 100;
-    adjusted.total_vm_used_storage_gb = Math.round(((originalImportSummary.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
+    adjusted.total_vm_used_storage_gb = Math.round(((base.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
     adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
@@ -2451,8 +2751,8 @@ function computeAdjustedImportSummary() {
     // Per-host local storage (ISOs/templates etc.) — added to the cluster basis
     // only when the user opts in via the checkbox.
     if (includeLocalStorage) {
-        adjusted.datastore_used_tb = Math.round((adjusted.datastore_used_tb + (originalImportSummary.local_used_tb || 0)) * 100) / 100;
-        adjusted.datastore_total_tb = Math.round(((adjusted.datastore_total_tb || 0) + (originalImportSummary.local_total_tb || 0)) * 100) / 100;
+        adjusted.datastore_used_tb = Math.round((adjusted.datastore_used_tb + (base.local_used_tb || 0)) * 100) / 100;
+        adjusted.datastore_total_tb = Math.round(((adjusted.datastore_total_tb || 0) + (base.local_total_tb || 0)) * 100) / 100;
     }
 
     return adjusted;
@@ -2460,9 +2760,18 @@ function computeAdjustedImportSummary() {
 
 function applyVmExclusions() {
     if (!originalImportSummary) return;
-    importSummary = computeAdjustedImportSummary();
+    const key = activeClusterKey();
+    importSummary = computeAdjustedImportSummary(key === COMBINED_KEY ? null : key);
     updateExclusionCountBadge();
+    renderClusterTabs();  // per-tab counts may have shifted
     displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
+    // displayImportResults resets the ratio slider to default; in separate mode
+    // re-apply the active cluster's own saved options so its tuning survives.
+    if (separateClusters && clusterOptions[activeCluster]) {
+        const opts = clusterOptions[activeCluster];
+        Object.keys(opts).forEach(id => _writeField(id, opts[id]));
+        updateRatioDisplay();
+    }
     recalcRecommendations();
     closeVmExclusionModal();
 }
@@ -2472,9 +2781,567 @@ function toggleLocalStorage() {
     const cb = document.getElementById('include-local-cb');
     includeLocalStorage = cb ? cb.checked : false;
     if (!originalImportSummary) return;
-    importSummary = computeAdjustedImportSummary();
+    const key = activeClusterKey();
+    importSummary = computeAdjustedImportSummary(key === COMBINED_KEY ? null : key);
     displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
     recalcRecommendations();
+}
+
+// ==================== MULTI-SITE (SOURCE CLUSTER) CONTROL ====================
+// Everything here is inert unless the import held >1 source cluster AND the
+// user enabled "size each cluster separately". Tab bars are index-driven (the
+// tab key arrays below) so arbitrary cluster names can't break click handlers.
+
+let _recTabKeys = [];
+let _modalTabKeys = [];
+
+// The cluster whose summary/results are currently in view (COMBINED_KEY when
+// not sizing separately).
+function activeClusterKey() {
+    return separateClusters ? activeCluster : COMBINED_KEY;
+}
+
+function clusterDisplayName(key) {
+    if (key === COMBINED_KEY) return window.t('cluster.combined');
+    if (key === SELECTED_KEY) return window.t('cluster.selected_tab');
+    if (key === UNCLUSTERED_KEY) return window.t('cluster.unclustered');
+    return key;
+}
+
+// Toggle the per-cluster editing sections (env/workload cards, sizing options,
+// growth, recommendation list) off in favour of the "Selected clusters" review
+// panel — and back.
+function setClusterReviewMode(on) {
+    document.querySelectorAll('.import-workload, .ratio-control, .growth-control, #primary-recommendations')
+        .forEach(el => { el.style.display = on ? 'none' : ''; });
+    const env = document.getElementById('env-summary');
+    if (env) env.style.display = on ? 'none' : '';
+    const review = document.getElementById('cluster-review');
+    if (review) review.style.display = on ? 'block' : 'none';
+}
+
+// The "Selected clusters" review tab: a summary of each source cluster's chosen
+// recommendation, with the combined-export buttons. Sizes any not-yet-viewed
+// cluster so the review (and export) is complete.
+async function renderSelectedClustersTab() {
+    const review = document.getElementById('cluster-review');
+    if (!review) return;
+    review.innerHTML = `<div class="review-loading">${window.t('cluster.review_loading')}</div>`;
+    await ensureAllClusterResults();
+    if (activeCluster !== SELECTED_KEY) return;  // user tabbed away while sizing
+
+    // One full recommendation card per cluster (the selected one) — a
+    // screenshot-ready view of the finished multi-site solution.
+    const blocks = sourceClusters.map(c => {
+        const res = clusterResults[c.name];
+        if (!res || !res.recommendations || !res.recommendations.length) {
+            return `<div class="review-cluster-block">
+                <h4 class="review-cluster-title">${esc(c.name)}</h4>
+                <div class="review-none">${window.t('cluster.review_no_rec')}</div>
+            </div>`;
+        }
+        const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+        const r = res.recommendations[sel];
+        const demand = (res.projection || {}).iops_demand || null;
+        return `<div class="review-cluster-block">
+            <h4 class="review-cluster-title">${esc(c.name)} <span class="review-cluster-rank">${window.t('cluster.review_selected_rank', {rank: sel + 1})}</span></h4>
+            ${recCardHtml(r, sel, 'import', demand, { showPicker: false, footerActions: false })}
+        </div>`;
+    }).join('');
+
+    review.innerHTML = `
+        <div class="review-header">
+            <h3>${window.t('cluster.review_title')}</h3>
+            <span class="cluster-export-all">
+                <span class="cluster-export-label">${window.t('cluster.export_all')}</span>
+                <button class="btn btn-sm" data-click='["exportMultisite","pptx"]'>PPTX</button>
+                <button class="btn btn-sm" data-click='["exportMultisite","docx"]'>Word</button>
+                <button class="btn btn-sm" data-click='["exportMultisite","pdf"]'>PDF</button>
+            </span>
+        </div>
+        <p class="rec-desc">${window.t('cluster.review_desc')}</p>
+        ${blocks}`;
+}
+
+// Seed cluster state from an import response. Called on every upload.
+function initClusters(data) {
+    sourceClusters = (data.clusters || []).map(c => ({
+        name: c.name, host_count: c.host_count, vm_count: c.vm_count,
+    }));
+    clusterBase = {};
+    (data.clusters || []).forEach(c => {
+        clusterBase[c.name] = JSON.parse(JSON.stringify(c.summary));
+    });
+    separateClusters = false;
+    activeCluster = COMBINED_KEY;
+    vmModalCluster = COMBINED_KEY;
+    clusterOptions = {};
+    clusterResults = {};
+    clusterReplication = {};
+    dedicatedClusters = [];
+    drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
+    const cb = document.getElementById('separate-clusters-cb');
+    if (cb) cb.checked = false;
+    const toggle = document.getElementById('cluster-separate-toggle');
+    if (toggle) toggle.style.display = sourceClusters.length > 1 ? 'inline-flex' : 'none';
+    setClusterReviewMode(false);  // clear any leftover review panel from a prior import
+    renderClusterTabs();
+}
+
+function toggleSeparateClusters(checked) {
+    separateClusters = !!checked && sourceClusters.length > 1;
+    if (separateClusters) {
+        // Seed each cluster's (and the Combined view's) options from the current
+        // shared option values, without clobbering any the user already tuned.
+        const cur = _captureFields('import');
+        [COMBINED_KEY, ...sourceClusters.map(c => c.name)].forEach(k => {
+            if (!clusterOptions[k]) clusterOptions[k] = { ...cur };
+        });
+        activeCluster = sourceClusters[0].name;
+        vmModalCluster = activeCluster;
+    } else {
+        activeCluster = COMBINED_KEY;
+        vmModalCluster = COMBINED_KEY;
+    }
+    renderClusterTabs();
+    _selectClusterKey(activeClusterKey(), /*skipSave=*/true);
+}
+
+// Recommendation-area tab click (by index into _recTabKeys).
+function selectCluster(i) {
+    _selectClusterKey(_recTabKeys[i]);
+}
+
+// Switch the active cluster: save the current tab's options, restore the
+// target's, recompute its summary, re-render its cards, and re-size it.
+function _selectClusterKey(key, skipSave) {
+    if (!key) return;
+    // Capture the outgoing tab's options (unless leaving the review tab, which
+    // has no active per-cluster options).
+    if (!skipSave && separateClusters && activeCluster !== SELECTED_KEY) {
+        clusterOptions[activeCluster] = _captureFields('import');
+    }
+    activeCluster = key;
+    renderClusterTabs();
+
+    if (key === SELECTED_KEY) {
+        setClusterReviewMode(true);
+        renderSelectedClustersTab();
+        return;
+    }
+    setClusterReviewMode(false);
+
+    importSummary = computeAdjustedImportSummary(key === COMBINED_KEY ? null : key);
+    lastSummary['import'] = importSummary;
+    renderRatioContext(importSummary, false);
+    // Rebuild the cards first (they reset per-summary inputs like p95-iops),
+    // then restore this cluster's saved option values so they win.
+    renderEnvWorkloadCards(importSummary);
+    if (separateClusters) {
+        const opts = clusterOptions[key];
+        if (opts) Object.keys(opts).forEach(id => _writeField(id, opts[id]));
+    }
+    updateRatioDisplay();
+    renderReplicationOptions();
+    renderSourceCpus(importSummary && importSummary.source_cpus).then(() => recalcRecommendations());
+}
+
+// "Apply options to all clusters" — copy the active tab's sizing options to
+// every other cluster (and the Combined view).
+function applyOptionsToAllClusters() {
+    if (!separateClusters) return;
+    const cur = _captureFields('import');
+    [COMBINED_KEY, ...sourceClusters.map(c => c.name)].forEach(k => {
+        clusterOptions[k] = { ...cur };
+    });
+    showUploadStatus(window.t('cluster.applied_all'), false);
+}
+
+// Pick which recommendation the active cluster contributes to the combined
+// multi-site export, then re-render the cards to reflect the selection.
+function selectClusterRec(i) {
+    if (!separateClusters || activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
+    clusterSelectedRec[activeCluster] = i;
+    renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+}
+
+// Configure-VMs modal tab click (by index into _modalTabKeys).
+function selectVmModalCluster(i) {
+    vmModalCluster = _modalTabKeys[i];
+    renderClusterTabs();
+    renderVmTable();
+    filterVmTable();
+}
+
+function renderClusterTabs() {
+    const bar = document.getElementById('cluster-tabs');
+    const modalBar = document.getElementById('vm-cluster-tabs');
+    const show = separateClusters && sourceClusters.length > 1;
+    if (bar) bar.style.display = show ? 'flex' : 'none';
+    if (modalBar) modalBar.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+
+    // Recommendation tabs: each source cluster, then the "Selected clusters"
+    // review tab (which hosts the combined export).
+    _recTabKeys = [...sourceClusters.map(c => c.name), SELECTED_KEY];
+    if (bar) {
+        const tabs = _recTabKeys.map((k, i) => {
+            const c = sourceClusters.find(x => x.name === k);
+            const badge = c ? `<span class="cluster-tab-badge">${window.t('cluster.tab_badge', {hosts: c.host_count, vms: c.vm_count})}</span>` : '';
+            const cls = 'cluster-tab' + (k === activeCluster ? ' active' : '')
+                        + (k === SELECTED_KEY ? ' cluster-tab-review' : '')
+                        + (dedicatedClusters.includes(k) ? ' cluster-tab-dedicated' : '');
+            return `<button class="${cls}" data-click='["selectCluster",${i}]'>${esc(clusterDisplayName(k))}${badge}</button>`;
+        }).join('');
+        // Apply-options-to-all + add-dedicated-cluster live in the bar for real
+        // cluster tabs; hidden on the review tab.
+        const actions = activeCluster === SELECTED_KEY ? '' :
+            `<button class="btn btn-sm btn-muted cluster-apply-all" data-click='["applyOptionsToAllClusters"]'
+                     data-i18n-title="cluster.apply_all_info"
+                     title="Copy this tab's sizing options to every cluster.">${window.t('cluster.apply_all')}</button>
+             <button class="btn btn-sm btn-muted" data-click='["addDedicatedCluster"]'
+                     data-i18n-title="cluster.add_dedicated_info"
+                     title="Add a dedicated DR target that hosts only replicated data.">${window.t('cluster.add_dedicated')}</button>`;
+        bar.innerHTML = `<div class="cluster-tab-row">${tabs}</div>
+            <div class="cluster-tab-actions">${actions}</div>`;
+    }
+
+    // Modal tabs: All (combined) first, then each source cluster.
+    _modalTabKeys = [COMBINED_KEY, ...sourceClusters.map(c => c.name)];
+    if (modalBar) {
+        modalBar.innerHTML = _modalTabKeys.map((k, i) => {
+            const cls = 'cluster-tab' + (k === vmModalCluster ? ' active' : '');
+            const label = k === COMBINED_KEY ? window.t('cluster.all_vms') : clusterDisplayName(k);
+            return `<button class="${cls}" data-click='["selectVmModalCluster",${i}]'>${esc(label)}</button>`;
+        }).join('');
+    }
+}
+
+// ---- Replication topology (per-cluster) -----------------------------------
+
+function _repCfg(name) {
+    if (!clusterReplication[name]) {
+        clusterReplication[name] = { target: '', computePct: 100, storagePct: 100, mode: 'reserved' };
+    }
+    return clusterReplication[name];
+}
+
+// Inbound replication reserve a target cluster must host = Σ over sources that
+// replicate to it of (source's current demand × that source's compute/storage %).
+function inboundReserveFor(targetName) {
+    let vcpus = 0, ram = 0, storage = 0;
+    for (const src of sourceClusters) {
+        const rep = clusterReplication[src.name];
+        if (!rep || rep.target !== targetName) continue;
+        const s = computeAdjustedImportSummary(src.name);
+        vcpus += (s.total_vcpus || 0) * (rep.computePct || 0) / 100;
+        ram += (s.total_vm_provisioned_memory_gb || 0) * (rep.computePct || 0) / 100;
+        storage += (s.datastore_used_tb || 0) * (rep.storagePct || 0) / 100;
+    }
+    return { vcpus, ram_gb: ram, storage_tb: storage };
+}
+
+// Render the replication config for the active cluster into #replication-options
+// (shown only when sizing clusters separately, on a real/dedicated cluster tab).
+function renderReplicationOptions() {
+    const el = document.getElementById('replication-options');
+    if (!el) return;
+    const onRealTab = separateClusters && activeCluster !== COMBINED_KEY
+        && activeCluster !== SELECTED_KEY && sourceClusters.length > 1;
+    if (!onRealTab) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+
+    const cfg = _repCfg(activeCluster);
+    const isDedicated = dedicatedClusters.includes(activeCluster);
+    // Target options: every other cluster (source or dedicated).
+    const targetOpts = ['<option value="">' + esc(window.t('cluster.rep_target_none')) + '</option>']
+        .concat(sourceClusters.filter(c => c.name !== activeCluster).map(c =>
+            `<option value="${esc(c.name)}" ${cfg.target === c.name ? 'selected' : ''}>${esc(clusterDisplayName(c.name))}</option>`))
+        .join('');
+
+    const inbound = inboundReserveFor(activeCluster);
+    const hasInbound = inbound.vcpus > 0 || inbound.ram_gb > 0 || inbound.storage_tb > 0;
+    const inboundNote = hasInbound
+        ? `<div class="rep-inbound">${window.t('cluster.rep_inbound', {
+              vcpus: Math.round(inbound.vcpus),
+              ram: formatRam(Math.round(inbound.ram_gb)),
+              storage: Math.round(inbound.storage_tb * 10) / 10})}</div>`
+        : `<div class="rep-inbound rep-inbound-none">${window.t('cluster.rep_inbound_none')}</div>`;
+
+    const removeBtn = isDedicated
+        ? `<button class="btn btn-sm btn-muted rep-remove" data-click='["removeDedicatedCluster"]'>${window.t('cluster.remove_dedicated')}</button>`
+        : '';
+
+    el.innerHTML = `
+        <div class="rep-head"><h4>${window.t('cluster.rep_title')}</h4>${removeBtn}</div>
+        <div class="rep-grid">
+            <div class="form-group">
+                <label>${window.t('cluster.rep_target')}</label>
+                <select id="rep-target" data-change='["setReplicationTarget","$value"]'>${targetOpts}</select>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_compute_pct')}</label>
+                <input type="number" id="rep-compute" min="0" max="100" step="1" value="${cfg.computePct}"
+                       ${cfg.target ? '' : 'disabled'} data-change='["setReplicationPct","compute","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_storage_pct')}</label>
+                <input type="number" id="rep-storage" min="0" max="100" step="1" value="${cfg.storagePct}"
+                       ${cfg.target ? '' : 'disabled'} data-change='["setReplicationPct","storage","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_mode')}
+                    <span class="info-icon" tabindex="0" data-i18n-title="cluster.rep_mode_info"
+                          title="Applies to replication compute (CPU and RAM). Reserved holds it at N-1 (always available). Failover-only sizes it against the full cluster (replicas run only on failover) — smaller target. Storage is always held.">i</span>
+                </label>
+                <select id="rep-mode" data-change='["setReplicationMode","$value"]'>
+                    <option value="reserved" ${cfg.mode !== 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_reserved')}</option>
+                    <option value="failover" ${cfg.mode === 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_failover')}</option>
+                </select>
+            </div>
+        </div>
+        ${isDedicated ? `<div class="toggle-item">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="rep-single-node" ${cfg.singleNode ? 'checked' : ''} data-change='["setReplicationSingleNode","$checked"]'>
+                <span>${window.t('cluster.allow_single_node')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.allow_single_node_info"
+                  title="Allow a single-node DR target (no failover). A DR cluster is already a redundancy tier, so a single larger-disk node can be a valid, lower-cost target.">i</span>
+        </div>` : ''}
+        ${inboundNote}`;
+}
+
+function setReplicationSingleNode(checked) {
+    _repCfg(activeCluster).singleNode = !!checked;
+    recalcRecommendations();
+}
+
+function setReplicationTarget(value) {
+    const cfg = _repCfg(activeCluster);
+    cfg.target = value || '';
+    renderReplicationOptions();  // enable/disable %, refresh inbound notes elsewhere
+    recalcRecommendations();
+}
+
+function setReplicationPct(which, value) {
+    const cfg = _repCfg(activeCluster);
+    const v = Math.max(0, Math.min(100, Math.round(parseFloat(value) || 0)));
+    if (which === 'compute') cfg.computePct = v; else cfg.storagePct = v;
+    recalcRecommendations();
+}
+
+function setReplicationMode(value) {
+    _repCfg(activeCluster).mode = (value === 'failover') ? 'failover' : 'reserved';
+    recalcRecommendations();  // mode affects THIS cluster's inbound sizing
+}
+
+// Add a dedicated DR target cluster (no own workload) that other clusters can
+// replicate to. It gets its own tab and is sized purely from inbound replicas.
+function addDedicatedCluster() {
+    if (!separateClusters || !originalImportSummary) return;
+    let n = dedicatedClusters.length + 1;
+    let name = window.t('cluster.dedicated_name', {n});
+    const existing = new Set(sourceClusters.map(c => c.name));
+    while (existing.has(name)) { n++; name = window.t('cluster.dedicated_name', {n}); }
+
+    const base = JSON.parse(JSON.stringify(originalImportSummary));
+    ['total_vcpus', 'total_vm_provisioned_memory_gb', 'total_vm_used_memory_gb',
+     'datastore_used_tb', 'datastore_total_tb', 'total_vm_provisioned_storage_gb',
+     'total_vm_provisioned_storage_tb', 'total_vm_used_storage_gb', 'total_vm_used_storage_tb',
+     'active_vms', 'total_vms', 'host_count', 'total_host_cores', 'total_host_threads',
+     'total_host_ghz', 'total_host_ram_gb', 'peak_cpu_ghz', 'peak_cpu_pct', 'avg_cpu_pct',
+     'peak_mem_pct', 'avg_mem_pct', 'total_peak_iops', 'total_avg_iops', 'p95_iops',
+     'max_vm_ram_gb', 'max_vm_cores', 'local_used_tb', 'local_total_tb', 'local_used_gb',
+    ].forEach(k => { if (k in base) base[k] = 0; });
+    base.cluster_name = name;
+    base.current_platform = window.t('cluster.dedicated_platform');
+    base.source_cpus = [];
+
+    clusterBase[name] = base;
+    sourceClusters.push({ name, host_count: 0, vm_count: 0 });
+    dedicatedClusters.push(name);
+    clusterOptions[name] = { ...(clusterOptions[activeCluster] || clusterOptions[COMBINED_KEY] || _captureFields('import')) };
+    _selectClusterKey(name);  // switch to the new tab
+}
+
+function removeDedicatedCluster() {
+    if (!dedicatedClusters.includes(activeCluster)) return;
+    const name = activeCluster;
+    dedicatedClusters = dedicatedClusters.filter(n => n !== name);
+    sourceClusters = sourceClusters.filter(c => c.name !== name);
+    delete clusterBase[name];
+    delete clusterOptions[name];
+    delete clusterResults[name];
+    delete clusterReplication[name];
+    // Clear any cluster that was replicating to the removed target.
+    Object.values(clusterReplication).forEach(cfg => { if (cfg.target === name) cfg.target = ''; });
+    activeCluster = sourceClusters.length ? sourceClusters[0].name : COMBINED_KEY;
+    _selectClusterKey(activeCluster, /*skipSave=*/true);
+}
+
+// ---- Single/combined-workload DR cluster ----------------------------------
+// A replication target for the whole workload, available when NOT sizing each
+// cluster separately (in separate mode the per-cluster replication UI is used).
+
+function renderDrClusterOption() {
+    const el = document.getElementById('dr-cluster-option');
+    if (!el) return;
+    const show = !separateClusters && (activeMode === 'import' || activeMode === 'manual');
+    if (!show) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    const on = drCluster.enabled;
+    el.innerHTML = `
+        <div class="rep-head">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="dr-enable" ${on ? 'checked' : ''} data-change='["toggleDrCluster","$checked"]'>
+                <span>${window.t('cluster.dr_enable')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.dr_info"
+                  title="Add a replication (DR) target sized to host this workload's replica. Compute (CPU + RAM) and storage reserves are set separately; storage always includes the snapshot reserve.">i</span>
+        </div>
+        ${on ? `<div class="rep-grid">
+            <div class="form-group">
+                <label>${window.t('cluster.rep_compute_pct')}</label>
+                <input type="number" id="dr-compute" min="0" max="100" step="1" value="${drCluster.computePct}" data-change='["setDrPct","compute","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_storage_pct')}</label>
+                <input type="number" id="dr-storage" min="0" max="100" step="1" value="${drCluster.storagePct}" data-change='["setDrPct","storage","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_mode')}
+                    <span class="info-icon" tabindex="0" data-i18n-title="cluster.rep_mode_info"
+                          title="Applies to replication compute (CPU and RAM). Reserved holds it at N-1; Failover-only sizes it against the full cluster. Storage is always held.">i</span>
+                </label>
+                <select id="dr-mode" data-change='["setDrMode","$value"]'>
+                    <option value="reserved" ${drCluster.mode !== 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_reserved')}</option>
+                    <option value="failover" ${drCluster.mode === 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_failover')}</option>
+                </select>
+            </div>
+        </div>
+        <div class="toggle-item">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="dr-single-node" ${drCluster.allowSingleNode ? 'checked' : ''} data-change='["toggleDrSingleNode","$checked"]'>
+                <span>${window.t('cluster.allow_single_node')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.allow_single_node_info"
+                  title="Allow a single-node DR target (no failover). A DR cluster is already a redundancy tier, so a single larger-disk node can be a valid, lower-cost target.">i</span>
+        </div>` : ''}`;
+}
+
+function toggleDrSingleNode(checked) {
+    drCluster.allowSingleNode = !!checked;
+    recalcRecommendations();
+}
+
+function toggleDrCluster(checked) {
+    drCluster.enabled = !!checked;
+    if (!drCluster.enabled) drTab = 'primary';
+    renderDrClusterOption();
+    recalcRecommendations();
+}
+
+// Primary / Replication-DR tab bar (single-workload mode). Swaps which
+// recommendation list is shown; leaves the shared env/workload/options above.
+function renderDrTabs() {
+    const tabs = document.getElementById('dr-tabs');
+    const primary = document.getElementById('primary-recommendations');
+    const drSec = document.getElementById('dr-recommendations');
+    // Separate mode owns .import-recommendations (via the review tab); only hide
+    // the DR-specific bits here and let that path manage the primary list.
+    if (separateClusters) {
+        if (tabs) tabs.style.display = 'none';
+        if (drSec) drSec.style.display = 'none';
+        return;
+    }
+    const active = drCluster.enabled && (activeMode === 'import' || activeMode === 'manual');
+    if (!active) {
+        if (tabs) tabs.style.display = 'none';
+        if (drSec) drSec.style.display = 'none';
+        if (primary) primary.style.display = '';
+        return;
+    }
+    if (tabs) {
+        tabs.style.display = 'flex';
+        tabs.innerHTML = `<div class="cluster-tab-row">
+            <button class="cluster-tab ${drTab !== 'dr' ? 'active' : ''}" data-click='["selectDrTab","primary"]'>${window.t('cluster.dr_tab_primary')}</button>
+            <button class="cluster-tab ${drTab === 'dr' ? 'active' : ''}" data-click='["selectDrTab","dr"]'>${window.t('cluster.dr_tab_dr')}</button>
+        </div>`;
+    }
+    const showPrimary = drTab !== 'dr';
+    if (primary) primary.style.display = showPrimary ? '' : 'none';
+    if (drSec) drSec.style.display = showPrimary ? 'none' : 'block';
+}
+
+function selectDrTab(which) {
+    drTab = (which === 'dr') ? 'dr' : 'primary';
+    renderDrTabs();
+}
+function setDrPct(which, value) {
+    const v = Math.max(0, Math.min(100, Math.round(parseFloat(value) || 0)));
+    if (which === 'compute') drCluster.computePct = v; else drCluster.storagePct = v;
+    recalcRecommendations();
+}
+function setDrMode(value) {
+    drCluster.mode = (value === 'failover') ? 'failover' : 'reserved';
+    recalcRecommendations();
+}
+
+// A zeroed sizing summary (no own workload) derived from a primary summary,
+// keeping the largest-VM constraints so DR nodes can host the biggest replica.
+function makeZeroBaseFrom(summary) {
+    const b = JSON.parse(JSON.stringify(summary));
+    ['total_vcpus', 'total_vm_provisioned_memory_gb', 'total_vm_used_memory_gb',
+     'datastore_used_tb', 'datastore_total_tb', 'total_vm_provisioned_storage_gb',
+     'total_vm_provisioned_storage_tb', 'total_vm_used_storage_gb', 'total_vm_used_storage_tb',
+     'active_vms', 'total_vms', 'host_count', 'total_host_cores', 'total_host_threads',
+     'total_host_ghz', 'total_host_ram_gb', 'peak_cpu_ghz', 'peak_cpu_pct', 'avg_cpu_pct',
+     'peak_mem_pct', 'avg_mem_pct', 'total_peak_iops', 'total_avg_iops', 'p95_iops',
+     'local_used_tb', 'local_total_tb', 'local_used_gb',
+    ].forEach(k => { if (k in b) b[k] = 0; });
+    b.source_cpus = [];
+    return b;
+}
+
+// Size + render the single-mode DR cluster from the primary summary. Fire-and-
+// forget from recalcRecommendations after the primary render.
+async function sizeDrCluster(primarySummary) {
+    const sec = document.getElementById('dr-recommendations');
+    if (!sec) return;
+    const active = !separateClusters && drCluster.enabled && primarySummary
+        && (activeMode === 'import' || activeMode === 'manual');
+    if (!active) { lastDrResult = null; renderDrTabs(); return; }
+
+    const drSummary = makeZeroBaseFrom(primarySummary);
+    const reserve = {
+        vcpus: (primarySummary.total_vcpus || 0) * drCluster.computePct / 100,
+        ram_gb: (primarySummary.total_vm_provisioned_memory_gb || 0) * drCluster.computePct / 100,
+        storage_tb: (primarySummary.datastore_used_tb || 0) * drCluster.storagePct / 100,
+    };
+    const body = _recommendBodyFromOpts(drSummary, _captureFields('import'));
+    body.replication_reserve = reserve;
+    body.replication_compute_mode = drCluster.mode;
+    body.allow_single_node = drCluster.allowSingleNode;
+
+    renderDrTabs();  // reveal the tab bar; visibility of the section follows drTab
+    const list = document.getElementById('dr-rec-list');
+    list.innerHTML = `<div class="review-loading">${window.t('results.generating')}</div>`;
+    try {
+        const resp = await fetch('/api/recommend', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        // Cache so the proposal export can include the DR cluster alongside the primary.
+        lastDrResult = { summary: drSummary, recommendations: data.recommendations || [], projection: data.projection };
+        const demand = (data.projection || {}).iops_demand || null;
+        const recs = (data.recommendations || []).slice(0, 3);
+        list.innerHTML = recs.length
+            ? recs.map((r, i) => recCardHtml(r, i, '__dr__', demand, { showPicker: false, footerActions: false })).join('')
+            : `<div class="no-recs">${window.t('results.no_matching_configs')}</div>`;
+    } catch (e) {
+        lastDrResult = null;
+        list.innerHTML = `<div class="rec-warning">${window.t('results.export_failed')}</div>`;
+    }
 }
 
 // Render the "include local storage" checkbox (hidden when there is none, e.g.
@@ -2497,7 +3364,7 @@ function renderLocalStorageOption(s) {
 // Captures the entire sizing screen so a signed-in user can reload it later.
 // Exposed on window for auth.js (a separate script) to drive.
 
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 
 // Controls in the shared Sizing Options + Growth block — captured for BOTH the
 // import and manual flows (single source of truth, so they stay in lock-step).
@@ -2549,6 +3416,8 @@ function _captureFields(mode) {
 // Build a complete, restorable snapshot of the current screen.
 function captureSizingState() {
     const snap = { version: SNAPSHOT_VERSION, mode: currentMode, fields: _captureFields(currentMode) };
+    // Single/combined-workload DR cluster (shared across import + manual).
+    snap.drCluster = drCluster;
 
     if (currentMode === 'validated') {
         const tier = document.querySelector('input[name="disk-tier-mode"]:checked');
@@ -2557,6 +3426,8 @@ function captureSizingState() {
 
     if (currentMode === 'import') {
         if (!originalImportSummary) return null;  // nothing imported yet
+        // Persist the active cluster's latest option values before snapshotting.
+        if (separateClusters) clusterOptions[activeCluster] = _captureFields('import');
         snap.import = {
             originalImportSummary,
             importSummary,
@@ -2566,6 +3437,15 @@ function captureSizingState() {
             exclStorage: [...vmExclusions.storage],
             includeLocalStorage,
             lastProjection: lastProjection['import'] || null,
+            // Multi-site state (absent/ignored for single-cluster imports).
+            sourceClusters,
+            clusterBase,
+            separateClusters,
+            clusterOptions,
+            clusterSelectedRec,
+            clusterReplication,
+            dedicatedClusters,
+            activeCluster,
         };
     }
 
@@ -2587,6 +3467,7 @@ function hasSizingToSave() {
 async function restoreSizingState(snap) {
     if (!snap || !snap.mode) return;
     switchMode(snap.mode);
+    drCluster = snap.drCluster || { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const f = snap.fields || {};
 
     if (snap.mode === 'appliance') {
@@ -2631,13 +3512,40 @@ async function restoreSizingState(snap) {
         vmExclusions = { compute: new Set(im.exclCompute || []), storage: new Set(im.exclStorage || []) };
         includeLocalStorage = !!im.includeLocalStorage;
         lastProjection['import'] = im.lastProjection || null;
-        importSummary = computeAdjustedImportSummary();
+        // Restore multi-site state (older v1 snapshots have none → single cluster).
+        sourceClusters = im.sourceClusters || [];
+        clusterBase = im.clusterBase || {};
+        separateClusters = !!im.separateClusters;
+        clusterOptions = im.clusterOptions || {};
+        clusterSelectedRec = im.clusterSelectedRec || {};
+        clusterReplication = im.clusterReplication || {};
+        dedicatedClusters = im.dedicatedClusters || [];
+        clusterResults = {};
+        activeCluster = im.activeCluster || COMBINED_KEY;
+        // Restore into a concrete cluster tab, not the review tab (which needs a
+        // full re-size pass); the user can reopen it.
+        if (activeCluster === SELECTED_KEY) {
+            activeCluster = sourceClusters.length ? sourceClusters[0].name : COMBINED_KEY;
+        }
+        setClusterReviewMode(false);
+        vmModalCluster = separateClusters ? activeCluster : COMBINED_KEY;
+        const sepCb = document.getElementById('separate-clusters-cb');
+        if (sepCb) sepCb.checked = separateClusters;
+        const sepToggle = document.getElementById('cluster-separate-toggle');
+        if (sepToggle) sepToggle.style.display = sourceClusters.length > 1 ? 'inline-flex' : 'none';
+        const key = activeClusterKey();
+        importSummary = computeAdjustedImportSummary(key === COMBINED_KEY ? null : key);
         updateExclusionCountBadge();
+        renderClusterTabs();
         showUploadStatus(window.t('upload.restored'), false);
         // Re-render the env/workload cards from the adjusted summary, then re-apply
         // the saved options and recompute recommendations.
         displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
         (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
+        // In separate mode the active cluster's own options override the shared fields.
+        if (separateClusters && clusterOptions[activeCluster]) {
+            Object.keys(clusterOptions[activeCluster]).forEach(id => _writeField(id, clusterOptions[activeCluster][id]));
+        }
         updateRatioDisplay();
         recalcRecommendations();
         return;

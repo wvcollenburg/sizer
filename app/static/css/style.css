@@ -1348,6 +1348,9 @@ body { padding-bottom: 64px; }
 .util-sw-ha {
     background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
 }
+.util-sw-replication {
+    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
+}
 .util-row {
     display: flex;
     align-items: center;
@@ -1390,6 +1393,10 @@ body { padding-bottom: 64px; }
 .util-fill.util-high { background: var(--red, #c0392b); }
 .util-fill.util-reserve {
     background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+}
+/* Replication reserve (inbound DR replicas + snapshots) — dark yellow. */
+.util-fill.util-replication {
+    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
 }
 /* Operational free space — let the track background show through. */
 .util-fill.util-free { background: transparent; }
@@ -1988,6 +1995,156 @@ body.auth-required footer { display: none; }
 }
 .sizings-tab:hover { color: var(--text); }
 .sizings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---- Multi-site (source cluster) tabs ---- */
+.import-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.cluster-separate-toggle {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    align-items: center;
+    gap: 0.35rem;
+}
+.cluster-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin: 0.25rem 0 1rem;
+}
+.cluster-tab-row {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+.cluster-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+.cluster-tab:hover { color: var(--text); }
+.cluster-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.cluster-tab-badge {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    opacity: 0.8;
+}
+.cluster-apply-all { white-space: nowrap; }
+.cluster-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.cluster-export-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.cluster-export-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.cluster-tabs-modal {
+    padding: 0 1.5rem;
+    margin: 0;
+}
+/* Per-card "use in combined export" picker (separate-clusters mode only). */
+.rec-select {
+    margin-left: auto;
+    background: var(--surface);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.rec-select:hover { background: var(--accent); color: #fff; }
+.rec-select.selected {
+    background: var(--accent);
+    color: #fff;
+    cursor: default;
+}
+.rec-card.rec-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent) inset;
+}
+/* "Selected clusters" review tab. */
+.cluster-tab-review { font-weight: 700; }
+#cluster-review .review-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.review-cluster-block { margin-top: 1.25rem; }
+.review-cluster-title {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+.review-cluster-rank {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+.review-none { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
+.review-loading { color: var(--text-muted); padding: 1rem 0; }
+
+/* Per-cluster replication (DR) config in the sizing options. */
+.replication-options {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border);
+}
+.replication-options .rep-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.replication-options .rep-head h4 { margin: 0; font-size: 0.95rem; }
+.rep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+}
+.rep-inbound {
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--accent);
+    background: rgba(184, 134, 11, 0.08);
+    border-left: 3px solid #b8860b;
+    padding: 0.4rem 0.6rem;
+    border-radius: 3px;
+}
+.rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
+.cluster-tab-dedicated { font-style: italic; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;

@@ -20,6 +20,7 @@ from pptx.oxml.ns import qn
 
 from export_gauges import render_util_bars, util_rows, compute_floor_sentence
 from recommend import _rec_network_svg
+from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for
 
 # Brand palette taken from the template theme (resources/template.pptx):
@@ -150,6 +151,95 @@ def generate_proposal(summary, recommendation, projection, source_perf=None, lan
     _slide_benchmark(prs, recommendation, source_perf, t, lang)
     _slide_network(prs, recommendation, t, lang)
     _slide_projection(prs, summary, recommendation, projection, t, lang)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def _slide_replication_topology(prs, clusters, t, lang="en"):
+    """A routed replication-topology slide (clusters → gateways → routed segment,
+    with directional replication arrows). Skipped when nothing replicates."""
+    svg = render_replication_topology_svg(clusters, lang)
+    if not svg:
+        return
+    png = _svg_to_png_bytes(svg)
+    if not png:
+        return
+    slide = _add_slide(prs)
+    _add_title(slide, t("export.net.replication_topology"), lang=lang)
+    m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    vw, vh = (float(m.group(1)), float(m.group(2))) if m else (1200.0, 800.0)
+    avail_l, avail_t, avail_w, avail_h = 0.6, 1.7, 12.1, 5.3
+    scale = min(avail_w / vw, avail_h / vh)
+    bw, bh = vw * scale, vh * scale
+    slide.shapes.add_picture(io.BytesIO(png), Inches(avail_l + (avail_w - bw) / 2),
+                             Inches(avail_t + (avail_h - bh) / 2), Inches(bw), Inches(bh))
+
+
+def _slide_multisite_overview(prs, clusters, t, lang="en"):
+    """A leading slide summarising every sized source cluster."""
+    slide = _add_slide(prs)
+    _add_title(slide, t("export.pptx.multisite_title"),
+               t("export.pptx.multisite_subtitle", count=len(clusters)), lang=lang)
+    # Show the "Replicates to" column only when at least one cluster replicates.
+    show_rep = any(cl.get("replicates_to") for cl in clusters)
+    header = [
+        t("export.pptx.multisite_col_cluster"), t("export.pptx.multisite_col_model"),
+        t("export.pptx.multisite_col_nodes"), t("export.pptx.multisite_col_cores"),
+        t("export.pptx.multisite_col_ram"), t("export.pptx.multisite_col_storage"),
+    ]
+    if show_rep:
+        header.append(t("export.pptx.multisite_col_replicates"))
+    rows = [header]
+    for cl in clusters:
+        r = cl["recommendation"]
+        tot = r.get("totals", {})
+        row = [
+            cl.get("name", ""),
+            r.get("model", ""),
+            str(r.get("node_count", "")),
+            str(tot.get("cores", "")),
+            f"{round(tot.get('ram_gb', 0))} GB",
+            f"{tot.get('usable_storage_tb', 0)} TB",
+        ]
+        if show_rep:
+            row.append(cl.get("replicates_to") or "—")
+        rows.append(row)
+    widths = ([2.2, 2.9, 1.2, 1.3, 1.5, 1.6, 1.4] if show_rep
+              else [2.4, 3.3, 1.4, 1.5, 1.7, 1.8])
+    _add_table(slide, 0.6, 1.7, 12.1, rows, widths)
+
+
+def _slide_section_divider(prs, name, t, lang="en"):
+    """A section-break slide naming the cluster whose sizing follows."""
+    slide = _add_slide(prs)
+    _add_title(slide, t("export.pptx.cluster_section", name=name), lang=lang)
+
+
+def generate_multisite_proposal(clusters, lang="en"):
+    """One combined deck: an overview slide, then the full per-cluster proposal
+    slides for each source cluster (each preceded by a section-break slide).
+    `clusters` = [{name, summary, recommendation, projection, source_perf}]."""
+    t = translator(lang)
+    prs = _new_deck()
+
+    _slide_multisite_overview(prs, clusters, t, lang)
+    _slide_replication_topology(prs, clusters, t, lang)
+    for cl in clusters:
+        s = cl["summary"]
+        r = cl["recommendation"]
+        p = cl["projection"]
+        sp = cl.get("source_perf")
+        _slide_section_divider(prs, cl.get("name", ""), t, lang)
+        _slide_current_env(prs, s, t, lang)
+        _slide_workload(prs, s, t, lang)
+        _slide_proposal(prs, r, p, t, lang)
+        _slide_sizing(prs, r, s, t, lang)
+        _slide_benchmark(prs, r, sp, t, lang)
+        _slide_network(prs, r, t, lang)
+        _slide_projection(prs, s, r, p, t, lang)
 
     buf = io.BytesIO()
     prs.save(buf)
@@ -790,6 +880,9 @@ def _slide_sizing(prs, r, s, t=None, lang="en"):
         cfs = compute_floor_sentence(r, lang)
         if cfs:
             lines.append((cfs, 11, MID_GRAY, False))
+    # Single-node DR target: call out that there is no failover redundancy.
+    if r.get("single_node"):
+        lines.append((t("export.common.single_node_note"), 11, ORANGE, False))
     lines.append((t("export.pptx.bar_legend"), 11, MID_GRAY, False))
     _add_textbox(slide, 0.6, top, 12.1, 1.8, lines, lang=lang)
 
