@@ -27,6 +27,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
 from export_gauges import render_util_bars, util_rows, compute_floor_sentence
 from recommend import _rec_network_svg
+from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for, is_cjk
 
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
@@ -386,17 +387,34 @@ def build_multisite_proposal_docx(clusters, lang="en"):
         t9n("export.docx.multisite_subtitle", count=len(clusters)), style="Subtitle"), lang)
 
     _apply_lang_font_para(doc.add_heading(t9n("export.docx.multisite_overview"), level=1), lang)
+    show_rep = any(cl.get("replicates_to") for cl in clusters)
     header = [t9n("export.pptx.multisite_col_cluster"), t9n("export.pptx.multisite_col_model"),
               t9n("export.pptx.multisite_col_nodes"), t9n("export.pptx.multisite_col_cores"),
               t9n("export.pptx.multisite_col_ram"), t9n("export.pptx.multisite_col_storage")]
+    if show_rep:
+        header.append(t9n("export.pptx.multisite_col_replicates"))
     rows = []
     for cl in clusters:
         r = cl["recommendation"]
         tot = r.get("totals", {})
-        rows.append([cl.get("name", ""), r.get("model", ""), str(r.get("node_count", "")),
-                     str(tot.get("cores", "")), _fmt_ram(tot.get("ram_gb", 0)),
-                     f"{tot.get('usable_storage_tb', 0)} TB"])
-    _grid_table(doc, header, rows, total_w=cw, weights=[1.6, 2.2, 0.9, 1.0, 1.2, 1.3], lang=lang)
+        row = [cl.get("name", ""), r.get("model", ""), str(r.get("node_count", "")),
+               str(tot.get("cores", "")), _fmt_ram(tot.get("ram_gb", 0)),
+               f"{tot.get('usable_storage_tb', 0)} TB"]
+        if show_rep:
+            row.append(cl.get("replicates_to") or "—")
+        rows.append(row)
+    weights = [1.5, 2.0, 0.8, 0.9, 1.1, 1.2, 1.3] if show_rep else [1.6, 2.2, 0.9, 1.0, 1.2, 1.3]
+    _grid_table(doc, header, rows, total_w=cw, weights=weights, lang=lang)
+
+    # Routed replication topology diagram (only when something replicates).
+    topo_svg = render_replication_topology_svg(clusters, lang)
+    if topo_svg:
+        png = _svg_to_png_bytes(topo_svg, out_width=2200)
+        if png:
+            _spacer(doc)
+            _apply_lang_font_para(doc.add_heading(t9n("export.net.replication_topology"), level=2), lang)
+            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     for cl in clusters:
         doc.add_page_break()
@@ -503,6 +521,9 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
         (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
     ]
     _spec_table(doc, spec_rows, total_w=cw, lang=lang)
+    # Single-node DR target: no failover redundancy.
+    if r.get("single_node"):
+        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
     _spacer(doc)
 
     # Network diagram — regenerate in the document language (fall back to stored).

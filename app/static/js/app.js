@@ -68,6 +68,7 @@ let dedicatedClusters = [];                  // names of workload-less DR target
 // separately): one replication target for the whole workload.
 let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
 let drTab = 'primary';                       // active tab in single-workload mode: 'primary' | 'dr'
+let lastDrResult = null;                      // {summary, recommendations, projection} for the single-mode DR
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
 // The source-cluster a VM belongs to, blanks bucketed like the backend.
@@ -2128,17 +2129,42 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     btn.textContent = window.t('results.generating');
     btn.disabled = true;
 
+    // With a single-mode DR cluster configured, export one combined document
+    // covering the primary workload AND its DR target (reuses the multi-site
+    // builder). Otherwise export the single recommendation as before.
+    const drExport = !separateClusters && drCluster.enabled
+        && lastDrResult && lastDrResult.recommendations && lastDrResult.recommendations.length
+        && (mode === 'import' || mode === 'manual');
+
     try {
-        const resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                summary: summary,
-                recommendation: recs[recIndex],
-                projection: projection,
-                source_perf: buildSourcePerfExport(),
-            }),
-        });
+        let resp, fallbackName;
+        if (drExport) {
+            const clusters = [
+                { name: window.t('cluster.dr_tab_primary'), summary,
+                  recommendation: recs[recIndex], projection, source_perf: buildSourcePerfExport(),
+                  replicates_to: window.t('cluster.dr_tab_dr') },
+                { name: window.t('cluster.dr_tab_dr'), summary: lastDrResult.summary,
+                  recommendation: lastDrResult.recommendations[0], projection: lastDrResult.projection,
+                  source_perf: null, replicates_to: '' },
+            ];
+            resp = await fetch(_MULTISITE_ENDPOINTS[fmt] || _MULTISITE_ENDPOINTS.pptx, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ clusters }),
+            });
+            fallbackName = `SC_Proposal_Primary_plus_DR.${fmt}`;
+        } else {
+            resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    summary: summary,
+                    recommendation: recs[recIndex],
+                    projection: projection,
+                    source_perf: buildSourcePerfExport(),
+                }),
+            });
+            fallbackName = `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
+        }
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
@@ -2150,8 +2176,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
+        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1] || fallbackName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2244,12 +2269,14 @@ async function exportMultisite(fmt = 'pptx') {
             // Use the cluster's chosen recommendation (defaults to #1), clamped
             // in case a re-size shortened the list.
             const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+            const target = (clusterReplication[c.name] || {}).target || '';
             return {
                 name: c.name,
                 summary: res.summary,
                 recommendation: res.recommendations[sel],
                 projection: res.projection,
                 source_perf: null,
+                replicates_to: target ? clusterDisplayName(target) : '',
             };
         }).filter(Boolean);
 
@@ -3283,14 +3310,15 @@ async function sizeDrCluster(primarySummary) {
     if (!sec) return;
     const active = !separateClusters && drCluster.enabled && primarySummary
         && (activeMode === 'import' || activeMode === 'manual');
-    if (!active) { renderDrTabs(); return; }
+    if (!active) { lastDrResult = null; renderDrTabs(); return; }
 
+    const drSummary = makeZeroBaseFrom(primarySummary);
     const reserve = {
         vcpus: (primarySummary.total_vcpus || 0) * drCluster.computePct / 100,
         ram_gb: (primarySummary.total_vm_provisioned_memory_gb || 0) * drCluster.computePct / 100,
         storage_tb: (primarySummary.datastore_used_tb || 0) * drCluster.storagePct / 100,
     };
-    const body = _recommendBodyFromOpts(makeZeroBaseFrom(primarySummary), _captureFields('import'));
+    const body = _recommendBodyFromOpts(drSummary, _captureFields('import'));
     body.replication_reserve = reserve;
     body.replication_compute_mode = drCluster.mode;
     body.allow_single_node = drCluster.allowSingleNode;
@@ -3303,12 +3331,15 @@ async function sizeDrCluster(primarySummary) {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
         });
         const data = await resp.json();
+        // Cache so the proposal export can include the DR cluster alongside the primary.
+        lastDrResult = { summary: drSummary, recommendations: data.recommendations || [], projection: data.projection };
         const demand = (data.projection || {}).iops_demand || null;
         const recs = (data.recommendations || []).slice(0, 3);
         list.innerHTML = recs.length
             ? recs.map((r, i) => recCardHtml(r, i, '__dr__', demand, { showPicker: false, footerActions: false })).join('')
             : `<div class="no-recs">${window.t('results.no_matching_configs')}</div>`;
     } catch (e) {
+        lastDrResult = null;
         list.innerHTML = `<div class="rec-warning">${window.t('results.export_failed')}</div>`;
     }
 }
