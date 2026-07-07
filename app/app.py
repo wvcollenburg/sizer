@@ -291,6 +291,10 @@ def create_app():
         # (SPECrate2017 or PassMark, per the detected source CPU class).
         source_perf_index = data.get("source_perf_index")
         source_perf_type = data.get("source_perf_type")
+        # Multi-site DR: inbound replication reserve this cluster must host, and
+        # whether the compute reserve is held steady-state or only on failover.
+        replication_reserve = data.get("replication_reserve")
+        replication_compute_mode = data.get("replication_compute_mode", "reserved")
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
@@ -303,7 +307,9 @@ def create_app():
                                           max_day_one_storage_pct=max_day_one_storage_pct,
                                           max_day_one_ram_pct=max_day_one_ram_pct,
                                           source_perf_index=source_perf_index,
-                                          source_perf_type=source_perf_type)
+                                          source_perf_type=source_perf_type,
+                                          replication_reserve=replication_reserve,
+                                          replication_compute_mode=replication_compute_mode)
         return jsonify(result)
 
     @app.route("/api/cpu-perf")

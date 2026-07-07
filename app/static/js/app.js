@@ -58,6 +58,12 @@ let activeCluster = COMBINED_KEY;            // active recommendation tab (a nam
 let clusterOptions = {};                     // name -> captured sizing-option fields
 let clusterResults = {};                     // name -> {recommendations, projection, perfSource}
 let clusterSelectedRec = {};                 // name -> chosen recommendation index for the combined export
+// Replication topology: source cluster -> { target, computePct, storagePct, mode }.
+// A cluster has at most one outbound target (star / circular / bidirectional all
+// fall out of each cluster naming its own target). mode is how THIS cluster
+// hosts inbound replicas: 'reserved' (held steady-state) or 'failover'.
+let clusterReplication = {};
+let dedicatedClusters = [];                  // names of workload-less DR target clusters
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
 // The source-cluster a VM belongs to, blanks bucketed like the backend.
@@ -1172,6 +1178,15 @@ async function recalcRecommendations() {
     const sourcePerfType = 'specrate';
     updateSourcePerfCard();
 
+    // Multi-site: the inbound replication reserve this cluster must host, and
+    // how it reserves the compute for it.
+    let replicationReserve = null, replicationMode = 'reserved';
+    if (activeMode === 'import' && separateClusters
+        && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY) {
+        replicationReserve = inboundReserveFor(activeCluster);
+        replicationMode = _repCfg(activeCluster).mode || 'reserved';
+    }
+
     try {
         const resp = await fetch('/api/recommend', {
             method: 'POST',
@@ -1193,6 +1208,8 @@ async function recalcRecommendations() {
                 max_day_one_ram_pct: maxDayOneRam,
                 source_perf_index: sourcePerfIndex,
                 source_perf_type: sourcePerfType,
+                replication_reserve: replicationReserve,
+                replication_compute_mode: replicationMode,
             }),
         });
         const data = await resp.json();
@@ -1629,23 +1646,27 @@ function buildUtilizationBars(r) {
     const binding = (r.determinant && r.determinant.resource) || '';
     const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
     const labelFor = k => k === 'Storage' ? window.t('results.util.storage') : k;
-    let anyHa = false;
+    let anyHa = false, anyRep = false;
     const bars = rows.map(([key, val]) => {
         if (!val) return '';
         // Bar = full (all-nodes) capacity. `current` is today's load; up to
-        // `total` is growth + snapshot reserve; `ha_reserve` is capacity held for
-        // failover (the N-1→full gap, CPU/RAM only). Colour by CURRENT load (the
-        // real risk now) so a config sized tight against N-1 doesn't read as
-        // near-full load today. The failover node sits at the right edge.
+        // `total` is growth + snapshot reserve (which now includes any inbound
+        // replication reserve, carved out as its own dark-yellow band);
+        // `ha_reserve` is capacity held for failover (the N-1→full gap, CPU/RAM
+        // only). Colour by CURRENT load (the real risk now). Failover sits at the
+        // right edge; replication reserve sits just before free space.
         const cur = Math.max(0, Math.round(val.current || 0));
         const tot = Math.max(cur, Math.round(val.total || 0));
-        const reserve = tot - cur;
+        const rep = Math.max(0, Math.round(val.replication || 0));
+        const reserve = Math.max(0, tot - cur - rep);   // own growth + snapshot
+        if (rep > 0) anyRep = true;
         const ha = Math.max(0, Math.round(val.ha_reserve || 0));
         if (ha > 0) anyHa = true;
         const curW = Math.min(cur, 100);
         const resW = Math.min(reserve, 100 - curW);
-        const haW = Math.min(ha, 100 - curW - resW);
-        const freeW = Math.max(0, 100 - curW - resW - haW);
+        const repW = Math.min(rep, 100 - curW - resW);
+        const haW = Math.min(ha, 100 - curW - resW - repW);
+        const freeW = Math.max(0, 100 - curW - resW - repW - haW);
         const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
         const label = labelFor(key);
         const bind = key === binding
@@ -1655,6 +1676,7 @@ function buildUtilizationBars(r) {
             window.t('results.util.tip_now', {pct: cur}),
             window.t('results.util.tip_reserve', {pct: reserve}),
         ];
+        if (rep > 0) tipParts.push(window.t('results.util.tip_replication', {pct: rep}));
         if (ha > 0) tipParts.push(window.t('results.util.tip_ha', {pct: ha}));
         tipParts.push(window.t('results.util.tip_free', {pct: freeW}));
         const tip = window.t('results.util.tip', {label, parts: tipParts.join(' · '), tot});
@@ -1663,12 +1685,16 @@ function buildUtilizationBars(r) {
             <span class="util-track">
                 <span class="util-fill ${cls}" style="width:${curW}%"></span>
                 <span class="util-fill util-reserve" style="width:${resW}%"></span>
+                <span class="util-fill util-replication" style="width:${repW}%"></span>
                 <span class="util-fill util-free" style="width:${freeW}%"></span>
                 <span class="util-fill util-ha" style="width:${haW}%"></span>
             </span>
             <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
         </div>`;
     }).join('');
+    const repKey = anyRep
+        ? `<span class="util-key"><i class="util-sw util-sw-replication"></i>${window.t('results.util.replication_reserve')}</span>`
+        : '';
     const haKey = anyHa
         ? `<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}</span>`
         : '';
@@ -1678,6 +1704,7 @@ function buildUtilizationBars(r) {
             <span class="util-legend">
                 <span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}</span>
                 <span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}</span>
+                ${repKey}
                 ${haKey}
             </span>
         </div>${bars}
@@ -2170,9 +2197,12 @@ async function ensureAllClusterResults() {
         if (cached && cached.recommendations && cached.recommendations.length) continue;
         const summary = computeAdjustedImportSummary(c.name);
         const opts = clusterOptions[c.name] || clusterOptions[COMBINED_KEY];
+        const body = _recommendBodyFromOpts(summary, opts);
+        body.replication_reserve = inboundReserveFor(c.name);
+        body.replication_compute_mode = (clusterReplication[c.name] || {}).mode || 'reserved';
         const resp = await fetch('/api/recommend', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(_recommendBodyFromOpts(summary, opts)),
+            body: JSON.stringify(body),
         });
         const data = await resp.json();
         clusterResults[c.name] = {
@@ -2805,6 +2835,8 @@ function initClusters(data) {
     vmModalCluster = COMBINED_KEY;
     clusterOptions = {};
     clusterResults = {};
+    clusterReplication = {};
+    dedicatedClusters = [];
     const cb = document.getElementById('separate-clusters-cb');
     if (cb) cb.checked = false;
     const toggle = document.getElementById('cluster-separate-toggle');
@@ -2867,6 +2899,7 @@ function _selectClusterKey(key, skipSave) {
         if (opts) Object.keys(opts).forEach(id => _writeField(id, opts[id]));
     }
     updateRatioDisplay();
+    renderReplicationOptions();
     renderSourceCpus(importSummary && importSummary.source_cpus).then(() => recalcRecommendations());
 }
 
@@ -2913,17 +2946,21 @@ function renderClusterTabs() {
             const c = sourceClusters.find(x => x.name === k);
             const badge = c ? `<span class="cluster-tab-badge">${window.t('cluster.tab_badge', {hosts: c.host_count, vms: c.vm_count})}</span>` : '';
             const cls = 'cluster-tab' + (k === activeCluster ? ' active' : '')
-                        + (k === SELECTED_KEY ? ' cluster-tab-review' : '');
+                        + (k === SELECTED_KEY ? ' cluster-tab-review' : '')
+                        + (dedicatedClusters.includes(k) ? ' cluster-tab-dedicated' : '');
             return `<button class="${cls}" data-click='["selectCluster",${i}]'>${esc(clusterDisplayName(k))}${badge}</button>`;
         }).join('');
-        // Apply-options-to-all lives in the bar for real cluster tabs; hidden on
-        // the review tab (there's no active per-cluster options there).
-        const applyAll = activeCluster === SELECTED_KEY ? '' :
+        // Apply-options-to-all + add-dedicated-cluster live in the bar for real
+        // cluster tabs; hidden on the review tab.
+        const actions = activeCluster === SELECTED_KEY ? '' :
             `<button class="btn btn-sm btn-muted cluster-apply-all" data-click='["applyOptionsToAllClusters"]'
                      data-i18n-title="cluster.apply_all_info"
-                     title="Copy this tab's sizing options to every cluster.">${window.t('cluster.apply_all')}</button>`;
+                     title="Copy this tab's sizing options to every cluster.">${window.t('cluster.apply_all')}</button>
+             <button class="btn btn-sm btn-muted" data-click='["addDedicatedCluster"]'
+                     data-i18n-title="cluster.add_dedicated_info"
+                     title="Add a dedicated DR target that hosts only replicated data.">${window.t('cluster.add_dedicated')}</button>`;
         bar.innerHTML = `<div class="cluster-tab-row">${tabs}</div>
-            <div class="cluster-tab-actions">${applyAll}</div>`;
+            <div class="cluster-tab-actions">${actions}</div>`;
     }
 
     // Modal tabs: All (combined) first, then each source cluster.
@@ -2935,6 +2972,155 @@ function renderClusterTabs() {
             return `<button class="${cls}" data-click='["selectVmModalCluster",${i}]'>${esc(label)}</button>`;
         }).join('');
     }
+}
+
+// ---- Replication topology (per-cluster) -----------------------------------
+
+function _repCfg(name) {
+    if (!clusterReplication[name]) {
+        clusterReplication[name] = { target: '', computePct: 100, storagePct: 100, mode: 'reserved' };
+    }
+    return clusterReplication[name];
+}
+
+// Inbound replication reserve a target cluster must host = Σ over sources that
+// replicate to it of (source's current demand × that source's compute/storage %).
+function inboundReserveFor(targetName) {
+    let vcpus = 0, ram = 0, storage = 0;
+    for (const src of sourceClusters) {
+        const rep = clusterReplication[src.name];
+        if (!rep || rep.target !== targetName) continue;
+        const s = computeAdjustedImportSummary(src.name);
+        vcpus += (s.total_vcpus || 0) * (rep.computePct || 0) / 100;
+        ram += (s.total_vm_provisioned_memory_gb || 0) * (rep.computePct || 0) / 100;
+        storage += (s.datastore_used_tb || 0) * (rep.storagePct || 0) / 100;
+    }
+    return { vcpus, ram_gb: ram, storage_tb: storage };
+}
+
+// Render the replication config for the active cluster into #replication-options
+// (shown only when sizing clusters separately, on a real/dedicated cluster tab).
+function renderReplicationOptions() {
+    const el = document.getElementById('replication-options');
+    if (!el) return;
+    const onRealTab = separateClusters && activeCluster !== COMBINED_KEY
+        && activeCluster !== SELECTED_KEY && sourceClusters.length > 1;
+    if (!onRealTab) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+
+    const cfg = _repCfg(activeCluster);
+    const isDedicated = dedicatedClusters.includes(activeCluster);
+    // Target options: every other cluster (source or dedicated).
+    const targetOpts = ['<option value="">' + esc(window.t('cluster.rep_target_none')) + '</option>']
+        .concat(sourceClusters.filter(c => c.name !== activeCluster).map(c =>
+            `<option value="${esc(c.name)}" ${cfg.target === c.name ? 'selected' : ''}>${esc(clusterDisplayName(c.name))}</option>`))
+        .join('');
+
+    const inbound = inboundReserveFor(activeCluster);
+    const hasInbound = inbound.vcpus > 0 || inbound.ram_gb > 0 || inbound.storage_tb > 0;
+    const inboundNote = hasInbound
+        ? `<div class="rep-inbound">${window.t('cluster.rep_inbound', {
+              vcpus: Math.round(inbound.vcpus),
+              ram: formatRam(Math.round(inbound.ram_gb)),
+              storage: Math.round(inbound.storage_tb * 10) / 10})}</div>`
+        : `<div class="rep-inbound rep-inbound-none">${window.t('cluster.rep_inbound_none')}</div>`;
+
+    const removeBtn = isDedicated
+        ? `<button class="btn btn-sm btn-muted rep-remove" data-click='["removeDedicatedCluster"]'>${window.t('cluster.remove_dedicated')}</button>`
+        : '';
+
+    el.innerHTML = `
+        <div class="rep-head"><h4>${window.t('cluster.rep_title')}</h4>${removeBtn}</div>
+        <div class="rep-grid">
+            <div class="form-group">
+                <label>${window.t('cluster.rep_target')}</label>
+                <select id="rep-target" data-change='["setReplicationTarget","$value"]'>${targetOpts}</select>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_compute_pct')}</label>
+                <input type="number" id="rep-compute" min="0" max="100" step="1" value="${cfg.computePct}"
+                       ${cfg.target ? '' : 'disabled'} data-change='["setReplicationPct","compute","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_storage_pct')}</label>
+                <input type="number" id="rep-storage" min="0" max="100" step="1" value="${cfg.storagePct}"
+                       ${cfg.target ? '' : 'disabled'} data-change='["setReplicationPct","storage","$value"]'>
+            </div>
+            <div class="form-group">
+                <label>${window.t('cluster.rep_mode')}
+                    <span class="info-icon" tabindex="0" data-i18n-title="cluster.rep_mode_info"
+                          title="Applies to replication compute (CPU and RAM). Reserved holds it at N-1 (always available). Failover-only sizes it against the full cluster (replicas run only on failover) — smaller target. Storage is always held.">i</span>
+                </label>
+                <select id="rep-mode" data-change='["setReplicationMode","$value"]'>
+                    <option value="reserved" ${cfg.mode !== 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_reserved')}</option>
+                    <option value="failover" ${cfg.mode === 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_failover')}</option>
+                </select>
+            </div>
+        </div>
+        ${inboundNote}`;
+}
+
+function setReplicationTarget(value) {
+    const cfg = _repCfg(activeCluster);
+    cfg.target = value || '';
+    renderReplicationOptions();  // enable/disable %, refresh inbound notes elsewhere
+    recalcRecommendations();
+}
+
+function setReplicationPct(which, value) {
+    const cfg = _repCfg(activeCluster);
+    const v = Math.max(0, Math.min(100, Math.round(parseFloat(value) || 0)));
+    if (which === 'compute') cfg.computePct = v; else cfg.storagePct = v;
+    recalcRecommendations();
+}
+
+function setReplicationMode(value) {
+    _repCfg(activeCluster).mode = (value === 'failover') ? 'failover' : 'reserved';
+    recalcRecommendations();  // mode affects THIS cluster's inbound sizing
+}
+
+// Add a dedicated DR target cluster (no own workload) that other clusters can
+// replicate to. It gets its own tab and is sized purely from inbound replicas.
+function addDedicatedCluster() {
+    if (!separateClusters || !originalImportSummary) return;
+    let n = dedicatedClusters.length + 1;
+    let name = window.t('cluster.dedicated_name', {n});
+    const existing = new Set(sourceClusters.map(c => c.name));
+    while (existing.has(name)) { n++; name = window.t('cluster.dedicated_name', {n}); }
+
+    const base = JSON.parse(JSON.stringify(originalImportSummary));
+    ['total_vcpus', 'total_vm_provisioned_memory_gb', 'total_vm_used_memory_gb',
+     'datastore_used_tb', 'datastore_total_tb', 'total_vm_provisioned_storage_gb',
+     'total_vm_provisioned_storage_tb', 'total_vm_used_storage_gb', 'total_vm_used_storage_tb',
+     'active_vms', 'total_vms', 'host_count', 'total_host_cores', 'total_host_threads',
+     'total_host_ghz', 'total_host_ram_gb', 'peak_cpu_ghz', 'peak_cpu_pct', 'avg_cpu_pct',
+     'peak_mem_pct', 'avg_mem_pct', 'total_peak_iops', 'total_avg_iops', 'p95_iops',
+     'max_vm_ram_gb', 'max_vm_cores', 'local_used_tb', 'local_total_tb', 'local_used_gb',
+    ].forEach(k => { if (k in base) base[k] = 0; });
+    base.cluster_name = name;
+    base.current_platform = window.t('cluster.dedicated_platform');
+    base.source_cpus = [];
+
+    clusterBase[name] = base;
+    sourceClusters.push({ name, host_count: 0, vm_count: 0 });
+    dedicatedClusters.push(name);
+    clusterOptions[name] = { ...(clusterOptions[activeCluster] || clusterOptions[COMBINED_KEY] || _captureFields('import')) };
+    _selectClusterKey(name);  // switch to the new tab
+}
+
+function removeDedicatedCluster() {
+    if (!dedicatedClusters.includes(activeCluster)) return;
+    const name = activeCluster;
+    dedicatedClusters = dedicatedClusters.filter(n => n !== name);
+    sourceClusters = sourceClusters.filter(c => c.name !== name);
+    delete clusterBase[name];
+    delete clusterOptions[name];
+    delete clusterResults[name];
+    delete clusterReplication[name];
+    // Clear any cluster that was replicating to the removed target.
+    Object.values(clusterReplication).forEach(cfg => { if (cfg.target === name) cfg.target = ''; });
+    activeCluster = sourceClusters.length ? sourceClusters[0].name : COMBINED_KEY;
+    _selectClusterKey(activeCluster, /*skipSave=*/true);
 }
 
 // Render the "include local storage" checkbox (hidden when there is none, e.g.
@@ -3034,6 +3220,8 @@ function captureSizingState() {
             separateClusters,
             clusterOptions,
             clusterSelectedRec,
+            clusterReplication,
+            dedicatedClusters,
             activeCluster,
         };
     }
@@ -3106,6 +3294,8 @@ async function restoreSizingState(snap) {
         separateClusters = !!im.separateClusters;
         clusterOptions = im.clusterOptions || {};
         clusterSelectedRec = im.clusterSelectedRec || {};
+        clusterReplication = im.clusterReplication || {};
+        dedicatedClusters = im.dedicatedClusters || [];
         clusterResults = {};
         activeCluster = im.activeCluster || COMBINED_KEY;
         // Restore into a concrete cluster tab, not the review tab (which needs a

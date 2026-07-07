@@ -1348,6 +1348,9 @@ body { padding-bottom: 64px; }
 .util-sw-ha {
     background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
 }
+.util-sw-replication {
+    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
+}
 .util-row {
     display: flex;
     align-items: center;
@@ -1390,6 +1393,10 @@ body { padding-bottom: 64px; }
 .util-fill.util-high { background: var(--red, #c0392b); }
 .util-fill.util-reserve {
     background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+}
+/* Replication reserve (inbound DR replicas + snapshots) — dark yellow. */
+.util-fill.util-replication {
+    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
 }
 /* Operational free space — let the track background show through. */
 .util-fill.util-free { background: transparent; }
@@ -2107,6 +2114,37 @@ body.auth-required footer { display: none; }
 }
 .review-none { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
 .review-loading { color: var(--text-muted); padding: 1rem 0; }
+
+/* Per-cluster replication (DR) config in the sizing options. */
+.replication-options {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border);
+}
+.replication-options .rep-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.replication-options .rep-head h4 { margin: 0; font-size: 0.95rem; }
+.rep-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+}
+.rep-inbound {
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--accent);
+    background: rgba(184, 134, 11, 0.08);
+    border-left: 3px solid #b8860b;
+    padding: 0.4rem 0.6rem;
+    border-radius: 3px;
+}
+.rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
+.cluster-tab-dedicated { font-style: italic; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
