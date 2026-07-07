@@ -443,7 +443,7 @@
             if (viewPref() === 'classic') {
                 deactivate();
                 var classic = $('import-classic'); if (classic) classic.style.display = '';
-                var sizing = $('sizing-results'); if (sizing && hasSummary) sizing.style.display = 'block';
+                showClassicPanels();
                 ensureClassicSwitchLink();
                 return;
             }
@@ -479,12 +479,22 @@
         }
     };
 
+    // Reveal the classic import panels. #import-results (environment summary +
+    // cluster tabs + workload) and #sizing-results are both hidden in guided mode
+    // (their children are portaled into wizard panes), so classic must un-hide
+    // them. Also sync the classic separate-clusters checkbox to the live state.
+    function showClassicPanels() {
+        if (!state.imported) return;
+        var ir = $('import-results'); if (ir) ir.style.display = 'block';
+        var sizing = $('sizing-results'); if (sizing) sizing.style.display = 'block';
+        var cb = $('separate-clusters-cb'); if (cb) cb.checked = !!S().separate;
+    }
+
     // Switch guided <-> classic within import mode (no reload; shared state).
     window.wizardToClassic = function () {
         setViewPref('classic');
         deactivate();
-        var sizing = $('sizing-results');
-        if (sizing && state.imported) sizing.style.display = 'block';
+        showClassicPanels();
         ensureClassicSwitchLink();
     };
     window.wizardToGuided = function () {
