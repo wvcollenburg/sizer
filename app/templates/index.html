@@ -600,7 +600,9 @@
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>
 
-                <div class="import-recommendations">
+                <!-- Primary / Replication-DR tabs (single-workload mode; shown by JS). -->
+                <div id="dr-tabs" class="cluster-tabs" style="display:none"></div>
+                <div id="primary-recommendations" class="import-recommendations">
                     <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
                     <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
                     <div id="rec-list"></div>

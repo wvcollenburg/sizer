@@ -420,6 +420,8 @@
   "cluster.dedicated_platform": "Dedicated replication target",
   "cluster.dr_enable": "Add a replication (DR) cluster",
   "cluster.dr_info": "Add a replication (DR) target sized to host this workload's replica. Compute (CPU + RAM) and storage reserves are set separately; storage always includes the snapshot reserve.",
+  "cluster.dr_tab_dr": "Replication DR",
+  "cluster.dr_tab_primary": "Primary",
   "cluster.export_all": "Export all clusters:",
   "cluster.remove_dedicated": "Remove this cluster",
   "cluster.rep_compute_pct": "Compute reserve %",

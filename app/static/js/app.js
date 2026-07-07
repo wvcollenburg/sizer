@@ -67,6 +67,7 @@ let dedicatedClusters = [];                  // names of workload-less DR target
 // Single/combined-workload DR cluster (shown when NOT sizing each cluster
 // separately): one replication target for the whole workload.
 let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
+let drTab = 'primary';                       // active tab in single-workload mode: 'primary' | 'dr'
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
 // The source-cluster a VM belongs to, blanks bucketed like the backend.
@@ -2776,7 +2777,7 @@ function clusterDisplayName(key) {
 // growth, recommendation list) off in favour of the "Selected clusters" review
 // panel — and back.
 function setClusterReviewMode(on) {
-    document.querySelectorAll('.import-workload, .ratio-control, .growth-control, .import-recommendations')
+    document.querySelectorAll('.import-workload, .ratio-control, .growth-control, #primary-recommendations')
         .forEach(el => { el.style.display = on ? 'none' : ''; });
     const env = document.getElementById('env-summary');
     if (env) env.style.display = on ? 'none' : '';
@@ -3174,8 +3175,46 @@ function renderDrClusterOption() {
 
 function toggleDrCluster(checked) {
     drCluster.enabled = !!checked;
+    if (!drCluster.enabled) drTab = 'primary';
     renderDrClusterOption();
     recalcRecommendations();
+}
+
+// Primary / Replication-DR tab bar (single-workload mode). Swaps which
+// recommendation list is shown; leaves the shared env/workload/options above.
+function renderDrTabs() {
+    const tabs = document.getElementById('dr-tabs');
+    const primary = document.getElementById('primary-recommendations');
+    const drSec = document.getElementById('dr-recommendations');
+    // Separate mode owns .import-recommendations (via the review tab); only hide
+    // the DR-specific bits here and let that path manage the primary list.
+    if (separateClusters) {
+        if (tabs) tabs.style.display = 'none';
+        if (drSec) drSec.style.display = 'none';
+        return;
+    }
+    const active = drCluster.enabled && (activeMode === 'import' || activeMode === 'manual');
+    if (!active) {
+        if (tabs) tabs.style.display = 'none';
+        if (drSec) drSec.style.display = 'none';
+        if (primary) primary.style.display = '';
+        return;
+    }
+    if (tabs) {
+        tabs.style.display = 'flex';
+        tabs.innerHTML = `<div class="cluster-tab-row">
+            <button class="cluster-tab ${drTab !== 'dr' ? 'active' : ''}" data-click='["selectDrTab","primary"]'>${window.t('cluster.dr_tab_primary')}</button>
+            <button class="cluster-tab ${drTab === 'dr' ? 'active' : ''}" data-click='["selectDrTab","dr"]'>${window.t('cluster.dr_tab_dr')}</button>
+        </div>`;
+    }
+    const showPrimary = drTab !== 'dr';
+    if (primary) primary.style.display = showPrimary ? '' : 'none';
+    if (drSec) drSec.style.display = showPrimary ? 'none' : 'block';
+}
+
+function selectDrTab(which) {
+    drTab = (which === 'dr') ? 'dr' : 'primary';
+    renderDrTabs();
 }
 function setDrPct(which, value) {
     const v = Math.max(0, Math.min(100, Math.round(parseFloat(value) || 0)));
@@ -3210,7 +3249,7 @@ async function sizeDrCluster(primarySummary) {
     if (!sec) return;
     const active = !separateClusters && drCluster.enabled && primarySummary
         && (activeMode === 'import' || activeMode === 'manual');
-    if (!active) { sec.style.display = 'none'; return; }
+    if (!active) { renderDrTabs(); return; }
 
     const reserve = {
         vcpus: (primarySummary.total_vcpus || 0) * drCluster.computePct / 100,
@@ -3221,7 +3260,7 @@ async function sizeDrCluster(primarySummary) {
     body.replication_reserve = reserve;
     body.replication_compute_mode = drCluster.mode;
 
-    sec.style.display = 'block';
+    renderDrTabs();  // reveal the tab bar; visibility of the section follows drTab
     const list = document.getElementById('dr-rec-list');
     list.innerHTML = `<div class="review-loading">${window.t('results.generating')}</div>`;
     try {
