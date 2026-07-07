@@ -107,7 +107,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              target_model=None, include_eol_eos=False,
                              max_day_one_storage_pct=None, max_day_one_ram_pct=None,
                              source_perf_index=None, source_perf_type=None,
-                             replication_reserve=None, replication_compute_mode="reserved"):
+                             replication_reserve=None, replication_compute_mode="reserved",
+                             allow_single_node=False):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -209,6 +210,9 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         # model at exactly this many nodes (not its minimum). Larger fallbacks
         # only appear when the target is infeasible.
         "target_nodes": target_nodes,
+        # DR-only: allow a single-node target (no failover). Never set for
+        # primary/production sizing, so normal recommendations are unchanged.
+        "allow_single_node": bool(allow_single_node),
     }
 
     # Active compute floor inputs (consumed only when the perf_scaling tunable is
@@ -706,8 +710,17 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     # drive count); compute it once for the model and use it everywhere below.
     ram_overhead = T.usable_ram_overhead_for(_bay_count(storage))
     # 2-node clusters (with a witness) are supported; per-model minimums (e.g. 3)
-    # still win where the hardware requires them.
-    min_nodes = max(model.get("min_nodes", 2), 2)
+    # still win where the hardware requires them. A DR target may opt into a
+    # single node (no failover — the DR itself is the redundancy tier).
+    allow_single_node = bool(needs.get("allow_single_node"))
+    min_nodes = 1 if allow_single_node else max(model.get("min_nodes", 2), 2)
+
+    # N-1 (failover) node count for a cluster of size n. A single-node config has
+    # no node to hold back, so its "available" capacity is the node itself — i.e.
+    # it is sized against the full node and carries no HA reserve.
+    def _n1_nodes(n):
+        n1 = n - len(_cluster_layout(n))
+        return 1 if (allow_single_node and n == 1) else n1
 
     # Replication CPU reserve: rep_cores must fit at the full cluster always;
     # rep_cores_n1 (== rep_cores in "reserved" mode, 0 in "failover") must also
@@ -753,8 +766,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     needed_nodes_ram = 0
     if max_ram > 0 and ram_need_n1 > 0:
         for n in range(min_nodes, 200):
-            layout = _cluster_layout(n)
-            n1_nodes = n - len(layout)
+            n1_nodes = _n1_nodes(n)
             avail = max_ram - ram_overhead
             if avail * n1_nodes >= ram_need_n1 and avail * n >= ram_need_full:
                 needed_nodes_ram = n
@@ -786,8 +798,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
 
         needed_nodes_cpu = 0
         for n in range(min_nodes, 200):
-            layout = _cluster_layout(n)
-            n1 = n - len(layout)
+            n1 = _n1_nodes(n)
             # When sizing for the full cluster, all nodes carry load; otherwise
             # the workload must fit with one node down per cluster (N-1). The
             # replication reserve adds req_n1 at this basis and req_full at the
@@ -832,7 +843,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
         for node_count in node_counts:
             layout = _cluster_layout(node_count)
             num_clusters = len(layout)
-            n1_nodes = node_count - num_clusters
+            n1_nodes = _n1_nodes(node_count)
             full_usable_cores_all = usable_cores * node_count
             n1_usable_cores_all = usable_cores * n1_nodes
             cpu_avail_all = full_usable_cores_all if full_cluster else n1_usable_cores_all
@@ -865,8 +876,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             if not ram_gb:
                 continue
 
-            # Compute pool spans HCI nodes only; storage spans all nodes.
-            compute_n1_nodes = hci_nodes - num_clusters
+            # Compute pool spans HCI nodes only; storage spans all nodes. A
+            # single-node DR target has no failover node held back — its N-1
+            # pool is the node itself.
+            compute_n1_nodes = 1 if (allow_single_node and node_count == 1) else (hci_nodes - num_clusters)
             n1_usable_cores = usable_cores * compute_n1_nodes
             full_usable_cores = usable_cores * hci_nodes
             cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
@@ -1105,6 +1118,9 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "storage_only": storage_only_block,
                 "num_clusters": num_clusters,
                 "cluster_layout": layout,
+                # Single-node DR target: no failover redundancy (the DR itself
+                # is the redundancy tier). Drives a UI note in place of N-1.
+                "single_node": node_count == 1,
                 "cpu": cpu["desc"],
                 "cpu_index": cpu_idx,
                 "cpu_generation": cpu.get("generation"),
@@ -1235,6 +1251,10 @@ def _pick_ram(options, total_needed_gb, node_count, num_clusters=1, ram_overhead
     if ram_overhead is None:
         ram_overhead = T.usable_ram_overhead
     n1_nodes = node_count - num_clusters
+    # A single-node cluster has no node held back — its available RAM pool is the
+    # node itself (only reached when single-node DR sizing is enabled).
+    if n1_nodes <= 0:
+        n1_nodes = node_count
     for r in sorted(options):
         avail = r - ram_overhead
         if avail * n1_nodes < total_needed_gb:

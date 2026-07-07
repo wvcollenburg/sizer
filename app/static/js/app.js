@@ -66,7 +66,7 @@ let clusterReplication = {};
 let dedicatedClusters = [];                  // names of workload-less DR target clusters
 // Single/combined-workload DR cluster (shown when NOT sizing each cluster
 // separately): one replication target for the whole workload.
-let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
+let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
 let drTab = 'primary';                       // active tab in single-workload mode: 'primary' | 'dr'
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
@@ -1184,11 +1184,13 @@ async function recalcRecommendations() {
 
     // Multi-site: the inbound replication reserve this cluster must host, and
     // how it reserves the compute for it.
-    let replicationReserve = null, replicationMode = 'reserved';
+    let replicationReserve = null, replicationMode = 'reserved', allowSingleNode = false;
     if (activeMode === 'import' && separateClusters
         && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY) {
         replicationReserve = inboundReserveFor(activeCluster);
         replicationMode = _repCfg(activeCluster).mode || 'reserved';
+        // Single-node is only offered on dedicated DR clusters.
+        allowSingleNode = !!_repCfg(activeCluster).singleNode;
     }
 
     try {
@@ -1214,6 +1216,7 @@ async function recalcRecommendations() {
                 source_perf_type: sourcePerfType,
                 replication_reserve: replicationReserve,
                 replication_compute_mode: replicationMode,
+                allow_single_node: allowSingleNode,
             }),
         });
         const data = await resp.json();
@@ -1566,6 +1569,9 @@ function recCardHtml(r, i, mode, demand, opts) {
     const iopsHeadroom = buildIopsHeadroom(iops, demand);
     const utilBars = buildUtilizationBars(r);
     const witnessNote = recTotalNodes(r) === 2 ? witnessBarHtml() : '';
+    const singleNodeNote = r.single_node
+        ? `<div class="info-bar"><span class="info-bar-icon">i</span><span><strong>${window.t('results.single_node_title')}</strong> ${window.t('results.single_node_note')}</span></div>`
+        : '';
     const so = r.storage_only || null;
     const nodesLabel = so
         ? window.t('results.nodes_hci_so_short', {hci: r.hci_node_count, so: so.count})
@@ -1636,6 +1642,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${utilBars}
             ${iopsHeadroom}
             ${witnessNote}
+            ${singleNodeNote}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
             </div>
@@ -2207,6 +2214,7 @@ async function ensureAllClusterResults() {
         const body = _recommendBodyFromOpts(summary, opts);
         body.replication_reserve = inboundReserveFor(c.name);
         body.replication_compute_mode = (clusterReplication[c.name] || {}).mode || 'reserved';
+        body.allow_single_node = !!(clusterReplication[c.name] || {}).singleNode;
         const resp = await fetch('/api/recommend', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body),
@@ -2844,7 +2852,7 @@ function initClusters(data) {
     clusterResults = {};
     clusterReplication = {};
     dedicatedClusters = [];
-    drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
+    drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const cb = document.getElementById('separate-clusters-cb');
     if (cb) cb.checked = false;
     const toggle = document.getElementById('cluster-separate-toggle');
@@ -3065,7 +3073,20 @@ function renderReplicationOptions() {
                 </select>
             </div>
         </div>
+        ${isDedicated ? `<div class="toggle-item">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="rep-single-node" ${cfg.singleNode ? 'checked' : ''} data-change='["setReplicationSingleNode","$checked"]'>
+                <span>${window.t('cluster.allow_single_node')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.allow_single_node_info"
+                  title="Allow a single-node DR target (no failover). A DR cluster is already a redundancy tier, so a single larger-disk node can be a valid, lower-cost target.">i</span>
+        </div>` : ''}
         ${inboundNote}`;
+}
+
+function setReplicationSingleNode(checked) {
+    _repCfg(activeCluster).singleNode = !!checked;
+    recalcRecommendations();
 }
 
 function setReplicationTarget(value) {
@@ -3170,7 +3191,20 @@ function renderDrClusterOption() {
                     <option value="failover" ${drCluster.mode === 'failover' ? 'selected' : ''}>${window.t('cluster.rep_mode_failover')}</option>
                 </select>
             </div>
+        </div>
+        <div class="toggle-item">
+            <label class="checkbox-inline">
+                <input type="checkbox" id="dr-single-node" ${drCluster.allowSingleNode ? 'checked' : ''} data-change='["toggleDrSingleNode","$checked"]'>
+                <span>${window.t('cluster.allow_single_node')}</span>
+            </label>
+            <span class="info-icon" tabindex="0" data-i18n-title="cluster.allow_single_node_info"
+                  title="Allow a single-node DR target (no failover). A DR cluster is already a redundancy tier, so a single larger-disk node can be a valid, lower-cost target.">i</span>
         </div>` : ''}`;
+}
+
+function toggleDrSingleNode(checked) {
+    drCluster.allowSingleNode = !!checked;
+    recalcRecommendations();
 }
 
 function toggleDrCluster(checked) {
@@ -3259,6 +3293,7 @@ async function sizeDrCluster(primarySummary) {
     const body = _recommendBodyFromOpts(makeZeroBaseFrom(primarySummary), _captureFields('import'));
     body.replication_reserve = reserve;
     body.replication_compute_mode = drCluster.mode;
+    body.allow_single_node = drCluster.allowSingleNode;
 
     renderDrTabs();  // reveal the tab bar; visibility of the section follows drTab
     const list = document.getElementById('dr-rec-list');
@@ -3401,7 +3436,7 @@ function hasSizingToSave() {
 async function restoreSizingState(snap) {
     if (!snap || !snap.mode) return;
     switchMode(snap.mode);
-    drCluster = snap.drCluster || { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved' };
+    drCluster = snap.drCluster || { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const f = snap.fields || {};
 
     if (snap.mode === 'appliance') {

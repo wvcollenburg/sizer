@@ -295,6 +295,7 @@ def create_app():
         # whether the compute reserve is held steady-state or only on failover.
         replication_reserve = data.get("replication_reserve")
         replication_compute_mode = data.get("replication_compute_mode", "reserved")
+        allow_single_node = data.get("allow_single_node", False)
         result = generate_recommendations(summary, vcpu_ratio,
                                           growth_pct, snapshot_pct, years,
                                           target_nodes=target_nodes,
@@ -309,7 +310,8 @@ def create_app():
                                           source_perf_index=source_perf_index,
                                           source_perf_type=source_perf_type,
                                           replication_reserve=replication_reserve,
-                                          replication_compute_mode=replication_compute_mode)
+                                          replication_compute_mode=replication_compute_mode,
+                                          allow_single_node=allow_single_node)
         return jsonify(result)
 
     @app.route("/api/cpu-perf")
