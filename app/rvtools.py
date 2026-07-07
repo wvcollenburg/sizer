@@ -1,6 +1,7 @@
 from openpyxl import load_workbook
 from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
                         to_int as _int, source_cpus as _source_cpus)
+from cluster_split import cluster_summaries as _cluster_summaries
 
 
 def parse_rvtools(file_path):
@@ -16,6 +17,10 @@ def parse_rvtools(file_path):
     wb.close()
 
     result["summary"] = _build_summary(result)
+    # Per-source-cluster summaries (empty for single-cluster datasets). RVTools
+    # has no host↔datastore link, so per-cluster storage is attributed by each
+    # cluster's share of VM used storage (see cluster_split).
+    result["clusters"] = _cluster_summaries(result, _build_summary)
     return result
 
 

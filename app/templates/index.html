@@ -291,11 +291,21 @@
                 <div class="import-summary">
                     <div class="section-header-row">
                         <h3 data-i18n="import.env_summary">Environment Summary</h3>
-                        <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                            <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
-                        </button>
+                        <div class="import-header-actions">
+                            <label class="checkbox-inline cluster-separate-toggle" id="cluster-separate-toggle" style="display:none">
+                                <input type="checkbox" id="separate-clusters-cb" data-change='["toggleSeparateClusters","$checked"]'>
+                                <span data-i18n="import.separate_clusters">Size each cluster separately</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="import.separate_clusters_info"
+                                      title="This environment has more than one source cluster. Enable to size each cluster on its own tab, with its own recommendations and options, instead of as one combined workload.">i</span>
+                            </label>
+                            <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
+                            </button>
+                        </div>
                     </div>
+                    <div id="cluster-tabs" class="cluster-tabs" style="display:none"></div>
                     <div class="summary-grid" id="env-summary"></div>
                 </div>
 
@@ -637,6 +647,7 @@
                 <h2 data-i18n="modal.vmexcl.title">Configure VMs for Sizing</h2>
                 <button class="modal-close" data-click='["closeVmExclusionModal"]'>&times;</button>
             </div>
+            <div id="vm-cluster-tabs" class="cluster-tabs cluster-tabs-modal" style="display:none"></div>
             <div class="modal-toolbar">
                 <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-i18n-ph="modal.vmexcl.search_ph" data-input='["filterVmTable"]'>
                 <select id="vm-power-filter" class="vm-power-filter" data-change='["setVmPowerFilter","$value"]' data-i18n-title="modal.vmexcl.power_filter_title" title="Filter the table by power state">

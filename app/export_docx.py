@@ -313,20 +313,18 @@ def _para(doc, text, italic=False, color=None, size=None, lang="en"):
     return p
 
 
-def build_proposal_docx(summary, recommendation, projection, source_perf=None, lang="en"):
-    t9n = translator(lang)
-    doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
-    _clear_body(doc)
+def _finalize_doc(doc):
+    # Final pass: clear any indent inherited from docDefaults on every paragraph.
+    for par in doc.paragraphs:
+        ppf = par.paragraph_format
+        ppf.left_indent = Inches(0)
+        ppf.right_indent = Inches(0)
+        ppf.first_line_indent = Inches(0)
 
-    def _add_heading(text, level=1):
-        h = doc.add_heading(text, level=level)
-        _apply_lang_font_para(h, lang)
-        return h
 
-    def _add_bullet(text):
-        b = doc.add_paragraph(text, style=bullet_style)
-        _apply_lang_font_para(b, lang)
-        return b
+def _doc_setup(doc, lang, header_text):
+    """Shared document-level setup: comfortable margins, zeroed style indents,
+    and the running header text."""
     # The template ships with tight 0.75" (~1.9 cm) side margins, which leaves the
     # body running to the page edge. Widen to a comfortable 1" (2.54 cm) so there's
     # real whitespace on the right and full-width tables sit inside the page.
@@ -345,11 +343,90 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None, l
             spf.first_line_indent = Inches(0)
         except KeyError:
             pass
-    # Replace the template's "Header" placeholder with the proposal title (plus the
-    # customer/cluster name when one is set), on every page.
+    _set_header_text(sec, header_text)
+    return sec
+
+
+def build_proposal_docx(summary, recommendation, projection, source_perf=None, lang="en"):
+    t9n = translator(lang)
+    doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
+    _clear_body(doc)
+    # Header: proposal title plus the customer/cluster name when one is set.
     _hdr_name = (summary.get("cluster_name") or "").strip()
-    _set_header_text(sec, t9n("export.docx.title")
-                     + (f" — {_hdr_name}" if _hdr_name else ""))
+    _doc_setup(doc, lang, t9n("export.docx.title")
+               + (f" — {_hdr_name}" if _hdr_name else ""))
+
+    # ── Title ────────────────────────────────────────────────────────────────
+    _apply_lang_font_para(doc.add_paragraph(t9n("export.docx.title"), style="Title"), lang)
+    subtitle = summary.get("cluster_name") or summary.get("current_platform") or ""
+    if subtitle:
+        _apply_lang_font_para(doc.add_paragraph(subtitle, style="Subtitle"), lang)
+
+    _append_proposal_body(doc, summary, recommendation, projection, source_perf, lang)
+    _finalize_doc(doc)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def build_multisite_proposal_docx(clusters, lang="en"):
+    """One combined document: a multi-site overview table, then the full
+    per-cluster proposal body for each source cluster on its own page.
+    `clusters` = [{name, summary, recommendation, projection, source_perf}]."""
+    t9n = translator(lang)
+    doc = Document(_TEMPLATE) if os.path.exists(_TEMPLATE) else Document()
+    _clear_body(doc)
+    _doc_setup(doc, lang, t9n("export.docx.multisite_title"))
+    cw = _content_width(doc)
+
+    _apply_lang_font_para(doc.add_paragraph(t9n("export.docx.multisite_title"), style="Title"), lang)
+    _apply_lang_font_para(doc.add_paragraph(
+        t9n("export.docx.multisite_subtitle", count=len(clusters)), style="Subtitle"), lang)
+
+    _apply_lang_font_para(doc.add_heading(t9n("export.docx.multisite_overview"), level=1), lang)
+    header = [t9n("export.pptx.multisite_col_cluster"), t9n("export.pptx.multisite_col_model"),
+              t9n("export.pptx.multisite_col_nodes"), t9n("export.pptx.multisite_col_cores"),
+              t9n("export.pptx.multisite_col_ram"), t9n("export.pptx.multisite_col_storage")]
+    rows = []
+    for cl in clusters:
+        r = cl["recommendation"]
+        tot = r.get("totals", {})
+        rows.append([cl.get("name", ""), r.get("model", ""), str(r.get("node_count", "")),
+                     str(tot.get("cores", "")), _fmt_ram(tot.get("ram_gb", 0)),
+                     f"{tot.get('usable_storage_tb', 0)} TB"])
+    _grid_table(doc, header, rows, total_w=cw, weights=[1.6, 2.2, 0.9, 1.0, 1.2, 1.3], lang=lang)
+
+    for cl in clusters:
+        doc.add_page_break()
+        _apply_lang_font_para(
+            doc.add_heading(t9n("export.docx.cluster_section", name=cl.get("name", "")), level=1), lang)
+        _append_proposal_body(doc, cl["summary"], cl["recommendation"],
+                              cl["projection"], cl.get("source_perf"), lang)
+
+    _finalize_doc(doc)
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def _append_proposal_body(doc, summary, recommendation, projection, source_perf=None, lang="en"):
+    """Append the full proposal body (management overview → platform sections)
+    for one recommendation. Shared by the single- and multi-cluster builders."""
+    t9n = translator(lang)
+
+    def _add_heading(text, level=1):
+        h = doc.add_heading(text, level=level)
+        _apply_lang_font_para(h, lang)
+        return h
+
+    def _add_bullet(text):
+        b = doc.add_paragraph(text, style=bullet_style)
+        _apply_lang_font_para(b, lang)
+        return b
+
     r = recommendation
     s = summary
     p = projection
@@ -368,12 +445,6 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None, l
     cl_label = (t9n("export.common.clusters_layout", count=num_cl,
                     layout=" + ".join(map(str, r.get("cluster_layout", []))))
                 if num_cl > 1 else t9n("export.common.single_cluster"))
-
-    # ── Title ────────────────────────────────────────────────────────────────
-    _apply_lang_font_para(doc.add_paragraph(t9n("export.docx.title"), style="Title"), lang)
-    subtitle = s.get("cluster_name") or s.get("current_platform") or ""
-    if subtitle:
-        _apply_lang_font_para(doc.add_paragraph(subtitle, style="Subtitle"), lang)
 
     # ── Management overview (executive summary — leads the document) ──────────
     _add_heading(t9n("export.docx.mgmt_overview"), level=1)
@@ -606,18 +677,6 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None, l
                 "export.docx.aime_bullet_5", "export.docx.aime_bullet_6",
                 "export.docx.aime_bullet_7"):
         _add_bullet(t9n(key))
-
-    # Final pass: clear any indent inherited from docDefaults on every paragraph.
-    for par in doc.paragraphs:
-        ppf = par.paragraph_format
-        ppf.left_indent = Inches(0)
-        ppf.right_indent = Inches(0)
-        ppf.first_line_indent = Inches(0)
-
-    buf = io.BytesIO()
-    doc.save(buf)
-    buf.seek(0)
-    return buf
 
 
 def _soffice_bin():

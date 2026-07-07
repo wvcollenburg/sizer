@@ -157,6 +157,64 @@ def generate_proposal(summary, recommendation, projection, source_perf=None, lan
     return buf
 
 
+def _slide_multisite_overview(prs, clusters, t, lang="en"):
+    """A leading slide summarising every sized source cluster."""
+    slide = _add_slide(prs)
+    _add_title(slide, t("export.pptx.multisite_title"),
+               t("export.pptx.multisite_subtitle", count=len(clusters)), lang=lang)
+    rows = [[
+        t("export.pptx.multisite_col_cluster"), t("export.pptx.multisite_col_model"),
+        t("export.pptx.multisite_col_nodes"), t("export.pptx.multisite_col_cores"),
+        t("export.pptx.multisite_col_ram"), t("export.pptx.multisite_col_storage"),
+    ]]
+    for cl in clusters:
+        r = cl["recommendation"]
+        tot = r.get("totals", {})
+        rows.append([
+            cl.get("name", ""),
+            r.get("model", ""),
+            str(r.get("node_count", "")),
+            str(tot.get("cores", "")),
+            f"{round(tot.get('ram_gb', 0))} GB",
+            f"{tot.get('usable_storage_tb', 0)} TB",
+        ])
+    _add_table(slide, 0.6, 1.7, 12.1, rows, [2.4, 3.3, 1.4, 1.5, 1.7, 1.8])
+
+
+def _slide_section_divider(prs, name, t, lang="en"):
+    """A section-break slide naming the cluster whose sizing follows."""
+    slide = _add_slide(prs)
+    _add_title(slide, t("export.pptx.cluster_section", name=name), lang=lang)
+
+
+def generate_multisite_proposal(clusters, lang="en"):
+    """One combined deck: an overview slide, then the full per-cluster proposal
+    slides for each source cluster (each preceded by a section-break slide).
+    `clusters` = [{name, summary, recommendation, projection, source_perf}]."""
+    t = translator(lang)
+    prs = _new_deck()
+
+    _slide_multisite_overview(prs, clusters, t, lang)
+    for cl in clusters:
+        s = cl["summary"]
+        r = cl["recommendation"]
+        p = cl["projection"]
+        sp = cl.get("source_perf")
+        _slide_section_divider(prs, cl.get("name", ""), t, lang)
+        _slide_current_env(prs, s, t, lang)
+        _slide_workload(prs, s, t, lang)
+        _slide_proposal(prs, r, p, t, lang)
+        _slide_sizing(prs, r, s, t, lang)
+        _slide_benchmark(prs, r, sp, t, lang)
+        _slide_network(prs, r, t, lang)
+        _slide_projection(prs, s, r, p, t, lang)
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
+
+
 def generate_config_slide(result, lang="en"):
     t = translator(lang)
     prs = _new_deck()

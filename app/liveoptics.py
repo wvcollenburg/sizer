@@ -1,6 +1,7 @@
 from openpyxl import load_workbook
 from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
                         to_int as _int, source_cpus as _source_cpus)
+from cluster_split import cluster_summaries as _cluster_summaries
 
 
 def parse_liveoptics(file_path):
@@ -34,6 +35,9 @@ def parse_liveoptics(file_path):
         _finalize_general_summary(result)
     elif result.get("scan_type") == "hyperv":
         _finalize_hyperv_summary(result)
+    # Per-source-cluster summaries (empty for single-cluster datasets, and for
+    # the GENERAL/Hyper-V paths where the source cluster is blank).
+    result["clusters"] = _cluster_summaries(result, _build_summary)
     return result
 
 
@@ -383,11 +387,12 @@ def _parse_host_perf(wb):
 
 def _parse_datastores(wb):
     stores = []
-    seen_cluster = set()
+    cluster_by_sig = {}
     for r in _sheet_rows(wb, "Host Devices"):
         dtype = str(r.get("Device Type", "")).strip()
         if dtype not in ("Cluster", "Local"):
             continue
+        server = str(r.get("Server Name", "")).strip()
         cap = _float(r.get("Capacity (GiB)", 0))
         used = _float(r.get("Used Capacity (GiB)", 0))
         free = _float(r.get("Free Capacity (GiB)", 0))
@@ -398,19 +403,28 @@ def _parse_datastores(wb):
             # another). Deduping on the device name therefore never fires and
             # the datastore is counted once per host. Dedup on a host-independent
             # signature instead so each LUN counts once (matches the LO
-            # dashboard's capacity figures exactly).
+            # dashboard's capacity figures exactly). We still record every
+            # mounting host in `mounts` so the datastore can be attributed to a
+            # source cluster (via the hosts that mount it) when sizing clusters
+            # separately.
             sig = (round(cap), round(used), round(free), vmc)
-            if sig in seen_cluster:
+            existing = cluster_by_sig.get(sig)
+            if existing is not None:
+                if server and server not in existing["mounts"]:
+                    existing["mounts"].append(server)
                 continue
-            seen_cluster.add(sig)
-        stores.append({
+        d = {
             "name": str(r.get("Device Name", "")).strip(),
             "type": "local" if dtype == "Local" else "cluster",
             "capacity_gib": cap,
             "used_gib": used,
             "free_gib": free,
             "vm_count": vmc,
-        })
+            "mounts": [server] if server else [],
+        }
+        if dtype == "Cluster":
+            cluster_by_sig[sig] = d
+        stores.append(d)
     return stores
 
 

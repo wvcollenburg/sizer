@@ -22,8 +22,9 @@ from recommend import (
     generate_recommendations, _cluster_layout, _cluster_usable_storage,
 )
 from tunables import T, refresh_from_db
-from export_pptx import generate_proposal, generate_config_slide
-from export_docx import build_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
+from export_pptx import generate_proposal, generate_config_slide, generate_multisite_proposal
+from export_docx import (build_proposal_docx, build_multisite_proposal_docx,
+                         convert_docx_to_pdf, convert_pptx_to_pdf)
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
@@ -252,6 +253,10 @@ def create_app():
                 "vms": data["vms"],
                 "vm_count": len(data["vms"]),
                 "active_vm_count": data["summary"]["active_vms"],
+                # Per-source-cluster summaries; empty unless the source held
+                # more than one vSphere cluster. Drives the "size each cluster
+                # separately" option in the UI.
+                "clusters": data.get("clusters", []),
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
                 "warnings": result.get("warnings", []),
@@ -463,6 +468,83 @@ def create_app():
                              mimetype="application/pdf")
         except Exception as e:
             app.logger.exception("Presentation PDF generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the presentation PDF."}), 500
+
+    # ---- Combined multi-site exports (one document, per-cluster sections) ----
+    def _multisite_payload():
+        data = request.json or {}
+        clusters = data.get("clusters")
+        if not isinstance(clusters, list) or not clusters:
+            return None
+        for cl in clusters:
+            if not (cl.get("summary") and cl.get("recommendation") and cl.get("projection")):
+                return None
+        return clusters
+
+    @app.route("/api/export-multisite-proposal", methods=["POST"])
+    def export_multisite_proposal():
+        clusters = _multisite_payload()
+        if not clusters:
+            return jsonify({"error": "Missing or incomplete cluster data"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
+        try:
+            buf = generate_multisite_proposal(clusters, lang=pick_lang())
+            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.pptx"
+            return send_file(buf, as_attachment=True, download_name=fn,
+                             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+        except Exception as e:
+            app.logger.exception("Multi-site proposal generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the proposal."}), 500
+
+    @app.route("/api/export-multisite-docx", methods=["POST"])
+    def export_multisite_docx():
+        clusters = _multisite_payload()
+        if not clusters:
+            return jsonify({"error": "Missing or incomplete cluster data"}), 400
+        if not _can_export_editable():
+            return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
+        try:
+            buf = build_multisite_proposal_docx(clusters, lang=pick_lang())
+            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.docx"
+            return send_file(buf, as_attachment=True, download_name=fn,
+                             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        except Exception as e:
+            app.logger.exception("Multi-site document generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the document."}), 500
+
+    @app.route("/api/export-multisite-pdf", methods=["POST"])
+    def export_multisite_pdf():
+        clusters = _multisite_payload()
+        if not clusters:
+            return jsonify({"error": "Missing or incomplete cluster data"}), 400
+        try:
+            docx_buf = build_multisite_proposal_docx(clusters, lang=pick_lang())
+            pdf = convert_docx_to_pdf(docx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            app.logger.exception("Multi-site PDF generation failed: %s", e)
+            return jsonify({"error": "Failed to generate the PDF."}), 500
+
+    @app.route("/api/export-multisite-presentation-pdf", methods=["POST"])
+    def export_multisite_presentation_pdf():
+        clusters = _multisite_payload()
+        if not clusters:
+            return jsonify({"error": "Missing or incomplete cluster data"}), 400
+        try:
+            pptx_buf = generate_multisite_proposal(clusters, lang=pick_lang())
+            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
+            if not pdf:
+                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
+            fn = f"SC_Presentation_MultiSite_{len(clusters)}clusters.pdf"
+            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
+                             mimetype="application/pdf")
+        except Exception as e:
+            app.logger.exception("Multi-site presentation PDF generation failed: %s", e)
             return jsonify({"error": "Failed to generate the presentation PDF."}), 500
 
     return app
