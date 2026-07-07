@@ -2369,6 +2369,17 @@ body.auth-required footer { display: none; }
    user expands them. Elsewhere (classic view / Manual mode) the class is inert. */
 body.wiz-adv-collapsed #import-wizard .wiz-adv { display: none !important; }
 
+/* VM-triage step (4): bound the VM list to its own scroll area so a long list
+   doesn't push the Back/Next nav far below the fold. The toolbar and cluster
+   tabs stay above it; the column headers stick (via the shared .vm-table thead
+   sticky rule, which now sticks to THIS scroll container); the wizard nav lands
+   just below the list. */
+body.wiz-active #vm-triage-panel .vm-table-wrap {
+    max-height: 55vh;
+    min-height: 180px;
+    overflow: auto;
+}
+
 /* Export step */
 .wiz-export-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0; }
 .wiz-export-note { color: var(--text-muted); font-size: 0.85rem; }
