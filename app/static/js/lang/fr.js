@@ -60,6 +60,7 @@
   "admin.email.sent": "Envoyé.",
   "admin.email.state_active": "La vérification par e-mail est ACTIVE",
   "admin.email.state_off": "SMTP configuré, vérification DÉSACTIVÉE",
+  "admin.email.state_off_temp": "Vérification DÉSACTIVÉE — reprise auto dans {mins} min",
   "admin.email.state_unconfigured": "SMTP non configuré",
   "admin.email.test_prompt": "Envoyer un e-mail de test à quelle adresse ?",
   "admin.email.tip": "<strong>Astuce :</strong> l'<em>adresse d'expéditeur</em> doit généralement appartenir au même domaine que celui d'authentification (le domaine du nom d'utilisateur). Envoyer depuis un domaine sans rapport (par ex. un alias personnel) conduit la plupart des fournisseurs et Gmail à rejeter le message pour échec SPF/DMARC, même si le relais l'« accepte ».",

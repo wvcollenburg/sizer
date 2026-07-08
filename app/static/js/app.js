@@ -512,10 +512,10 @@ async function calculateValidated() {
     }
     const valDiv = document.getElementById('disk-validation');
     if (validation.errors.length > 0) {
-        valDiv.innerHTML = validation.errors.map(e => `<div class="val-error">${e}</div>`).join('');
+        valDiv.innerHTML = validation.errors.map(e => `<div class="val-error">${esc(e)}</div>`).join('');
         valDiv.style.display = 'block';
     } else {
-        valDiv.innerHTML = validation.warnings.map(w => `<div class="val-ok">${w}</div>`).join('');
+        valDiv.innerHTML = validation.warnings.map(w => `<div class="val-ok">${esc(w)}</div>`).join('');
         valDiv.style.display = validation.warnings.length > 0 ? 'block' : 'none';
     }
 
@@ -1516,7 +1516,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         // empty result better than the generic capacity message.
         if (warnings && warnings.length > 0) {
             recList.innerHTML = '<div class="rec-warnings">' +
-                warnings.map(w => `<div class="rec-warning">${w}</div>`).join('') +
+                warnings.map(w => `<div class="rec-warning">${esc(w)}</div>`).join('') +
                 '</div>';
         } else {
             recList.innerHTML = `<div class="no-recs">${window.t('results.no_matching_configs')}</div>`;
@@ -1530,7 +1530,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     let warningsHtml = '';
     if (warnings && warnings.length > 0) {
         warningsHtml = '<div class="rec-warnings">' +
-            warnings.map(w => `<div class="rec-warning">${w}</div>`).join('') +
+            warnings.map(w => `<div class="rec-warning">${esc(w)}</div>`).join('') +
             '</div>';
     }
 

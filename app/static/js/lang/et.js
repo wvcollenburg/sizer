@@ -60,6 +60,7 @@
   "admin.email.sent": "Saadetud.",
   "admin.email.state_active": "E-posti kinnitamine on AKTIIVNE",
   "admin.email.state_off": "SMTP seadistatud, kinnitamine VÄLJAS",
+  "admin.email.state_off_temp": "Kinnitamine VÄLJAS — jätkub automaatselt {mins} min pärast",
   "admin.email.state_unconfigured": "SMTP pole seadistatud",
   "admin.email.test_prompt": "Millisele aadressile saata testkiri?",
   "admin.email.tip": "<strong>Nõuanne:</strong> <em>Saatja aadress</em> peab tavaliselt olema samas domeenis, millega autentite (kasutajanime domeen). Saatmine mitteseotud domeenist (nt isiklikust aliasest) sunnib enamikku teenusepakkujaid ja Gmaili sõnumit SPF/DMARC tõrgete tõttu kõrvale heitma, isegi kui relee selle \"vastu võtab\".",

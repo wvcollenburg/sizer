@@ -60,6 +60,7 @@
   "admin.email.sent": "Sendt.",
   "admin.email.state_active": "E-postverifisering er AKTIV",
   "admin.email.state_off": "SMTP konfigurert, verifisering AV",
+  "admin.email.state_off_temp": "Verifisering AV — gjenopptas automatisk om {mins} min",
   "admin.email.state_unconfigured": "SMTP ikke konfigurert",
   "admin.email.test_prompt": "Sende en test-e-post til hvilken adresse?",
   "admin.email.tip": "<strong>Tips:</strong> <em>Fra-adressen</em> må vanligvis være på samme domene som du autentiserer med (brukernavnets domene). Å sende fra et urelatert domene (f.eks. et personlig alias) fører til at de fleste leverandører og Gmail forkaster meldingen på grunn av SPF/DMARC-feil, selv om reléet «godtar» den.",

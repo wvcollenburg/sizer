@@ -60,6 +60,7 @@
   "admin.email.sent": "送信しました。",
   "admin.email.state_active": "メール確認は有効です",
   "admin.email.state_off": "SMTP設定済み、確認はオフ",
+  "admin.email.state_off_temp": "確認オフ — {mins}分後に自動再開",
   "admin.email.state_unconfigured": "SMTPが未設定です",
   "admin.email.test_prompt": "テストメールをどのアドレスに送信しますか?",
   "admin.email.tip": "<strong>ヒント:</strong> <em>差出人アドレス</em>は通常、認証に使用するドメイン (ユーザー名のドメイン) と同じである必要があります。無関係なドメイン (例: 個人のエイリアス) から送信すると、リレーが「受け付けた」場合でも、SPF/DMARCの失敗により、ほとんどのプロバイダーやGmailがメッセージを破棄します。",

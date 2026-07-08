@@ -60,6 +60,7 @@
   "admin.email.sent": "Verzonden.",
   "admin.email.state_active": "E-mailverificatie is ACTIEF",
   "admin.email.state_off": "SMTP geconfigureerd, verificatie UIT",
+  "admin.email.state_off_temp": "Verificatie UIT — hervat automatisch over {mins} min",
   "admin.email.state_unconfigured": "SMTP niet geconfigureerd",
   "admin.email.test_prompt": "Naar welk adres een test-e-mail verzenden?",
   "admin.email.tip": "<strong>Tip:</strong> het <em>Van-adres</em> moet doorgaans op hetzelfde domein staan als waarmee u zich authenticeert (het domein van de gebruikersnaam). Verzenden vanaf een niet-gerelateerd domein (bijv. een persoonlijke alias) zorgt ervoor dat de meeste providers en Gmail het bericht laten vallen vanwege SPF/DMARC-fouten, ook al \"accepteert\" de relay het.",

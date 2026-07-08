@@ -60,6 +60,7 @@
   "admin.email.sent": "Inviata.",
   "admin.email.state_active": "La verifica email è ATTIVA",
   "admin.email.state_off": "SMTP configurato, verifica DISATTIVATA",
+  "admin.email.state_off_temp": "Verifica DISATTIVATA — riprende tra {mins} min",
   "admin.email.state_unconfigured": "SMTP non configurato",
   "admin.email.test_prompt": "A quale indirizzo inviare l'email di prova?",
   "admin.email.tip": "<strong>Suggerimento:</strong> l'<em>indirizzo mittente</em> deve solitamente appartenere allo stesso dominio con cui ci si autentica (il dominio del nome utente). L'invio da un dominio non correlato (ad es. un alias personale) fa sì che la maggior parte dei provider e Gmail scartino il messaggio per errori SPF/DMARC anche se il relay lo \"accetta\".",

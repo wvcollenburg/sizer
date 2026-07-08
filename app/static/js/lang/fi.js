@@ -60,6 +60,7 @@
   "admin.email.sent": "Lähetetty.",
   "admin.email.state_active": "Sähköpostivahvistus on AKTIIVINEN",
   "admin.email.state_off": "SMTP määritetty, vahvistus POIS",
+  "admin.email.state_off_temp": "Vahvistus POIS PÄÄLTÄ — jatkuu automaattisesti {mins} min kuluttua",
   "admin.email.state_unconfigured": "SMTP:tä ei ole määritetty",
   "admin.email.test_prompt": "Mihin osoitteeseen testisähköposti lähetetään?",
   "admin.email.tip": "<strong>Vinkki:</strong> <em>Lähettäjän osoitteen</em> on yleensä oltava samassa verkkotunnuksessa, jolla todennat (käyttäjänimen verkkotunnus). Lähettäminen liittymättömästä verkkotunnuksesta (esim. henkilökohtaisesta aliaksesta) saa useimmat palveluntarjoajat ja Gmailin hylkäämään viestin SPF/DMARC-virheiden vuoksi, vaikka välityspalvelin \"hyväksyisi\" sen.",

@@ -61,6 +61,7 @@
   "admin.email.sent": "Sent.",
   "admin.email.state_active": "Email verification is ACTIVE",
   "admin.email.state_off": "SMTP configured, verification OFF",
+  "admin.email.state_off_temp": "Verification OFF — auto-resumes in {mins} min",
   "admin.email.state_unconfigured": "SMTP not configured",
   "admin.email.test_prompt": "Send a test email to which address?",
   "admin.email.tip": "<strong>Tip:</strong> the <em>From address</em> must usually be on the same domain you authenticate with (the username's domain). Sending from an unrelated domain (e.g. a personal alias) makes most providers and Gmail drop the message for SPF/DMARC failures even though the relay \"accepts\" it.",
