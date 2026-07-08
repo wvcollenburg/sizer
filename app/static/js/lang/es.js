@@ -60,6 +60,7 @@
   "admin.email.sent": "Enviado.",
   "admin.email.state_active": "La verificación de correo está ACTIVA",
   "admin.email.state_off": "SMTP configurado, verificación DESACTIVADA",
+  "admin.email.state_off_temp": "Verificación DESACTIVADA — se reanuda en {mins} min",
   "admin.email.state_unconfigured": "SMTP no configurado",
   "admin.email.test_prompt": "¿A qué dirección enviar un correo de prueba?",
   "admin.email.tip": "<strong>Consejo:</strong> la <em>dirección de remitente</em> normalmente debe estar en el mismo dominio con el que se autentica (el dominio del nombre de usuario). Enviar desde un dominio no relacionado (p. ej., un alias personal) hace que la mayoría de los proveedores y Gmail descarten el mensaje por fallos de SPF/DMARC, aunque el retransmisor lo \"acepte\".",

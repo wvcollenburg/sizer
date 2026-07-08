@@ -1436,9 +1436,13 @@ async function loadEmailSettings() {
     document.getElementById('smtp-password').value = '';
     document.getElementById('smtp-pass-set').textContent = data.smtp_password_set ? t('admin.email.pass_set') : t('admin.email.pass_none');
     document.getElementById('smtp-use-tls').checked = !!data.smtp_use_tls;
-    document.getElementById('verify-email-enabled').checked = !!data.verify_email_enabled;
+    // The checkbox reflects the EFFECTIVE state: once SMTP is configured,
+    // verification is on unless it's within a temporary suspension window.
+    document.getElementById('verify-email-enabled').checked = !!data.verification_active;
+    const offMins = data.verify_off_minutes_remaining || 0;
     document.getElementById('email-active-state').textContent =
         data.verification_active ? t('admin.email.state_active')
+        : (data.configured && offMins > 0) ? t('admin.email.state_off_temp', { mins: offMins })
         : data.configured ? t('admin.email.state_off')
         : t('admin.email.state_unconfigured');
 }

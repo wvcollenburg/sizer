@@ -60,6 +60,7 @@
   "admin.email.sent": "Sendt.",
   "admin.email.state_active": "E-mailbekræftelse er AKTIV",
   "admin.email.state_off": "SMTP konfigureret, bekræftelse FRA",
+  "admin.email.state_off_temp": "Bekræftelse FRA — genoptages automatisk om {mins} min",
   "admin.email.state_unconfigured": "SMTP ikke konfigureret",
   "admin.email.test_prompt": "Send en test-e-mail til hvilken adresse?",
   "admin.email.tip": "<strong>Tip:</strong> <em>Fra-adressen</em> skal som regel være på samme domæne, som du godkendes med (brugernavnets domæne). Afsendelse fra et ubeslægtet domæne (f.eks. et personligt alias) får de fleste udbydere og Gmail til at kassere beskeden på grund af SPF/DMARC-fejl, selvom relæet \"accepterer\" den.",

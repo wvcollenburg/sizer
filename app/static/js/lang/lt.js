@@ -60,6 +60,7 @@
   "admin.email.sent": "Išsiųsta.",
   "admin.email.state_active": "El. pašto patvirtinimas AKTYVUS",
   "admin.email.state_off": "SMTP sukonfigūruotas, patvirtinimas IŠJUNGTAS",
+  "admin.email.state_off_temp": "Patvirtinimas IŠJUNGTAS — automatiškai atsinaujins po {mins} min",
   "admin.email.state_unconfigured": "SMTP nesukonfigūruotas",
   "admin.email.test_prompt": "Kuriuo adresu siųsti bandomąjį laišką?",
   "admin.email.tip": "<strong>Patarimas:</strong> <em>Siuntėjo adresas</em> paprastai turi būti tame pačiame domene, su kuriuo autentifikuojatės (naudotojo vardo domenas). Siuntimas iš nesusijusio domeno (pvz., asmeninio slapyvardžio) verčia daugumą tiekėjų ir Gmail atmesti laišką dėl SPF/DMARC nesėkmių, net jei perdavimo serveris jį \"priima\".",

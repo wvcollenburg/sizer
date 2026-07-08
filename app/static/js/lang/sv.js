@@ -60,6 +60,7 @@
   "admin.email.sent": "Skickat.",
   "admin.email.state_active": "E-postverifiering är AKTIV",
   "admin.email.state_off": "SMTP konfigurerad, verifiering AV",
+  "admin.email.state_off_temp": "Verifiering AV — återupptas om {mins} min",
   "admin.email.state_unconfigured": "SMTP inte konfigurerad",
   "admin.email.test_prompt": "Skicka ett testmeddelande till vilken adress?",
   "admin.email.tip": "<strong>Tips:</strong> <em>Från-adressen</em> måste vanligtvis finnas på samma domän som du autentiserar med (användarnamnets domän). Att skicka från en orelaterad domän (t.ex. ett personligt alias) gör att de flesta leverantörer och Gmail släpper meddelandet på grund av SPF/DMARC-fel även om reläet \"accepterar\" det.",

@@ -2,6 +2,7 @@ import io
 import os
 import secrets
 import tempfile
+from urllib.parse import urlparse
 
 from flask import Flask, render_template, jsonify, request, send_file
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -29,6 +30,17 @@ from export_docx import (build_proposal_docx, build_multisite_proposal_docx,
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
+
+# Upper bounds on client-supplied sizing counts. The recommendation engine is
+# internally bounded (it searches a small node range), but the direct
+# /api/calculate path builds per-node structures + an SVG straight from these, so
+# an unclamped value (e.g. node_count=1e8) is a trivial CPU/memory DoS. These
+# ceilings are far above any real cluster while keeping a hostile request cheap.
+MAX_NODE_COUNT = 1000
+MAX_STORAGE_ONLY_COUNT = 1000
+# A combined multi-site export iterates every cluster into one document; bound it
+# so a giant clusters[] can't drive an unbounded (and soffice-backed) render.
+MAX_EXPORT_CLUSTERS = 50
 
 
 def _validated_disk_sizes():
@@ -91,6 +103,14 @@ def create_app():
     # won't survive a restart or span multiple workers.
     secret = os.environ.get("SECRET_KEY")
     if not secret:
+        # In production (signalled by SESSION_COOKIE_SECURE=true behind TLS) an
+        # ephemeral key is dangerous: it churns logins across workers/restarts and
+        # makes the Fernet-encrypted SMTP secret undecryptable. Refuse to boot.
+        if os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true":
+            raise RuntimeError(
+                "SECRET_KEY must be set in production. Refusing to start with an "
+                "ephemeral key (SESSION_COOKIE_SECURE=true indicates prod)."
+            )
         secret = secrets.token_hex(32)
         app.logger.warning(
             "SECRET_KEY not set — generated an ephemeral key. Logins will not "
@@ -106,6 +126,40 @@ def create_app():
 
     init_db(app)
     limiter.init_app(app)
+
+    # CSRF defence-in-depth: reject state-changing requests whose Origin/Referer
+    # is a different host. SameSite=Lax already blocks cross-site cookie sending,
+    # so this is a second layer. Fail-open when no Origin/Referer is present (non-
+    # browser clients like curl) — those can't be a browser CSRF vector anyway.
+    def _allowed_hosts():
+        hosts = set()
+        base = (os.environ.get("APP_BASE_URL") or "").strip()
+        if base:
+            h = urlparse(base if "://" in base else "https://" + base).hostname
+            if h:
+                hosts.add(h.lower())
+        try:
+            h = urlparse("http://" + request.host).hostname
+            if h:
+                hosts.add(h.lower())
+        except Exception:
+            pass
+        return hosts
+
+    @app.before_request
+    def _csrf_origin_guard():
+        if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            return
+        src = request.headers.get("Origin") or request.headers.get("Referer")
+        if not src:
+            return
+        try:
+            host = urlparse(src).hostname
+        except Exception:
+            return
+        if host and host.lower() not in _allowed_hosts():
+            return jsonify({"error": "Cross-origin request blocked"}), 403
+
     register_auth(app)
     app.register_blueprint(admin_bp)
 
@@ -212,10 +266,17 @@ def create_app():
         refresh_from_db()
         data = request.json
         mode = data.get("mode", "appliance")
-        node_count = data.get("node_count", 3)
+        # Coerce + bound node_count: it drives per-node loops and SVG generation,
+        # so a non-int or absurd value must be rejected before any work.
+        try:
+            node_count = int(data.get("node_count", 3))
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid node count"}), 400
 
         if node_count < 1:
             return jsonify({"error": "Minimum 1 node required"}), 400
+        if node_count > MAX_NODE_COUNT:
+            return jsonify({"error": f"Node count must be {MAX_NODE_COUNT} or fewer"}), 400
 
         if mode == "appliance":
             return jsonify(calculate_appliance(data, node_count))
@@ -229,6 +290,12 @@ def create_app():
 
         f = request.files["file"]
         if not f.filename or not f.filename.endswith(".xlsx"):
+            return jsonify({"error": "File must be an .xlsx Excel file"}), 400
+        # Content sniff: an .xlsx is a ZIP (starts with "PK\x03\x04"). Reject
+        # anything else up front rather than feeding arbitrary bytes to openpyxl.
+        head = f.stream.read(4)
+        f.stream.seek(0)
+        if head != b"PK\x03\x04":
             return jsonify({"error": "File must be an .xlsx Excel file"}), 400
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
@@ -359,6 +426,7 @@ def create_app():
         return jsonify({"found": False})
 
     @app.route("/api/export-config", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_config():
         data = request.json
         if not data:
@@ -378,6 +446,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the configuration slide."}), 500
 
     @app.route("/api/export-config-pdf", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_config_pdf():
         data = request.json
         if not data:
@@ -397,6 +466,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the configuration PDF."}), 500
 
     @app.route("/api/export-proposal", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_proposal():
         data = request.json
         summary = data.get("summary")
@@ -431,6 +501,7 @@ def create_app():
         return bool(u and (u.is_scale or u.is_super_admin))
 
     @app.route("/api/export-docx", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_docx_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -448,6 +519,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the document."}), 500
 
     @app.route("/api/export-pdf", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_pdf_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -466,6 +538,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the PDF."}), 500
 
     @app.route("/api/export-presentation-pdf", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_presentation_pdf_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -491,12 +564,15 @@ def create_app():
         clusters = data.get("clusters")
         if not isinstance(clusters, list) or not clusters:
             return None
+        if len(clusters) > MAX_EXPORT_CLUSTERS:
+            return None
         for cl in clusters:
             if not (cl.get("summary") and cl.get("recommendation") and cl.get("projection")):
                 return None
         return clusters
 
     @app.route("/api/export-multisite-proposal", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_multisite_proposal():
         clusters = _multisite_payload()
         if not clusters:
@@ -513,6 +589,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the proposal."}), 500
 
     @app.route("/api/export-multisite-docx", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_multisite_docx():
         clusters = _multisite_payload()
         if not clusters:
@@ -529,6 +606,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the document."}), 500
 
     @app.route("/api/export-multisite-pdf", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_multisite_pdf():
         clusters = _multisite_payload()
         if not clusters:
@@ -546,6 +624,7 @@ def create_app():
             return jsonify({"error": "Failed to generate the PDF."}), 500
 
     @app.route("/api/export-multisite-presentation-pdf", methods=["POST"])
+    @limiter.limit("20 per minute")
     def export_multisite_presentation_pdf():
         clusters = _multisite_payload()
         if not clusters:
@@ -736,9 +815,14 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     the model's drives (so raw_per_node is shared), take a single lowest-tier CPU
     and a compliant RAM option, and require >=2 full HCI nodes in the cluster."""
     so = data.get("storage_only") or {}
-    count = int(so.get("count", 0) or 0)
+    try:
+        count = int(so.get("count", 0) or 0)
+    except (TypeError, ValueError):
+        return None, None
     if count <= 0:
         return None, None
+    if count > MAX_STORAGE_ONLY_COUNT:
+        return None, {"error": f"Storage-only node count must be {MAX_STORAGE_ONLY_COUNT} or fewer"}
     if hci_count < T.min_hci_nodes_per_cluster:
         return None, {"error": (
             f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
@@ -1023,9 +1107,14 @@ def _validated_storage_only(data, disk_count, hci_count):
     as the HCI nodes; the caller fills in raw_storage_tb. A single low CPU and
     >=16 GB RAM are user-supplied; requires >=2 full HCI nodes."""
     so = data.get("storage_only") or {}
-    count = int(so.get("count", 0) or 0)
+    try:
+        count = int(so.get("count", 0) or 0)
+    except (TypeError, ValueError):
+        return None, None
     if count <= 0:
         return None, None
+    if count > MAX_STORAGE_ONLY_COUNT:
+        return None, {"error": f"Storage-only node count must be {MAX_STORAGE_ONLY_COUNT} or fewer"}
     if hci_count < T.min_hci_nodes_per_cluster:
         return None, {"error": (
             f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
@@ -1055,4 +1144,7 @@ def _validated_storage_only(data, disk_count, hci_count):
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Debug (Werkzeug interactive debugger = RCE) is OFF unless explicitly enabled
+    # via FLASK_DEBUG=1 for local dev. Production runs under gunicorn, not this.
+    app.run(host=os.environ.get("FLASK_RUN_HOST", "0.0.0.0"), port=5000,
+            debug=os.environ.get("FLASK_DEBUG", "") == "1")

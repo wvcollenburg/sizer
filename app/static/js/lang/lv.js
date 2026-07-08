@@ -60,6 +60,7 @@
   "admin.email.sent": "Nosūtīts.",
   "admin.email.state_active": "E-pasta verifikācija ir AKTĪVA",
   "admin.email.state_off": "SMTP konfigurēts, verifikācija IZSLĒGTA",
+  "admin.email.state_off_temp": "Verifikācija IZSLĒGTA — atsāksies pēc {mins} min",
   "admin.email.state_unconfigured": "SMTP nav konfigurēts",
   "admin.email.test_prompt": "Uz kuru adresi nosūtīt testa e-pastu?",
   "admin.email.tip": "<strong>Padoms:</strong> <em>Nosūtītāja adresei</em> parasti jābūt tajā pašā domēnā, ar kuru autentificējaties (lietotājvārda domēnā). Sūtīšana no nesaistīta domēna (piem., personiskā aizstājvārda) liek lielākajai daļai pakalpojumu sniedzēju un Gmail atmest ziņojumu SPF/DMARC kļūmju dēļ, pat ja relejs ziņojumu \"pieņem\".",

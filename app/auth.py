@@ -14,8 +14,10 @@ import base64
 import hashlib
 import threading
 import smtplib
+import socket
+import ipaddress
 import secrets
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
 
@@ -40,6 +42,15 @@ PWHASH_METHOD = "pbkdf2:sha256"
 # Password policy. "Special" = any non-alphanumeric character (matches the
 # frontend's /[^A-Za-z0-9]/ so client and server agree).
 PASSWORD_MIN_LENGTH = 10
+# Upper bound: hashing is O(len), so an unbounded password lets an attacker
+# force expensive pbkdf2 work per attempt (CPU amplification). 1024 is far above
+# any real passphrase.
+PASSWORD_MAX_LENGTH = 1024
+
+# A fixed hash to compare against when the account doesn't exist, so a login for
+# an unknown email still pays the pbkdf2 cost and can't be distinguished by
+# timing from a wrong password on a real account.
+DUMMY_PASSWORD_HASH = generate_password_hash("dummy-password-for-constant-time", method=PWHASH_METHOD)
 
 
 def validate_password(pw):
@@ -47,6 +58,8 @@ def validate_password(pw):
     pw = pw or ""
     if len(pw) < PASSWORD_MIN_LENGTH:
         return "Password must be at least {} characters".format(PASSWORD_MIN_LENGTH)
+    if len(pw) > PASSWORD_MAX_LENGTH:
+        return "Password must be at most {} characters".format(PASSWORD_MAX_LENGTH)
     if not re.search(r"[A-Z]", pw):
         return "Password must contain an uppercase letter"
     if not re.search(r"[a-z]", pw):
@@ -115,15 +128,49 @@ def _setting_bool(key):
     return (get_setting(key, "false") or "false").strip().lower() in ("true", "1", "yes")
 
 
+# Once SMTP is configured, email verification is MANDATORY. An admin may suspend
+# it only briefly — e.g. to create a test account — for at most this many minutes,
+# after which it turns itself back on. The suspension deadline is stored here.
+VERIFY_TEMP_OFF_MINUTES = 30
+VERIFY_OFF_UNTIL_KEY = "verify_off_until"
+
+
 def smtp_configured():
     """SMTP is usable when at least a host and a from-address are set."""
     return bool(get_setting("smtp_host") and get_setting("smtp_from"))
 
 
+def _verify_off_until():
+    """The datetime until which verification is temporarily suspended, or None."""
+    raw = get_setting(VERIFY_OFF_UNTIL_KEY)
+    if not raw:
+        return None
+    try:
+        return _aware(datetime.fromisoformat(raw))
+    except (ValueError, TypeError):
+        return None
+
+
+def verify_off_minutes_remaining():
+    """Whole minutes left in an active temporary-suspension window (0 if none)."""
+    until = _verify_off_until()
+    if not until:
+        return 0
+    secs = (until - _utcnow()).total_seconds()
+    return max(0, int(secs // 60) + (1 if secs > 0 else 0))
+
+
 def verification_active():
-    """Email verification is enforced only when SMTP is configured AND the admin
-    has turned the toggle on."""
-    return smtp_configured() and _setting_bool("verify_email_enabled")
+    """Email verification is enforced whenever SMTP is configured. Without SMTP it
+    can't run (off). When SMTP is configured it is ON, except during a short
+    admin-initiated suspension window (see VERIFY_TEMP_OFF_MINUTES), after which it
+    resumes automatically — so it can never be left off indefinitely."""
+    if not smtp_configured():
+        return False
+    until = _verify_off_until()
+    if until and _utcnow() < until:
+        return False
+    return True
 
 
 # ── email ────────────────────────────────────────────────────────────────────
@@ -153,6 +200,33 @@ def _decrypt_secret(stored):
         return stored
 
 
+# Only real mail-submission ports are allowed as SMTP targets — this endpoint
+# must not become a general TCP-connect primitive.
+SMTP_ALLOWED_PORTS = {25, 465, 587, 2525}
+
+
+def _validate_smtp_target(host, port):
+    """SSRF guard for the admin-supplied SMTP host/port. The settings are
+    super-admin controlled, but the connection still crosses the app's network
+    boundary, so block the addresses that are never a legitimate mail server:
+    loopback, link-local (incl. the 169.254.169.254 cloud-metadata endpoint),
+    unspecified/reserved/multicast. Private RFC1918 is allowed so internal mail
+    relays keep working. Raises ValueError (generic) on rejection."""
+    if port not in SMTP_ALLOWED_PORTS:
+        raise ValueError("Unsupported SMTP port")
+    if not host:
+        raise ValueError("No SMTP host configured")
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except OSError:
+        raise ValueError("SMTP host could not be resolved")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_loopback or ip.is_link_local or ip.is_unspecified
+                or ip.is_multicast or ip.is_reserved):
+            raise ValueError("SMTP host is not an allowed address")
+
+
 def _smtp_send(msg):
     """Open a connection to the configured SMTP server and send ``msg``.
     Raises on failure."""
@@ -163,6 +237,8 @@ def _smtp_send(msg):
     use_tls = _setting_bool("smtp_use_tls")
     # Port 465 is implicit TLS (SMTPS); 587/25 use optional STARTTLS.
     use_ssl = port == 465
+
+    _validate_smtp_target(host, port)  # SSRF guard
 
     cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
     with cls(host, port, timeout=20) as server:
@@ -672,6 +748,7 @@ def signup():
             "email_sent": sent,
         }), 201
 
+    session.clear()  # rotate session on privilege change
     session["user_id"] = user.id
     g.current_user = user
     return jsonify({
@@ -681,7 +758,7 @@ def signup():
 
 
 @auth_bp.route("/login", methods=["POST"])
-@limiter.limit("30 per minute")
+@limiter.limit("10 per minute")
 def login():
     data = request.json or {}
     email = normalize_email(data.get("email"))
@@ -689,23 +766,35 @@ def login():
 
     user = User.query.filter_by(email=email).first()
 
-    # Lockout check first — applies even on correct passwords during cooldown.
-    locked_until = _aware(user.locked_until) if user else None
-    if locked_until and _utcnow() < locked_until:
-        mins = max(1, int((locked_until - _utcnow()).total_seconds() // 60) + 1)
-        return jsonify({"error": (
-            "Too many failed attempts. Try again in about {} minute(s).".format(mins)
-        )}), 429
+    # Always run a password hash — against a fixed dummy when the account doesn't
+    # exist — so response timing can't distinguish "no such email" from "wrong
+    # password". Over-long passwords are rejected without hashing (CPU guard).
+    if len(password) > PASSWORD_MAX_LENGTH:
+        password_ok = False
+    elif user:
+        password_ok = check_password_hash(user.password_hash, password)
+    else:
+        check_password_hash(DUMMY_PASSWORD_HASH, password)
+        password_ok = False
 
-    if not user or not check_password_hash(user.password_hash, password):
+    if not password_ok:
+        # Track failures per account for brute-force visibility, but do NOT hard-
+        # lock the account: a per-account lock is trivially weaponized to DoS a
+        # known victim (correct password refused during the window). The per-IP
+        # rate limit above is the real online-guessing brake. The response is
+        # byte-identical for unknown / wrong / flagged accounts so it can't be
+        # used to enumerate.
         if user:
             user.failed_login_count = (user.failed_login_count or 0) + 1
             if user.failed_login_count >= LOCKOUT_THRESHOLD:
+                # Recorded for monitoring/admin visibility only; not enforced as a
+                # correct-password block (see note above).
                 user.locked_until = _utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
                 user.failed_login_count = 0
             db.session.commit()
         return jsonify({"error": "Invalid email or password"}), 401
 
+    # Correct password from here.
     if user.is_disabled:
         return jsonify({"error": "This account has been disabled"}), 403
     if user.tenant and user.tenant.is_blocked:
@@ -720,6 +809,9 @@ def login():
     user.locked_until = None
     user.last_login_at = _utcnow()
     db.session.commit()
+    # Rotate the session on privilege change: drop any pre-login session state
+    # before adopting the authenticated identity.
+    session.clear()
     session["user_id"] = user.id
     g.current_user = user
 
@@ -733,12 +825,13 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
-    session.pop("user_id", None)
+    session.clear()
     g.current_user = None
     return jsonify({"message": "Logged out"})
 
 
 @auth_bp.route("/verify/<token>")
+@limiter.limit("20 per minute")
 def verify_email(token):
     user = User.query.filter_by(verification_token=_hash_token((token or "").strip())).first()
     if user is None:
@@ -946,6 +1039,7 @@ def get_config(config_id):
 
 @configs_bp.route("/code/<code>", methods=["GET"])
 @login_required
+@limiter.limit("30 per minute")
 def get_config_by_code(code):
     user = current_user()
     config = Configuration.query.filter_by(code=(code or "").strip()).first()
@@ -1309,6 +1403,9 @@ def get_email_settings():
         "verify_email_enabled": _setting_bool("verify_email_enabled"),
         "configured": smtp_configured(),
         "verification_active": verification_active(),
+        # Minutes left in a temporary suspension window (0 = not suspended).
+        "verify_off_minutes_remaining": verify_off_minutes_remaining(),
+        "verify_temp_off_minutes": VERIFY_TEMP_OFF_MINUTES,
     })
 
 
@@ -1319,15 +1416,27 @@ def update_email_settings():
     for key in ["smtp_host", "smtp_port", "smtp_username", "smtp_from"]:
         if key in data:
             set_setting(key, str(data[key]).strip())
-    for key in ["smtp_use_tls", "verify_email_enabled"]:
-        if key in data:
-            set_setting(key, "true" if data[key] else "false")
+    if "smtp_use_tls" in data:
+        set_setting("smtp_use_tls", "true" if data["smtp_use_tls"] else "false")
     # Only overwrite the password when a non-empty new value is supplied.
     # Stored encrypted at rest (decrypted only when sending mail).
     if data.get("smtp_password"):
         set_setting("smtp_password", _encrypt_secret(str(data["smtp_password"])))
     if data.get("clear_password"):
         set_setting("smtp_password", "")
+
+    # Verification toggle. With SMTP configured, turning it OFF only *suspends* it
+    # for VERIFY_TEMP_OFF_MINUTES (then verification_active() auto-resumes); turning
+    # it ON clears the suspension immediately. Without SMTP there's nothing to run.
+    if "verify_email_enabled" in data:
+        want_on = bool(data["verify_email_enabled"])
+        set_setting("verify_email_enabled", "true" if want_on else "false")
+        if want_on or not smtp_configured():
+            set_setting(VERIFY_OFF_UNTIL_KEY, "")
+        else:
+            set_setting(VERIFY_OFF_UNTIL_KEY,
+                        (_utcnow() + timedelta(minutes=VERIFY_TEMP_OFF_MINUTES)).isoformat())
+
     audit("update_email_settings", "verify={}".format(
         "true" if (data.get("verify_email_enabled")) else "false"))
     db.session.commit()
@@ -1352,7 +1461,10 @@ def test_email_settings():
                        "be authorised by your mail provider.".format(to, msg["From"]),
         })
     except Exception as e:  # noqa: BLE001
-        return jsonify({"error": "Send failed: {}".format(e)}), 502
+        # Log the detail server-side; don't echo it — the raw exception can leak
+        # a probed service's banner/error (SSRF fingerprinting).
+        current_app.logger.warning("SMTP test send failed: %s", e)
+        return jsonify({"error": "Send failed. Check the SMTP settings and server logs."}), 502
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────

@@ -60,6 +60,7 @@
   "admin.email.sent": "Gesendet.",
   "admin.email.state_active": "E-Mail-Verifizierung ist AKTIV",
   "admin.email.state_off": "SMTP konfiguriert, Verifizierung AUS",
+  "admin.email.state_off_temp": "Verifizierung AUS — wird in {mins} Min. automatisch fortgesetzt",
   "admin.email.state_unconfigured": "SMTP nicht konfiguriert",
   "admin.email.test_prompt": "An welche Adresse soll die Test-E-Mail gesendet werden?",
   "admin.email.tip": "<strong>Tipp:</strong> die <em>Absenderadresse</em> muss in der Regel derselben Domäne angehören, mit der Sie sich authentifizieren (die Domäne des Benutzernamens). Das Senden von einer nicht verwandten Domäne (z. B. einem persönlichen Alias) führt dazu, dass die meisten Anbieter und Gmail die Nachricht wegen SPF/DMARC-Fehlern verwerfen, obwohl das Relay sie „annimmt“.",

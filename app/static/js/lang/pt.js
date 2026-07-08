@@ -60,6 +60,7 @@
   "admin.email.sent": "Enviado.",
   "admin.email.state_active": "A verificação de e-mail está ATIVA",
   "admin.email.state_off": "SMTP configurado, verificação DESATIVADA",
+  "admin.email.state_off_temp": "Verificação DESATIVADA — retoma automaticamente em {mins} min",
   "admin.email.state_unconfigured": "SMTP não configurado",
   "admin.email.test_prompt": "Enviar um e-mail de teste para qual endereço?",
   "admin.email.tip": "<strong>Dica:</strong> o <em>endereço de origem (From)</em> geralmente deve pertencer ao mesmo domínio com o qual você se autentica (o domínio do nome de usuário). Enviar de um domínio não relacionado (por exemplo, um alias pessoal) faz com que a maioria dos provedores e o Gmail descartem a mensagem por falhas de SPF/DMARC, mesmo que o relay a \"aceite\".",
