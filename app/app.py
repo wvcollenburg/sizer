@@ -784,6 +784,9 @@ def calculate_appliance(data, node_count):
         "cluster_layout": layout,
         "storage_only": so_block,
         "network_svg": network_svg,
+        # Carry the port count so the exporters' diagram regeneration
+        # (_rec_network_svg) matches the on-screen SVG instead of defaulting to 2.
+        "nic_ports": _nic_ports,
         "per_node": {
             "cpu": cpu["desc"],
             "cores": usable_cores,
@@ -1072,6 +1075,9 @@ def calculate_validated(data, node_count):
         "storage_only": so_block,
         "storage_type": storage_type,
         "network_svg": network_svg,
+        # Carry the port count so the exporters' diagram regeneration
+        # (_rec_network_svg) matches the on-screen SVG instead of defaulting to 2.
+        "nic_ports": _nic_ports,
         "per_node": {
             "cores": usable_cores,
             "threads": threads,
