@@ -935,54 +935,83 @@ def _soffice_bin():
     return shutil.which("soffice") or shutil.which("libreoffice")
 
 
-# Global-ish cap on concurrent LibreOffice conversions. Each soffice conversion
-# pegs roughly a full core, so an uncoordinated burst of exports would thrash a
-# small box (and spike RAM). The per-client rate limits (20/min) don't bound
-# *simultaneous* conversions, so we gate them here.
+# Bounded queue in front of LibreOffice. Each soffice conversion pegs roughly a
+# full core, so an uncoordinated burst of exports would thrash a small box (and
+# spike RAM). The per-client rate limits (20/min) don't bound *simultaneous*
+# conversions, so we gate them here: a small number convert at once, a few more
+# wait in line, and anything beyond that sheds (caller → 503) instead of piling
+# onto a saturated box.
 #
-# NOTE: a threading.Semaphore is per-process, so the effective global cap is
-# roughly (gunicorn workers) × LIBREOFFICE_MAX_CONCURRENCY. With the default
-# 3 workers × 1 that is ≤3 concurrent soffice on a 4-core box — one core of
-# headroom. Raise LIBREOFFICE_MAX_CONCURRENCY only if you also add cores.
+#   _LO_MAX        - conversions running at once (semaphore "slots")
+#   _LO_QUEUE_MAX  - extra requests allowed to WAIT for a slot
+#   admitted cap   - _LO_MAX + _LO_QUEUE_MAX (running + waiting)
+#
+# NOTE: these are per-process (a worker never sees another worker's counters),
+# so the effective global figures are ~(gunicorn workers) × each. With the
+# defaults — 3 workers × (1 running + 3 waiting) — that's ≤3 concurrent soffice
+# on a 4-core box (one core of headroom) and ≤12 total export requests in flight
+# before shedding. Each waiting request holds a gunicorn thread, so keep
+# (_LO_MAX + _LO_QUEUE_MAX) below the worker thread count (6) to leave threads
+# for light traffic. Raise _LO_MAX only if you also add cores.
 _LO_MAX = max(1, int(os.environ.get("LIBREOFFICE_MAX_CONCURRENCY", "1")))
+_LO_QUEUE_MAX = max(0, int(os.environ.get("LIBREOFFICE_QUEUE_MAX", "3")))
 _lo_semaphore = threading.BoundedSemaphore(_LO_MAX)
+
+# Admission counter (running + waiting) guarded by its own lock, so we can reject
+# at the queue-full boundary before a request ever blocks on the semaphore.
+_lo_admit_lock = threading.Lock()
+_lo_outstanding = 0
 
 # How long a queued conversion waits for a free slot before giving up. Kept
 # comfortably under the difference between the gunicorn worker timeout (180s)
 # and the soffice conversion timeout (120s) so that wait + convert can't exceed
-# the worker timeout and get the worker reaped mid-export.
+# the worker timeout and get the worker reaped mid-export. This also stops a
+# single hung conversion from holding the whole queue hostage — those behind it
+# time out here and shed rather than waiting indefinitely.
 _LO_ACQUIRE_TIMEOUT = 45
 
 
 def _office_to_pdf(data_bytes, in_ext):
     """Convert an office document (.docx/.pptx) → PDF bytes via headless
-    LibreOffice. Returns None if LibreOffice isn't available, if the box is too
-    busy to get a conversion slot within the wait window, or on conversion
-    failure. Callers already treat None as "PDF unavailable"."""
+    LibreOffice. Returns None if LibreOffice isn't available, if the conversion
+    queue is full or the wait window elapsed, or on conversion failure. Callers
+    already treat None as "PDF unavailable" (→ HTTP 503)."""
+    global _lo_outstanding
     soffice = _soffice_bin()
     if not soffice:
         return None
-    if not _lo_semaphore.acquire(timeout=_LO_ACQUIRE_TIMEOUT):
-        # All conversion slots busy and the wait window elapsed — shed load
-        # gracefully rather than pile another soffice onto a saturated box.
-        return None
+
+    # Admission control: reject immediately if running + waiting is already at
+    # the cap, so the line can't grow past _LO_QUEUE_MAX and starve the worker
+    # threads that light traffic needs.
+    with _lo_admit_lock:
+        if _lo_outstanding >= _LO_MAX + _LO_QUEUE_MAX:
+            return None
+        _lo_outstanding += 1
     try:
-        with tempfile.TemporaryDirectory() as d:
-            src = os.path.join(d, f"doc.{in_ext}")
-            with open(src, "wb") as f:
-                f.write(data_bytes)
-            try:
-                subprocess.run([soffice, "--headless", "--convert-to", "pdf",
-                                "--outdir", d, src],
-                               check=True, timeout=120,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                               env={**os.environ, "HOME": d})
-            except Exception:
-                return None
-            out = os.path.join(d, "doc.pdf")
-            return open(out, "rb").read() if os.path.exists(out) else None
+        # Admitted — wait in line for a conversion slot (bounded by the timeout).
+        if not _lo_semaphore.acquire(timeout=_LO_ACQUIRE_TIMEOUT):
+            return None
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                src = os.path.join(d, f"doc.{in_ext}")
+                with open(src, "wb") as f:
+                    f.write(data_bytes)
+                try:
+                    subprocess.run([soffice, "--headless", "--convert-to", "pdf",
+                                    "--outdir", d, src],
+                                   check=True, timeout=120,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   env={**os.environ, "HOME": d})
+                except Exception:
+                    return None
+                out = os.path.join(d, "doc.pdf")
+                return open(out, "rb").read() if os.path.exists(out) else None
+        finally:
+            _lo_semaphore.release()
     finally:
-        _lo_semaphore.release()
+        with _lo_admit_lock:
+            _lo_outstanding -= 1
 
 
 def convert_docx_to_pdf(docx_bytes):

@@ -14,7 +14,7 @@ echo "Starting gunicorn..."
 # --max-requests: recycle workers periodically to bound slow memory growth from
 #   openpyxl / python-pptx / LibreOffice over long uptime.
 exec gunicorn --bind 0.0.0.0:5000 \
-    --workers 3 --threads 4 --worker-class gthread \
+    --workers 3 --threads 6 --worker-class gthread \
     --timeout 180 \
     --max-requests 500 --max-requests-jitter 50 \
     app:app
