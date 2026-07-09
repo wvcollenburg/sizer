@@ -45,7 +45,7 @@ services:
       DATABASE_URL: postgresql://sizer:sizer@db:5432/sizer
       RATELIMIT_STORAGE_URI: redis://redis:6379
       # SECRET_KEY, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD come from .env (see
-      # .env.template). SECRET_KEY must be set so logins persist across the two
+      # .env.template). SECRET_KEY must be set so logins persist across all
       # gunicorn workers.
     restart: unless-stopped
 
