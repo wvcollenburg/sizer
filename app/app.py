@@ -27,6 +27,7 @@ from tunables import T, refresh_from_db
 from export_pptx import generate_proposal, generate_config_slide, generate_multisite_proposal
 from export_docx import (build_proposal_docx, build_multisite_proposal_docx,
                          convert_docx_to_pdf, convert_pptx_to_pdf)
+from export_gate import export_gate
 from cluster_diagram import network_svg_for
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
@@ -427,6 +428,7 @@ def create_app():
 
     @app.route("/api/export-config", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_config():
         data = request.json
         if not data:
@@ -447,6 +449,7 @@ def create_app():
 
     @app.route("/api/export-config-pdf", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_config_pdf():
         data = request.json
         if not data:
@@ -467,6 +470,7 @@ def create_app():
 
     @app.route("/api/export-proposal", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_proposal():
         data = request.json
         summary = data.get("summary")
@@ -502,6 +506,7 @@ def create_app():
 
     @app.route("/api/export-docx", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_docx_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -520,6 +525,7 @@ def create_app():
 
     @app.route("/api/export-pdf", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_pdf_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -539,6 +545,7 @@ def create_app():
 
     @app.route("/api/export-presentation-pdf", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_presentation_pdf_route():
         summary, recommendation, projection, source_perf = _proposal_payload()
         if not summary or not recommendation or not projection:
@@ -573,6 +580,7 @@ def create_app():
 
     @app.route("/api/export-multisite-proposal", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_multisite_proposal():
         clusters = _multisite_payload()
         if not clusters:
@@ -590,6 +598,7 @@ def create_app():
 
     @app.route("/api/export-multisite-docx", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_multisite_docx():
         clusters = _multisite_payload()
         if not clusters:
@@ -607,6 +616,7 @@ def create_app():
 
     @app.route("/api/export-multisite-pdf", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_multisite_pdf():
         clusters = _multisite_payload()
         if not clusters:
@@ -625,6 +635,7 @@ def create_app():
 
     @app.route("/api/export-multisite-presentation-pdf", methods=["POST"])
     @limiter.limit("20 per minute")
+    @export_gate
     def export_multisite_presentation_pdf():
         clusters = _multisite_payload()
         if not clusters:
