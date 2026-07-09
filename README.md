@@ -39,11 +39,81 @@ languages.
   data, and sizing tunables live (no redeploy). Includes rate limiting, email
   verification, account lockout, and a daily GDPR retention/anonymization job.
 
+## Features & functionalities
+
+A full inventory of what the sizer does today.
+
+### Data import & workload capture
+- **Live Optics import** — parses the `.xlsx` assessment export; derives total vCPUs, RAM, storage (provisioned/used), utilized GHz, IOPS, and VM counts.
+- **RVTools import** — the same, from an RVTools `.xlsx` export.
+- **Shared-datastore deduplication** — datastores reported per-host under local names are de-duplicated by a capacity/used/free/VM-count signature, so shared storage isn't counted multiple times.
+- **Manual entry** — key in workload numbers by hand when no assessment file is available.
+- **Guided import wizard** — a stepped, walk-through import flow as the default experience, with the original single-page "classic" view kept as an advanced mode.
+- **Upload hardening** — magic-byte sniffing rejects non-`.xlsx` files, and row/column caps stop decompression-bomb spreadsheets.
+
+### Sizing engine
+- **Full-stack sizing** — recommends node counts to satisfy compute, memory, storage-capacity, and IOPS demand simultaneously, with N+1 failure headroom.
+- **Active compute floor** — compute is sized to what the workload actually consumes, blending utilized GHz with CPU benchmark scores (SPECrate) rather than nameplate core counts.
+- **Two sizing modes** — *Certified* (fixed SC// appliance configurations) and *Validated* software-only (same models, disks trimmed to need within the supported flash band and per-cluster disk limits).
+- **Storage-only nodes** — no-VM nodes that join the storage cluster to add capacity/IOPS without adding compute licensing.
+- **Day-one consumption caps** — bound how full the cluster may be on day one (storage vs. full capacity, RAM vs. N-1), leaving planned growth headroom.
+- **IOPS-aware** — sizes on per-drive IOPS, with replication-factor write-amplification treated as real demand.
+- **Multi-site** — size several clusters in one session and roll them into a single combined proposal.
+- **Determinant transparency** — each recommendation reports which resource (compute / RAM / storage / IOPS) drove the node count.
+
+### CPU catalog & performance intelligence
+- **625-CPU catalog** — make, generation, and model, with base / all-core / max clocks and P-/E-core counts.
+- **Benchmark scores** — SPECrate and PassMark per CPU.
+- **Benchmark autofill** — look up a CPU's performance data on demand (`/api/cpu-perf`) to feed the perf-based compute floor.
+
+### Deliverables & exports
+- **Branded PowerPoint proposal** — leads with the recommendation, fully branded.
+- **Word (DOCX) proposal** — the same content as an editable document.
+- **PDF** — proposal and presentation PDFs rendered via headless LibreOffice.
+- **Config slide** — a standalone configuration slide (PPTX + PDF).
+- **Multi-site exports** — one combined document with per-cluster sections, in any format.
+- **Cluster network diagrams** — a per-recommendation C4-style network diagram embedded in the exports.
+- **Replication topology** — a cluster-to-cluster replication diagram for multi-site designs.
+- **Utilization & benchmark charts** — utilization bars and benchmark visuals in the deck and document.
+- **Editable vs. read-only** — editable source files (PPTX / Word) for Scale users; read-only PDF for everyone else.
+
+### Localization
+- **15 languages, UI *and* documents** — EN, DE, FR, NL, ES, IT, PT, JA, SV, DA, NO, FI, ET, LV, LT. Every generated export is localized, with CJK-capable fonts bundled for Japanese.
+
+### Accounts, multi-tenancy & collaboration
+- **Optional accounts** — sign-up, login, logout, email verification, and password reset.
+- **Email-domain tenancy** — users are grouped into tenants by their email domain automatically.
+- **Roles** — super-admin, tenant-admin, and user.
+- **Saved sizings** — save, reload, update, and delete sizings against your account.
+- **Share by code** — hand a colleague a short code to open a shared sizing.
+
+### Administration (live, no redeploy)
+- **Hardware catalog** — create / edit / delete models, CPUs, NICs, and drives, plus their per-model compatibility.
+- **Drive IOPS & sizing tunables** — edit the per-drive IOPS table and the sizing constants live, with reset-to-defaults.
+- **Catalog import/export** — bulk-manage the catalog and models via Excel, with a downloadable template.
+- **User & tenant management** — list / disable / restore / delete users, change roles, reset passwords, find stale accounts, purge; assign tenant admins and block tenants.
+- **Config oversight** — list and purge any saved sizing.
+- **Email/SMTP settings** — configure and test outbound mail.
+- **Audit log** — a super-admin audit trail of sensitive actions.
+
+### Security, privacy & compliance
+- **Rate limiting** — per-client-IP limits (Redis-backed for exact cross-worker enforcement) on auth, export, and enumeration-prone endpoints.
+- **Session & auth hardening** — session rotation on login/signup, full clear on logout, constant-time login (no account enumeration), password-length caps, and a CSRF same-origin guard.
+- **Email verification** — mandatory once SMTP is configured, with a time-boxed temporary-suspend grace.
+- **Input hardening** — upload content sniffing, HTML-escaped warnings, and an SMTP SSRF guard.
+- **GDPR retention** — soft-delete plus hard-delete after a retention window via a daily job, plus on-demand purge.
+- **Safe-by-default config** — refuses to boot in production without `SECRET_KEY`; debug mode is env-gated off.
+
+### Performance & resilience
+- **Concurrency-guarded exports** — the CPU-heavy document/PDF generation is admission-controlled: a bounded number build at once and excess requests shed gracefully (HTTP 503), so an export burst can't starve interactive traffic.
+- **Threaded app tier** — gunicorn gthread workers keep light traffic (page loads, sizing calls) responsive while slow exports run.
+- **Stateless app tier** — signed-cookie sessions and Redis-shared rate limits make the app horizontally scalable behind a load balancer.
+
 ## Architecture
 
 | Layer | Technology |
 |-------|-----------|
-| Web framework | Flask 3 + gunicorn (2 workers) |
+| Web framework | Flask 3 + gunicorn (3 workers × 6 threads, gthread) |
 | Database | PostgreSQL 16 (SQLAlchemy ORM) |
 | Rate-limit / shared state | Redis 7 |
 | Exports | python-pptx, python-docx, cairosvg, headless LibreOffice |
