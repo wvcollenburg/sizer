@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
@@ -934,26 +935,54 @@ def _soffice_bin():
     return shutil.which("soffice") or shutil.which("libreoffice")
 
 
+# Global-ish cap on concurrent LibreOffice conversions. Each soffice conversion
+# pegs roughly a full core, so an uncoordinated burst of exports would thrash a
+# small box (and spike RAM). The per-client rate limits (20/min) don't bound
+# *simultaneous* conversions, so we gate them here.
+#
+# NOTE: a threading.Semaphore is per-process, so the effective global cap is
+# roughly (gunicorn workers) × LIBREOFFICE_MAX_CONCURRENCY. With the default
+# 3 workers × 1 that is ≤3 concurrent soffice on a 4-core box — one core of
+# headroom. Raise LIBREOFFICE_MAX_CONCURRENCY only if you also add cores.
+_LO_MAX = max(1, int(os.environ.get("LIBREOFFICE_MAX_CONCURRENCY", "1")))
+_lo_semaphore = threading.BoundedSemaphore(_LO_MAX)
+
+# How long a queued conversion waits for a free slot before giving up. Kept
+# comfortably under the difference between the gunicorn worker timeout (180s)
+# and the soffice conversion timeout (120s) so that wait + convert can't exceed
+# the worker timeout and get the worker reaped mid-export.
+_LO_ACQUIRE_TIMEOUT = 45
+
+
 def _office_to_pdf(data_bytes, in_ext):
     """Convert an office document (.docx/.pptx) → PDF bytes via headless
-    LibreOffice. Returns None if LibreOffice isn't available."""
+    LibreOffice. Returns None if LibreOffice isn't available, if the box is too
+    busy to get a conversion slot within the wait window, or on conversion
+    failure. Callers already treat None as "PDF unavailable"."""
     soffice = _soffice_bin()
     if not soffice:
         return None
-    with tempfile.TemporaryDirectory() as d:
-        src = os.path.join(d, f"doc.{in_ext}")
-        with open(src, "wb") as f:
-            f.write(data_bytes)
-        try:
-            subprocess.run([soffice, "--headless", "--convert-to", "pdf",
-                            "--outdir", d, src],
-                           check=True, timeout=120,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           env={**os.environ, "HOME": d})
-        except Exception:
-            return None
-        out = os.path.join(d, "doc.pdf")
-        return open(out, "rb").read() if os.path.exists(out) else None
+    if not _lo_semaphore.acquire(timeout=_LO_ACQUIRE_TIMEOUT):
+        # All conversion slots busy and the wait window elapsed — shed load
+        # gracefully rather than pile another soffice onto a saturated box.
+        return None
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, f"doc.{in_ext}")
+            with open(src, "wb") as f:
+                f.write(data_bytes)
+            try:
+                subprocess.run([soffice, "--headless", "--convert-to", "pdf",
+                                "--outdir", d, src],
+                               check=True, timeout=120,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               env={**os.environ, "HOME": d})
+            except Exception:
+                return None
+            out = os.path.join(d, "doc.pdf")
+            return open(out, "rb").read() if os.path.exists(out) else None
+    finally:
+        _lo_semaphore.release()
 
 
 def convert_docx_to_pdf(docx_bytes):
