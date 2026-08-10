@@ -276,10 +276,10 @@ def _parse_hyperv(wb):
         # "Power State" is blank in the Hyper-V export; IsRunning is authoritative.
         powered_on = str(r.get("IsRunning", "")).upper() == "TRUE"
         is_template = str(r.get("Template", "")).upper() == "TRUE"
-        prov_mem_b = _float(r.get("Provisioned Memory (Bytes)", 0))
-        used_mem_b = _float(r.get("Used Memory (active) (Bytes)", 0))
+        prov_mem_gb = _vm_memory_gb(r, "Provisioned Memory")
+        used_mem_gb = _vm_memory_gb(r, "Used Memory (active)")
         # Consumed is frequently 0 on Hyper-V; fall back to active usage.
-        consumed_b = _float(r.get("Consumed Memory (Bytes)", 0)) or used_mem_b
+        consumed_gb = _vm_memory_gb(r, "Consumed Memory") or used_mem_gb
         disk_cap_mib = _float(r.get("Guest VM Disk Capacity (MiB)", 0))
         disk_used_mib = _float(r.get("Guest VM Disk Used (MiB)", 0))
         vdisk_size_mib = _float(r.get("Virtual Disk Size (MiB)", 0))
@@ -291,9 +291,9 @@ def _parse_hyperv(wb):
             "is_template": is_template,
             "os": r.get("Guest VM OS", ""),
             "vcpus": _int(r.get("Virtual CPU", 0)),
-            "provisioned_memory_gb": round(prov_mem_b / 1073741824, 2),
-            "used_memory_gb": round(used_mem_b / 1073741824, 2),
-            "consumed_memory_gb": round(consumed_b / 1073741824, 2),
+            "provisioned_memory_gb": prov_mem_gb,
+            "used_memory_gb": used_mem_gb,
+            "consumed_memory_gb": consumed_gb,
             "disk_capacity_gb": round(disk_cap_mib / 1024, 2),
             "disk_used_gb": round(disk_used_mib / 1024, 2),
             "vdisk_size_gb": round(vdisk_size_mib / 1024, 2),
@@ -428,14 +428,30 @@ def _parse_datastores(wb):
     return stores
 
 
+def _vm_memory_gb(r, label):
+    """Read a VM memory column in whichever unit this workbook carries.
+
+    Live Optics has shipped the guest memory columns in MiB, KiB and Bytes
+    depending on collector version — a 2026 VMware export dropped the "(MiB)"
+    columns for "(KiB)" — so reading a single suffix silently yields 0 GB on the
+    other shapes. Bytes first (present in every shape seen, and the finest
+    granularity), then MiB, then KiB.
+    """
+    for suffix, per_gb in (("(Bytes)", 1073741824), ("(MiB)", 1024), ("(KiB)", 1048576)):
+        v = _float(r.get(f"{label} {suffix}", 0))
+        if v:
+            return round(v / per_gb, 2)
+    return 0.0
+
+
 def _parse_vms(wb):
     vms = []
     for r in _sheet_rows(wb, "VMs"):
         powered_on = str(r.get("Power State", "")).lower() == "poweredon"
         is_template = str(r.get("Template", "")).upper() == "TRUE"
-        prov_mem_mib = _float(r.get("Provisioned Memory (MiB)", 0))
-        used_mem_mib = _float(r.get("Used Memory (active) (MiB)", 0))
-        consumed_mem_mib = _float(r.get("Consumed Memory (MiB)", 0))
+        prov_mem_gb = _vm_memory_gb(r, "Provisioned Memory")
+        used_mem_gb = _vm_memory_gb(r, "Used Memory (active)")
+        consumed_mem_gb = _vm_memory_gb(r, "Consumed Memory")
         disk_cap_mib = _float(r.get("Guest VM Disk Capacity (MiB)", 0))
         disk_used_mib = _float(r.get("Guest VM Disk Used (MiB)", 0))
         vdisk_size_mib = _float(r.get("Virtual Disk Size (MiB)", 0))
@@ -447,9 +463,9 @@ def _parse_vms(wb):
             "is_template": is_template,
             "os": r.get("VM OS", ""),
             "vcpus": _int(r.get("Virtual CPU", 0)),
-            "provisioned_memory_gb": round(prov_mem_mib / 1024, 2),
-            "used_memory_gb": round(used_mem_mib / 1024, 2),
-            "consumed_memory_gb": round(consumed_mem_mib / 1024, 2),
+            "provisioned_memory_gb": prov_mem_gb,
+            "used_memory_gb": used_mem_gb,
+            "consumed_memory_gb": consumed_mem_gb,
             "disk_capacity_gb": round(disk_cap_mib / 1024, 2),
             "disk_used_gb": round(disk_used_mib / 1024, 2),
             "vdisk_size_gb": round(vdisk_size_mib / 1024, 2),
