@@ -473,7 +473,7 @@
   "common.yes": "Jā",
   "footer.dev_tag": "Izstrādes stadijā",
   "footer.disclaimer": "Šis aprēķinu rīks vēl tiek izstrādāts un nekādā ziņā nav nevainojams. Katra tā ieteiktā konfigurācija tiek sniegta tikai uz labākā centiena pamata — netiek sniegtas nekādas garantijas, un netiek uzņemta nekāda atbildība par lēmumiem, kas pieņemti, pamatojoties uz tā rezultātiem. Vienmēr pārbaudiet rezultātus, pirms uz tiem paļaujaties.",
-  "footer.text": "SC// Infrastructure Sizer &mdash; Balstīts uz Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Konfidencialitātes politika</a>",
+  "footer.text": "<a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Konfidencialitātes politika</a>",
   "header.language": "Valoda",
   "header.theme": "Motīvs",
   "header.title": "SC// Infrastructure Sizer",

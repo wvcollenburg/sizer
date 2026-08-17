@@ -473,7 +473,7 @@
   "common.yes": "Sì",
   "footer.dev_tag": "In sviluppo",
   "footer.disclaimer": "Questo strumento di sizing è in fase di sviluppo e non è in alcun modo perfetto. Ogni configurazione raccomandata è fornita solo su base best-effort — non viene rilasciata alcuna garanzia e non può essere accettata alcuna responsabilità per le decisioni prese sulla base dei suoi risultati. Convalidi sempre i risultati prima di farvi affidamento.",
-  "footer.text": "SC// Infrastructure Sizer &mdash; Basato su Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Informativa sulla privacy</a>",
+  "footer.text": "<a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Informativa sulla privacy</a>",
   "header.language": "Lingua",
   "header.theme": "Tema",
   "header.title": "SC// Infrastructure Sizer",

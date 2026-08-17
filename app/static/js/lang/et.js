@@ -473,7 +473,7 @@
   "common.yes": "Jah",
   "footer.dev_tag": "Arendamisel",
   "footer.disclaimer": "See sizer on pooleliolev töö ega ole kaugeltki täiuslik. Iga selle soovitatud konfiguratsioon esitatakse üksnes parima pingutuse alusel — mingeid garantiisid ei anta ning selle väljundi põhjal tehtud otsuste eest ei võeta mingit vastutust. Kontrollige tulemusi alati enne nendele tuginemist.",
-  "footer.text": "SC// Infrastructure Sizer &mdash; Põhineb sõlme kokkuvõtte mallil v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privaatsuspoliitika</a>",
+  "footer.text": "<a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privaatsuspoliitika</a>",
   "header.language": "Keel",
   "header.theme": "Teema",
   "header.title": "SC// Infrastructure Sizer",

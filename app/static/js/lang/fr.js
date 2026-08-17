@@ -473,7 +473,7 @@
   "common.yes": "Oui",
   "footer.dev_tag": "En développement",
   "footer.disclaimer": "Cet outil de dimensionnement est en cours de développement et n'est en aucun cas parfait. Chaque configuration qu'il recommande est fournie au mieux des efforts uniquement — aucune garantie n'est donnée, et aucune responsabilité ne peut être acceptée pour les décisions prises sur la base de ses résultats. Validez toujours les résultats avant de vous y fier.",
-  "footer.text": "SC// Infrastructure Sizer &mdash; Basé sur le modèle Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Politique de confidentialité</a>",
+  "footer.text": "<a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Politique de confidentialité</a>",
   "header.language": "Langue",
   "header.theme": "Thème",
   "header.title": "SC// Infrastructure Sizer",
