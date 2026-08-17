@@ -784,6 +784,7 @@
   "project.settings.prepared_by": "Opgesteld door",
   "project.settings.salesforce": "Salesforce opportunity-link",
   "project.settings.title": "Projectgegevens",
+  "project.settings.use_my_name": "↺ Gebruik “{name}”",
   "project.sizing.add_tag": "Label toevoegen…",
   "project.sizing.no_tags": "Nog geen labels in dit project — voeg er hieronder een toe.",
   "project.sizing.notes": "Waarom deze optie",

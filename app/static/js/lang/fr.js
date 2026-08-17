@@ -784,6 +784,7 @@
   "project.settings.prepared_by": "Prepared by",
   "project.settings.salesforce": "Salesforce opportunity link",
   "project.settings.title": "Project details",
+  "project.settings.use_my_name": "↺ Use “{name}”",
   "project.sizing.add_tag": "Add a tag…",
   "project.sizing.no_tags": "No tags in this project yet — add one below.",
   "project.sizing.notes": "Why this option",

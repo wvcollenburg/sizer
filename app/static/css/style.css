@@ -2716,3 +2716,14 @@ textarea.text-input:focus {
     text-underline-offset: 3px;
 }
 .account-name-btn:hover { color: #fff; text-decoration-style: solid; }
+
+/* Label row that can carry a small inline action on the right (e.g. "use my
+   name" beside Prepared by). */
+.field-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.field-label-row .field-label { margin-bottom: 0.35rem; }
+.field-inline-action {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: 0.78rem; color: var(--accent);
+    white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis;
+}
+.field-inline-action:hover { text-decoration: underline; }

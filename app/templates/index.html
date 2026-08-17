@@ -1196,8 +1196,16 @@
                 <input type="text" id="ps-customer" class="text-input">
                 <label class="field-label" for="ps-opportunity" data-i18n="project.settings.opportunity">Opportunity reference</label>
                 <input type="text" id="ps-opportunity" class="text-input">
-                <label class="field-label" for="ps-prepared" data-i18n="project.settings.prepared_by">Prepared by</label>
-                <input type="text" id="ps-prepared" class="text-input">
+                <div class="field-label-row">
+                    <label class="field-label" for="ps-prepared"
+                           data-i18n="project.settings.prepared_by">Prepared by</label>
+                    <!-- Offered only when it differs from your own name, so an
+                         older project doesn't have to be retyped by hand. -->
+                    <button type="button" class="field-inline-action" id="ps-prepared-refill"
+                            hidden data-click='["usePreparedByMe"]'></button>
+                </div>
+                <input type="text" id="ps-prepared" class="text-input"
+                       data-input='["refreshPreparedByHint"]'>
                 <label class="field-label" for="ps-description" data-i18n="project.settings.description">Notes</label>
                 <textarea id="ps-description" class="text-input" rows="3"></textarea>
                 <!-- Scale-only. The server omits the field entirely for everyone

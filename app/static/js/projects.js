@@ -937,7 +937,31 @@ function openProjectSettings() {
     row.hidden = !hasField;
     if (hasField) document.getElementById('ps-salesforce').value = currentProject.salesforce_url || '';
 
+    refreshPreparedByHint();
     document.getElementById('project-settings-modal').style.display = 'flex';
+}
+
+// Offer to drop your own name into "Prepared by", but only when it isn't
+// already there. Projects created before the name existed carry a derived
+// value, and retyping it by hand for each one is exactly the sort of chore
+// the field should absorb.
+function refreshPreparedByHint() {
+    const input = document.getElementById('ps-prepared');
+    const action = document.getElementById('ps-prepared-refill');
+    if (!input || !action) return;
+    const mine = (window.currentUserName && window.currentUserName()) || '';
+    const differs = mine && input.value.trim() !== mine;
+    action.hidden = !differs;
+    if (differs) action.textContent = tt('project.settings.use_my_name', { name: mine });
+}
+
+function usePreparedByMe() {
+    const input = document.getElementById('ps-prepared');
+    const mine = (window.currentUserName && window.currentUserName()) || '';
+    if (!input || !mine) return;
+    input.value = mine;
+    refreshPreparedByHint();          // the offer no longer applies
+    input.focus();
 }
 
 function closeProjectSettings() {
@@ -1042,6 +1066,7 @@ Object.assign(window, {
     openSizingPanel, closeSizingPanel, submitSizingPanel, togglePanelTag,
     onNewTagKey, addTagFromInput,
     openProjectSettings, closeProjectSettings, submitProjectSettings,
+    refreshPreparedByHint, usePreparedByMe,
     deleteCurrentProject,
     toggleSizing, clearSizingSelection, filterByTag, toggleProjectScope,
     activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,

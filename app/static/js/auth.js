@@ -128,6 +128,13 @@ function renderAccountBar() {
         + `</div>`;
 }
 
+// The signed-in user's name as it should appear on a proposal, for anything
+// that offers to fill it in. Empty when signed out.
+window.currentUserName = function () {
+    if (!currentAccount) return '';
+    return currentAccount.display_name || currentAccount.email || '';
+};
+
 // Editable exports (Word, PPTX) are limited to Scale users and super admins;
 // everyone else gets read-only PDFs. Mirrors the server-side gate.
 function canExportEditable() {
