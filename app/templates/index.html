@@ -96,7 +96,7 @@
         <section id="project-view" class="project-screen" hidden>
             <div class="project-head">
                 <div class="project-title-block">
-                    <button class="btn btn-sm btn-muted" data-click='["backToProjects"]'
+                    <button class="project-back" data-click='["backToProjects"]'
                             data-i18n="project.view.back">← All projects</button>
                     <h2 id="project-view-name">Project</h2>
                     <div id="project-view-meta" class="project-meta"></div>
@@ -599,9 +599,16 @@
         <section id="sizing-results" class="config-form" style="display:none">
           <div class="sizing-inner">
             <div class="sizing-rail">
-                <div class="ratio-control">
-                    <div class="ratio-header">
-                        <h3 data-i18n="results.sizing_options">Sizing Options</h3>
+                <div class="ratio-control is-collapsed">
+                    {# Collapsible, like SC//Design's Sizing Parameters card. Starts
+                       collapsed so the screen opens on the recommendations; the
+                       wizard re-expands it when this panel becomes a whole step. #}
+                    <div class="ratio-header panel-head">
+                        <button type="button" class="panel-toggle" data-click='["toggleRailPanel"]'
+                                aria-expanded="false">
+                            <h3 data-i18n="results.sizing_options">Sizing Options</h3>
+                            <svg class="panel-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
                         <div class="ratio-current" id="ratio-current"></div>
                     </div>
                     <div class="ratio-slider-row compact">
@@ -706,8 +713,14 @@
 
                 </div>
 
-                <div class="growth-control">
-                    <h3 data-i18n="results.growth_projection">Growth Projection</h3>
+                <div class="growth-control is-collapsed">
+                    <div class="panel-head">
+                        <button type="button" class="panel-toggle" data-click='["toggleRailPanel"]'
+                                aria-expanded="false">
+                            <h3 data-i18n="results.growth_projection">Growth Projection</h3>
+                            <svg class="panel-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                    </div>
                     <div class="growth-inputs">
                         <div class="form-group">
                             <label data-i18n="results.projection_years">Projection Years</label>
@@ -1398,6 +1411,7 @@
     <!-- Admin-tuned sizing default is injected via the <body data-vcpu-ratio>
          attribute (read by app.js) — no inline script, so the CSP can forbid it. -->
     <script src="{{ asset('js/delegate.js') }}"></script>
+    <script src="{{ asset('js/toast.js') }}"></script>
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/wizard.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>

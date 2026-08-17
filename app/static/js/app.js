@@ -92,7 +92,36 @@ function vmInCluster(vm, clusterName) {
     return vmClusterKey(vm) === clusterName;
 }
 
+// Turn the rail's ⓘ tooltips into inline descriptions under each control.
+//
+// SC//Design writes the explanation beneath the control ("20% typical. Above
+// 30% is aggressive for most environments."); we had the same sentences hidden
+// behind hover tooltips, which a partner using the tool for the first time
+// never finds. Done in JS from the existing data-i18n-title attributes rather
+// than by duplicating the copy into the template, so the two cannot drift and
+// no new translations are needed.
+//
+// Only the rail panels are touched. Elsewhere (dense tables, modals) a tooltip
+// is still the right density.
+function inlineRailDescriptions() {
+    document.querySelectorAll('.ratio-control, .growth-control').forEach(panel => {
+        panel.querySelectorAll('.info-icon[data-i18n-title]').forEach(icon => {
+            const host = icon.closest('.form-group, .toggle-item, .checkbox-inline');
+            if (!host || host.querySelector('.field-desc')) return;
+            const text = window.t(icon.getAttribute('data-i18n-title'));
+            // t() returns the key back when a string is missing; don't print that.
+            if (!text || text === icon.getAttribute('data-i18n-title')) return;
+            const p = document.createElement('p');
+            p.className = 'field-desc';
+            p.textContent = text;
+            (host.closest('.form-group') || host).appendChild(p);
+            icon.remove();
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    inlineRailDescriptions();
     loadModels();
     // Seed the tier defaults only after the disk-size catalog has loaded.
     loadValidatedNics().then(initDiskTiers);
@@ -1573,7 +1602,52 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
 
     recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
         recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx, perCluster })
-    ).join('');
+    ).join('') + buildAssumptions(targetRatio);
+}
+
+// The inputs this sizing run actually used, spelled out under the results.
+// Borrowed from SC//Design, which lists its assumptions beneath the
+// recommendation — it is what lets someone defend the numbers in front of a
+// customer instead of asking them to trust the tool.
+//
+// Rendered once for the whole list, not per card: these are properties of the
+// run, and repeating them under eight recommendations would be noise. Every
+// label is an existing translated control label, so this adds one new string.
+function buildAssumptions(targetRatio) {
+    const val = id => {
+        const el = document.getElementById(id);
+        return el ? (el.type === 'checkbox' ? el.checked : el.value) : null;
+    };
+    const yesNo = b => window.t(b ? 'results.assumption_yes' : 'results.assumption_no');
+    const rows = [];
+    const add = (labelKey, value) => {
+        if (value === null || value === undefined || value === '') return;
+        rows.push(`<li><span class="assume-key">${window.t(labelKey)}</span>`
+                + `<span class="assume-val">${esc(String(value))}</span></li>`);
+    };
+
+    add('results.target_ratio', targetRatio ? targetRatio.toFixed(2) + ' : 1' : null);
+    const years = val('growth-years'), yoy = val('growth-pct');
+    if (years && yoy !== null) {
+        const yearsLabel = document.querySelector('#growth-years option:checked');
+        add('results.projection_years', yearsLabel ? yearsLabel.textContent.trim() : years);
+        add('results.yoy_growth', yoy + '%');
+    }
+    add('results.snapshot_overhead', val('snapshot-pct') !== null ? val('snapshot-pct') + '%' : null);
+    add('results.max_day_one_storage', val('max-day-one-storage') !== null ? val('max-day-one-storage') + '%' : null);
+    add('results.max_day_one_ram', val('max-day-one-ram') !== null ? val('max-day-one-ram') + '%' : null);
+    add('results.size_full_cluster', yesNo(val('size-full-cluster')));
+
+    const storageSel = document.querySelector('#storage-pref option:checked');
+    if (storageSel) add('results.storage_type', storageSel.textContent.trim());
+    const modeSel = document.querySelector('#sizing-mode option:checked');
+    if (modeSel) add('results.sizing_mode', modeSel.textContent.trim());
+
+    if (!rows.length) return '';
+    return `<section class="rec-assumptions">
+        <h4>${window.t('results.assumptions')}</h4>
+        <ul>${rows.join('')}</ul>
+    </section>`;
 }
 
 // Build one recommendation card's HTML. Shared by the per-cluster / manual rec
@@ -1708,6 +1782,46 @@ function recCardHtml(r, i, mode, demand, opts) {
     `;
 }
 
+// Expand / collapse a rail parameter panel. The panels start collapsed so the
+// sizing screen opens on the recommendations rather than on a wall of controls
+// — SC//Design does the same with its Sizing Parameters and Hardware Filters
+// cards. State lives in a class on the panel, so the wizard can force them open
+// when it portals a panel in as a whole step.
+window.toggleRailPanel = function () {
+    const panel = this.closest('.ratio-control, .growth-control');
+    if (!panel) return;
+    const collapsed = panel.classList.toggle('is-collapsed');
+    this.setAttribute('aria-expanded', String(!collapsed));
+};
+
+// A short, actionable line under a utilisation bar when the bar itself is
+// telling you something the number alone does not — SC//Design does the same
+// beneath its constrained resource. Deliberately silent unless there is a
+// concrete remedy to name; a warning with no fix is just noise.
+//
+// Composed from strings that are already translated in all 15 locales wherever
+// possible, so this adds one new key rather than a dozen.
+function buildUtilAdvice(key, cur, tot, ha, r) {
+    // CPU sized across every node: the cluster is fine until a node drops, at
+    // which point the effective ratio rises. The card badges the number; this
+    // names the way out.
+    if (key === 'CPU' && r.sized_full_cluster && r.vcpu_ratio_degraded) {
+        return `<p class="util-advice util-advice-warn">`
+            + window.t('results.full_cluster_info_degraded',
+                       {ratio: r.vcpu_ratio_degraded.toFixed(2)}).trim() + ' '
+            + window.t('results.util.advice_fix',
+                       {control: window.t('results.size_full_cluster')})
+            + `</p>`;
+    }
+    // Day one already close to the ceiling: growth headroom exists on paper but
+    // there is nothing left for the unplanned.
+    if (cur >= 90) {
+        return `<p class="util-advice util-advice-warn">`
+            + window.t('results.util.advice_tight', {pct: cur}) + `</p>`;
+    }
+    return '';
+}
+
 // Per-resource utilization bars (demand / available capacity at N-1) for a
 // recommendation. The constraining resource — determinant.resource — is flagged
 // "limiting". IOPS is intentionally left to the headroom line below (its ratios
@@ -1752,33 +1866,51 @@ function buildUtilizationBars(r) {
         if (ha > 0) tipParts.push(window.t('results.util.tip_ha', {pct: ha}));
         tipParts.push(window.t('results.util.tip_free', {pct: freeW}));
         const tip = window.t('results.util.tip', {label, parts: tipParts.join(' · '), tot});
-        return `<div class="util-row" title="${tip}">
-            <span class="util-label">${label}${bind}</span>
-            <span class="util-track">
-                <span class="util-fill ${cls}" style="width:${curW}%"></span>
-                <span class="util-fill util-reserve" style="width:${resW}%"></span>
-                <span class="util-fill util-replication" style="width:${repW}%"></span>
-                <span class="util-fill util-free" style="width:${freeW}%"></span>
-                <span class="util-fill util-ha" style="width:${haW}%"></span>
-            </span>
-            <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+        // Per-bar key with the real quantities under each bar (SC//Design does
+        // the same). Reuses the swatch classes so the colours can only be
+        // defined once, and the existing segment labels so this adds no new
+        // translatable strings beyond the capacity one.
+        const a = val.abs;
+        const keys = [];
+        if (a) {
+            // Cores are whole things; capacities in GB/TB keep their precision.
+            const dp = a.unit === 'cores' ? 0 : 2;
+            const fmt = v => (typeof v === 'number'
+                ? v.toLocaleString(undefined, {maximumFractionDigits: dp}) : v);
+            const growth = Math.max(0, (a.total || 0) - (a.current || 0));
+            keys.push(`<span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}: ${fmt(a.current)} ${a.unit}</span>`);
+            if (growth > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}: ${fmt(growth)} ${a.unit}</span>`);
+            if (ha > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}: ${fmt((a.capacity || 0) * ha / 100)} ${a.unit}</span>`);
+            keys.push(`<span class="util-key"><i class="util-sw util-sw-cap"></i>${window.t('results.util.capacity')}: ${fmt(a.capacity)} ${a.unit}</span>`);
+        }
+        const legend = keys.length ? `<div class="util-values">${keys.join('')}</div>` : '';
+
+        return `<div class="util-item">
+            <div class="util-row" title="${tip}">
+                <span class="util-label">${label}${bind}</span>
+                <span class="util-track">
+                    <span class="util-fill ${cls}" style="width:${curW}%"></span>
+                    <span class="util-fill util-reserve" style="width:${resW}%"></span>
+                    <span class="util-fill util-replication" style="width:${repW}%"></span>
+                    <span class="util-fill util-free" style="width:${freeW}%"></span>
+                    <span class="util-fill util-ha" style="width:${haW}%"></span>
+                </span>
+                <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+            </div>
+            ${legend}
+            ${buildUtilAdvice(key, cur, tot, ha, r)}
         </div>`;
     }).join('');
+    // Each bar now carries its own key with real quantities, so the shared
+    // colour legend that used to sit in the header is redundant — except for
+    // the replication band, which only some clusters have.
     const repKey = anyRep
-        ? `<span class="util-key"><i class="util-sw util-sw-replication"></i>${window.t('results.util.replication_reserve')}</span>`
-        : '';
-    const haKey = anyHa
-        ? `<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}</span>`
+        ? `<span class="util-legend"><span class="util-key"><i class="util-sw util-sw-replication"></i>${window.t('results.util.replication_reserve')}</span></span>`
         : '';
     return `<div class="rec-utilization">
         <div class="util-head">
             <span class="util-title">${window.t('results.util.title')}</span>
-            <span class="util-legend">
-                <span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}</span>
-                <span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}</span>
-                ${repKey}
-                ${haKey}
-            </span>
+            ${repKey}
         </div>${bars}
     </div>`;
 }
@@ -2066,7 +2198,7 @@ function calculateManual() {
     const dsUsed = parseFloat(document.getElementById('man-ds-used').value) || 0;
 
     if (vcpus < 1 || provRam < 1 || dsUsed <= 0) {
-        alert(window.t('manual.fill_required_fields'));
+        toastError(window.t('manual.fill_required_fields'));
         return;
     }
 
@@ -2180,7 +2312,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
     const projection = lastProjection[mode];
 
     if (!recs || !recs[recIndex] || !summary || !projection) {
-        alert(window.t('results.export_missing_data'));
+        toastError(window.t('results.export_missing_data'));
         return;
     }
 
@@ -2228,7 +2360,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert(err.error || window.t('results.export_failed'));
+            toastError(err.error || window.t('results.export_failed'));
             return;
         }
 
@@ -2242,7 +2374,7 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        alert(window.t('results.export_failed_detail', {error: e.message}));
+        toastError(window.t('results.export_failed_detail', {error: e.message}));
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;
@@ -2341,7 +2473,7 @@ async function exportMultisite(fmt = 'pptx') {
         }).filter(Boolean);
 
         if (!payloadClusters.length) {
-            alert(window.t('results.export_missing_data'));
+            toastError(window.t('results.export_missing_data'));
             return;
         }
 
@@ -2351,7 +2483,7 @@ async function exportMultisite(fmt = 'pptx') {
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert(err.error || window.t('results.export_failed'));
+            toastError(err.error || window.t('results.export_failed'));
             return;
         }
         const blob = await resp.blob();
@@ -2365,7 +2497,7 @@ async function exportMultisite(fmt = 'pptx') {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        alert(window.t('results.export_failed_detail', {error: e.message}));
+        toastError(window.t('results.export_failed_detail', {error: e.message}));
     } finally {
         if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
     }
@@ -2373,7 +2505,7 @@ async function exportMultisite(fmt = 'pptx') {
 
 async function exportConfig(fmt = 'pptx') {
     if (!lastConfigResult) {
-        alert(window.t('results.no_config_to_export'));
+        toastError(window.t('results.no_config_to_export'));
         return;
     }
 
@@ -2393,7 +2525,7 @@ async function exportConfig(fmt = 'pptx') {
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert(err.error || window.t('results.export_failed'));
+            toastError(err.error || window.t('results.export_failed'));
             return;
         }
 
@@ -2408,7 +2540,7 @@ async function exportConfig(fmt = 'pptx') {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        alert(window.t('results.export_failed_detail', {error: e.message}));
+        toastError(window.t('results.export_failed_detail', {error: e.message}));
     } finally {
         btn.innerHTML = origHtml;
         btn.disabled = false;

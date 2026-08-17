@@ -19,7 +19,7 @@ header {
 }
 
 .header-content {
-    max-width: 1400px;
+    max-width: 80rem;
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -128,7 +128,8 @@ header h1 {
 }
 
 main {
-    max-width: 1400px;
+    /* Their sizing screen is max-w-7xl (80rem); in rem so it tracks the root. */
+    max-width: 80rem;
     margin: 0 auto;
     padding: 1.75rem 2rem;
 }
@@ -1555,12 +1556,132 @@ body { padding-bottom: 64px; }
 .util-sw-replication {
     background: repeating-linear-gradient(45deg, #a16207, #a16207 3px, #fde047 3px, #fde047 6px);
 }
+/* Inline control description, injected from the control's own tooltip text by
+   inlineRailDescriptions() in app.js. Their control panel explains every
+   parameter in place instead of hiding it behind a hover target. */
+.field-desc {
+    margin: 0.3rem 0 0;
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+.toggle-item .field-desc,
+.checkbox-inline .field-desc { margin-left: 1.5rem; }
+
+/* ── Collapsible rail panels ──────────────────────────────────────────────
+   SC//Design's Sizing Parameters / Hardware Filters cards: title + chevron,
+   collapsed by default, so the screen opens on the answer and you expand only
+   to tune. The chevron rotates rather than swapping icons. */
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+.panel-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex: 1 1 auto;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+.panel-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+    border-radius: var(--radius-sm);
+}
+.panel-toggle h3 { margin: 0; }
+.panel-chevron {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+}
+.is-collapsed .panel-chevron { transform: rotate(-90deg); }
+
+/* Everything except the header row folds away. `!important` is needed rather
+   than tidy: app.js drives the replication blocks inside this panel with an
+   inline `style.display`, and an inline declaration outranks a class rule. */
+.ratio-control.is-collapsed > *:not(.panel-head),
+.growth-control.is-collapsed > *:not(.panel-head) { display: none !important; }
+/* The ratio readout is a live summary of the panel's main input, so it stays
+   visible while collapsed — it is the reason you would open the panel. */
+.ratio-control.is-collapsed .panel-head { margin-bottom: 0; }
+.growth-control.is-collapsed .panel-head { margin-bottom: 0; }
+
+/* ── Assumptions ──────────────────────────────────────────────────────────
+   The inputs this run used, listed once beneath the recommendations. Quiet by
+   design: it is reference material someone reaches for when challenged on a
+   number, not something competing with the results above it. */
+.rec-assumptions {
+    margin-top: 1.5rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border);
+}
+.rec-assumptions h4 {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.6rem;
+}
+.rec-assumptions ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 0.25rem 2rem;
+}
+.rec-assumptions li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: var(--fs-xs);
+    padding: 0.2rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.assume-key { color: var(--text-muted); }
+.assume-val { color: var(--text); font-weight: 500; white-space: nowrap; }
+
+/* One bar + its own key + any advice, as a unit. SC//Design prints the real
+   quantities under each bar rather than a single shared colour legend, which is
+   what lets a reader check the bar against the tables above it. */
+.util-item { margin: 0.55rem 0; }
+.util-item:first-child { margin-top: 0.25rem; }
+
 .util-row {
     display: flex;
     align-items: center;
     gap: 0.6rem;
     margin: 0.3rem 0;
 }
+
+/* Indented to the track's left edge so the key lines up under its own bar. */
+.util-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin: 0.2rem 0 0 8.1rem;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.util-sw-cap {
+    background: repeating-linear-gradient(-45deg, var(--border-strong), var(--border-strong) 3px, var(--surface2) 3px, var(--surface2) 6px);
+}
+
+.util-advice {
+    margin: 0.3rem 0 0 8.1rem;
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+.util-advice-warn { color: var(--red); }
 .util-label {
     flex: 0 0 7.5rem;
     font-size: var(--fs-xs);
@@ -1900,10 +2021,8 @@ body { padding-bottom: 64px; }
     color: var(--text-muted);
     padding: 0.5rem 0.6rem;
     text-align: left;
-    font-weight: 600;
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-weight: 500;
+    font-size: var(--fs-sm);
     white-space: nowrap;
     user-select: none;
     border-bottom: 1px solid var(--border);
@@ -2711,7 +2830,7 @@ body.wiz-active #vm-triage-panel .vm-table-wrap {
 
 #project-screens { display: none; }
 body.view-projects #project-screens,
-body.view-project  #project-screens { display: block; max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+body.view-project  #project-screens { display: block; max-width: 64rem; margin: 0 auto; padding: 2rem; }
 body.view-projects main,
 body.view-project  main { display: none; }
 body.auth-required #project-screens { display: none; }
@@ -2728,7 +2847,7 @@ body.auth-required #project-screens { display: none; }
 }
 .project-head h2 { margin: 0.25rem 0; }
 .project-head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.project-title-block { display: flex; flex-direction: column; gap: 0.25rem; }
+.project-title-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
 .project-meta { color: var(--text-muted); font-size: 0.85rem; }
 .project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
 .project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
@@ -2754,8 +2873,7 @@ body.auth-required #project-screens { display: none; }
 /* Project view: the sizing table. */
 .sizing-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .sizing-table th {
-    text-align: left; font-weight: 600; font-size: 0.75rem;
-    text-transform: uppercase; letter-spacing: 0.04em;
+    text-align: left; font-weight: 500; font-size: var(--fs-sm);
     color: var(--text-muted); padding: 0.5rem 0.6rem;
     border-bottom: 1px solid var(--border);
 }
@@ -3053,6 +3171,22 @@ textarea.text-input:focus {
 .project-head { align-items: center; }
 .project-head-actions { align-items: center; }
 .project-title-block { gap: 0.35rem; }
+
+/* "← All projects" reads as the loudest control on the page as a filled
+   button; theirs is a plain accent text link above the title. */
+.project-back {
+    background: none;
+    border: none;
+    padding: 0;
+    height: auto;
+    min-width: 0;
+    color: var(--accent);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    cursor: pointer;
+    align-self: flex-start;
+}
+.project-back:hover { background: none; color: var(--accent-dark); text-decoration: underline; }
 .project-title-block h2 { line-height: 1.2; }
 
 /* Selection bar: count · compare | export group · clear. */

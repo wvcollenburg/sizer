@@ -202,6 +202,55 @@ html { font-size: 112.5%; }
 /* Checked controls take the brand colour rather than the OS default blue. */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
+/* ── Toasts ───────────────────────────────────────────────────────────────
+   Top-right stack, as SC//Design places sonner. Lives with the tokens because
+   both the sizer and the admin console load it. Above modals (1000) so an
+   outcome is never hidden behind the dialog that caused it. */
+.toast-host {
+    position: fixed;
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    right: 1.25rem;
+    z-index: 2500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(24rem, calc(100vw - 2.5rem));
+    pointer-events: none;
+}
+.toast {
+    pointer-events: auto;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    padding: 0.65rem 0.85rem;
+    font-size: var(--fs-sm);
+    line-height: 1.45;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast.is-in { opacity: 1; transform: none; }
+.toast.is-leaving { opacity: 0; transform: translateY(-6px); }
+
+.toast-success { border-left-color: var(--green); }
+.toast-error   { border-left-color: var(--red); }
+.toast-warn    { border-left-color: var(--orange); }
+.toast-info    { border-left-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { transition: none; opacity: 1; transform: none; }
+}
+
+/* The `hidden` attribute is only `display: none` in the UA stylesheet, so any
+   author rule setting `display` beats it. That is why the project selection bar
+   stayed on screen at "0 selected" despite projects.js setting `bar.hidden`.
+   One defensive rule rather than a per-component workaround. */
+[hidden] { display: none !important; }
+
 body {
     /* Japanese has no Raleway coverage, so the CJK faces below are the real
        fallback for `ja` rather than dead entries. */

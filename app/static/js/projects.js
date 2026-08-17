@@ -1076,7 +1076,7 @@ function hideError(id) { showError(id, ''); }
 
 function info(title, msg) {
     if (window.showInfoModal) window.showInfoModal(title, msg);
-    else window.alert(title + '\n\n' + msg);
+    else toastError(title + '\n\n' + msg);
 }
 
 // ── exports for the delegate + auth.js ──────────────────────────────────────
