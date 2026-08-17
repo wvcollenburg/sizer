@@ -2604,3 +2604,77 @@ body.app-booting footer { visibility: hidden; }
     display: inline-flex; align-items: center; gap: 0.4rem;
     margin: 0 0 1.25rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
 }
+
+/* ── Sizing options panel ───────────────────────────────────────────────────
+   .field-label / .text-input were used by the project modals before they were
+   defined, so labels rendered inline next to their inputs and textareas got no
+   styling at all (the app styles inputs by element selector, and textarea
+   isn't in that list). Defined here, matching the existing form controls. */
+
+.field-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0 0 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+textarea.text-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.6rem 0.8rem;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+textarea.text-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 118, 206, 0.1);
+}
+
+/* Each label + control is one block with breathing room between them. */
+.panel-field { margin-bottom: 1.1rem; }
+.panel-field:last-child { margin-bottom: 0; }
+.panel-field .field-hint { margin: 0.35rem 0 0.5rem; }
+
+/* The replication block carries four controls; box it so it reads as one
+   setting rather than four loose fields. */
+.panel-section {
+    margin-top: 1.25rem;
+    padding: 0.9rem 1rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.panel-section-title {
+    font-size: 0.8rem; font-weight: 600; color: var(--text);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 0 0 0.2rem;
+}
+
+.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
+.rep-pct-row .panel-field { margin-bottom: 0; flex: 1; }
+
+/* Tags: what's on this sizing, then what else the project offers. Assigned
+   chips carry an explicit × — toggling by clicking an "active" chip was not
+   discoverable, and removing a tag is not a thing to have to guess at. */
+.tag-group { margin-bottom: 0.6rem; }
+.tag-group-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; }
+.tag-chip-assigned {
+    background: var(--primary); border-color: var(--primary); color: #fff;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.tag-chip-remove { font-weight: 700; opacity: 0.75; }
+.tag-chip-assigned:hover .tag-chip-remove { opacity: 1; }
+.tag-chip-add::before { content: "+ "; opacity: 0.6; }
+.tag-empty { font-size: 0.8rem; color: var(--text-muted); }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
+
+#sizing-modal .modal-body { padding-bottom: 0.5rem; }

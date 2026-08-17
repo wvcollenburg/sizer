@@ -783,19 +783,41 @@ function closeSizingPanel() {
     panelSizing = null;
 }
 
+// Two groups, not one toggling row: what is on this sizing (with an explicit ×
+// to take it off) and what else the project offers (click to add). A single row
+// of "active/inactive" chips hid both facts — you couldn't see at a glance which
+// tags were assigned, and removing one meant guessing that clicking it again
+// would do that.
 function renderTagPicker() {
     const host = document.getElementById('sizing-tags');
     if (!host) return;
-    const tags = (currentProject && currentProject.tags) || [];
-    if (!tags.length) {
-        host.innerHTML = `<span class="field-hint">${escHtml(tt('project.sizing.no_tags'))}</span>`;
-        return;
+    const all = (currentProject && currentProject.tags) || [];
+    const mine = (panelSizing && panelSizing.tags) || [];
+    const mineIds = new Set(mine.map(t => t.id));
+    const available = all.filter(t => !mineIds.has(t.id));
+
+    const assignedHtml = mine.length
+        ? mine.map(tag => `<button class="tag-chip tag-chip-assigned"
+                data-click='["togglePanelTag",${tag.id}]'
+                title="${escHtml(tt('project.sizing.tag_remove'))}">${escHtml(tag.name)}
+                <span class="tag-chip-remove">×</span></button>`).join('')
+        : `<span class="tag-empty">${escHtml(tt('project.sizing.tag_none_on_sizing'))}</span>`;
+
+    let html = `<div class="tag-group">
+        <div class="tag-group-label">${escHtml(tt('project.sizing.tag_assigned'))}</div>
+        <div class="tag-picker">${assignedHtml}</div>
+    </div>`;
+
+    if (available.length) {
+        html += `<div class="tag-group">
+            <div class="tag-group-label">${escHtml(tt('project.sizing.tag_available'))}</div>
+            <div class="tag-picker">${available.map(tag =>
+                `<button class="tag-chip tag-chip-add"
+                    data-click='["togglePanelTag",${tag.id}]'>${escHtml(tag.name)}</button>`
+            ).join('')}</div>
+        </div>`;
     }
-    const mine = new Set((panelSizing.tags || []).map(t => t.id));
-    host.innerHTML = tags.map(tag => {
-        const on = mine.has(tag.id) ? ' tag-chip-active' : '';
-        return `<button class="tag-chip${on}" data-click='["togglePanelTag",${tag.id}]'>${escHtml(tag.name)}</button>`;
-    }).join('');
+    host.innerHTML = html;
 }
 
 function togglePanelTag(tagId) {

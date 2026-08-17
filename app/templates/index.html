@@ -1221,47 +1221,63 @@
                 <button class="modal-close" data-click='["closeSizingPanel"]'>&times;</button>
             </div>
             <div class="modal-body">
-                <label class="field-label" data-i18n="project.sizing.role">Counts towards the total?</label>
-                <select id="sizing-role" class="text-input">
-                    <option value="" data-i18n="project.sizing.role_unset">Not set</option>
-                    <option value="alternative" data-i18n="project.sizing.role_alternative">Alternative — one of several options</option>
-                    <option value="additive" data-i18n="project.sizing.role_additive">Part of the total — a site or phase</option>
-                </select>
-
-                <label class="field-label" data-i18n="project.sizing.tags">Tags</label>
-                <div id="sizing-tags" class="tag-picker"></div>
-                <div class="tag-add-row">
-                    <input type="text" id="sizing-new-tag" class="text-input"
-                           data-keydown='["onNewTagKey","$event"]'
-                           data-i18n-ph="project.sizing.add_tag" placeholder="Add a tag…">
-                    <button class="btn btn-sm" data-click='["addTagFromInput"]'
-                            data-i18n="common.add">Add</button>
+                <div class="panel-field">
+                    <label class="field-label" for="sizing-role"
+                           data-i18n="project.sizing.role">Counts towards the total?</label>
+                    <select id="sizing-role" class="text-input">
+                        <option value="" data-i18n="project.sizing.role_unset">Not set</option>
+                        <option value="alternative" data-i18n="project.sizing.role_alternative">Alternative — one of several options</option>
+                        <option value="additive" data-i18n="project.sizing.role_additive">Part of the total — a site or phase</option>
+                    </select>
                 </div>
 
-                <label class="field-label" for="sizing-notes"
-                       data-i18n="project.sizing.notes">Why this option</label>
-                <textarea id="sizing-notes" class="text-input" rows="2"></textarea>
-
-                <hr class="panel-rule">
-                <label class="field-label" data-i18n="project.sizing.replication">Replicates to</label>
-                <p class="field-hint" data-i18n="project.sizing.replication_hint">
-                    Reserve capacity on another sizing in this project for this one's workload.
-                </p>
-                <select id="sizing-rep-target" class="text-input"></select>
-                <div class="rep-pct-row">
-                    <label class="field-label-inline" for="sizing-rep-compute"
-                           data-i18n="project.sizing.rep_compute">Compute %</label>
-                    <input type="number" id="sizing-rep-compute" class="text-input rep-pct"
-                           min="0" max="100" value="100">
-                    <label class="field-label-inline" for="sizing-rep-storage"
-                           data-i18n="project.sizing.rep_storage">Storage %</label>
-                    <input type="number" id="sizing-rep-storage" class="text-input rep-pct"
-                           min="0" max="100" value="100">
+                <div class="panel-field">
+                    <label class="field-label" data-i18n="project.sizing.tags">Tags</label>
+                    <div id="sizing-tags"></div>
+                    <div class="tag-add-row">
+                        <input type="text" id="sizing-new-tag" class="text-input"
+                               data-keydown='["onNewTagKey","$event"]'
+                               data-i18n-ph="project.sizing.add_tag" placeholder="Add a tag…">
+                        <button class="btn btn-sm" data-click='["addTagFromInput"]'
+                                data-i18n="common.add">Add</button>
+                    </div>
                 </div>
-                <select id="sizing-rep-mode" class="text-input">
-                    <option value="reserved" data-i18n="project.sizing.rep_reserved">Reserved — hold capacity at N-1</option>
-                    <option value="failover" data-i18n="project.sizing.rep_failover">Failover only — replicas run after a site fails</option>
-                </select>
+
+                <div class="panel-field">
+                    <label class="field-label" for="sizing-notes"
+                           data-i18n="project.sizing.notes">Why this option</label>
+                    <textarea id="sizing-notes" class="text-input" rows="3"></textarea>
+                </div>
+
+                <div class="panel-section">
+                    <p class="panel-section-title" data-i18n="project.sizing.replication">Replicates to</p>
+                    <p class="field-hint" data-i18n="project.sizing.replication_hint">
+                        Reserve capacity on another sizing in this project for this one's workload.
+                    </p>
+                    <div class="panel-field">
+                        <select id="sizing-rep-target" class="text-input"></select>
+                    </div>
+                    <div class="rep-pct-row">
+                        <div class="panel-field">
+                            <label class="field-label" for="sizing-rep-compute"
+                                   data-i18n="project.sizing.rep_compute">Compute %</label>
+                            <input type="number" id="sizing-rep-compute" class="text-input"
+                                   min="0" max="100" value="100">
+                        </div>
+                        <div class="panel-field">
+                            <label class="field-label" for="sizing-rep-storage"
+                                   data-i18n="project.sizing.rep_storage">Storage %</label>
+                            <input type="number" id="sizing-rep-storage" class="text-input"
+                                   min="0" max="100" value="100">
+                        </div>
+                    </div>
+                    <div class="panel-field">
+                        <select id="sizing-rep-mode" class="text-input">
+                            <option value="reserved" data-i18n="project.sizing.rep_reserved">Reserved — hold capacity at N-1</option>
+                            <option value="failover" data-i18n="project.sizing.rep_failover">Failover only — replicas run after a site fails</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="modal-error" id="sizing-modal-error" hidden></div>
             </div>
             <div class="modal-footer">
