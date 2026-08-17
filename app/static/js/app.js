@@ -1590,13 +1590,22 @@ function recCardHtml(r, i, mode, demand, opts) {
         : rr.node_count;
 
     const isSelected = i === selIdx;
-    // The per-cluster wording ("for this cluster in the combined export") is
-    // wrong for a single sizing, where the pick is what a project bundle uses.
+    // Two different actions behind one control. Per cluster, picking is just a
+    // pick: you go on to choose for the other clusters before exporting the
+    // combined document. Per sizing, the pick IS the decision, so it also saves
+    // and returns to the project — otherwise a chosen option sits unsaved and
+    // the bundle quietly exports the previous one.
     const pickerTitle = window.t(perCluster ? 'cluster.select_for_export_title'
                                             : 'cluster.select_for_sizing_title');
+    const pickerLabel = isSelected ? window.t('cluster.selected_for_export')
+        : window.t(perCluster ? 'cluster.select_for_export'
+                              : 'cluster.select_and_save');
+    const pickerAction = perCluster
+        ? `["selectClusterRec",${i}]`
+        : `["selectRecAndSave",${i}]`;
     const recPicker = showRecPicker
-        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
-                title="${pickerTitle}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='${pickerAction}'
+                title="${pickerTitle}">${pickerLabel}</button>`
         : '';
     const clusterInfo = r.num_clusters > 1
         ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
@@ -3020,6 +3029,17 @@ function selectClusterRec(i) {
     // Both modes render into the same list; there is no separate manual one.
     renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
                             'ratio-slider', currentMode, []);
+}
+
+// Single-sizing picker: record the choice, then save and go back to the project.
+// The snapshot stored on save reads selectedRec, so the pick has to land before
+// the save runs — hence setting it here rather than inside the save path.
+async function selectRecAndSave(i) {
+    if (currentMode !== 'import' && currentMode !== 'manual') return;
+    selectedRec[currentMode] = i;
+    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
+                            'ratio-slider', currentMode, []);
+    if (window.saveAndReturnToProject) await window.saveAndReturnToProject();
 }
 
 // Configure-VMs modal tab click (by index into _modalTabKeys).

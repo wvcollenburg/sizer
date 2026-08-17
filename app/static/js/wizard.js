@@ -319,7 +319,34 @@
                 '<div class="wiz-export-actions">' + buttons + '</div>' +
                 '<p class="wiz-export-note">' + esc(t('wizard.export.per_card_note')) + '</p>';
         }
+        renderSaveClose(chrome.parentNode);
     }
+
+    // The multi-cluster path picks an option per cluster across step 6, so the
+    // per-card "use in export and save" that single sizings get would drop you
+    // out half-way through. The wizard's last step is where that flow actually
+    // ends, so the save lives here instead.
+    //
+    // Appended after the review rather than into the chrome above it, so it
+    // reads as the end of the page — and kept last on every re-render.
+    function renderSaveClose(pane) {
+        if (!pane || typeof window.saveAndReturnToProject !== 'function') return;
+        var host = $('wiz-save-close');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'wiz-save-close';
+            host.className = 'wiz-export-actions wiz-save-close';
+        }
+        pane.appendChild(host);
+        host.innerHTML = '<button class="btn btn-primary" data-click=\'["wizSaveAndClose"]\'>'
+            + esc(t('wizard.export.save_close')) + '</button>';
+    }
+
+    window.wizSaveAndClose = function () {
+        if (typeof window.saveAndReturnToProject === 'function') {
+            window.saveAndReturnToProject();
+        }
+    };
 
     window.wizExport = function (fmt) {
         if (typeof exportProposal === 'function') exportProposal('import', 0, fmt);

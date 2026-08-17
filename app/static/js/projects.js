@@ -617,7 +617,7 @@ async function addDrTarget() {
 async function openSizing(id) {
     const { ok, data } = await api('/api/configs/' + id);
     if (!ok) return;
-    enterSizer();
+    enterSizer(data.name);
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
 }
@@ -837,18 +837,44 @@ async function deleteCurrentProject() {
 
 // ── sizer hand-off ──────────────────────────────────────────────────────────
 
-function enterSizer() {
+function enterSizer(sizingName) {
     showScreen('sizer');
     const bar = document.getElementById('sizer-project-bar');
     const name = document.getElementById('sizer-project-name');
     if (bar) bar.hidden = !currentProject;
     if (name && currentProject) name.textContent = currentProject.name;
+    setSizerSizingName(sizingName);
+}
+
+// Which sizing the sizer is working on. An unsaved one says so in capitals
+// rather than showing nothing — "no name" and "not saved yet" look identical
+// otherwise, and only one of them means your work is at risk.
+function setSizerSizingName(sizingName) {
+    const el = document.getElementById('sizer-sizing-name');
+    if (!el) return;
+    const saved = (sizingName || '').trim();
+    el.textContent = saved || tt('project.bar.unsaved');
+    el.classList.toggle('sizer-unsaved', !saved);
 }
 
 // auth.js asks for this when saving, so a new sizing is filed where the user is
 // working instead of silently landing in the scratch project.
 function activeProjectId() {
     return currentProject ? currentProject.id : null;
+}
+
+// "Use in export and save" on a single-sizing recommendation card: record the
+// pick, save, and go back to the project. Picking an option IS the decision, so
+// making it also the save point removes the step where a chosen option is left
+// unsaved and the bundle quietly exports the previous one.
+//
+// Deliberately not used by the per-cluster picker in separate-clusters mode:
+// there you choose an option for each cluster in turn before exporting the
+// combined document, and saving on the first pick would drop you out mid-flow.
+async function saveAndReturnToProject() {
+    if (!window.saveCurrentSizing) return;
+    const saved = await window.saveCurrentSizing();
+    if (saved && currentProject) backToProject();
 }
 
 // ── small helpers ───────────────────────────────────────────────────────────
@@ -879,6 +905,6 @@ Object.assign(window, {
     openProjectSettings, closeProjectSettings, submitProjectSettings,
     deleteCurrentProject,
     toggleSizing, clearSizingSelection, filterByTag,
-    activeProjectId, enterSizer,
+    activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,
     compareSelected, closeCompare, exportSelected, refreshProjectNow,
 });

@@ -545,6 +545,7 @@ async function saveCurrentSizing() {
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+        if (window.setSizerSizingName) window.setSizerSizingName(data.name);
         await storeResultSnapshot(data.id);
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
@@ -573,6 +574,7 @@ async function saveCurrentSizing() {
         return false;
     }
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+    if (window.setSizerSizingName) window.setSizerSizingName(data.name);
     await storeResultSnapshot(data.id);
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
@@ -636,7 +638,7 @@ async function loadSizing(id) {
     closeSizingsModal();
     // The modal can be opened from a project screen, where the sizer is hidden;
     // reveal it before restoring or the sizing loads into an invisible page.
-    if (window.enterSizer) window.enterSizer();
+    if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
@@ -652,7 +654,7 @@ async function retrieveByCode() {
     closeSizingsModal();
     // The modal can be opened from a project screen, where the sizer is hidden;
     // reveal it before restoring or the sizing loads into an invisible page.
-    if (window.enterSizer) window.enterSizer();
+    if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }

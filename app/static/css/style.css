@@ -2577,3 +2577,15 @@ body.refresh-mode { visibility: hidden; }
 .export-note { color: var(--text-muted); font-size: 0.8rem; }
 .export-failed { color: #a32020; cursor: help; }
 .export-skip { flex-basis: 100%; color: var(--text-muted); font-size: 0.75rem; }
+
+/* Sizing identity in the project bar. An unsaved sizing is called out rather
+   than left blank — "no name" and "not saved yet" otherwise look identical. */
+.sizer-sizing-label { color: var(--text-muted); }
+.sizer-sizing-label strong { color: var(--text); }
+.sizer-sizing-label strong.sizer-unsaved {
+    color: #a35a20; letter-spacing: 0.04em; font-size: 0.78rem;
+}
+
+/* Save-and-close at the foot of the wizard's last step — the end of the
+   multi-cluster flow, where each cluster's option has already been chosen. */
+.wiz-save-close { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); justify-content: flex-end; }
