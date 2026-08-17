@@ -795,6 +795,7 @@
   "project.sizing.role_additive": "Part of the total — a site or phase",
   "project.sizing.role_alternative": "Alternative — one of several options",
   "project.sizing.role_unset": "Not set",
+  "project.sizing.tag_add": "Click to put this tag on the sizing",
   "project.sizing.tag_assigned": "On this sizing",
   "project.sizing.tag_available": "Add from this project",
   "project.sizing.tag_none_on_sizing": "No tags yet",

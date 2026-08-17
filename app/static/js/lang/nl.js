@@ -794,6 +794,7 @@
   "project.sizing.role_additive": "Onderdeel van het totaal — een locatie of fase",
   "project.sizing.role_alternative": "Alternatief — een van meerdere opties",
   "project.sizing.role_unset": "Niet ingesteld",
+  "project.sizing.tag_add": "Klik om dit label op de sizing te zetten",
   "project.sizing.tag_assigned": "Op deze sizing",
   "project.sizing.tag_available": "Toevoegen uit dit project",
   "project.sizing.tag_none_on_sizing": "Nog geen labels",

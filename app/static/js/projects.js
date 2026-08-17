@@ -813,7 +813,8 @@ function renderTagPicker() {
             <div class="tag-group-label">${escHtml(tt('project.sizing.tag_available'))}</div>
             <div class="tag-picker">${available.map(tag =>
                 `<button class="tag-chip tag-chip-add"
-                    data-click='["togglePanelTag",${tag.id}]'>${escHtml(tag.name)}</button>`
+                    data-click='["togglePanelTag",${tag.id}]'
+                    title="${escHtml(tt('project.sizing.tag_add'))}">${escHtml(tag.name)}</button>`
             ).join('')}</div>
         </div>`;
     }

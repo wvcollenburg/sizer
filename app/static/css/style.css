@@ -2664,17 +2664,39 @@ textarea.text-input:focus {
 /* Tags: what's on this sizing, then what else the project offers. Assigned
    chips carry an explicit × — toggling by clicking an "active" chip was not
    discoverable, and removing a tag is not a thing to have to guess at. */
-.tag-group { margin-bottom: 0.6rem; }
-.tag-group-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
-.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; }
+.tag-group { margin-bottom: 0.75rem; }
+.tag-group-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.35rem;
+}
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
+
+/* Assigned: solid, and carries the × that takes it off. */
 .tag-chip-assigned {
     background: var(--primary); border-color: var(--primary); color: #fff;
-    display: inline-flex; align-items: center; gap: 0.35rem;
+    display: inline-flex; align-items: center; gap: 0.4rem;
 }
-.tag-chip-remove { font-weight: 700; opacity: 0.75; }
+.tag-chip-remove {
+    font-weight: 700; font-size: 0.95rem; line-height: 1;
+    opacity: 0.8; margin-left: 0.1rem;
+}
+.tag-chip-assigned:hover { background: #a32020; border-color: #a32020; }
 .tag-chip-assigned:hover .tag-chip-remove { opacity: 1; }
-.tag-chip-add::before { content: "+ "; opacity: 0.6; }
-.tag-empty { font-size: 0.8rem; color: var(--text-muted); }
+
+/* Available: outlined and dashed, so "not on this sizing yet" is visible at a
+   glance rather than inferred from which heading it sits under. */
+.tag-chip-add { border-style: dashed; color: var(--text-muted); }
+.tag-chip-add::before { content: "+"; margin-right: 0.3rem; opacity: 0.7; }
+.tag-chip-add:hover { border-style: solid; border-color: var(--primary); color: var(--primary); }
+
+.tag-empty { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
 .tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 
-#sizing-modal .modal-body { padding-bottom: 0.5rem; }
+/* .modal-body is padding:0 app-wide because the big modals hold edge-to-edge
+   tables. The project modals are forms, so they need real gutters — without
+   them the labels and controls sit flush against the modal border. */
+#sizing-modal .modal-body,
+#new-project-modal .modal-body,
+#project-settings-modal .modal-body {
+    padding: 1.25rem 1.5rem 1.25rem;
+}
