@@ -555,7 +555,7 @@ def _append_site_sizing(doc, cl, lang, cw):
         _spacer(doc)
 
 
-def build_multisite_proposal_docx(clusters, lang="en"):
+def build_bundle_proposal_docx(clusters, lang="en"):
     """A single commercial multi-site proposal with one narrative flow:
     executive summary → solution at a glance (overview + topology) → why
     HyperCore (platform pitch, once) → per-site sizing detail → assumptions.

@@ -5,13 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Infrastructure Sizer</title>
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <!-- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
+         older ones and the browser's unprompted /favicon.ico request. Built by
+         tools/make_favicon.py — edit the geometry there, not these files. -->
+    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
     <!-- i18n: English base (fallback) + the active locale, then the engine.
          Loaded in <head> so text is swapped before first paint. -->
     <script src="{{ asset('js/lang/en.js') }}"></script>
     {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
     <script src="{{ asset('js/i18n.js') }}"></script>
 </head>
-<body data-vcpu-ratio="{{ default_vcpu_ratio }}">
+{# `app-booting` hides the sizer until the first screen is decided. Which screen
+   you land on depends on /api/auth/me, so without this the sizer paints first
+   and is then replaced by the project home — a visible flash on every load.
+   Removed by showScreen(), or by auth.js if the project layer never loads. #}
+<body class="app-booting" data-vcpu-ratio="{{ default_vcpu_ratio }}">
     <header>
         <div class="header-content">
             <h1 data-i18n="header.title">SC// Infrastructure Sizer</h1>
@@ -32,7 +42,107 @@
         </div>
     </header>
 
+    <!-- ── Project screens ──────────────────────────────────────────────────
+         Sizing always happens inside a project, so these sit in front of the
+         sizer: the home screen picks (or creates) one, the project view lists
+         its sizings. Both are hidden by a body class while sizing, and the
+         sizer itself is hidden while either is showing. -->
+    <div id="project-screens">
+
+        <section id="project-home" class="project-screen">
+            <div class="project-head">
+                <h2 data-i18n="project.home.title">Projects</h2>
+                <div class="project-head-actions">
+                    <button class="btn btn-cta" data-click='["openNewProject"]'
+                            data-i18n="project.home.new">New project</button>
+                    <button class="btn btn-soft" data-click='["openProjectByCodePrompt"]'
+                            data-i18n="project.home.open_code">Open by code</button>
+                    <button class="btn btn-ghost" data-click='["startQuickSizing"]'
+                            data-i18n="project.home.quick">Quick sizing</button>
+                </div>
+            </div>
+            <p class="project-hint" data-i18n="project.home.hint">
+                A project holds the sizings for one customer — several imports, options
+                to compare, and the replication between them.
+            </p>
+            <label class="project-scope-toggle">
+                <input type="checkbox" id="project-scope-all"
+                       data-change='["toggleProjectScope","$checked"]'>
+                <span data-i18n="project.home.scope_all">Also show my colleagues' projects</span>
+            </label>
+            <div id="project-list" class="project-list"><!-- rendered by projects.js --></div>
+        </section>
+
+        <section id="project-view" class="project-screen" hidden>
+            <div class="project-head">
+                <div class="project-title-block">
+                    <button class="btn btn-sm btn-muted" data-click='["backToProjects"]'
+                            data-i18n="project.view.back">← All projects</button>
+                    <h2 id="project-view-name">Project</h2>
+                    <div id="project-view-meta" class="project-meta"></div>
+                </div>
+                <!-- Most-used action first, then the other way to add, then the
+                     project's own settings. All one size — the mix of sizes was
+                     what made these read as randomly placed. -->
+                <div class="project-head-actions">
+                    <button class="btn btn-cta" data-click='["addSizingToProject"]'
+                            data-i18n="project.view.new_sizing">New sizing</button>
+                    <button class="btn btn-soft" data-click='["addDrTarget"]'
+                            data-i18n="project.view.new_dr">Add DR target</button>
+                    <button class="btn btn-soft" data-click='["openProjectSettings"]'
+                            data-i18n="project.view.settings">Details</button>
+                </div>
+            </div>
+
+            <div id="project-refresh-bar" class="project-refresh-bar" hidden></div>
+
+            <!-- Count on the left, then the two things you can do with a
+                 selection: compare it, or export it. The export controls are
+                 grouped so the format and the notify option read as belonging
+                 to the Export button rather than floating between them. -->
+            <div id="project-selection-bar" class="project-selection-bar" hidden>
+                <span id="project-selection-count" class="selection-count"></span>
+                <button class="btn btn-soft" data-click='["compareSelected"]'
+                        data-i18n="project.view.compare">Compare</button>
+                <span class="selection-divider" aria-hidden="true"></span>
+                <div class="export-controls">
+                    <select id="project-export-format" class="text-input inline-select">
+                        <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
+                        <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
+                        <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
+                        <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                    </select>
+                    <label class="notify-check">
+                        <input type="checkbox" id="project-export-notify">
+                        <span data-i18n="project.export.notify">Email me when ready</span>
+                    </label>
+                    <button class="btn btn-cta" data-click='["exportSelected"]'
+                            data-i18n="project.view.export">Export</button>
+                </div>
+                <button class="btn btn-ghost" data-click='["clearSizingSelection"]'
+                        data-i18n="project.view.clear_selection">Clear</button>
+            </div>
+
+            <div id="project-compare" class="project-compare" hidden></div>
+            <div id="project-exports" class="project-exports"></div>
+
+            <div id="project-tag-filter" class="project-tag-filter"></div>
+            <div id="project-sizings" class="project-sizings"></div>
+            <div id="project-replication" class="project-replication"></div>
+        </section>
+    </div>
+
     <main>
+        <!-- Which project the current sizing belongs to; hidden until one is open. -->
+        <div id="sizer-project-bar" class="sizer-project-bar" hidden>
+            <button class="btn btn-sm btn-muted" data-click='["backToProject"]'
+                    data-i18n="project.bar.back">← Back to project</button>
+            <span class="sizer-project-label"><span data-i18n="project.bar.in">In project</span>:
+                <strong id="sizer-project-name"></strong></span>
+            <span class="sizer-sizing-label">
+                <span data-i18n="project.bar.sizing">Sizing</span>:
+                <strong id="sizer-sizing-name"></strong></span>
+        </div>
         <section class="mode-selector">
             <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
@@ -841,6 +951,15 @@
                     <button class="auth-tab" id="auth-tab-signup" data-click='["setAuthTab","signup"]' data-i18n="modal.auth.signup">Sign up</button>
                 </div>
                 <form id="auth-form" data-submit='["submitAuth","$event"]'>
+                    <!-- Sign-up only: the name that goes on a proposal's
+                         "Prepared by". Optional — left blank, a readable
+                         default is derived from the email address. -->
+                    <div class="form-group" id="auth-name-group" style="display:none">
+                        <label data-i18n="modal.auth.full_name">Your name</label>
+                        <input type="text" id="auth-full-name" autocomplete="name"
+                               maxlength="120" placeholder="Jane Doe"
+                               data-i18n-ph="modal.auth.full_name_ph">
+                    </div>
                     <div class="form-group">
                         <label data-i18n="modal.auth.work_email">Work email</label>
                         <input type="email" id="auth-email" autocomplete="email" required
@@ -1049,6 +1168,172 @@
         </div>
     </div>
 
+    <!-- ── Project modals ───────────────────────────────────────────────── -->
+
+    <!-- New project: name only. Everything else is optional and lives in the
+         details panel, so a partner is never asked for customer information
+         just to use the tool. -->
+    <div class="modal-overlay" id="new-project-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 data-i18n="project.new.title">New project</h2>
+                <button class="modal-close" data-click='["closeNewProject"]'>&times;</button>
+            </div>
+            <div class="modal-body">
+                <label class="field-label" for="new-project-name"
+                       data-i18n="project.new.name">Project name</label>
+                <input type="text" id="new-project-name" class="text-input"
+                       data-keydown='["onNewProjectKey","$event"]' autocomplete="off">
+                <p class="field-hint" data-i18n="project.new.hint">
+                    Customer, opportunity and notes are optional — add them later from Details.
+                </p>
+                <div class="modal-error" id="new-project-error" hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-muted" data-click='["closeNewProject"]'
+                        data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-primary" data-click='["submitNewProject"]'
+                        data-i18n="project.new.create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project details: the optional metadata that fills an export cover. -->
+    <div class="modal-overlay" id="project-settings-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 data-i18n="project.settings.title">Project details</h2>
+                <button class="modal-close" data-click='["closeProjectSettings"]'>&times;</button>
+            </div>
+            <div class="modal-body" id="project-settings-body">
+                <label class="field-label" for="ps-name" data-i18n="project.settings.name">Name</label>
+                <input type="text" id="ps-name" class="text-input">
+                <label class="field-label" for="ps-customer" data-i18n="project.settings.customer">Customer</label>
+                <input type="text" id="ps-customer" class="text-input">
+                <label class="field-label" for="ps-opportunity" data-i18n="project.settings.opportunity">Opportunity reference</label>
+                <input type="text" id="ps-opportunity" class="text-input">
+                <div class="field-label-row">
+                    <label class="field-label" for="ps-prepared"
+                           data-i18n="project.settings.prepared_by">Prepared by</label>
+                    <!-- Offered only when it differs from your own name, so an
+                         older project doesn't have to be retyped by hand. -->
+                    <button type="button" class="field-inline-action" id="ps-prepared-refill"
+                            hidden data-click='["usePreparedByMe"]'></button>
+                </div>
+                <input type="text" id="ps-prepared" class="text-input"
+                       data-input='["refreshPreparedByHint"]'>
+                <label class="field-label" for="ps-lang"
+                       data-i18n="project.settings.lang">Export language</label>
+                <select id="ps-lang" class="text-input">
+                    {% for code in supported_langs %}
+                    <option value="{{ code }}">{{ lang_names[code] }}</option>
+                    {% endfor %}
+                </select>
+                <p class="field-hint" data-i18n="project.settings.lang_hint">
+                    Documents exported from this project are written in this language,
+                    whatever language you happen to be using the app in.
+                </p>
+
+                <label class="field-label" for="ps-description" data-i18n="project.settings.description">Notes</label>
+                <textarea id="ps-description" class="text-input" rows="3"></textarea>
+                <!-- Scale-only. The server omits the field entirely for everyone
+                     else, so this block stays hidden unless it comes back. -->
+                <div id="ps-salesforce-row" hidden>
+                    <label class="field-label" for="ps-salesforce"
+                           data-i18n="project.settings.salesforce">Salesforce opportunity link</label>
+                    <input type="text" id="ps-salesforce" class="text-input"
+                           placeholder="https://…lightning.force.com/…">
+                </div>
+                <div class="modal-error" id="project-settings-error" hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-sm" data-click='["deleteCurrentProject"]'
+                        data-i18n="project.settings.delete">Delete project</button>
+                <span class="modal-footer-spacer"></span>
+                <button class="btn btn-muted" data-click='["closeProjectSettings"]'
+                        data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-primary" data-click='["submitProjectSettings"]'
+                        data-i18n="common.save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-sizing panel: tags, role, notes and replication partner. -->
+    <div class="modal-overlay" id="sizing-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 id="sizing-modal-title">Sizing</h2>
+                <button class="modal-close" data-click='["closeSizingPanel"]'>&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="panel-field">
+                    <label class="field-label" for="sizing-role"
+                           data-i18n="project.sizing.role">Counts towards the total?</label>
+                    <select id="sizing-role" class="text-input">
+                        <option value="" data-i18n="project.sizing.role_unset">Not set</option>
+                        <option value="alternative" data-i18n="project.sizing.role_alternative">Alternative — one of several options</option>
+                        <option value="additive" data-i18n="project.sizing.role_additive">Part of the total — a site or phase</option>
+                    </select>
+                </div>
+
+                <div class="panel-field">
+                    <label class="field-label" data-i18n="project.sizing.tags">Tags</label>
+                    <div id="sizing-tags"></div>
+                    <div class="tag-add-row">
+                        <input type="text" id="sizing-new-tag" class="text-input"
+                               data-keydown='["onNewTagKey","$event"]'
+                               data-i18n-ph="project.sizing.add_tag" placeholder="Add a tag…">
+                        <button class="btn btn-sm" data-click='["addTagFromInput"]'
+                                data-i18n="common.add">Add</button>
+                    </div>
+                </div>
+
+                <div class="panel-field">
+                    <label class="field-label" for="sizing-notes"
+                           data-i18n="project.sizing.notes">Why this option</label>
+                    <textarea id="sizing-notes" class="text-input" rows="3"></textarea>
+                </div>
+
+                <div class="panel-section">
+                    <p class="panel-section-title" data-i18n="project.sizing.replication">Replicates to</p>
+                    <p class="field-hint" data-i18n="project.sizing.replication_hint">
+                        Reserve capacity on another sizing in this project for this one's workload.
+                    </p>
+                    <div class="panel-field">
+                        <select id="sizing-rep-target" class="text-input"></select>
+                    </div>
+                    <div class="rep-pct-row">
+                        <div class="panel-field">
+                            <label class="field-label" for="sizing-rep-compute"
+                                   data-i18n="project.sizing.rep_compute">Compute %</label>
+                            <input type="number" id="sizing-rep-compute" class="text-input"
+                                   min="0" max="100" value="100">
+                        </div>
+                        <div class="panel-field">
+                            <label class="field-label" for="sizing-rep-storage"
+                                   data-i18n="project.sizing.rep_storage">Storage %</label>
+                            <input type="number" id="sizing-rep-storage" class="text-input"
+                                   min="0" max="100" value="100">
+                        </div>
+                    </div>
+                    <div class="panel-field">
+                        <select id="sizing-rep-mode" class="text-input">
+                            <option value="reserved" data-i18n="project.sizing.rep_reserved">Reserved — hold capacity at N-1</option>
+                            <option value="failover" data-i18n="project.sizing.rep_failover">Failover only — replicas run after a site fails</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-error" id="sizing-modal-error" hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-muted" data-click='["closeSizingPanel"]'
+                        data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-primary" data-click='["submitSizingPanel"]'
+                        data-i18n="common.save">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Info / confirmation modal (save result, errors) -->
     <div class="modal-overlay" id="info-modal" style="display:none">
         <div class="modal-content modal-sm">
@@ -1078,5 +1363,6 @@
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/wizard.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>
+    <script src="{{ asset('js/projects.js') }}"></script>
 </body>
 </html>

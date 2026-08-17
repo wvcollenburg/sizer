@@ -474,6 +474,10 @@ def purge_expired():
         ScaleConfigLink.query.filter(
             ScaleConfigLink.configuration_id.in_(cfg_ids)
         ).delete(synchronize_session=False)
+        # Tags and replication links reference configurations with no ON DELETE
+        # rule; leaving them would abort the whole nightly purge on the first
+        # tagged sizing that ages out.
+        _detach_configuration_refs(cfg_ids)
     for c in stale_configs:
         db.session.delete(c)
 
@@ -488,10 +492,12 @@ def purge_expired():
 
     db.session.commit()
 
+    artifacts_purged = _purge_expired_exports()
     tenants_removed = _cleanup_empty_tenants()
     db.session.commit()
     pii_anonymized = anonymize_expired_pii()
     return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users),
+            "artifacts_purged": artifacts_purged,
             "tenants_removed": tenants_removed, "pii_anonymized": pii_anonymized}
 
 
@@ -525,16 +531,73 @@ def _delete_user_cascade(user):
     user's PII is scrubbed from the audit log after PII_RETENTION_DAYS."""
     email = user.email
 
+    from project_models import (
+        ConfigurationTag, ExportJob, Project, ProjectTag, ReplicationLink,
+        ScaleProjectLink,
+    )
+
     owned = Configuration.query.filter_by(owner_id=user.id).all()
     owned_ids = [c.id for c in owned]
     if owned_ids:
         ScaleConfigLink.query.filter(
             ScaleConfigLink.configuration_id.in_(owned_ids)
         ).delete(synchronize_session=False)
+        # Rows that point AT these configurations must go first — neither has an
+        # ON DELETE rule, so the FK would abort the delete.
+        _detach_configuration_refs(owned_ids)
     for c in owned:
         db.session.delete(c)
     ScaleConfigLink.query.filter_by(user_id=user.id).delete(
         synchronize_session=False)
+
+    # Projects the user owns. owner_id is NOT NULL, so these cannot be orphaned
+    # and must be deleted outright — and every user has at least a scratch
+    # project, so without this an admin's "delete user" fails on the FK.
+    owned_projects = Project.query.filter_by(owner_id=user.id).all()
+    project_ids = [p.id for p in owned_projects]
+    if project_ids:
+        # A colleague's sizing can live in a project this user owns; move it to
+        # the sizing owner's own scratch project rather than destroying someone
+        # else's work along with the container.
+        strays = Configuration.query.filter(
+            Configuration.project_id.in_(project_ids),
+            Configuration.owner_id != user.id).all()
+        for stray in strays:
+            from project_models import ensure_scratch_project
+            fallback = ensure_scratch_project(stray.owner_id, stray.tenant_id)
+            stray.project_id = fallback.id
+            ConfigurationTag.query.filter_by(
+                configuration_id=stray.id).delete(synchronize_session=False)
+            ReplicationLink.query.filter(
+                (ReplicationLink.source_configuration_id == stray.id)
+                | (ReplicationLink.target_configuration_id == stray.id)
+            ).delete(synchronize_session=False)
+
+        ReplicationLink.query.filter(
+            ReplicationLink.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        tag_ids = [t.id for t in ProjectTag.query.filter(
+            ProjectTag.project_id.in_(project_ids)).all()]
+        if tag_ids:
+            ConfigurationTag.query.filter(
+                ConfigurationTag.tag_id.in_(tag_ids)).delete(
+                    synchronize_session=False)
+        ProjectTag.query.filter(
+            ProjectTag.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        ScaleProjectLink.query.filter(
+            ScaleProjectLink.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        ExportJob.query.filter(
+            ExportJob.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        for project in owned_projects:
+            db.session.delete(project)
+
+    # Links and jobs belonging to the user but pointing at other people's rows.
+    ScaleProjectLink.query.filter_by(user_id=user.id).delete(
+        synchronize_session=False)
+    ExportJob.query.filter_by(user_id=user.id).delete(synchronize_session=False)
 
     # Break inbound references (all nullable) so the hard delete is FK-safe while
     # keeping history. The audit row's actor_email is retained until the GDPR
@@ -671,6 +734,23 @@ def me():
     return jsonify({"user": u.to_dict() if u else None})
 
 
+@auth_bp.route("/me", methods=["PUT"])
+@login_required
+def update_me():
+    """Set your own display name.
+
+    Accounts predate this field and signup only asks optionally, so there has to
+    be a way to fill it in afterwards — otherwise every existing user is stuck
+    with the name derived from their email address on every new project.
+    """
+    user = current_user()
+    data = request.json or {}
+    if "full_name" in data:
+        user.full_name = (data.get("full_name") or "").strip()[:120] or None
+        db.session.commit()
+    return jsonify({"user": user.to_dict()})
+
+
 @auth_bp.route("/signup", methods=["POST"])
 @limiter.limit("15 per hour")
 def signup():
@@ -726,6 +806,9 @@ def signup():
 
     user = User(
         email=email,
+        # Optional: used to fill in "Prepared by" on a new project, and nothing
+        # else. Left empty, a readable default is derived from the address.
+        full_name=((data.get("full_name") or "").strip()[:120] or None),
         password_hash=generate_password_hash(password, method=PWHASH_METHOD),
         tenant_id=tenant.id,
         role=role,
@@ -992,6 +1075,108 @@ def list_configs():
     return jsonify([c.to_summary(user, source) for c, source in pairs])
 
 
+def _detach_configuration_refs(config_ids):
+    """Remove the rows that point at these configurations before they are
+    hard-deleted.
+
+    ``configuration_tags`` and ``replication_links`` carry plain foreign keys
+    with no ON DELETE rule, so a delete that ignores them raises IntegrityError
+    on Postgres — and takes the rest of the purge down with it. SQLite doesn't
+    enforce foreign keys by default, which is why tests never saw it.
+    """
+    from project_models import ConfigurationTag, ReplicationLink
+    ConfigurationTag.query.filter(
+        ConfigurationTag.configuration_id.in_(config_ids)).delete(
+            synchronize_session=False)
+    ReplicationLink.query.filter(
+        (ReplicationLink.source_configuration_id.in_(config_ids))
+        | (ReplicationLink.target_configuration_id.in_(config_ids))
+    ).delete(synchronize_session=False)
+
+
+def _purge_expired_exports():
+    """Delete generated bundles past their 24-hour life, file and row together.
+
+    Customer sizing data shouldn't accumulate on disk, and a row pointing at a
+    file that no longer exists is worse than no row (decision 20).
+    """
+    import os as _os
+
+    from project_models import ExportJob, JOB_DONE
+    now = _utcnow()
+    # A finished job carries expires_at; a failed or abandoned one never gets
+    # one, so filtering on expires_at alone would leave those rows forever.
+    # Age them out on created_at instead.
+    stale_cutoff = now - timedelta(days=2)
+    expired = ExportJob.query.filter(
+        ((ExportJob.expires_at.isnot(None)) & (ExportJob.expires_at < now))
+        | ((ExportJob.status != JOB_DONE) & (ExportJob.created_at < stale_cutoff))
+    ).all()
+    for job in expired:
+        if job.artifact_path:
+            try:
+                _os.remove(job.artifact_path)
+            except OSError:
+                pass    # already gone, or never written
+        db.session.delete(job)
+    if expired:
+        db.session.commit()
+    return len(expired)
+
+
+def _replication_dependents(config_id):
+    """Names of the sizings that replicate INTO ``config_id``.
+
+    Used to refuse a delete or a move-out rather than silently stripping the
+    inbound reserve those partners were sized around (§8.5).
+    """
+    from project_models import ReplicationLink
+    links = ReplicationLink.query.filter_by(
+        target_configuration_id=config_id).all()
+    if not links:
+        return []
+    sources = Configuration.query.filter(
+        Configuration.id.in_([l.source_configuration_id for l in links]),
+        Configuration.is_deleted.is_(False)).all()
+    return sorted({c.name for c in sources})
+
+
+def _payload_digest(payload):
+    """Digest of a sizing's inputs, stored on save.
+
+    A DR target's fingerprint folds in the digests of every sizing replicating
+    into it (§8.5), so changing a source's workload marks its targets stale.
+    Held as a column rather than recomputed, so opening a project doesn't
+    re-hash several megabytes of VM lists.
+    """
+    import hashlib
+    import json
+    try:
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                               default=str)
+    except (TypeError, ValueError):
+        return None
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _resolve_save_project(user, project_id):
+    """Which project a new sizing is filed under. Returns (project, error).
+
+    A named project must be owned by the saver — saving into someone else's
+    project is the same write a read-only viewer is refused elsewhere.
+    """
+    from project_models import Project, ensure_scratch_project
+    if project_id:
+        project = Project.query.get(project_id)
+        if project is None or project.is_deleted:
+            return None, (jsonify({"error": "Project not found"}), 404)
+        if not project.can_edit(user):
+            return None, (jsonify({
+                "error": "You cannot save into that project."}), 403)
+        return project, None
+    return ensure_scratch_project(user.id, user.tenant_id), None
+
+
 @configs_bp.route("/", methods=["POST"])
 @login_required
 def create_config():
@@ -1007,10 +1192,32 @@ def create_config():
     if len(request.get_data() or b"") > MAX_PAYLOAD_BYTES:
         return jsonify({"error": "Configuration is too large to save"}), 413
 
+    # Every sizing belongs to a project (docs/projects-plan.md decision 2). A
+    # named project must be one the user owns; the quick-sizing path sends none
+    # and resolves to their scratch project here rather than client-side.
+    project, err = _resolve_save_project(user, data.get("project_id"))
+    if err:
+        return err
+    position = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).count()
+
+    # Provenance travels with the sizing (§8): which file it came from, when,
+    # and which parser read it. parser_version is stored in its own column so a
+    # later parser fix can flag "re-import needed" (§3.3) — recalculating can't
+    # repair it, since the source file itself is never kept.
+    source_meta = data.get("source_meta")
+    if not isinstance(source_meta, dict):
+        source_meta = None
+
     for _ in range(6):
         config = Configuration(
             code=_generate_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id, payload=payload,
+            project_id=project.id, position=position,
+            role=project.default_role,
+            source_meta=source_meta,
+            parser_version=(source_meta or {}).get("parser_version"),
+            payload_digest=_payload_digest(payload),
         )
         db.session.add(config)
         try:
@@ -1088,6 +1295,9 @@ def update_config(config_id):
         if len(request.get_data() or b"") > MAX_PAYLOAD_BYTES:
             return jsonify({"error": "Configuration is too large to save"}), 413
         config.payload = data["payload"]
+        # Keep the digest in step: anything replicating into this sizing folds
+        # it into its own fingerprint and must go stale when the workload moves.
+        config.payload_digest = _payload_digest(data["payload"])
     db.session.commit()
     return jsonify(config.to_summary(user, "owned"))
 
@@ -1099,6 +1309,18 @@ def delete_config(config_id):
     config = Configuration.query.get(config_id)
     if config is None:
         return jsonify({"error": "Configuration not found"}), 404
+
+    # Refuse while anything still replicates into this sizing (decision 32):
+    # deleting it would silently drop the inbound reserve its partners were
+    # sized for. Deleting the whole PROJECT still cascades — source and target
+    # go together there, so nothing is left dangling.
+    blockers = _replication_dependents(config.id)
+    if blockers and not config.is_deleted:
+        return jsonify({
+            "error": "Other sizings replicate to this one. Remove those "
+                     "replication links first.",
+            "replicated_from": blockers,
+        }), 409
 
     # Owner / super admin → soft delete (vanishes for all but super admin).
     if config.owner_id == user.id or user.is_super_admin:

@@ -1107,6 +1107,20 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                     }
 
             results.append({
+                # Catalog identity behind this recommendation, so a stored
+                # result can be re-checked against the live catalog later
+                # (docs/projects-plan.md §3.2). Identity only — never the
+                # resolved values, which would make the check self-referential.
+                "refs": {
+                    "mode": "appliance",
+                    "model": model["name"],
+                    "cpu_desc": cpu["desc"],
+                    "so_cpu_desc": (storage_only_block or {}).get("cpu"),
+                    "selection": {
+                        "node_count": node_count,
+                        "so_count": (storage_only_block or {}).get("count", 0),
+                    },
+                },
                 "model": model["name"],
                 "category": model["category"],
                 "form_factor": model["form_factor"],

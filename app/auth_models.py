@@ -66,6 +66,9 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    # How the person is named on a proposal. Optional: accounts predate this
+    # field, and asking for it is not a condition of using the tool.
+    full_name = db.Column(db.String(120))
     password_hash = db.Column(db.String(255), nullable=False)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"),
                           nullable=False, index=True)
@@ -117,11 +120,28 @@ class User(db.Model):
     def domain(self):
         return self.tenant.domain if self.tenant else None
 
+    @property
+    def display_name(self):
+        """A human name to put on a proposal.
+
+        Falls back to the email's local part, tidied — "john.doe" becomes
+        "John Doe" — so a project created by someone who never filled in their
+        name still says something readable rather than a bare address. It is
+        only ever a *default*: prepared_by is stored per project and editable.
+        """
+        if self.full_name and self.full_name.strip():
+            return self.full_name.strip()
+        local = (self.email or "").split("@", 1)[0]
+        words = [w for w in local.replace("_", ".").replace("-", ".").split(".") if w]
+        return " ".join(w[:1].upper() + w[1:] for w in words) or (self.email or "")
+
     def to_dict(self):
         """Public shape — never exposes the password hash."""
         return {
             "id": self.id,
             "email": self.email,
+            "full_name": self.full_name,
+            "display_name": self.display_name,
             "role": self.role,
             "is_scale": self.is_scale,
             "tenant_domain": self.domain,
@@ -148,6 +168,39 @@ class Configuration(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"),
                           nullable=False, index=True)
     payload = db.Column(JSON_TYPE, nullable=False)
+
+    # ── project membership (docs/projects-plan.md §2.2) ──────────────────────
+    # Nullable in the schema so the additive migration can add the column to a
+    # populated table; the backfill then files every existing sizing into its
+    # owner's scratch project, and the API never creates a sizing without one.
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), index=True)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    # "alternative" (never summed) or "additive" (part of one estate). NULL
+    # until the project's default is set by the second-sizing question.
+    role = db.Column(db.String(12))
+    notes = db.Column(db.Text)          # "why this option" — lands in the export
+
+    # ── cached result + its validity fingerprint (§3) ────────────────────────
+    # The payload holds inputs only; these hold the computed result so a project
+    # can be listed, compared and exported without opening each sizing. A
+    # snapshot is trusted only while its fingerprint matches the current engine,
+    # tunables and referenced catalog rows.
+    result_snapshot = db.Column(JSON_TYPE)
+    result_fingerprint = db.Column(db.String(64))
+    result_computed_at = db.Column(db.DateTime(timezone=True))
+    # Separate from the fingerprint on purpose: a parser fix cannot be repaired
+    # by recalculating (the source file isn't stored), so it marks the sizing
+    # "re-import needed" rather than merely stale (§3.3).
+    parser_version = db.Column(db.String(64))
+    source_meta = db.Column(JSON_TYPE)  # provenance: file name, type, hash, counts
+    # Digest of the payload, maintained on save. A DR target's fingerprint folds
+    # in the digests of everything replicating into it (§8.5), so this is read
+    # once per link instead of re-hashing a 4 MB payload on every project open.
+    payload_digest = db.Column(db.String(64))
+    # A sizing that carries no workload of its own and exists purely as a
+    # replication target, sized from what replicates into it (decision 30).
+    is_dr_target = db.Column(db.Boolean, nullable=False, default=False)
+
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime(timezone=True))
     deleted_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
@@ -183,6 +236,14 @@ class Configuration(db.Model):
             "updated_at": _iso(self.updated_at),
             "source": source,
             "can_delete": can_delete,
+            "project_id": self.project_id,
+            "position": self.position,
+            "role": self.role,
+            "notes": self.notes,
+            "source_meta": self.source_meta,
+            "is_dr_target": self.is_dr_target,
+            "has_result": self.result_snapshot is not None,
+            "result_computed_at": _iso(self.result_computed_at),
         }
 
     def to_dict(self, current_user=None, source="tenant"):

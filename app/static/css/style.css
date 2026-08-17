@@ -2403,3 +2403,367 @@ body.wiz-active #vm-triage-panel .vm-table-wrap {
     .wiz-raillabel { display: none; }
     .wiz-railstep { flex: 0 0 auto; }
 }
+
+/* ── Project screens ─────────────────────────────────────────────────────────
+   Sizing happens inside a project, so the project home and project view sit in
+   front of the sizer. One body class decides which is showing; the sizer's own
+   markup is untouched and simply hidden while a project screen is up. */
+
+#project-screens { display: none; }
+body.view-projects #project-screens,
+body.view-project  #project-screens { display: block; max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+body.view-projects main,
+body.view-project  main { display: none; }
+body.auth-required #project-screens { display: none; }
+
+.project-screen { animation: fadeIn 0.15s ease-out; }
+
+.project-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+.project-head h2 { margin: 0.25rem 0; }
+.project-head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.project-title-block { display: flex; flex-direction: column; gap: 0.25rem; }
+.project-meta { color: var(--text-muted); font-size: 0.85rem; }
+.project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
+.project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
+
+/* Home: one card per project, newest first. */
+.project-list { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.project-card {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    text-align: left; padding: 0.9rem 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer;
+    transition: border-color 0.12s, transform 0.12s;
+}
+.project-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.project-card-name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+.project-card-sub { color: var(--text-muted); font-size: 0.82rem; }
+
+.project-badge {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0.1rem 0.4rem; border-radius: 999px;
+    background: var(--border); color: var(--text-muted);
+}
+.project-badge-shared { background: #e3ecff; color: #2d5bbf; }
+
+/* Project view: the sizing table. */
+.sizing-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.sizing-table th {
+    text-align: left; font-weight: 600; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-muted); padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+}
+.sizing-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.sizing-table tr:hover td { background: rgba(0,0,0,0.015); }
+.sizing-table .col-check { width: 2rem; }
+.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
+.sizing-name { font-weight: 500; }
+.sizing-source { color: var(--text-muted); font-size: 0.82rem; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-dot { color: var(--accent); font-size: 0.7rem; cursor: help; }
+
+.btn-xs { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
+
+/* Three distinct cache states. "Re-import" is deliberately not a shade of
+   "stale": recalculating cannot fix it, so it must not invite a refresh. */
+.state-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.state-fresh    { background: #e6f4ea; color: #1e7a3c; }
+.state-stale    { background: #fdf1dc; color: #96690d; cursor: help; }
+.state-none     { background: var(--border); color: var(--text-muted); }
+.state-reimport { background: #fde8e8; color: #a32020; cursor: help; }
+
+.role-chip { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.role-alternative { background: #eef0ff; color: #4348a8; }
+.role-additive    { background: #e8f3ee; color: #256d4d; }
+.role-unset       { color: var(--text-muted); }
+
+/* Tags: freeform, project-scoped, used both as filters and in the panel. */
+.project-tag-filter { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.75rem 0; }
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.tag-chip {
+    font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); cursor: pointer;
+}
+.tag-chip-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tag-chip-sm { font-size: 0.7rem; cursor: default; }
+.tag-chip-clear { border-style: dashed; color: var(--text-muted); }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
+.tag-add-row .text-input { flex: 1; }
+
+.project-selection-bar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: var(--radius); font-size: 0.85rem;
+}
+
+/* Replication summary under the table. */
+.rep-heading { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 1.5rem 0 0.4rem; }
+.rep-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.rep-list li { padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.rep-terms { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.4rem; }
+.rep-pct-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rep-pct { width: 5.5rem; }
+.field-label-inline { font-size: 0.8rem; color: var(--text-muted); }
+.panel-rule { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+/* Which project the open sizing belongs to. */
+.sizer-project-bar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; margin-bottom: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 0.85rem;
+}
+.sizer-project-label { color: var(--text-muted); }
+.sizer-project-label strong { color: var(--text); }
+
+.modal-footer-spacer { flex: 1; }
+.modal-error { color: var(--danger, #a32020); font-size: 0.85rem; margin-top: 0.5rem; }
+.field-hint { color: var(--text-muted); font-size: 0.8rem; margin: 0.2rem 0 0.75rem; }
+.sf-link { color: var(--accent); text-decoration: none; }
+.sf-link:hover { text-decoration: underline; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 700px) {
+    .sizing-table .sizing-source, .sizing-table th:nth-child(5) { display: none; }
+    .project-head { flex-direction: column; }
+}
+
+/* Refresh iframes: real, loaded, and invisible. display:none would stop some
+   browsers running them, so they are moved out of view instead. */
+.refresh-frame {
+    position: absolute; width: 1px; height: 1px;
+    left: -9999px; top: -9999px; border: 0; visibility: hidden;
+}
+body.refresh-mode { visibility: hidden; }
+
+.project-refresh-bar {
+    padding: 0.4rem 0.75rem; margin: 0.5rem 0;
+    background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius);
+    font-size: 0.82rem; color: #7a5c12;
+}
+
+.inline-select { width: auto; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
+.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); }
+
+/* Comparison table: options side by side, deltas against the first column. */
+.project-compare { margin: 1rem 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.compare-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.compare-head h3 { margin: 0; font-size: 1rem; }
+.compare-scroll { overflow-x: auto; }
+.compare-table th:first-child, .compare-metric { text-align: left; white-space: nowrap; color: var(--text-muted); }
+.compare-note { font-size: 0.8rem; color: var(--text-muted); max-width: 26ch; }
+.delta { font-size: 0.75rem; margin-left: 0.2rem; }
+.delta-up { color: #a35a20; }
+.delta-down { color: #1e7a3c; }
+.compare-warnings { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem 0.5rem 1.75rem; background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius); font-size: 0.82rem; color: #7a5c12; }
+.compare-rollup { font-size: 0.85rem; margin: 0.75rem 0 0; }
+.compare-rollup-none { color: var(--text-muted); }
+
+/* Exports panel — a job runs whether or not anyone is watching, so there has
+   to be a way back to a finished bundle. */
+.project-exports { margin-top: 1.5rem; }
+.export-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.export-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.export-note { color: var(--text-muted); font-size: 0.8rem; }
+.export-failed { color: #a32020; cursor: help; }
+.export-skip { flex-basis: 100%; color: var(--text-muted); font-size: 0.75rem; }
+
+/* Sizing identity in the project bar. An unsaved sizing is called out rather
+   than left blank — "no name" and "not saved yet" otherwise look identical. */
+.sizer-sizing-label { color: var(--text-muted); }
+.sizer-sizing-label strong { color: var(--text); }
+.sizer-sizing-label strong.sizer-unsaved {
+    color: #a35a20; letter-spacing: 0.04em; font-size: 0.78rem;
+}
+
+/* Save-and-close at the foot of the wizard's last step — the end of the
+   multi-cluster flow, where each cluster's option has already been chosen. */
+.wiz-save-close { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); justify-content: flex-end; }
+
+/* Boot: nothing of the app body until the first screen is chosen. Which screen
+   that is depends on an async /api/auth/me, so painting the sizer meanwhile
+   shows a landing page the user never asked for and then yanks it away. The
+   header and any modal (including the login gate) stay visible throughout. */
+body.app-booting main,
+body.app-booting #project-screens,
+body.app-booting footer { visibility: hidden; }
+
+/* Scope toggle on the project home: your own work by default, the whole
+   organization on request. */
+.project-scope-toggle {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    margin: 0 0 1.25rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+}
+
+/* ── Sizing options panel ───────────────────────────────────────────────────
+   .field-label / .text-input were used by the project modals before they were
+   defined, so labels rendered inline next to their inputs and textareas got no
+   styling at all (the app styles inputs by element selector, and textarea
+   isn't in that list). Defined here, matching the existing form controls. */
+
+.field-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0 0 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+textarea.text-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.6rem 0.8rem;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+textarea.text-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 118, 206, 0.1);
+}
+
+/* Each label + control is one block with breathing room between them. */
+.panel-field { margin-bottom: 1.1rem; }
+.panel-field:last-child { margin-bottom: 0; }
+.panel-field .field-hint { margin: 0.35rem 0 0.5rem; }
+
+/* The replication block carries four controls; box it so it reads as one
+   setting rather than four loose fields. */
+.panel-section {
+    margin-top: 1.25rem;
+    padding: 0.9rem 1rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.panel-section-title {
+    font-size: 0.8rem; font-weight: 600; color: var(--text);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 0 0 0.2rem;
+}
+
+.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
+.rep-pct-row .panel-field { margin-bottom: 0; flex: 1; }
+
+/* Tags: what's on this sizing, then what else the project offers. Assigned
+   chips carry an explicit × — toggling by clicking an "active" chip was not
+   discoverable, and removing a tag is not a thing to have to guess at. */
+.tag-group { margin-bottom: 0.75rem; }
+.tag-group-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.35rem;
+}
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
+
+/* Assigned: solid, and carries the × that takes it off. */
+.tag-chip-assigned {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+}
+.tag-chip-remove {
+    font-weight: 700; font-size: 0.95rem; line-height: 1;
+    opacity: 0.8; margin-left: 0.1rem;
+}
+.tag-chip-assigned:hover { background: #a32020; border-color: #a32020; }
+.tag-chip-assigned:hover .tag-chip-remove { opacity: 1; }
+
+/* Available: outlined and dashed, so "not on this sizing yet" is visible at a
+   glance rather than inferred from which heading it sits under. */
+.tag-chip-add { border-style: dashed; color: var(--text-muted); }
+.tag-chip-add::before { content: "+"; margin-right: 0.3rem; opacity: 0.7; }
+.tag-chip-add:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
+
+.tag-empty { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
+
+/* .modal-body is padding:0 app-wide because the big modals hold edge-to-edge
+   tables. The project modals are forms, so they need real gutters — without
+   them the labels and controls sit flush against the modal border. */
+#sizing-modal .modal-body,
+#new-project-modal .modal-body,
+#project-settings-modal .modal-body {
+    padding: 1.25rem 1.5rem 1.25rem;
+}
+
+/* The account name doubles as the control for changing it. Deliberately sets
+   neither `color` nor the `font` shorthand: this element also carries
+   .account-email, whose colour (#cdd6e0, readable on the dark header) and size
+   must survive. `color: inherit` here resolved to the body text colour and made
+   the name invisible against the header. */
+.account-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.account-name-btn:hover { color: #fff; text-decoration-style: solid; }
+
+/* Label row that can carry a small inline action on the right (e.g. "use my
+   name" beside Prepared by). */
+.field-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.field-label-row .field-label { margin-bottom: 0.35rem; }
+.field-inline-action {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: 0.78rem; color: var(--accent);
+    white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis;
+}
+.field-inline-action:hover { text-decoration: underline; }
+
+/* ── Project page toolbars ──────────────────────────────────────────────────
+   .btn-primary in this app is a full-width block form button (display:block;
+   width:100%). Using it for toolbar buttons is what made them stretch across
+   the row and wrap unpredictably. Toolbars use these inline variants instead. */
+
+.btn-cta, .btn-soft, .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: auto; margin: 0;
+    padding: 0.45rem 1rem; font-size: 0.85rem; line-height: 1.2;
+    border-radius: 4px; white-space: nowrap; flex: 0 0 auto;
+}
+.btn-cta { background: var(--accent); color: #fff; }
+.btn-cta:hover { background: var(--accent-dark); }
+.btn-soft { background: var(--surface2); color: var(--text); }
+.btn-soft:hover { background: var(--border); }
+.btn-ghost { background: none; color: var(--text-muted); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+/* Title block left, actions right, both on one line until the screen is small. */
+.project-head { align-items: center; }
+.project-head-actions { align-items: center; }
+.project-title-block { gap: 0.35rem; }
+.project-title-block h2 { line-height: 1.2; }
+
+/* Selection bar: count · compare | export group · clear. */
+.project-selection-bar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 0.85rem; }
+.selection-count { font-weight: 600; white-space: nowrap; }
+.selection-divider {
+    width: 1px; align-self: stretch; background: var(--border); margin: 0 0.15rem;
+}
+.export-controls {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    margin-left: auto;                 /* keep Clear at the far right */
+}
+.notify-check { white-space: nowrap; }  /* was wrapping onto three lines */
+.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
+
+/* Exports list: the download stays a button, not a full-width bar. */
+.export-list li .btn, .export-list li a.btn { flex: 0 0 auto; width: auto; margin: 0; }

@@ -25,6 +25,10 @@ let lastConfigResult = null;
 
 let importVms = [];
 let originalImportSummary = null;
+// Provenance of the import behind the current sizing (file name, type, digest,
+// counts, parser version). Saved alongside the sizing so a project can show
+// which file each number came from.
+let lastSourceMeta = null;
 let includeLocalStorage = false;   // include per-host local datastores in sizing
 let vmExclusions = { compute: new Set(), storage: new Set() };
 // Per-VM edits keyed by index: { [idx]: { model?, vcpus?, provisioned_memory_gb? } }.
@@ -58,6 +62,12 @@ let activeCluster = COMBINED_KEY;            // active recommendation tab (a nam
 let clusterOptions = {};                     // name -> captured sizing-option fields
 let clusterResults = {};                     // name -> {recommendations, projection, perfSource}
 let clusterSelectedRec = {};                 // name -> chosen recommendation index for the combined export
+// mode -> chosen recommendation index when NOT sizing clusters separately.
+// Exporting a single sizing from its own card carries the index you clicked, so
+// this never mattered before; a project bundle exports the sizing as a whole and
+// has to know which of the listed options you actually settled on. Without it a
+// bundle silently ships recommendation #1 whatever you picked.
+let selectedRec = {};
 // Replication topology: source cluster -> { target, computePct, storagePct, mode }.
 // A cluster has at most one outbound target (star / circular / bidirectional all
 // fall out of each cluster naming its own target). mode is how THIS cluster
@@ -967,6 +977,9 @@ async function uploadFile(file) {
 
         importSummary = data.summary;
         originalImportSummary = JSON.parse(JSON.stringify(data.summary));
+        // Provenance for the project view and the export appendix: which file
+        // produced these numbers, and which parser read it.
+        lastSourceMeta = data.source_meta || null;
         importVms = data.vms || [];
         includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
@@ -1544,12 +1557,19 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     // In separate-clusters mode each source cluster contributes one chosen
     // recommendation to the combined export; surface a per-card picker (the
     // Combined tab isn't part of that export, so no picker there).
-    const showRecPicker = mode === 'import' && separateClusters
+    // Single-cluster and manual sizings need the same picker: a project bundle
+    // exports the sizing, not a card, so the choice has to be recorded
+    // somewhere rather than implied by which export button was clicked.
+    const perCluster = mode === 'import' && separateClusters
         && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY;
-    const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
+    const perSizing = !separateClusters && (mode === 'import' || mode === 'manual');
+    const showRecPicker = perCluster || perSizing;
+    const selIdx = perCluster ? (clusterSelectedRec[activeCluster] ?? 0)
+        : perSizing ? (selectedRec[mode] ?? 0)
+        : -1;
 
     recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
-        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx })
+        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx, perCluster })
     ).join('');
 }
 
@@ -1562,6 +1582,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
 function recCardHtml(r, i, mode, demand, opts) {
     opts = opts || {};
     const showRecPicker = !!opts.showPicker;
+    const perCluster = !!opts.perCluster;
     const selIdx = opts.selIdx == null ? -1 : opts.selIdx;
     const footerActions = opts.footerActions !== false;
     const recTotalNodes = rr => rr.storage_only
@@ -1569,9 +1590,22 @@ function recCardHtml(r, i, mode, demand, opts) {
         : rr.node_count;
 
     const isSelected = i === selIdx;
+    // Two different actions behind one control. Per cluster, picking is just a
+    // pick: you go on to choose for the other clusters before exporting the
+    // combined document. Per sizing, the pick IS the decision, so it also saves
+    // and returns to the project — otherwise a chosen option sits unsaved and
+    // the bundle quietly exports the previous one.
+    const pickerTitle = window.t(perCluster ? 'cluster.select_for_export_title'
+                                            : 'cluster.select_for_sizing_title');
+    const pickerLabel = isSelected ? window.t('cluster.selected_for_export')
+        : window.t(perCluster ? 'cluster.select_for_export'
+                              : 'cluster.select_and_save');
+    const pickerAction = perCluster
+        ? `["selectClusterRec",${i}]`
+        : `["selectRecAndSave",${i}]`;
     const recPicker = showRecPicker
-        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
-                title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+        ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='${pickerAction}'
+                title="${pickerTitle}">${pickerLabel}</button>`
         : '';
     const clusterInfo = r.num_clusters > 1
         ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
@@ -2211,10 +2245,10 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
 
 // ---- Combined multi-site export (one document, all clusters) --------------
 const _MULTISITE_ENDPOINTS = {
-    pptx: '/api/export-multisite-proposal',
-    docx: '/api/export-multisite-docx',
-    pdf: '/api/export-multisite-pdf',
-    'presentation-pdf': '/api/export-multisite-presentation-pdf',
+    pptx: '/api/export-bundle-proposal',
+    docx: '/api/export-bundle-docx',
+    pdf: '/api/export-bundle-pdf',
+    'presentation-pdf': '/api/export-bundle-presentation-pdf',
 };
 
 function _optVal(opts, id, dflt) {
@@ -2899,6 +2933,9 @@ function initClusters(data) {
     clusterResults = {};
     clusterReplication = {};
     dedicatedClusters = [];
+    // A new import starts from the top recommendation again; carrying the last
+    // import's pick over would silently point at a different platform.
+    selectedRec = {};
     drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const cb = document.getElementById('separate-clusters-cb');
     if (cb) cb.checked = false;
@@ -2980,9 +3017,29 @@ function applyOptionsToAllClusters() {
 // Pick which recommendation the active cluster contributes to the combined
 // multi-site export, then re-render the cards to reflect the selection.
 function selectClusterRec(i) {
-    if (!separateClusters || activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
-    clusterSelectedRec[activeCluster] = i;
-    renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+    if (separateClusters) {
+        if (activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
+        clusterSelectedRec[activeCluster] = i;
+        renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+        return;
+    }
+    // Single-cluster / manual: the choice belongs to the sizing as a whole.
+    if (currentMode !== 'import' && currentMode !== 'manual') return;
+    selectedRec[currentMode] = i;
+    // Both modes render into the same list; there is no separate manual one.
+    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
+                            'ratio-slider', currentMode, []);
+}
+
+// Single-sizing picker: record the choice, then save and go back to the project.
+// The snapshot stored on save reads selectedRec, so the pick has to land before
+// the save runs — hence setting it here rather than inside the save path.
+async function selectRecAndSave(i) {
+    if (currentMode !== 'import' && currentMode !== 'manual') return;
+    selectedRec[currentMode] = i;
+    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
+                            'ratio-slider', currentMode, []);
+    if (window.saveAndReturnToProject) await window.saveAndReturnToProject();
 }
 
 // Configure-VMs modal tab click (by index into _modalTabKeys).
@@ -3463,6 +3520,10 @@ function captureSizingState() {
             separateClusters,
             clusterOptions,
             clusterSelectedRec,
+            // Which listed option this sizing settled on (single-cluster path).
+            // Saved with the inputs so reopening — or a background refresh —
+            // rebuilds the same result rather than reverting to the top pick.
+            selectedRec,
             clusterReplication,
             dedicatedClusters,
             activeCluster,
@@ -3474,7 +3535,7 @@ function captureSizingState() {
 
     if (currentMode === 'manual') {
         if (!manualSummary) return null;
-        snap.manual = { manualSummary };
+        snap.manual = { manualSummary, selectedRec };
     }
 
     return snap;
@@ -3541,6 +3602,7 @@ async function restoreSizingState(snap) {
         separateClusters = !!im.separateClusters;
         clusterOptions = im.clusterOptions || {};
         clusterSelectedRec = im.clusterSelectedRec || {};
+        selectedRec = im.selectedRec || {};
         clusterReplication = im.clusterReplication || {};
         dedicatedClusters = im.dedicatedClusters || [];
         clusterResults = {};
@@ -3582,6 +3644,9 @@ async function restoreSizingState(snap) {
 
     if (snap.mode === 'manual') {
         (SNAP_FIELDS.manual).forEach(id => _writeField(id, f[id]));
+        // Restore the chosen option before recalculating, so the re-rendered
+        // cards show the same pick and a refresh rebuilds the same result.
+        selectedRec = (snap.manual && snap.manual.selectedRec) || {};
         calculateManual();  // rebuilds manualSummary + shows the shared block, then recalcs
         // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
         _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
@@ -3594,6 +3659,131 @@ async function restoreSizingState(snap) {
 window.captureSizingState = captureSizingState;
 window.restoreSizingState = restoreSizingState;
 window.hasSizingToSave = hasSizingToSave;
+window.currentSourceMeta = () => lastSourceMeta;
+
+// ── result snapshot (docs/projects-plan.md §3.1) ─────────────────────────────
+// The payload a saved sizing stores holds inputs only; this captures what those
+// inputs currently CALCULATE to, in the same {name, summary, recommendation,
+// projection} shape the bundle exports already consume. The server fingerprints
+// it so a project can be listed, compared and exported without reopening every
+// sizing in a browser.
+//
+// `refs` is the catalog identity behind each cluster, taken from whatever the
+// engine returned — it is what lets the server tell later whether the stored
+// numbers still match the live catalog.
+async function buildResultSnapshot() {
+    const clusters = [];
+
+    if (currentMode === 'import' && separateClusters) {
+        await ensureAllClusterResults();
+        sourceClusters.forEach(c => {
+            const res = clusterResults[c.name];
+            if (!res || !res.recommendations || !res.recommendations.length) return;
+            const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+            const rec = res.recommendations[sel];
+            const target = (clusterReplication[c.name] || {}).target || '';
+            clusters.push({
+                name: c.name,
+                summary: res.summary,
+                recommendation: rec,
+                projection: res.projection,
+                source_perf: null,
+                replicates_to: target ? clusterDisplayName(target) : '',
+                refs: (rec && rec.refs) || { mode: 'import' },
+            });
+        });
+    } else if (currentMode === 'import' || currentMode === 'manual') {
+        const recs = lastRecommendations[currentMode];
+        const summary = lastSummary[currentMode];
+        const projection = lastProjection[currentMode];
+        if (recs && recs.length && summary && projection) {
+            // The option the user actually settled on — clamped, since a
+            // re-size can shorten the list after a choice was made. Taking
+            // recs[0] here would silently export a different platform than the
+            // one on screen.
+            const sel = Math.min(selectedRec[currentMode] ?? 0, recs.length - 1);
+            const rec = recs[sel];
+            clusters.push({
+                name: window.t('project.snapshot.cluster'),
+                summary, recommendation: rec, projection,
+                source_perf: buildSourcePerfExport ? buildSourcePerfExport() : null,
+                replicates_to: '',
+                refs: (rec && rec.refs) || { mode: currentMode },
+            });
+        }
+    } else if (lastConfigResult) {
+        // Appliance / validated: a hardware configuration rather than a
+        // proposal. Captured so the project can show it is current, but it
+        // carries no recommendation, so bundles skip it (they are proposals).
+        clusters.push({
+            name: lastConfigResult.model || window.t('project.snapshot.cluster'),
+            summary: null,
+            recommendation: null,
+            projection: null,
+            config: lastConfigResult,
+            refs: lastConfigResult.refs || { mode: currentMode },
+        });
+    }
+
+    if (!clusters.length) return null;
+    return { clusters, totals: null };
+}
+
+window.buildResultSnapshot = buildResultSnapshot;
+
+// ── refresh mode (docs/projects-plan.md §4) ──────────────────────────────────
+// A stale sizing is recalculated in a throwaway hidden iframe: this page loads
+// with ?refresh=<id>, restores that sizing, waits for the calculation to
+// settle, and posts the result back to the opener. The iframe is then
+// destroyed, taking every module-level global with it — which is the point.
+// Running these back-to-back in one page would bleed importVms, sourceClusters,
+// clusterOptions and friends between sizings.
+async function runRefreshMode(configId) {
+    const report = (payload) => {
+        try {
+            window.parent.postMessage(
+                Object.assign({ type: 'sizer:refresh', configId: configId }, payload),
+                window.location.origin);
+        } catch (e) { /* opener went away */ }
+    };
+    try {
+        const resp = await fetch('/api/configs/' + configId, { credentials: 'same-origin' });
+        if (!resp.ok) return report({ ok: false, error: 'load-failed' });
+        const data = await resp.json();
+
+        await restoreSizingState(data.payload);
+
+        // restoreSizingState fires recalcRecommendations() without awaiting it,
+        // and a large import can take seconds to come back. Poll for a usable
+        // snapshot rather than guessing at a delay — a fixed wait either gives
+        // up on slow imports or wastes time on fast ones.
+        let snapshot = null;
+        for (let waited = 0; waited < 20000 && !snapshot; waited += 300) {
+            snapshot = await buildResultSnapshot();
+            if (snapshot) break;
+            await new Promise(r => setTimeout(r, 300));
+        }
+        if (!snapshot) return report({ ok: false, error: 'no-result' });
+
+        const put = await fetch('/api/sizings/' + configId + '/result', {
+            method: 'PUT', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
+        });
+        report({ ok: put.ok });
+    } catch (err) {
+        report({ ok: false, error: String(err && err.message || err) });
+    }
+}
+
+// Entered only inside an iframe, so a shared link carrying the parameter can
+// never silently rewrite someone's stored result in their main window.
+(function () {
+    const id = new URLSearchParams(location.search).get('refresh');
+    if (!id || window.parent === window) return;
+    document.body.classList.add('refresh-mode');
+    window.addEventListener('load', () => runRefreshMode(parseInt(id, 10)));
+})();
 
 // (Re)load catalog data after sign-in, since the initial page-load fetches are
 // rejected (401) while anonymous under the mandatory-login gate.

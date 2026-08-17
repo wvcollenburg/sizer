@@ -9,3 +9,6 @@ __pycache__/
 *.sqlite3
 .venv/
 .DS_Store
+
+# Generated export bundles (regenerable, customer data — never commit)
+app/data/exports/

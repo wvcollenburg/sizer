@@ -60,6 +60,32 @@ function updateGate() {
         }
     } else {
         document.body.classList.remove('auth-required');
+        // Sizing always happens inside a project, so signing in lands on the
+        // project home rather than straight in the sizer. Only on the first
+        // reveal — later calls (e.g. a refreshed account) must not yank the
+        // user out of a sizing they're in the middle of.
+        if (!document.body.classList.contains('refresh-mode')
+            && !document.body.classList.contains('view-projects')
+            && !document.body.classList.contains('view-project')
+            && !document.body.classList.contains('view-sizer')
+            && window.openProjectsHome) {
+            // A clean-slate reload carries the project in the URL; only fall
+            // back to the project home when the URL asked for nothing.
+            if (window.bootFromUrl) {
+                window.bootFromUrl().then(function (handled) {
+                    if (!handled) window.openProjectsHome();
+                });
+            } else {
+                window.openProjectsHome();
+            }
+        }
+        // Safety net for the boot hold: if the project layer never loaded,
+        // showScreen() will never run and the app body would stay hidden
+        // forever. A blank page is a far worse failure than the flash the hold
+        // exists to prevent, so fall back to the classic sizer.
+        if (!window.openProjectsHome) {
+            document.body.classList.remove('app-booting');
+        }
     }
 }
 
@@ -91,11 +117,23 @@ function renderAccountBar() {
         `<div class="account-actions">${actions.join('')}</div>`
         + `<span class="account-sep">|</span>`
         + `<div class="account-identity">`
-        +   `<span class="account-email">${esc(u.email)}</span>`
+        // Every account predates the name field and signup only asks
+        // optionally, so this is the way to set it afterwards — otherwise a
+        // user is stuck with the name derived from their address on every new
+        // project. Shows the name when there is one, the address when not.
+        +   `<button class="account-email account-name-btn" data-click='["editMyName"]'`
+        +     ` title="${esc(t('auth.edit_name_title'))}">${esc(u.display_name || u.email)}</button>`
         +   `<span class="account-badge ${badge.cls}">${esc(badge.label)}</span>`
         +   `<button class="btn btn-sm btn-muted" data-click='["doLogout"]'>${esc(t('auth.btn.sign_out'))}</button>`
         + `</div>`;
 }
+
+// The signed-in user's name as it should appear on a proposal, for anything
+// that offers to fill it in. Empty when signed out.
+window.currentUserName = function () {
+    if (!currentAccount) return '';
+    return currentAccount.display_name || currentAccount.email || '';
+};
 
 // Editable exports (Word, PPTX) are limited to Scale users and super admins;
 // everyone else gets read-only PDFs. Mirrors the server-side gate.
@@ -111,11 +149,11 @@ function accountBadge(u) {
     return { label: t('auth.badge.user'), cls: 'user' };
 }
 
-function esc(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// esc() lives in app.js, which loads first on every page that loads this file.
+// This file used to declare its own weaker copy (no single-quote escaping);
+// because classic scripts share one global scope, that copy silently replaced
+// app.js's for BOTH files — and single quotes matter here, since the delegate's
+// data-click attributes are single-quoted. One definition, the stronger one.
 
 // ── password policy (mirrors backend validate_password) ──────────────────────
 
@@ -198,6 +236,8 @@ function setAuthTab(tab) {
     document.getElementById('auth-confirm-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-pw-rules').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-consent-row').style.display = signup ? 'block' : 'none';
+    // Name is asked once, at sign-up; it fills "Prepared by" on new projects.
+    document.getElementById('auth-name-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-confirm').value = '';
     document.getElementById('auth-accept-privacy').checked = false;
     if (signup) updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
@@ -240,7 +280,12 @@ async function submitAuth(event) {
 
     const url = authTab === 'login' ? '/api/auth/login' : '/api/auth/signup';
     const body = { email, password };
-    if (authTab === 'signup') body.accept_privacy = true;
+    if (authTab === 'signup') {
+        body.accept_privacy = true;
+        const nameEl = document.getElementById('auth-full-name');
+        const fullName = (nameEl && nameEl.value || '').trim();
+        if (fullName) body.full_name = fullName;
+    }
 
     // Give immediate feedback and block double-submits while the request is in
     // flight — signup includes a (potentially slow) email send, and without this
@@ -376,6 +421,27 @@ async function resendVerification(event) {
     document.getElementById('auth-resend').style.display = 'none';
     closeAuthModal();
     showInfoModal(t('auth.resend_title'), t('auth.resend_body'));
+}
+
+// Set the name that fills "Prepared by" on new projects. Existing projects keep
+// whatever they were created with — changing your name should not rewrite the
+// authorship of work already prepared.
+async function editMyName() {
+    if (!currentAccount) return;
+    const current = currentAccount.full_name || '';
+    const next = window.prompt(t('auth.edit_name_prompt'), current);
+    if (next === null) return;                      // cancelled
+    const { ok, data } = await apiJson('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: next.trim() }),
+    });
+    if (!ok) {
+        showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
+        return;
+    }
+    currentAccount = data.user;
+    renderAccountBar();
 }
 
 async function doLogout() {
@@ -534,6 +600,8 @@ async function saveCurrentSizing() {
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+        if (window.setSizerSizingName) window.setSizerSizingName(data.name);
+        await storeResultSnapshot(data.id);
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
         return true;
@@ -542,19 +610,52 @@ async function saveCurrentSizing() {
     const name = await promptSizingName();
     if (!name) return false;
 
+    // File the sizing in whichever project is open. When none is (the quick
+    // path), the server resolves it to the user's scratch project rather than
+    // leaving it unfiled — no sizing exists outside a project.
+    const projectId = window.activeProjectId ? window.activeProjectId() : null;
     const { ok, data } = await apiJson('/api/configs/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, payload: snap }),
+        body: JSON.stringify({
+            name, payload: snap,
+            project_id: projectId || undefined,
+            // Provenance from the import that produced this sizing, if any.
+            source_meta: (window.currentSourceMeta && window.currentSourceMeta()) || undefined,
+        }),
     });
     if (!ok) {
         showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
         return false;
     }
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+    if (window.setSizerSizingName) window.setSizerSizingName(data.name);
+    await storeResultSnapshot(data.id);
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
     return true;
+}
+
+// Store what the saved inputs currently calculate to, alongside the inputs
+// themselves. The browser is holding the result already, so a sizing should
+// never be born "Not sized" and wait for a background refresh to compute what
+// was on screen when it was saved (docs/projects-plan.md §3.1).
+//
+// Best-effort: a sizing whose mode produces no proposal (an appliance build)
+// simply has no snapshot to store, and a failure here must never lose the save.
+async function storeResultSnapshot(configId) {
+    if (!configId || !window.buildResultSnapshot) return;
+    try {
+        const snapshot = await window.buildResultSnapshot();
+        if (!snapshot) return;
+        await apiJson('/api/sizings/' + configId + '/result', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
+        });
+    } catch (err) {
+        console.warn('could not store the result snapshot', err);
+    }
 }
 
 // ── Save-choice modal (update loaded sizing vs save as new) ───────────────────
@@ -580,10 +681,19 @@ function _resolveSaveChoice(value) {
 function closeSaveChoice() { _resolveSaveChoice(null); }
 function chooseSave(which) { _resolveSaveChoice(which); }
 
+// Let the project view hand a loaded sizing back, so "save" offers to update it
+// in place rather than always creating a copy.
+window.setLoadedConfig = function (data) {
+    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+};
+
 async function loadSizing(id) {
     const { ok, data } = await apiJson('/api/configs/' + id);
     if (!ok) { sizingsStatus((data && data.error) || t('auth.load_failed'), true); return; }
     closeSizingsModal();
+    // The modal can be opened from a project screen, where the sizer is hidden;
+    // reveal it before restoring or the sizing loads into an invisible page.
+    if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
@@ -597,6 +707,9 @@ async function retrieveByCode() {
     sizingsStatus(t('auth.code_loaded', { name: data.name }), false);
     loadSizingsList();
     closeSizingsModal();
+    // The modal can be opened from a project screen, where the sizer is hidden;
+    // reveal it before restoring or the sizing loads into an invisible page.
+    if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
