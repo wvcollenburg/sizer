@@ -320,18 +320,26 @@ let refreshQueue = [];
 let refreshActive = 0;
 let refreshDone = 0;
 let refreshTotal = 0;
+let refreshFailed = 0;
 const refreshPending = new Map();   // configId -> {frame, timer, resolve}
 
 function refreshStaleSizings(force) {
     const rows = (currentProject && currentProject.sizings) || [];
-    // "Needs re-import" is not refreshable — recalculating cannot repair a
+    // Anything without a current result: never sized, or sized before the last
+    // catalog/tunable/replication change. `has_result` is deliberately NOT
+    // required — a sizing with no stored result is precisely the one that needs
+    // calculating, and requiring it left every freshly saved sizing stuck on
+    // "Not sized" forever.
+    //
+    // "Needs re-import" is the one exclusion: recalculating cannot repair a
     // parser fix, so pumping it through the loop would just churn.
-    const targets = rows.filter(s => !s.needs_reimport && (force ? true : s.stale && s.has_result));
+    const targets = rows.filter(s => !s.needs_reimport && (force || s.stale));
     if (!targets.length) return Promise.resolve();
 
     refreshQueue = targets.map(s => s.id);
     refreshTotal = refreshQueue.length;
     refreshDone = 0;
+    refreshFailed = 0;
     renderRefreshProgress();
     return new Promise(resolve => {
         const pump = () => {
@@ -342,9 +350,10 @@ function refreshStaleSizings(force) {
             while (refreshActive < REFRESH_PARALLEL && refreshQueue.length) {
                 const id = refreshQueue.shift();
                 refreshActive++;
-                refreshOne(id).then(() => {
+                refreshOne(id).then((ok) => {
                     refreshActive--;
                     refreshDone++;
+                    if (!ok) refreshFailed++;
                     renderRefreshProgress();
                     pump();
                 });
@@ -390,6 +399,14 @@ function renderRefreshProgress(done) {
     const bar = document.getElementById('project-refresh-bar');
     if (!bar) return;
     if (done || !refreshTotal) {
+        if (done && refreshFailed) {
+            // Say so rather than leave rows sitting on "Not sized" while the
+            // loop silently retries on every visit.
+            bar.hidden = false;
+            bar.textContent = tt('project.refresh.failed', { count: refreshFailed });
+            if (currentProject) openProject(currentProject.id, true);
+            return;
+        }
         bar.hidden = true;
         // Reload to pick up the new states — with refresh suppressed, or the
         // reload would start the loop again and never settle.

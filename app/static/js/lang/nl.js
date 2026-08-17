@@ -757,6 +757,7 @@
   "project.new.name": "Projectnaam",
   "project.new.name_required": "Een projectnaam is verplicht.",
   "project.new.title": "Nieuw project",
+  "project.refresh.failed": "{count} sizing(s) konden niet automatisch worden herberekend — open er een om te zien waarom.",
   "project.refresh.progress": "Bezig met herberekenen: {done} van {total}…",
   "project.rep.compute": "compute",
   "project.rep.storage": "opslag",

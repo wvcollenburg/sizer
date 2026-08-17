@@ -545,6 +545,7 @@ async function saveCurrentSizing() {
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+        await storeResultSnapshot(data.id);
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
         return true;
@@ -572,9 +573,32 @@ async function saveCurrentSizing() {
         return false;
     }
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
+    await storeResultSnapshot(data.id);
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
     return true;
+}
+
+// Store what the saved inputs currently calculate to, alongside the inputs
+// themselves. The browser is holding the result already, so a sizing should
+// never be born "Not sized" and wait for a background refresh to compute what
+// was on screen when it was saved (docs/projects-plan.md §3.1).
+//
+// Best-effort: a sizing whose mode produces no proposal (an appliance build)
+// simply has no snapshot to store, and a failure here must never lose the save.
+async function storeResultSnapshot(configId) {
+    if (!configId || !window.buildResultSnapshot) return;
+    try {
+        const snapshot = await window.buildResultSnapshot();
+        if (!snapshot) return;
+        await apiJson('/api/sizings/' + configId + '/result', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
+        });
+    } catch (err) {
+        console.warn('could not store the result snapshot', err);
+    }
 }
 
 // ── Save-choice modal (update loaded sizing vs save as new) ───────────────────

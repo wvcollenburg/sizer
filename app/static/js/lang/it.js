@@ -757,6 +757,7 @@
   "project.new.name": "Project name",
   "project.new.name_required": "A project name is required.",
   "project.new.title": "New project",
+  "project.refresh.failed": "{count} sizing(s) could not be recalculated automatically — open one to see why.",
   "project.refresh.progress": "Recalculating {done} of {total}…",
   "project.rep.compute": "compute",
   "project.rep.storage": "storage",

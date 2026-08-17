@@ -3689,11 +3689,17 @@ async function runRefreshMode(configId) {
         const data = await resp.json();
 
         await restoreSizingState(data.payload);
-        // restoreSizingState kicks off calculation; let the microtask queue and
-        // any in-flight /api/recommend settle before snapshotting.
-        await new Promise(r => setTimeout(r, 400));
 
-        const snapshot = await buildResultSnapshot();
+        // restoreSizingState fires recalcRecommendations() without awaiting it,
+        // and a large import can take seconds to come back. Poll for a usable
+        // snapshot rather than guessing at a delay — a fixed wait either gives
+        // up on slow imports or wastes time on fast ones.
+        let snapshot = null;
+        for (let waited = 0; waited < 20000 && !snapshot; waited += 300) {
+            snapshot = await buildResultSnapshot();
+            if (snapshot) break;
+            await new Promise(r => setTimeout(r, 300));
+        }
         if (!snapshot) return report({ ok: false, error: 'no-result' });
 
         const put = await fetch('/api/sizings/' + configId + '/result', {
