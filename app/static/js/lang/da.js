@@ -444,6 +444,7 @@
   "cluster.review_title": "Valgte clustre til eksport",
   "cluster.select_for_export": "Brug i eksport",
   "cluster.select_for_export_title": "Brug denne anbefaling for dette cluster i den kombinerede multi-site-eksport",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ I eksport",
   "cluster.selected_tab": "Valgte clustre",
   "cluster.tab_badge": "{hosts}h · {vms} VM'er",

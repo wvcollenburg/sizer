@@ -444,6 +444,7 @@
   "cluster.review_title": "Vientiin valitut klusterit",
   "cluster.select_for_export": "Käytä viennissä",
   "cluster.select_for_export_title": "Käytä tätä suositusta tälle klusterille yhdistetyssä monisivustovienissä",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ Viennissä",
   "cluster.selected_tab": "Valitut klusterit",
   "cluster.tab_badge": "{hosts} isäntää · {vms} VM:ää",

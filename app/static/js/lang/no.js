@@ -444,6 +444,7 @@
   "cluster.review_title": "Valgte klynger for eksport",
   "cluster.select_for_export": "Bruk i eksport",
   "cluster.select_for_export_title": "Bruk denne anbefalingen for denne klyngen i den kombinerte flerlokasjonseksporten",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ I eksport",
   "cluster.selected_tab": "Valgte klynger",
   "cluster.tab_badge": "{hosts}v · {vms} VM-er",

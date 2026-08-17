@@ -444,6 +444,7 @@
   "cluster.review_title": "エクスポート対象として選択したクラスター",
   "cluster.select_for_export": "エクスポートで使用",
   "cluster.select_for_export_title": "統合マルチサイトエクスポートで、このクラスターにこの推奨を使用します",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ エクスポートに含む",
   "cluster.selected_tab": "選択したクラスター",
   "cluster.tab_badge": "{hosts}台 · {vms} VM",

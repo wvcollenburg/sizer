@@ -444,6 +444,7 @@
   "cluster.review_title": "Clústeres seleccionados para exportar",
   "cluster.select_for_export": "Usar en la exportación",
   "cluster.select_for_export_title": "Usar esta recomendación para este clúster en la exportación combinada multisitio",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ En la exportación",
   "cluster.selected_tab": "Clústeres seleccionados",
   "cluster.tab_badge": "{hosts}h · {vms} VMs",

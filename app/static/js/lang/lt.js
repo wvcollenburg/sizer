@@ -444,6 +444,7 @@
   "cluster.review_title": "Pasirinkti klasteriai eksportui",
   "cluster.select_for_export": "Naudoti eksporte",
   "cluster.select_for_export_title": "Naudoti šią rekomendaciją šiam klasteriui sujungtame kelių aikštelių eksporte",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ Eksporte",
   "cluster.selected_tab": "Pasirinkti klasteriai",
   "cluster.tab_badge": "{hosts}h · {vms} VM",

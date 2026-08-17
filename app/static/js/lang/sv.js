@@ -444,6 +444,7 @@
   "cluster.review_title": "Valda kluster för export",
   "cluster.select_for_export": "Använd i export",
   "cluster.select_for_export_title": "Använd denna rekommendation för detta kluster i den kombinerade exporten för flera platser",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ I export",
   "cluster.selected_tab": "Valda kluster",
   "cluster.tab_badge": "{hosts}v · {vms} VM:ar",

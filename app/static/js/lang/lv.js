@@ -444,6 +444,7 @@
   "cluster.review_title": "Eksportam atlasītie klasteri",
   "cluster.select_for_export": "Izmantot eksportā",
   "cluster.select_for_export_title": "Izmantot šo ieteikumu šim klasterim apvienotajā vairāku vietņu eksportā",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ Eksportā",
   "cluster.selected_tab": "Atlasītie klasteri",
   "cluster.tab_badge": "{hosts}h · {vms} VM",

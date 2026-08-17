@@ -444,6 +444,7 @@
   "cluster.review_title": "Ekspordiks valitud klastrid",
   "cluster.select_for_export": "Kasuta ekspordis",
   "cluster.select_for_export_title": "Kasuta seda soovitust selle klastri jaoks kombineeritud mitme asukoha ekspordis",
+  "cluster.select_for_sizing_title": "Use this recommendation when this sizing is exported from its project",
   "cluster.selected_for_export": "✓ Ekspordis",
   "cluster.selected_tab": "Valitud klastrid",
   "cluster.tab_badge": "{hosts}h · {vms} VM-i",

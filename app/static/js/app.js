@@ -62,6 +62,12 @@ let activeCluster = COMBINED_KEY;            // active recommendation tab (a nam
 let clusterOptions = {};                     // name -> captured sizing-option fields
 let clusterResults = {};                     // name -> {recommendations, projection, perfSource}
 let clusterSelectedRec = {};                 // name -> chosen recommendation index for the combined export
+// mode -> chosen recommendation index when NOT sizing clusters separately.
+// Exporting a single sizing from its own card carries the index you clicked, so
+// this never mattered before; a project bundle exports the sizing as a whole and
+// has to know which of the listed options you actually settled on. Without it a
+// bundle silently ships recommendation #1 whatever you picked.
+let selectedRec = {};
 // Replication topology: source cluster -> { target, computePct, storagePct, mode }.
 // A cluster has at most one outbound target (star / circular / bidirectional all
 // fall out of each cluster naming its own target). mode is how THIS cluster
@@ -1551,12 +1557,19 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     // In separate-clusters mode each source cluster contributes one chosen
     // recommendation to the combined export; surface a per-card picker (the
     // Combined tab isn't part of that export, so no picker there).
-    const showRecPicker = mode === 'import' && separateClusters
+    // Single-cluster and manual sizings need the same picker: a project bundle
+    // exports the sizing, not a card, so the choice has to be recorded
+    // somewhere rather than implied by which export button was clicked.
+    const perCluster = mode === 'import' && separateClusters
         && activeCluster !== COMBINED_KEY && activeCluster !== SELECTED_KEY;
-    const selIdx = showRecPicker ? (clusterSelectedRec[activeCluster] ?? 0) : -1;
+    const perSizing = !separateClusters && (mode === 'import' || mode === 'manual');
+    const showRecPicker = perCluster || perSizing;
+    const selIdx = perCluster ? (clusterSelectedRec[activeCluster] ?? 0)
+        : perSizing ? (selectedRec[mode] ?? 0)
+        : -1;
 
     recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
-        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx })
+        recCardHtml(r, i, mode, demand, { showPicker: showRecPicker, selIdx, perCluster })
     ).join('');
 }
 
@@ -1569,6 +1582,7 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
 function recCardHtml(r, i, mode, demand, opts) {
     opts = opts || {};
     const showRecPicker = !!opts.showPicker;
+    const perCluster = !!opts.perCluster;
     const selIdx = opts.selIdx == null ? -1 : opts.selIdx;
     const footerActions = opts.footerActions !== false;
     const recTotalNodes = rr => rr.storage_only
@@ -1576,9 +1590,13 @@ function recCardHtml(r, i, mode, demand, opts) {
         : rr.node_count;
 
     const isSelected = i === selIdx;
+    // The per-cluster wording ("for this cluster in the combined export") is
+    // wrong for a single sizing, where the pick is what a project bundle uses.
+    const pickerTitle = window.t(perCluster ? 'cluster.select_for_export_title'
+                                            : 'cluster.select_for_sizing_title');
     const recPicker = showRecPicker
         ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='["selectClusterRec",${i}]'
-                title="${window.t('cluster.select_for_export_title')}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
+                title="${pickerTitle}">${isSelected ? window.t('cluster.selected_for_export') : window.t('cluster.select_for_export')}</button>`
         : '';
     const clusterInfo = r.num_clusters > 1
         ? window.t('results.clusters_layout', {count: r.num_clusters, layout: r.cluster_layout.join(' + ')})
@@ -2906,6 +2924,9 @@ function initClusters(data) {
     clusterResults = {};
     clusterReplication = {};
     dedicatedClusters = [];
+    // A new import starts from the top recommendation again; carrying the last
+    // import's pick over would silently point at a different platform.
+    selectedRec = {};
     drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const cb = document.getElementById('separate-clusters-cb');
     if (cb) cb.checked = false;
@@ -2987,9 +3008,18 @@ function applyOptionsToAllClusters() {
 // Pick which recommendation the active cluster contributes to the combined
 // multi-site export, then re-render the cards to reflect the selection.
 function selectClusterRec(i) {
-    if (!separateClusters || activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
-    clusterSelectedRec[activeCluster] = i;
-    renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+    if (separateClusters) {
+        if (activeCluster === COMBINED_KEY || activeCluster === SELECTED_KEY) return;
+        clusterSelectedRec[activeCluster] = i;
+        renderRecommendationsTo(lastRecommendations['import'], 'rec-list', 'ratio-slider', 'import', []);
+        return;
+    }
+    // Single-cluster / manual: the choice belongs to the sizing as a whole.
+    if (currentMode !== 'import' && currentMode !== 'manual') return;
+    selectedRec[currentMode] = i;
+    // Both modes render into the same list; there is no separate manual one.
+    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
+                            'ratio-slider', currentMode, []);
 }
 
 // Configure-VMs modal tab click (by index into _modalTabKeys).
@@ -3470,6 +3500,10 @@ function captureSizingState() {
             separateClusters,
             clusterOptions,
             clusterSelectedRec,
+            // Which listed option this sizing settled on (single-cluster path).
+            // Saved with the inputs so reopening — or a background refresh —
+            // rebuilds the same result rather than reverting to the top pick.
+            selectedRec,
             clusterReplication,
             dedicatedClusters,
             activeCluster,
@@ -3481,7 +3515,7 @@ function captureSizingState() {
 
     if (currentMode === 'manual') {
         if (!manualSummary) return null;
-        snap.manual = { manualSummary };
+        snap.manual = { manualSummary, selectedRec };
     }
 
     return snap;
@@ -3548,6 +3582,7 @@ async function restoreSizingState(snap) {
         separateClusters = !!im.separateClusters;
         clusterOptions = im.clusterOptions || {};
         clusterSelectedRec = im.clusterSelectedRec || {};
+        selectedRec = im.selectedRec || {};
         clusterReplication = im.clusterReplication || {};
         dedicatedClusters = im.dedicatedClusters || [];
         clusterResults = {};
@@ -3589,6 +3624,9 @@ async function restoreSizingState(snap) {
 
     if (snap.mode === 'manual') {
         (SNAP_FIELDS.manual).forEach(id => _writeField(id, f[id]));
+        // Restore the chosen option before recalculating, so the re-rendered
+        // cards show the same pick and a refresh rebuilds the same result.
+        selectedRec = (snap.manual && snap.manual.selectedRec) || {};
         calculateManual();  // rebuilds manualSummary + shows the shared block, then recalcs
         // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
         _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
@@ -3639,7 +3677,12 @@ async function buildResultSnapshot() {
         const summary = lastSummary[currentMode];
         const projection = lastProjection[currentMode];
         if (recs && recs.length && summary && projection) {
-            const rec = recs[0];
+            // The option the user actually settled on — clamped, since a
+            // re-size can shorten the list after a choice was made. Taking
+            // recs[0] here would silently export a different platform than the
+            // one on screen.
+            const sel = Math.min(selectedRec[currentMode] ?? 0, recs.length - 1);
+            const rec = recs[sel];
             clusters.push({
                 name: window.t('project.snapshot.cluster'),
                 summary, recommendation: rec, projection,
