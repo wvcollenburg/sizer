@@ -235,6 +235,27 @@ main {
 .sizing-rail > *:last-child { margin-bottom: 0; }
 .sizing-output > *:last-child { margin-bottom: 0; }
 
+/* ── Rail overflow guard ──────────────────────────────────────────────────
+   The rail scrolls vertically, and a vertical `overflow` makes the horizontal
+   one `auto` too — so anything wider than 420px does not just look cramped, it
+   adds a horizontal scrollbar across the whole rail. These panels were written
+   for a full-width layout, where a 200px min-width column is unremarkable.
+
+   Grid and flex items default to min-width:auto (never smaller than their
+   content), so shrinking has to be granted explicitly. */
+.sizing-rail > *,
+.sizing-rail .form-group,
+.sizing-rail .proj-card > * { min-width: 0; }
+
+/* Two columns still fit at 420px, but only at these floors: the rail's content
+   box is ~362px after card padding, so a pair plus the gap must stay under it. */
+.sizing-rail .sizing-options-grid .form-group,
+.sizing-rail .growth-inputs .form-group { min-width: 8rem; }
+.sizing-rail .rep-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+}
+
+
 .form-row {
     display: flex;
     gap: 1rem;
@@ -1155,9 +1176,13 @@ body { padding-bottom: 64px; }
 
 .projection-summary { margin-top: 0.5rem; }
 
+/* Was a hard repeat(3, 1fr), which cannot fit the 420px sizing rail: the cards
+   have un-shrinkable content, so the three tracks overflowed their container by
+   ~217px and put a horizontal scrollbar on the whole rail. auto-fit lets it be
+   three across in a wide panel and two (or one) in the rail. */
 .proj-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
     gap: 0.8rem;
     margin-bottom: 0.5rem;
 }

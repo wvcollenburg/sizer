@@ -224,6 +224,25 @@ None of these were visible to the structural checks:
    inverted to light amber. Ink is now the `--orange-bg` partner.
 7. **Best-pick rank disc was green**, the last off-palette marker on the screen.
 
+8. **The rail scrolled horizontally.** `.proj-grid` was a hard
+   `repeat(3, 1fr)`; three un-shrinkable cards overflowed the 420px rail by
+   217px. Because a vertical `overflow` makes the horizontal one `auto` too,
+   that put a scrollbar across the whole rail and made the replication fields
+   *look* clipped when they were merely scrolled out of view. Now
+   `repeat(auto-fit, minmax(min(100%, 13rem), 1fr))`.
+9. **Ratio marker rendered off-scale** — `((currentRatio - 1) / 7) * 100` is
+   negative for any environment below 1:1 (a 0.25:1 estate gave -10.7%), and it
+   was clamped at the top end only. The marker and its "current" caption sat
+   outside the bar. Now clamped at both ends in `app.js`. This one is a
+   correctness bug, not a cosmetic one: the marker was misreporting position.
+
+Two of these were self-inflicted mid-fix and caught on the next screenshot: a
+`min-width: 8rem` floor that let the projection cards squeeze to ~70px per
+column, and an `overflow-wrap: anywhere` that then shattered "1.19 TiB" into one
+character per line. Fixing overflow by letting content shrink further is usually
+the wrong direction — give the content a workable floor and let the *container*
+reflow instead.
+
 The pattern in 6 is worth generalising: **any element that paints a token as its
 fill must ink itself with that token's partner**, never with a fixed light or
 dark value, or it breaks in one of the two themes.

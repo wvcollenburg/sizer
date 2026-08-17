@@ -1354,7 +1354,10 @@ function renderRatioContext(s, resetSlider) {
 
     const markerPct = ((currentRatio - 1) / 7) * 100;
     const marker = document.getElementById('ratio-bar-marker');
-    marker.style.left = Math.min(markerPct, 100) + '%';
+    // Clamp both ends: the scale starts at 1:1, so any environment below
+    // that gives a negative percentage and puts the marker (and its
+    // "current" caption) outside the bar entirely.
+    marker.style.left = Math.max(0, Math.min(markerPct, 100)) + '%';
 
     if (s.vcpu_ratio_assumed) {
         // Server-level scan: no overcommit was measured, so this is a default.
@@ -2108,7 +2111,10 @@ function calculateManual() {
     const marker = document.getElementById('ratio-bar-marker');
     if (cores > 0) {
         const markerPct = ((currentRatio - 1) / 7) * 100;
-        marker.style.left = Math.min(markerPct, 100) + '%';
+        // Clamp both ends: the scale starts at 1:1, so any environment below
+    // that gives a negative percentage and puts the marker (and its
+    // "current" caption) outside the bar entirely.
+    marker.style.left = Math.max(0, Math.min(markerPct, 100)) + '%';
         marker.style.display = 'block';
         marker.title = window.t('results.ratio_current_tooltip', {ratio: currentRatio.toFixed(2)});
         document.getElementById('ratio-current').innerHTML =
