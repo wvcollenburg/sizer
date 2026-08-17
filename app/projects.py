@@ -166,11 +166,18 @@ def create_project():
     if not name:
         return jsonify({"error": "A project name is required"}), 400
 
+    from i18n import SUPPORTED_LANGS
+    lang = (data.get("lang") or "").strip().lower()
+    if lang and lang not in SUPPORTED_LANGS:
+        return jsonify({"error": "Unsupported export language"}), 400
+
     for _ in range(6):
         project = Project(
             code=new_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id,
-            lang=(data.get("lang") or None),
+            # The language the project was created in — the default for its
+            # exports, changeable later in Details.
+            lang=(lang or None),
             # Whoever creates the project is who prepared it, by default. Stored
             # rather than derived at render time, so it stays correct after the
             # creator changes their own name — and so it can simply be edited
@@ -280,6 +287,13 @@ def _apply_optional_fields(project, data, user):
             continue
         value = data.get(field)
         value = (value or "").strip()[:limit] or None
+        if field == "lang":
+            # This is handed straight to the export translator, so an unknown
+            # code would silently produce an English document rather than an
+            # error. Reject it instead of storing it.
+            from i18n import SUPPORTED_LANGS
+            if value is not None and value not in SUPPORTED_LANGS:
+                return jsonify({"error": "Unsupported export language"}), 400
         setattr(project, field, value)
 
     if "salesforce_url" in data and Project.may_see_salesforce(user):

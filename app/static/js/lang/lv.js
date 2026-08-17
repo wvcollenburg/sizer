@@ -779,6 +779,8 @@
   "project.settings.delete": "Dzēst projektu",
   "project.settings.delete_confirm": "Dzēst “{name}” un visus tā aprēķinus?",
   "project.settings.description": "Piezīmes",
+  "project.settings.lang": "Eksporta valoda",
+  "project.settings.lang_hint": "No šī projekta eksportētie dokumenti tiek rakstīti šajā valodā neatkarīgi no tā, kādā valodā lietojat lietotni.",
   "project.settings.name": "Nosaukums",
   "project.settings.opportunity": "Iespējas atsauce",
   "project.settings.prepared_by": "Sagatavoja",

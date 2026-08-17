@@ -779,6 +779,8 @@
   "project.settings.delete": "Ta bort projekt",
   "project.settings.delete_confirm": "Ta bort ”{name}” och alla dess sizings?",
   "project.settings.description": "Anteckningar",
+  "project.settings.lang": "Exportspråk",
+  "project.settings.lang_hint": "Dokument som exporteras från detta projekt skrivs på detta språk, oavsett vilket språk du använder appen på.",
   "project.settings.name": "Namn",
   "project.settings.opportunity": "Affärsmöjlighetsreferens",
   "project.settings.prepared_by": "Framtagen av",

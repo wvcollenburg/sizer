@@ -779,6 +779,8 @@
   "project.settings.delete": "プロジェクトを削除",
   "project.settings.delete_confirm": "「{name}」とそのすべてのサイジングを削除しますか?",
   "project.settings.description": "メモ",
+  "project.settings.lang": "エクスポート言語",
+  "project.settings.lang_hint": "このプロジェクトからエクスポートされる文書は、アプリの表示言語に関わらずこの言語で作成されます。",
   "project.settings.name": "名称",
   "project.settings.opportunity": "商談の参照番号",
   "project.settings.prepared_by": "作成者",

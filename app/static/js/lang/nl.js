@@ -779,6 +779,8 @@
   "project.settings.delete": "Project verwijderen",
   "project.settings.delete_confirm": "“{name}” en alle bijbehorende sizings verwijderen?",
   "project.settings.description": "Notities",
+  "project.settings.lang": "Exporttaal",
+  "project.settings.lang_hint": "Documenten die vanuit dit project worden geëxporteerd, worden in deze taal geschreven — ongeacht de taal waarin je de app gebruikt.",
   "project.settings.name": "Naam",
   "project.settings.opportunity": "Opportunity-referentie",
   "project.settings.prepared_by": "Opgesteld door",

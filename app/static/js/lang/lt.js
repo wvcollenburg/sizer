@@ -779,6 +779,8 @@
   "project.settings.delete": "Ištrinti projektą",
   "project.settings.delete_confirm": "Ištrinti „{name}“ ir visus jo dydžio parinkimus?",
   "project.settings.description": "Pastabos",
+  "project.settings.lang": "Eksporto kalba",
+  "project.settings.lang_hint": "Iš šio projekto eksportuoti dokumentai rašomi šia kalba, nesvarbu, kokia kalba naudojatės programa.",
   "project.settings.name": "Pavadinimas",
   "project.settings.opportunity": "Galimybės nuoroda",
   "project.settings.prepared_by": "Parengė",

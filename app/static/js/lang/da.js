@@ -779,6 +779,8 @@
   "project.settings.delete": "Slet projekt",
   "project.settings.delete_confirm": "Slet ”{name}” og alle dens dimensioneringer?",
   "project.settings.description": "Noter",
+  "project.settings.lang": "Eksportsprog",
+  "project.settings.lang_hint": "Dokumenter, der eksporteres fra dette projekt, skrives på dette sprog, uanset hvilket sprog du bruger appen på.",
   "project.settings.name": "Navn",
   "project.settings.opportunity": "Reference til salgsmulighed",
   "project.settings.prepared_by": "Udarbejdet af",

@@ -779,6 +779,8 @@
   "project.settings.delete": "Poista projekti",
   "project.settings.delete_confirm": "Poistetaanko ”{name}” ja kaikki sen mitoitukset?",
   "project.settings.description": "Muistiinpanot",
+  "project.settings.lang": "Vientikieli",
+  "project.settings.lang_hint": "Tästä projektista viedyt asiakirjat kirjoitetaan tällä kielellä riippumatta siitä, millä kielellä käytät sovellusta.",
   "project.settings.name": "Nimi",
   "project.settings.opportunity": "Myyntimahdollisuuden viite",
   "project.settings.prepared_by": "Laatija",

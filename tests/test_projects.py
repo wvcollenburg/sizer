@@ -148,6 +148,29 @@ def test_changing_your_name_does_not_rewrite_existing_projects(app):
     assert make_project(c, "Globex")["prepared_by"] == "Jane Married"
 
 
+def test_export_language_defaults_to_the_creation_language_and_is_editable(app):
+    """The project remembers the language it was created in, and that choice is
+    what its exports use — so it has to be changeable when the deck is for a
+    customer who reads something else."""
+    c = client_for(app, PARTNER_EMAIL)
+    project = c.post("/api/projects/", json={"name": "Acme", "lang": "nl"}).get_json()
+    assert project["lang"] == "nl"
+
+    updated = c.put(f"/api/projects/{project['id']}", json={"lang": "de"}).get_json()
+    assert updated["lang"] == "de"
+
+
+def test_export_language_must_be_one_we_ship(app):
+    """It is handed straight to the export translator; an unknown code would
+    silently produce an English document instead of an error."""
+    c = client_for(app, PARTNER_EMAIL)
+    assert c.post("/api/projects/",
+                  json={"name": "Acme", "lang": "xx"}).status_code == 400
+    project = make_project(c, "Globex")
+    assert c.put(f"/api/projects/{project['id']}",
+                 json={"lang": "klingon"}).status_code == 400
+
+
 def test_project_creation_requires_only_a_name(app):
     c = client_for(app, PARTNER_EMAIL)
     project = make_project(c, name="Just a name")

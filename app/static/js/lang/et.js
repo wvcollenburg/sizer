@@ -779,6 +779,8 @@
   "project.settings.delete": "Kustuta projekt",
   "project.settings.delete_confirm": "Kas kustutada „{name}“ ja kõik selle sizingud?",
   "project.settings.description": "Märkmed",
+  "project.settings.lang": "Ekspordi keel",
+  "project.settings.lang_hint": "Sellest projektist eksporditud dokumendid kirjutatakse selles keeles, olenemata sellest, mis keeles sa rakendust kasutad.",
   "project.settings.name": "Nimi",
   "project.settings.opportunity": "Müügivõimaluse viide",
   "project.settings.prepared_by": "Koostaja",

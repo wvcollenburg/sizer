@@ -779,6 +779,8 @@
   "project.settings.delete": "Eliminar projeto",
   "project.settings.delete_confirm": "Eliminar «{name}» e todos os seus sizings?",
   "project.settings.description": "Notas",
+  "project.settings.lang": "Idioma de exportação",
+  "project.settings.lang_hint": "Os documentos exportados deste projeto são escritos neste idioma, independentemente do idioma em que estiver a usar a aplicação.",
   "project.settings.name": "Nome",
   "project.settings.opportunity": "Referência da oportunidade",
   "project.settings.prepared_by": "Preparado por",

@@ -780,6 +780,8 @@
   "project.settings.delete": "Delete project",
   "project.settings.delete_confirm": "Delete “{name}” and all of its sizings?",
   "project.settings.description": "Notes",
+  "project.settings.lang": "Export language",
+  "project.settings.lang_hint": "Documents exported from this project are written in this language, whatever language you happen to be using the app in.",
   "project.settings.name": "Name",
   "project.settings.opportunity": "Opportunity reference",
   "project.settings.prepared_by": "Prepared by",

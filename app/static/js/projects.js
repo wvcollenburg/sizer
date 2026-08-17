@@ -948,6 +948,10 @@ function openProjectSettings() {
     document.getElementById('ps-opportunity').value = currentProject.opportunity_ref || '';
     document.getElementById('ps-prepared').value = currentProject.prepared_by || '';
     document.getElementById('ps-description').value = currentProject.description || '';
+    // Falls back to the language the app is being used in, which is also what a
+    // project created before this setting existed was stamped with.
+    document.getElementById('ps-lang').value =
+        currentProject.lang || window.I18N_ACTIVE || 'en';
 
     // The row exists only when the server sent the field, i.e. for scale users.
     const row = document.getElementById('ps-salesforce-row');
@@ -994,6 +998,7 @@ async function submitProjectSettings() {
         opportunity_ref: document.getElementById('ps-opportunity').value,
         prepared_by: document.getElementById('ps-prepared').value,
         description: document.getElementById('ps-description').value,
+        lang: document.getElementById('ps-lang').value,
     };
     const row = document.getElementById('ps-salesforce-row');
     if (row && !row.hidden) body.salesforce_url = document.getElementById('ps-salesforce').value;
