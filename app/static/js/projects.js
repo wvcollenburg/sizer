@@ -425,7 +425,12 @@ let refreshActive = 0;
 let refreshDone = 0;
 let refreshTotal = 0;
 let refreshFailed = 0;
-const refreshPending = new Map();   // configId -> {frame, timer, resolve}
+// Which project a refresh run belongs to, and a token that invalidates it.
+// Opening another project (or a sizing) while one is running must not have its
+// results applied to the new screen — the counters are shared, so a second run
+// would otherwise corrupt the first one's progress and navigate the user away.
+let refreshRunId = 0;
+let refreshProjectId = null;
 
 function refreshStaleSizings(force) {
     const rows = (currentProject && currentProject.sizings) || [];
@@ -440,13 +445,19 @@ function refreshStaleSizings(force) {
     const targets = rows.filter(s => !s.needs_reimport && (force || s.stale));
     if (!targets.length) return Promise.resolve();
 
+    // Supersede any run still in flight: its remaining frames are abandoned and
+    // its completion is ignored, so two projects can't share these counters.
+    const runId = ++refreshRunId;
+    refreshProjectId = currentProject && currentProject.id;
     refreshQueue = targets.map(s => s.id);
     refreshTotal = refreshQueue.length;
     refreshDone = 0;
     refreshFailed = 0;
+    refreshActive = 0;
     renderRefreshProgress();
     return new Promise(resolve => {
         const pump = () => {
+            if (runId !== refreshRunId) return resolve();   // superseded
             if (!refreshQueue.length && refreshActive === 0) {
                 renderRefreshProgress(true);
                 return resolve();
@@ -455,6 +466,7 @@ function refreshStaleSizings(force) {
                 const id = refreshQueue.shift();
                 refreshActive++;
                 refreshOne(id).then((ok) => {
+                    if (runId !== refreshRunId) return resolve();
                     refreshActive--;
                     refreshDone++;
                     if (!ok) refreshFailed++;
@@ -503,18 +515,24 @@ function renderRefreshProgress(done) {
     const bar = document.getElementById('project-refresh-bar');
     if (!bar) return;
     if (done || !refreshTotal) {
+        // Only refresh the screen if the user is still on the project this run
+        // was for. They may have opened a sizing meanwhile, and reloading the
+        // project view under them would throw away what they were doing.
+        const stillHere = document.body.classList.contains('view-project')
+            && currentProject && currentProject.id === refreshProjectId;
+
         if (done && refreshFailed) {
             // Say so rather than leave rows sitting on "Not sized" while the
             // loop silently retries on every visit.
             bar.hidden = false;
             bar.textContent = tt('project.refresh.failed', { count: refreshFailed });
-            if (currentProject) openProject(currentProject.id, true);
+            if (stillHere) openProject(currentProject.id, true);
             return;
         }
         bar.hidden = true;
         // Reload to pick up the new states — with refresh suppressed, or the
         // reload would start the loop again and never settle.
-        if (done && currentProject) openProject(currentProject.id, true);
+        if (done && stillHere) openProject(currentProject.id, true);
         return;
     }
     bar.hidden = false;

@@ -13,6 +13,7 @@ save/load itself stays in auth.py's configs blueprint.
 """
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import defer
 
 from auth import current_user, login_required
 from auth_models import Configuration, ScaleConfigLink, _utcnow
@@ -177,7 +178,13 @@ def create_project():
             prepared_by=((data.get("prepared_by") or "").strip()
                          or user.display_name)[:200],
         )
-        _apply_optional_fields(project, data, user)
+        field_err = _apply_optional_fields(project, data, user)
+        if field_err:
+            # e.g. a malformed Salesforce URL. Returning 201 while silently
+            # dropping the value would report success for a field that wasn't
+            # saved.
+            db.session.rollback()
+            return field_err
         # _apply_optional_fields blanks a field sent empty; a project should
         # still open with its creator's name in place.
         if not project.prepared_by:
@@ -202,9 +209,14 @@ def get_project(project_id):
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 
+    # Don't drag every payload across for a listing: they hold whole VM lists
+    # (up to MAX_PAYLOAD_BYTES each), and none of it is used here. The result
+    # snapshot is needed for the state badge; payload_digest exists precisely so
+    # replication staleness can be checked without the payload itself.
     sizings = Configuration.query.filter_by(
-        project_id=project.id, is_deleted=False).order_by(
-            Configuration.position, Configuration.id).all()
+        project_id=project.id, is_deleted=False).options(
+            defer(Configuration.payload)).order_by(
+                Configuration.position, Configuration.id).all()
     tag_map = _tags_by_configuration([s.id for s in sizings])
 
     # One tunables read for the whole project rather than one per sizing.
@@ -361,7 +373,8 @@ def check_source_duplicate(project_id):
         return jsonify({"duplicate": False})
 
     for sizing in Configuration.query.filter_by(
-            project_id=project.id, is_deleted=False).all():
+            project_id=project.id, is_deleted=False).options(
+                defer(Configuration.payload)).all():
         meta = sizing.source_meta or {}
         if meta.get("file_sha256") == digest:
             return jsonify({
@@ -505,9 +518,11 @@ def store_sizing_result(config_id):
     sizing.result_snapshot = snapshot
     sizing.result_fingerprint = fingerprint
     sizing.result_computed_at = _utcnow()
-    # Stamped on write: a sizing refreshed now was replayed through the current
-    # parsers' output only if it was imported with them (§3.3).
-    if sizing.parser_version is None:
+    # Only sizings that came from a file have a parser version to be out of date
+    # against. Stamping one on a manual or appliance sizing would flag it
+    # "re-import needed" the next time a parser changes — for a file that never
+    # existed, and which the refresh loop then skips forever (§3.3).
+    if sizing.parser_version is None and (sizing.source_meta or {}).get("file_sha256"):
         sizing.parser_version = PARSER_VERSION
     db.session.commit()
 

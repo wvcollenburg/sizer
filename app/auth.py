@@ -474,6 +474,10 @@ def purge_expired():
         ScaleConfigLink.query.filter(
             ScaleConfigLink.configuration_id.in_(cfg_ids)
         ).delete(synchronize_session=False)
+        # Tags and replication links reference configurations with no ON DELETE
+        # rule; leaving them would abort the whole nightly purge on the first
+        # tagged sizing that ages out.
+        _detach_configuration_refs(cfg_ids)
     for c in stale_configs:
         db.session.delete(c)
 
@@ -527,16 +531,73 @@ def _delete_user_cascade(user):
     user's PII is scrubbed from the audit log after PII_RETENTION_DAYS."""
     email = user.email
 
+    from project_models import (
+        ConfigurationTag, ExportJob, Project, ProjectTag, ReplicationLink,
+        ScaleProjectLink,
+    )
+
     owned = Configuration.query.filter_by(owner_id=user.id).all()
     owned_ids = [c.id for c in owned]
     if owned_ids:
         ScaleConfigLink.query.filter(
             ScaleConfigLink.configuration_id.in_(owned_ids)
         ).delete(synchronize_session=False)
+        # Rows that point AT these configurations must go first — neither has an
+        # ON DELETE rule, so the FK would abort the delete.
+        _detach_configuration_refs(owned_ids)
     for c in owned:
         db.session.delete(c)
     ScaleConfigLink.query.filter_by(user_id=user.id).delete(
         synchronize_session=False)
+
+    # Projects the user owns. owner_id is NOT NULL, so these cannot be orphaned
+    # and must be deleted outright — and every user has at least a scratch
+    # project, so without this an admin's "delete user" fails on the FK.
+    owned_projects = Project.query.filter_by(owner_id=user.id).all()
+    project_ids = [p.id for p in owned_projects]
+    if project_ids:
+        # A colleague's sizing can live in a project this user owns; move it to
+        # the sizing owner's own scratch project rather than destroying someone
+        # else's work along with the container.
+        strays = Configuration.query.filter(
+            Configuration.project_id.in_(project_ids),
+            Configuration.owner_id != user.id).all()
+        for stray in strays:
+            from project_models import ensure_scratch_project
+            fallback = ensure_scratch_project(stray.owner_id, stray.tenant_id)
+            stray.project_id = fallback.id
+            ConfigurationTag.query.filter_by(
+                configuration_id=stray.id).delete(synchronize_session=False)
+            ReplicationLink.query.filter(
+                (ReplicationLink.source_configuration_id == stray.id)
+                | (ReplicationLink.target_configuration_id == stray.id)
+            ).delete(synchronize_session=False)
+
+        ReplicationLink.query.filter(
+            ReplicationLink.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        tag_ids = [t.id for t in ProjectTag.query.filter(
+            ProjectTag.project_id.in_(project_ids)).all()]
+        if tag_ids:
+            ConfigurationTag.query.filter(
+                ConfigurationTag.tag_id.in_(tag_ids)).delete(
+                    synchronize_session=False)
+        ProjectTag.query.filter(
+            ProjectTag.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        ScaleProjectLink.query.filter(
+            ScaleProjectLink.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        ExportJob.query.filter(
+            ExportJob.project_id.in_(project_ids)).delete(
+                synchronize_session=False)
+        for project in owned_projects:
+            db.session.delete(project)
+
+    # Links and jobs belonging to the user but pointing at other people's rows.
+    ScaleProjectLink.query.filter_by(user_id=user.id).delete(
+        synchronize_session=False)
+    ExportJob.query.filter_by(user_id=user.id).delete(synchronize_session=False)
 
     # Break inbound references (all nullable) so the hard delete is FK-safe while
     # keeping history. The audit row's actor_email is retained until the GDPR
@@ -1014,6 +1075,25 @@ def list_configs():
     return jsonify([c.to_summary(user, source) for c, source in pairs])
 
 
+def _detach_configuration_refs(config_ids):
+    """Remove the rows that point at these configurations before they are
+    hard-deleted.
+
+    ``configuration_tags`` and ``replication_links`` carry plain foreign keys
+    with no ON DELETE rule, so a delete that ignores them raises IntegrityError
+    on Postgres — and takes the rest of the purge down with it. SQLite doesn't
+    enforce foreign keys by default, which is why tests never saw it.
+    """
+    from project_models import ConfigurationTag, ReplicationLink
+    ConfigurationTag.query.filter(
+        ConfigurationTag.configuration_id.in_(config_ids)).delete(
+            synchronize_session=False)
+    ReplicationLink.query.filter(
+        (ReplicationLink.source_configuration_id.in_(config_ids))
+        | (ReplicationLink.target_configuration_id.in_(config_ids))
+    ).delete(synchronize_session=False)
+
+
 def _purge_expired_exports():
     """Delete generated bundles past their 24-hour life, file and row together.
 
@@ -1022,10 +1102,16 @@ def _purge_expired_exports():
     """
     import os as _os
 
-    from project_models import ExportJob
+    from project_models import ExportJob, JOB_DONE
+    now = _utcnow()
+    # A finished job carries expires_at; a failed or abandoned one never gets
+    # one, so filtering on expires_at alone would leave those rows forever.
+    # Age them out on created_at instead.
+    stale_cutoff = now - timedelta(days=2)
     expired = ExportJob.query.filter(
-        ExportJob.expires_at.isnot(None),
-        ExportJob.expires_at < _utcnow()).all()
+        ((ExportJob.expires_at.isnot(None)) & (ExportJob.expires_at < now))
+        | ((ExportJob.status != JOB_DONE) & (ExportJob.created_at < stale_cutoff))
+    ).all()
     for job in expired:
         if job.artifact_path:
             try:

@@ -199,6 +199,39 @@ def test_section_limit_is_enforced_before_the_job_runs(app, monkeypatch):
 
 # ── artifact access ──────────────────────────────────────────────────────────
 
+def test_a_project_name_cannot_escape_the_artifact_directory(app):
+    """Project names are free text. "Acme / Phase 2" would otherwise put a
+    directory separator in the path — failing the write, or landing the file
+    somewhere other than ARTIFACT_DIR."""
+    from export_worker import _safe_stem
+    assert "/" not in _safe_stem("Acme / Phase 2")
+    assert _safe_stem("../../etc/passwd") == "etc_passwd"
+    assert _safe_stem("   ") == "project"
+    assert _safe_stem("Acme Corp: Phase 2!") == "Acme_Corp_Phase_2"
+    assert len(_safe_stem("x" * 200)) <= 40
+
+
+def test_a_section_missing_its_projection_is_skipped_not_fatal(app):
+    """The generators index projection unconditionally, so one incomplete
+    section would otherwise fail the whole bundle."""
+    c = client_for(app, SCALE)
+    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    good = _sized(c, project["id"], "Site A")
+    partial = c.post("/api/configs/", json={
+        "name": "Half sized", "payload": {"mode": "import"},
+        "project_id": project["id"]}).get_json()
+    snap = _snapshot()
+    snap["clusters"][0].pop("projection")
+    c.put(f"/api/sizings/{partial['id']}/result", json=snap)
+
+    with app.app_context():
+        job = ExportJob(user_id=1, project_id=project["id"], fmt="pptx",
+                        sizing_ids=[good["id"], partial["id"]])
+        sections, skipped = export_worker.sections_for(job)
+        assert [s["name"] for s in sections] == ["Site A"]
+        assert skipped == ["Half sized"]
+
+
 def test_another_user_cannot_download_your_export(app):
     owner = client_for(app, SCALE)
     project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()

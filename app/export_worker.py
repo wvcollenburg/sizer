@@ -21,6 +21,7 @@ existing retention purge. That assumes a single app container; with a second
 one the worker and the download route must share a volume.
 """
 import os
+import tempfile
 import threading
 import time
 import traceback
@@ -40,8 +41,13 @@ POLL_SECONDS = int(os.environ.get("EXPORT_WORKER_POLL", "5"))
 # 180s; a long PDF render must not be reclaimed while it is still running).
 CLAIM_TIMEOUT = timedelta(minutes=20)
 
+# Outside the source tree by default: bundles are regenerable, expire in 24
+# hours, and carry customer names — they have no business in the repo, and a
+# default under app/ meant every test run dirtied the working tree. Point
+# EXPORT_ARTIFACT_DIR at a mounted volume if they should survive a restart.
 ARTIFACT_DIR = os.environ.get(
-    "EXPORT_ARTIFACT_DIR", os.path.join(os.path.dirname(__file__), "data", "exports"))
+    "EXPORT_ARTIFACT_DIR",
+    os.path.join(tempfile.gettempdir(), "sizer-exports"))
 
 _worker_started = False
 _worker_lock = threading.Lock()
@@ -121,7 +127,12 @@ def sections_for(job):
     sections, skipped = [], []
     for sizing in sizings:
         clusters = ((sizing.result_snapshot or {}).get("clusters")) or []
-        usable = [c for c in clusters if c.get("recommendation") and c.get("summary")]
+        # The generators index summary/recommendation/projection unconditionally,
+        # so a section missing any of them takes down the whole bundle rather
+        # than just itself. Skip it here instead.
+        usable = [c for c in clusters
+                  if c.get("recommendation") and c.get("summary")
+                  and c.get("projection")]
         if not usable:
             # Appliance/validated sizings are hardware configurations, not
             # proposals — they carry no recommendation for a bundle to render.
@@ -138,6 +149,19 @@ def sections_for(job):
     return sections, skipped
 
 
+def _safe_stem(name):
+    """A filename fragment from a user-supplied project name.
+
+    Project names are free text: "Acme / Phase 2" would otherwise become a path
+    with a directory in it — the write fails with a bare errno if the directory
+    is missing, and lands outside ARTIFACT_DIR if it happens to exist.
+    """
+    import re
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", (name or "").strip())
+    cleaned = cleaned.strip("._-")[:40]
+    return cleaned or "project"
+
+
 def build_artifact(job, sections):
     """Render the bundle and return (path, filename)."""
     from export_docx import build_bundle_proposal_docx, convert_docx_to_pdf, convert_pptx_to_pdf
@@ -146,7 +170,7 @@ def build_artifact(job, sections):
     lang = job.lang or "en"
     fmt = job.fmt
     project = Project.query.get(job.project_id)
-    stem = f"SC_Proposal_{(project.name if project else 'project')[:40]}".replace(" ", "_")
+    stem = "SC_Proposal_" + _safe_stem(project.name if project else "project")
 
     if fmt == "pptx":
         buf = generate_bundle_proposal(sections, lang=lang)

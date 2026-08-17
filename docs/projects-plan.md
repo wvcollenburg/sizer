@@ -412,9 +412,10 @@ for an email that never comes.
 **Artifacts on local disk assume one container.** With a second app container,
 the worker that built the file and the process serving the download may not
 share a filesystem, and the download 404s intermittently. Fine today (single
-container per `docker-compose.yml`); if that changes, the artifact directory has
-to be a shared volume, and that constraint belongs in the deployment notes rather
-than being discovered later.
+container per `docker-compose.yml`); if that changes, point
+`EXPORT_ARTIFACT_DIR` at a shared volume. The default is a temp directory
+outside the source tree — bundles are regenerable, expire in 24 hours and carry
+customer names, so they belong neither in the repo nor in a backup.
 
 **Access control on the artifact** — `GET /api/export-jobs/<id>/file` checks
 that the job belongs to the requesting user (or a super admin) and does not rely
