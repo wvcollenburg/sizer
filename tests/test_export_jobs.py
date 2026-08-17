@@ -305,6 +305,58 @@ def test_mixed_roles_and_stale_rows_are_flagged(app):
     assert "not_sized" in codes
 
 
+def test_cluster_count_is_physical_clusters_not_sections(app):
+    """"Number of clusters" is what the customer ends up running.
+
+    A sizing holding one source cluster can still split into several HyperCore
+    clusters above max_nodes_per_cluster, so the figure is summed from
+    num_clusters rather than counted from the section list — otherwise a
+    13-node single-site sizing would report 1 cluster while quoting 2.
+    """
+    c = client_for(app, SCALE)
+    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    row = c.post("/api/configs/", json={
+        "name": "All in one", "payload": {"mode": "import"},
+        "project_id": project["id"]}).get_json()
+
+    snap = _snapshot(nodes=13)
+    snap["clusters"][0]["recommendation"]["num_clusters"] = 2
+    snap["clusters"][0]["recommendation"]["cluster_layout"] = [8, 5]
+    c.put(f"/api/sizings/{row['id']}/result", json=snap)
+
+    data = c.post(f"/api/projects/{project['id']}/compare",
+                  json={"sizing_ids": [row["id"]]}).get_json()
+    totals = data["rows"][0]["totals"]
+    assert totals["clusters"] == 2, "one section can still be two clusters"
+    assert totals["nodes"] == 13
+    assert totals["layout"] == [8, 5]
+
+
+def test_two_source_clusters_report_two_clusters(app):
+    """The comparison the feature was asked for: 2 clusters vs 1."""
+    c = client_for(app, SCALE)
+    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+
+    separate = c.post("/api/configs/", json={
+        "name": "Two clusters", "payload": {"mode": "import"},
+        "project_id": project["id"]}).get_json()
+    snap = _snapshot(nodes=4)
+    second = dict(snap["clusters"][0], name="Process")
+    snap["clusters"] = [snap["clusters"][0], second]
+    c.put(f"/api/sizings/{separate['id']}/result", json=snap)
+
+    combined = c.post("/api/configs/", json={
+        "name": "One cluster", "payload": {"mode": "import"},
+        "project_id": project["id"]}).get_json()
+    c.put(f"/api/sizings/{combined['id']}/result", json=_snapshot(nodes=7))
+
+    data = c.post(f"/api/projects/{project['id']}/compare",
+                  json={"sizing_ids": [separate["id"], combined["id"]]}).get_json()
+    by_name = {r["name"]: r["totals"] for r in data["rows"]}
+    assert by_name["Two clusters"]["clusters"] == 2
+    assert by_name["One cluster"]["clusters"] == 1
+
+
 def test_multi_cluster_sizing_reports_one_total_row(app):
     """A sizing with several clusters has no single node count, so its clusters
     are summed into one row and carried as sub-rows."""

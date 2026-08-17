@@ -533,8 +533,13 @@ def _metrics_from_snapshot(snapshot):
     rows, total = [], {
         "nodes": 0, "cores": 0, "ram_gb": 0, "usable_tb": 0.0,
         "n1_cores": 0, "n1_ram_gb": 0, "rack_units": 0,
+        # Physical HyperCore clusters the customer ends up running. Not the same
+        # as the number of sections: one source cluster still splits into
+        # several output clusters above max_nodes_per_cluster (§0), so this is
+        # summed from num_clusters rather than counted from the list.
+        "clusters": 0,
     }
-    models = []
+    models, layout = [], []
     for cluster in clusters:
         rec = cluster.get("recommendation") or cluster.get("config") or {}
         # Two shapes reach here: a recommendation from /api/recommend calls its
@@ -546,6 +551,7 @@ def _metrics_from_snapshot(snapshot):
             "name": cluster.get("name"),
             "model": rec.get("model"),
             "nodes": rec.get("node_count") or rec.get("total_node_count") or 0,
+            "clusters": rec.get("num_clusters") or (1 if rec else 0),
             "cores": totals.get("cores") or 0,
             "ram_gb": totals.get("ram_gb") or 0,
             "usable_tb": totals.get("usable_storage_tb") or 0,
@@ -554,13 +560,17 @@ def _metrics_from_snapshot(snapshot):
         }
         if rec.get("model"):
             models.append(rec["model"])
-        for key in ("nodes", "cores", "ram_gb", "n1_cores", "n1_ram_gb"):
+        layout.extend(rec.get("cluster_layout") or [])
+        for key in ("nodes", "clusters", "cores", "ram_gb", "n1_cores", "n1_ram_gb"):
             total[key] += row[key] or 0
         total["usable_tb"] += float(row["usable_tb"] or 0)
         rows.append(row)
 
     total["usable_tb"] = round(total["usable_tb"], 2)
     total["model"] = ", ".join(sorted(set(models))) if models else None
+    # e.g. "8 + 5" — how those nodes actually divide, so a cluster count of 2
+    # can be read as the split it represents.
+    total["layout"] = layout
     return total, rows
 
 
@@ -620,7 +630,8 @@ def compare_sizings(project_id):
     rollup = None
     if additive:
         rollup = {key: sum(r["totals"][key] for r in additive)
-                  for key in ("nodes", "cores", "ram_gb", "n1_cores", "n1_ram_gb")}
+                  for key in ("nodes", "clusters", "cores", "ram_gb",
+                              "n1_cores", "n1_ram_gb")}
         rollup["usable_tb"] = round(
             sum(float(r["totals"]["usable_tb"]) for r in additive), 2)
         rollup["count"] = len(additive)

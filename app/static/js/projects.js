@@ -471,6 +471,14 @@ async function compareSelected() {
 
     const cols = [
         ['project.compare.model', r => escHtml(r.totals.model || '—')],
+        // Physical HyperCore clusters, with the node split behind a tooltip —
+        // "2" reads better than "8 + 5" in the table, but the split is the
+        // thing you argue about in the meeting.
+        ['project.compare.clusters', r => {
+            const layout = (r.totals.layout || []).join(' + ');
+            const title = layout ? ` title="${escHtml(layout)}"` : '';
+            return `<span${title}>${metric('clusters', r)}</span> ${delta('clusters', r)}`;
+        }],
         ['project.compare.nodes', r => `${metric('nodes', r)} ${delta('nodes', r)}`],
         ['project.compare.cores', r => `${metric('cores', r)} ${delta('cores', r)}`],
         ['project.compare.ram', r => `${metric('ram_gb', r)} GB ${delta('ram_gb', r)}`],
@@ -488,6 +496,7 @@ async function compareSelected() {
 
     const rollup = data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
+        clusters: data.rollup.clusters,
         cores: data.rollup.cores, ram: data.rollup.ram_gb,
         storage: round(data.rollup.usable_tb),
     }))}</p>` : `<p class="compare-rollup compare-rollup-none">${escHtml(tt('project.compare.no_rollup'))}</p>`;
