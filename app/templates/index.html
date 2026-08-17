@@ -11,7 +11,11 @@
     {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
     <script src="{{ asset('js/i18n.js') }}"></script>
 </head>
-<body data-vcpu-ratio="{{ default_vcpu_ratio }}">
+{# `app-booting` hides the sizer until the first screen is decided. Which screen
+   you land on depends on /api/auth/me, so without this the sizer paints first
+   and is then replaced by the project home — a visible flash on every load.
+   Removed by showScreen(), or by auth.js if the project layer never loads. #}
+<body class="app-booting" data-vcpu-ratio="{{ default_vcpu_ratio }}">
     <header>
         <div class="header-content">
             <h1 data-i18n="header.title">SC// Infrastructure Sizer</h1>

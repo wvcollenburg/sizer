@@ -71,6 +71,13 @@ function updateGate() {
             && window.openProjectsHome) {
             window.openProjectsHome();
         }
+        // Safety net for the boot hold: if the project layer never loaded,
+        // showScreen() will never run and the app body would stay hidden
+        // forever. A blank page is a far worse failure than the flash the hold
+        // exists to prevent, so fall back to the classic sizer.
+        if (!window.openProjectsHome) {
+            document.body.classList.remove('app-booting');
+        }
     }
 }
 

@@ -37,6 +37,9 @@ async function api(url, opts) {
 // screen shows, and vice versa. Keeps the existing markup untouched.
 
 function showScreen(which) {
+    // The first screen decision ends the boot hold; until now the app body has
+    // been hidden so the sizer doesn't flash before the project home replaces it.
+    document.body.classList.remove('app-booting');
     document.body.classList.remove('view-projects', 'view-project', 'view-sizer');
     document.body.classList.add('view-' + which);
     const home = document.getElementById('project-home');

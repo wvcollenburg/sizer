@@ -2589,3 +2589,11 @@ body.refresh-mode { visibility: hidden; }
 /* Save-and-close at the foot of the wizard's last step — the end of the
    multi-cluster flow, where each cluster's option has already been chosen. */
 .wiz-save-close { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); justify-content: flex-end; }
+
+/* Boot: nothing of the app body until the first screen is chosen. Which screen
+   that is depends on an async /api/auth/me, so painting the sizer meanwhile
+   shows a landing page the user never asked for and then yanks it away. The
+   header and any modal (including the login gate) stay visible throughout. */
+body.app-booting main,
+body.app-booting #project-screens,
+body.app-booting footer { visibility: hidden; }
