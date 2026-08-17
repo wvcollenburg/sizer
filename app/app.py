@@ -218,6 +218,15 @@ def create_app():
                                max_day_one_storage_pct=T.max_day_one_storage_pct,
                                max_day_one_ram_pct=T.max_day_one_ram_pct)
 
+    @app.route("/favicon.ico")
+    def favicon():
+        """Browsers ask for /favicon.ico unprompted, regardless of the <link>
+        tags, and a 404 on every page load is noise in the console and the
+        access log."""
+        return send_file(
+            os.path.join(app.static_folder, "img", "favicon.ico"),
+            mimetype="image/vnd.microsoft.icon")
+
     @app.route("/privacy")
     def privacy():
         return render_template("privacy.html")
