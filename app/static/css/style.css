@@ -2727,3 +2727,43 @@ textarea.text-input:focus {
     white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis;
 }
 .field-inline-action:hover { text-decoration: underline; }
+
+/* ── Project page toolbars ──────────────────────────────────────────────────
+   .btn-primary in this app is a full-width block form button (display:block;
+   width:100%). Using it for toolbar buttons is what made them stretch across
+   the row and wrap unpredictably. Toolbars use these inline variants instead. */
+
+.btn-cta, .btn-soft, .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: auto; margin: 0;
+    padding: 0.45rem 1rem; font-size: 0.85rem; line-height: 1.2;
+    border-radius: 4px; white-space: nowrap; flex: 0 0 auto;
+}
+.btn-cta { background: var(--accent); color: #fff; }
+.btn-cta:hover { background: var(--accent-dark); }
+.btn-soft { background: var(--surface2); color: var(--text); }
+.btn-soft:hover { background: var(--border); }
+.btn-ghost { background: none; color: var(--text-muted); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+/* Title block left, actions right, both on one line until the screen is small. */
+.project-head { align-items: center; }
+.project-head-actions { align-items: center; }
+.project-title-block { gap: 0.35rem; }
+.project-title-block h2 { line-height: 1.2; }
+
+/* Selection bar: count · compare | export group · clear. */
+.project-selection-bar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 0.85rem; }
+.selection-count { font-weight: 600; white-space: nowrap; }
+.selection-divider {
+    width: 1px; align-self: stretch; background: var(--border); margin: 0 0.15rem;
+}
+.export-controls {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    margin-left: auto;                 /* keep Clear at the far right */
+}
+.notify-check { white-space: nowrap; }  /* was wrapping onto three lines */
+.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
+
+/* Exports list: the download stays a button, not a full-width bar. */
+.export-list li .btn, .export-list li a.btn { flex: 0 0 auto; width: auto; margin: 0; }

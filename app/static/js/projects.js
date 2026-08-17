@@ -674,7 +674,7 @@ function exportRow(j) {
     const when = fmtProjectDate(j.created_at);
     let right;
     if (j.status === 'done' && !j.expired) {
-        right = `<a class="btn btn-xs btn-primary" href="/api/export-jobs/${j.id}/file">${escHtml(tt('project.export.download'))}</a>`;
+        right = `<a class="btn btn-cta btn-xs" href="/api/export-jobs/${j.id}/file">${escHtml(tt('project.export.download'))}</a>`;
     } else if (j.status === 'done') {
         right = `<span class="export-note">${escHtml(tt('project.export.expired'))}</span>`;
     } else if (j.status === 'failed') {

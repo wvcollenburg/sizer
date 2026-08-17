@@ -47,11 +47,11 @@
             <div class="project-head">
                 <h2 data-i18n="project.home.title">Projects</h2>
                 <div class="project-head-actions">
-                    <button class="btn btn-primary" data-click='["openNewProject"]'
+                    <button class="btn btn-cta" data-click='["openNewProject"]'
                             data-i18n="project.home.new">New project</button>
-                    <button class="btn" data-click='["openProjectByCodePrompt"]'
+                    <button class="btn btn-soft" data-click='["openProjectByCodePrompt"]'
                             data-i18n="project.home.open_code">Open by code</button>
-                    <button class="btn btn-muted" data-click='["startQuickSizing"]'
+                    <button class="btn btn-ghost" data-click='["startQuickSizing"]'
                             data-i18n="project.home.quick">Quick sizing</button>
                 </div>
             </div>
@@ -75,35 +75,45 @@
                     <h2 id="project-view-name">Project</h2>
                     <div id="project-view-meta" class="project-meta"></div>
                 </div>
+                <!-- Most-used action first, then the other way to add, then the
+                     project's own settings. All one size — the mix of sizes was
+                     what made these read as randomly placed. -->
                 <div class="project-head-actions">
-                    <button class="btn btn-sm" data-click='["openProjectSettings"]'
-                            data-i18n="project.view.settings">Details</button>
-                    <button class="btn btn-sm btn-primary" data-click='["addSizingToProject"]'
+                    <button class="btn btn-cta" data-click='["addSizingToProject"]'
                             data-i18n="project.view.new_sizing">New sizing</button>
-                    <button class="btn btn-sm" data-click='["addDrTarget"]'
+                    <button class="btn btn-soft" data-click='["addDrTarget"]'
                             data-i18n="project.view.new_dr">Add DR target</button>
+                    <button class="btn btn-soft" data-click='["openProjectSettings"]'
+                            data-i18n="project.view.settings">Details</button>
                 </div>
             </div>
 
             <div id="project-refresh-bar" class="project-refresh-bar" hidden></div>
 
+            <!-- Count on the left, then the two things you can do with a
+                 selection: compare it, or export it. The export controls are
+                 grouped so the format and the notify option read as belonging
+                 to the Export button rather than floating between them. -->
             <div id="project-selection-bar" class="project-selection-bar" hidden>
-                <span id="project-selection-count"></span>
-                <button class="btn btn-sm" data-click='["compareSelected"]'
+                <span id="project-selection-count" class="selection-count"></span>
+                <button class="btn btn-soft" data-click='["compareSelected"]'
                         data-i18n="project.view.compare">Compare</button>
-                <select id="project-export-format" class="text-input inline-select">
-                    <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
-                    <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
-                    <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
-                    <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
-                </select>
-                <label class="notify-check">
-                    <input type="checkbox" id="project-export-notify">
-                    <span data-i18n="project.export.notify">Email me when ready</span>
-                </label>
-                <button class="btn btn-sm btn-primary" data-click='["exportSelected"]'
-                        data-i18n="project.view.export">Export</button>
-                <button class="btn btn-sm" data-click='["clearSizingSelection"]'
+                <span class="selection-divider" aria-hidden="true"></span>
+                <div class="export-controls">
+                    <select id="project-export-format" class="text-input inline-select">
+                        <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
+                        <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
+                        <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
+                        <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                    </select>
+                    <label class="notify-check">
+                        <input type="checkbox" id="project-export-notify">
+                        <span data-i18n="project.export.notify">Email me when ready</span>
+                    </label>
+                    <button class="btn btn-cta" data-click='["exportSelected"]'
+                            data-i18n="project.view.export">Export</button>
+                </div>
+                <button class="btn btn-ghost" data-click='["clearSizingSelection"]'
                         data-i18n="project.view.clear_selection">Clear</button>
             </div>
 
