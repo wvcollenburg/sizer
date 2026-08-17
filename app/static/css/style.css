@@ -2701,10 +2701,18 @@ textarea.text-input:focus {
     padding: 1.25rem 1.5rem 1.25rem;
 }
 
-/* The account name doubles as the control for changing it. */
+/* The account name doubles as the control for changing it. Deliberately sets
+   neither `color` nor the `font` shorthand: this element also carries
+   .account-email, whose colour (#cdd6e0, readable on the dark header) and size
+   must survive. `color: inherit` here resolved to the body text colour and made
+   the name invisible against the header. */
 .account-name-btn {
-    background: none; border: none; padding: 0; cursor: pointer;
-    color: inherit; font: inherit; text-decoration: underline dotted;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline dotted;
     text-underline-offset: 3px;
 }
-.account-name-btn:hover { text-decoration-style: solid; }
+.account-name-btn:hover { color: #fff; text-decoration-style: solid; }
