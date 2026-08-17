@@ -352,6 +352,16 @@ function renderSizingRows() {
     </table>`;
 }
 
+// lucide icons used by the sizing rows. Defined once: these strings are
+// interpolated into every row, and lucide's own markup is the reference
+// (24px box, currentColor stroke, round caps, stroke-width 2).
+const _svg = (paths) =>
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"`
+    + ` stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const ICON_SLIDERS = _svg('<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>');
+const ICON_COPY = _svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
+const ICON_TRASH = _svg('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>');
+
 function sizingRow(s, canEdit) {
     const checked = selectedSizings.has(s.id) ? ' checked' : '';
     const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${escHtml(t.name)}</span>`).join('');
@@ -375,17 +385,32 @@ function sizingRow(s, canEdit) {
         state = `<span class="state-badge state-fresh">${escHtml(tt('project.state.fresh'))}</span>`;
     }
 
-    const actions = canEdit ? `
-        <button class="btn btn-xs" data-click='["openSizing",${s.id}]' data-i18n="project.action.open">Open</button>
-        <button class="btn btn-xs" data-click='["openSizingPanel",${s.id}]' data-i18n="project.action.panel">Options</button>
-        <button class="btn btn-xs" data-click='["duplicateSizing",${s.id}]' data-i18n="project.action.duplicate">Duplicate</button>
-        <button class="btn btn-xs btn-danger" data-click='["deleteProjectSizing",${s.id}]' data-i18n="project.action.delete">Delete</button>`
-        : `<button class="btn btn-xs" data-click='["openSizing",${s.id}]' data-i18n="project.action.open">Open</button>
-           <button class="btn btn-xs" data-click='["duplicateSizing",${s.id}]' data-i18n="project.action.copy">Copy to mine</button>`;
+    // Icon actions, following SC//Design's scenario card (pencil / copy / trash).
+    // The row's name is the way in, so "Open" stops being a button — four filled
+    // buttons per row shouted louder than the data they belonged to.
+    //
+    // Icon-only controls carry their whole accessible name in title/aria-label.
+    // Resolved with tt() here rather than left as data-i18n-* attributes: this
+    // markup is injected after i18n's one-shot translateDOM pass, so those
+    // attributes would never be swapped and the buttons would ship nameless.
+    // All four labels already exist, so no new strings.
+    const iconBtn = (fn, key, icon, extra = '') => {
+        const label = escHtml(tt(key));
+        return `<button class="icon-btn ${extra}" data-click='["${fn}",${s.id}]'`
+            + ` title="${label}" aria-label="${label}">${icon}</button>`;
+    };
+
+    const actions = canEdit
+        ? iconBtn('openSizingPanel', 'project.action.panel', ICON_SLIDERS)
+          + iconBtn('duplicateSizing', 'project.action.duplicate', ICON_COPY)
+          + iconBtn('deleteProjectSizing', 'project.action.delete', ICON_TRASH, 'icon-btn-danger')
+        : iconBtn('duplicateSizing', 'project.action.copy', ICON_COPY);
 
     return `<tr>
         <td class="col-check"><input type="checkbox"${checked} data-change='["toggleSizing",${s.id},"$checked"]'></td>
-        <td class="sizing-name">${escHtml(s.name)}${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}</td>
+        <td class="sizing-name"><button class="sizing-open" data-click='["openSizing",${s.id}]'`
+        + ` title="${escHtml(tt('project.action.open'))}">${escHtml(s.name)}</button>`
+        + `${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}</td>
         <td>${tags}</td>
         <td>${role}</td>
         <td class="sizing-source">${source}</td>

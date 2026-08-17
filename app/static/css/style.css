@@ -2879,6 +2879,54 @@ body.auth-required #project-screens { display: none; }
 }
 .sizing-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .sizing-table tr:hover td { background: rgba(0,0,0,0.015); }
+/* ── Row actions ──────────────────────────────────────────────────────────
+   SC//Design's scenario card puts its actions on the row as bare icons — a
+   pencil, a copy, a red trash — and lets the title be the way in. Four filled
+   buttons per row shouted louder than the data they belonged to. */
+.sizing-open {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: left;
+    cursor: pointer;
+}
+.sizing-open:hover { text-decoration: underline; }
+.sizing-open:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+    border-radius: var(--radius-sm);
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 0;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+.icon-btn:hover { background: var(--surface2); color: var(--text); }
+.icon-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+}
+/* Destructive action reads red only on approach, so a row of icons does not
+   look like a row of warnings. */
+.icon-btn-danger:hover { background: var(--red-bg); color: var(--red); }
+
+.sizing-table .col-actions { white-space: nowrap; }
+.sizing-table .col-actions .icon-btn + .icon-btn { margin-left: 0.15rem; }
+
 .sizing-table .col-check { width: 2rem; }
 .sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-name { font-weight: 500; }
