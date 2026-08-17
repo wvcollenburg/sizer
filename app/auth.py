@@ -673,6 +673,23 @@ def me():
     return jsonify({"user": u.to_dict() if u else None})
 
 
+@auth_bp.route("/me", methods=["PUT"])
+@login_required
+def update_me():
+    """Set your own display name.
+
+    Accounts predate this field and signup only asks optionally, so there has to
+    be a way to fill it in afterwards — otherwise every existing user is stuck
+    with the name derived from their email address on every new project.
+    """
+    user = current_user()
+    data = request.json or {}
+    if "full_name" in data:
+        user.full_name = (data.get("full_name") or "").strip()[:120] or None
+        db.session.commit()
+    return jsonify({"user": user.to_dict()})
+
+
 @auth_bp.route("/signup", methods=["POST"])
 @limiter.limit("15 per hour")
 def signup():
@@ -728,6 +745,9 @@ def signup():
 
     user = User(
         email=email,
+        # Optional: used to fill in "Prepared by" on a new project, and nothing
+        # else. Left empty, a readable default is derived from the address.
+        full_name=((data.get("full_name") or "").strip()[:120] or None),
         password_hash=generate_password_hash(password, method=PWHASH_METHOD),
         tenant_id=tenant.id,
         role=role,

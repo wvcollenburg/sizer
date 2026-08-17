@@ -170,8 +170,18 @@ def create_project():
             code=new_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id,
             lang=(data.get("lang") or None),
+            # Whoever creates the project is who prepared it, by default. Stored
+            # rather than derived at render time, so it stays correct after the
+            # creator changes their own name — and so it can simply be edited
+            # when a colleague presents the work.
+            prepared_by=((data.get("prepared_by") or "").strip()
+                         or user.display_name)[:200],
         )
         _apply_optional_fields(project, data, user)
+        # _apply_optional_fields blanks a field sent empty; a project should
+        # still open with its creator's name in place.
+        if not project.prepared_by:
+            project.prepared_by = user.display_name[:200]
         db.session.add(project)
         try:
             db.session.commit()

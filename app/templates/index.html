@@ -935,6 +935,15 @@
                     <button class="auth-tab" id="auth-tab-signup" data-click='["setAuthTab","signup"]' data-i18n="modal.auth.signup">Sign up</button>
                 </div>
                 <form id="auth-form" data-submit='["submitAuth","$event"]'>
+                    <!-- Sign-up only: the name that goes on a proposal's
+                         "Prepared by". Optional — left blank, a readable
+                         default is derived from the email address. -->
+                    <div class="form-group" id="auth-name-group" style="display:none">
+                        <label data-i18n="modal.auth.full_name">Your name</label>
+                        <input type="text" id="auth-full-name" autocomplete="name"
+                               maxlength="120" placeholder="Jane Doe"
+                               data-i18n-ph="modal.auth.full_name_ph">
+                    </div>
                     <div class="form-group">
                         <label data-i18n="modal.auth.work_email">Work email</label>
                         <input type="email" id="auth-email" autocomplete="email" required

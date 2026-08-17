@@ -158,6 +158,8 @@ def _migrate_schema():
         "CREATE INDEX IF NOT EXISTS ix_configurations_project "
         "ON configurations (project_id)",
         # Cross-sizing replication partners (§8.5).
+        # Display name for "Prepared by" on a project (optional).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(120)",
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS payload_digest VARCHAR(64)",
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
         "is_dr_target BOOLEAN NOT NULL DEFAULT false",

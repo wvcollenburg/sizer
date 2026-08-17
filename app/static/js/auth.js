@@ -117,7 +117,12 @@ function renderAccountBar() {
         `<div class="account-actions">${actions.join('')}</div>`
         + `<span class="account-sep">|</span>`
         + `<div class="account-identity">`
-        +   `<span class="account-email">${esc(u.email)}</span>`
+        // Every account predates the name field and signup only asks
+        // optionally, so this is the way to set it afterwards — otherwise a
+        // user is stuck with the name derived from their address on every new
+        // project. Shows the name when there is one, the address when not.
+        +   `<button class="account-email account-name-btn" data-click='["editMyName"]'`
+        +     ` title="${esc(t('auth.edit_name_title'))}">${esc(u.display_name || u.email)}</button>`
         +   `<span class="account-badge ${badge.cls}">${esc(badge.label)}</span>`
         +   `<button class="btn btn-sm btn-muted" data-click='["doLogout"]'>${esc(t('auth.btn.sign_out'))}</button>`
         + `</div>`;
@@ -224,6 +229,8 @@ function setAuthTab(tab) {
     document.getElementById('auth-confirm-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-pw-rules').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-consent-row').style.display = signup ? 'block' : 'none';
+    // Name is asked once, at sign-up; it fills "Prepared by" on new projects.
+    document.getElementById('auth-name-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-confirm').value = '';
     document.getElementById('auth-accept-privacy').checked = false;
     if (signup) updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
@@ -266,7 +273,12 @@ async function submitAuth(event) {
 
     const url = authTab === 'login' ? '/api/auth/login' : '/api/auth/signup';
     const body = { email, password };
-    if (authTab === 'signup') body.accept_privacy = true;
+    if (authTab === 'signup') {
+        body.accept_privacy = true;
+        const nameEl = document.getElementById('auth-full-name');
+        const fullName = (nameEl && nameEl.value || '').trim();
+        if (fullName) body.full_name = fullName;
+    }
 
     // Give immediate feedback and block double-submits while the request is in
     // flight — signup includes a (potentially slow) email send, and without this
@@ -402,6 +414,27 @@ async function resendVerification(event) {
     document.getElementById('auth-resend').style.display = 'none';
     closeAuthModal();
     showInfoModal(t('auth.resend_title'), t('auth.resend_body'));
+}
+
+// Set the name that fills "Prepared by" on new projects. Existing projects keep
+// whatever they were created with — changing your name should not rewrite the
+// authorship of work already prepared.
+async function editMyName() {
+    if (!currentAccount) return;
+    const current = currentAccount.full_name || '';
+    const next = window.prompt(t('auth.edit_name_prompt'), current);
+    if (next === null) return;                      // cancelled
+    const { ok, data } = await apiJson('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: next.trim() }),
+    });
+    if (!ok) {
+        showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
+        return;
+    }
+    currentAccount = data.user;
+    renderAccountBar();
 }
 
 async function doLogout() {

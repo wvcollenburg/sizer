@@ -66,6 +66,9 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    # How the person is named on a proposal. Optional: accounts predate this
+    # field, and asking for it is not a condition of using the tool.
+    full_name = db.Column(db.String(120))
     password_hash = db.Column(db.String(255), nullable=False)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"),
                           nullable=False, index=True)
@@ -117,11 +120,28 @@ class User(db.Model):
     def domain(self):
         return self.tenant.domain if self.tenant else None
 
+    @property
+    def display_name(self):
+        """A human name to put on a proposal.
+
+        Falls back to the email's local part, tidied — "john.doe" becomes
+        "John Doe" — so a project created by someone who never filled in their
+        name still says something readable rather than a bare address. It is
+        only ever a *default*: prepared_by is stored per project and editable.
+        """
+        if self.full_name and self.full_name.strip():
+            return self.full_name.strip()
+        local = (self.email or "").split("@", 1)[0]
+        words = [w for w in local.replace("_", ".").replace("-", ".").split(".") if w]
+        return " ".join(w[:1].upper() + w[1:] for w in words) or (self.email or "")
+
     def to_dict(self):
         """Public shape — never exposes the password hash."""
         return {
             "id": self.id,
             "email": self.email,
+            "full_name": self.full_name,
+            "display_name": self.display_name,
             "role": self.role,
             "is_scale": self.is_scale,
             "tenant_domain": self.domain,

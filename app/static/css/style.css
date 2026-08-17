@@ -2700,3 +2700,11 @@ textarea.text-input:focus {
 #project-settings-modal .modal-body {
     padding: 1.25rem 1.5rem 1.25rem;
 }
+
+/* The account name doubles as the control for changing it. */
+.account-name-btn {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: inherit; font: inherit; text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.account-name-btn:hover { text-decoration-style: solid; }

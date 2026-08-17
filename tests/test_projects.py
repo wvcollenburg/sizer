@@ -110,6 +110,44 @@ def test_cannot_save_into_someone_elses_project(app):
 
 # ── creation asks for a name only ────────────────────────────────────────────
 
+def test_prepared_by_defaults_to_the_creators_name(app):
+    c = app.test_client()
+    c.post("/api/auth/signup", json={
+        "email": "jane@partnerco.example", "password": PASSWORD,
+        "accept_privacy": True, "full_name": "Jane Doe"})
+    c.post("/api/auth/login", json={"email": "jane@partnerco.example",
+                                    "password": PASSWORD})
+    project = make_project(c, "Acme")
+    assert project["prepared_by"] == "Jane Doe"
+
+
+def test_prepared_by_falls_back_to_a_readable_name(app):
+    """Accounts predate the name field, so a bare address must still produce
+    something presentable on a proposal."""
+    c = client_for(app, "john.doe@partnerco.example")
+    assert make_project(c, "Acme")["prepared_by"] == "John Doe"
+
+
+def test_prepared_by_is_editable_and_not_pinned_to_the_account(app):
+    c = client_for(app, PARTNER_EMAIL)
+    project = make_project(c, "Acme")
+    resp = c.put(f"/api/projects/{project['id']}",
+                 json={"prepared_by": "Someone Else"})
+    assert resp.get_json()["prepared_by"] == "Someone Else"
+
+
+def test_changing_your_name_does_not_rewrite_existing_projects(app):
+    """Renaming yourself must not retro-attribute work already prepared."""
+    c = client_for(app, "jane@partnerco.example")
+    project = make_project(c, "Acme")
+    original = project["prepared_by"]
+
+    c.put("/api/auth/me", json={"full_name": "Jane Married"})
+    assert c.get(f"/api/projects/{project['id']}").get_json()["prepared_by"] == original
+    # ...but the next project picks up the new name.
+    assert make_project(c, "Globex")["prepared_by"] == "Jane Married"
+
+
 def test_project_creation_requires_only_a_name(app):
     c = client_for(app, PARTNER_EMAIL)
     project = make_project(c, name="Just a name")
