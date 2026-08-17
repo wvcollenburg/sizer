@@ -49,7 +49,44 @@ function showScreen(which) {
     window.scrollTo(0, 0);
 }
 
-function openProjectsHome() {
+// ── history ─────────────────────────────────────────────────────────────────
+// Screen changes are JS state, so without this the browser's Back button walks
+// out of the app entirely instead of stepping back through it. Each screen gets
+// a history entry whose URL can be re-derived on a cold load, which also makes
+// a project linkable.
+//
+//   /                              projects home
+//   /?project=<id>                 that project's view
+//   /?project=<id>&sizing=<id>     that sizing open in the sizer
+//   /?project=<id>&new=1           a blank sizer in that project
+
+function pushScreen(url, state, push) {
+    if (push === false) return;                 // replaying history, don't add to it
+    if (location.pathname + location.search === url) {
+        history.replaceState(state, '', url);
+    } else {
+        history.pushState(state, '', url);
+    }
+}
+
+window.addEventListener('popstate', function (e) {
+    const state = e.state || {};
+    if (state.screen === 'sizer' && state.sizingId) {
+        openSizing(state.sizingId, false);
+    } else if (state.screen === 'project' && state.projectId) {
+        openProject(state.projectId, false, false);
+    } else if (state.screen === 'sizer') {
+        // An unsaved sizer cannot be restored — its work only ever existed in
+        // the page that has since been replaced. Fall back to its project.
+        if (state.projectId) openProject(state.projectId, false, false);
+        else openProjectsHome(false);
+    } else {
+        openProjectsHome(false);
+    }
+});
+
+function openProjectsHome(push) {
+    pushScreen('/', { screen: 'projects' }, push);
     showScreen('projects');
     loadProjects();
 }
@@ -64,10 +101,7 @@ async function bootFromUrl() {
     const projectId = parseInt(params.get('project'), 10);
     if (!projectId) return false;
     const blank = params.get('new') === '1';
-
-    // Strip the parameters immediately: a later reload of this tab should not
-    // silently throw away whatever the user has since built.
-    history.replaceState({}, '', location.pathname);
+    const sizingId = parseInt(params.get('sizing'), 10);
 
     const { ok, data } = await api('/api/projects/' + projectId);
     if (!ok) return false;
@@ -75,7 +109,16 @@ async function bootFromUrl() {
     selectedSizings = new Set();
     activeTagFilter = null;
 
+    if (sizingId) {
+        await openSizing(sizingId, false);
+        return true;
+    }
     if (blank) {
+        // Drop &new=1 but keep the project, so this entry reads as "the sizer,
+        // in this project". Reloading then lands on the project rather than
+        // silently re-blanking a sizer the user has since filled in.
+        history.replaceState({ screen: 'sizer', projectId: projectId },
+                             '', '/?project=' + encodeURIComponent(projectId));
         enterSizer(null);          // no name yet — the bar shows UNSAVED
         return true;
     }
@@ -196,12 +239,14 @@ async function startQuickSizing() {
 
 // ── project view ────────────────────────────────────────────────────────────
 
-async function openProject(projectId, suppressRefresh) {
+async function openProject(projectId, suppressRefresh, push) {
     const { ok, data } = await api('/api/projects/' + projectId);
     if (!ok) return openProjectsHome();
     currentProject = data;
     selectedSizings = new Set();
     activeTagFilter = null;
+    pushScreen('/?project=' + encodeURIComponent(projectId),
+               { screen: 'project', projectId: projectId }, push);
     showScreen('project');
     renderProject();
     // Bring stale rows current in the background so comparing or exporting
@@ -657,9 +702,13 @@ async function addDrTarget() {
     openProject(currentProject.id);
 }
 
-async function openSizing(id) {
+async function openSizing(id, push) {
     const { ok, data } = await api('/api/configs/' + id);
     if (!ok) return;
+    const projectId = data.project_id || (currentProject && currentProject.id);
+    pushScreen('/?project=' + encodeURIComponent(projectId) +
+               '&sizing=' + encodeURIComponent(id),
+               { screen: 'sizer', projectId: projectId, sizingId: id }, push);
     enterSizer(data.name);
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
