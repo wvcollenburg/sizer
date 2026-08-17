@@ -456,6 +456,12 @@ let refreshFailed = 0;
 // would otherwise corrupt the first one's progress and navigate the user away.
 let refreshRunId = 0;
 let refreshProjectId = null;
+// In-flight refresh frames, keyed by config id: { frame, timer, finish }.
+// refreshOne() writes an entry before appending the iframe; the postMessage
+// listener and the timeout both resolve through it, and whichever arrives first
+// clears the other. Without this the very first refresh threw a ReferenceError,
+// so no frame ever reported back and the progress bar sat on "0 of N" forever.
+const refreshPending = new Map();
 
 function refreshStaleSizings(force) {
     const rows = (currentProject && currentProject.sizings) || [];
