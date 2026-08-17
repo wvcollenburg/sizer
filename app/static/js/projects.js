@@ -54,6 +54,37 @@ function openProjectsHome() {
     loadProjects();
 }
 
+// Resume where the URL says, after a clean-slate reload. Returns true when it
+// handled the landing screen, so the caller doesn't also open the project home.
+//
+//   /?project=<id>        → that project's view
+//   /?project=<id>&new=1  → a blank sizer inside that project
+async function bootFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const projectId = parseInt(params.get('project'), 10);
+    if (!projectId) return false;
+    const blank = params.get('new') === '1';
+
+    // Strip the parameters immediately: a later reload of this tab should not
+    // silently throw away whatever the user has since built.
+    history.replaceState({}, '', location.pathname);
+
+    const { ok, data } = await api('/api/projects/' + projectId);
+    if (!ok) return false;
+    currentProject = data;
+    selectedSizings = new Set();
+    activeTagFilter = null;
+
+    if (blank) {
+        enterSizer(null);          // no name yet — the bar shows UNSAVED
+        return true;
+    }
+    showScreen('project');
+    renderProject();
+    refreshStaleSizings(false);
+    return true;
+}
+
 function backToProjects() {
     currentProject = null;
     openProjectsHome();
@@ -158,8 +189,9 @@ async function openProjectByCodePrompt() {
 async function startQuickSizing() {
     const { ok, data } = await api('/api/projects/scratch', { method: 'POST' });
     if (!ok) return;
-    currentProject = { id: data.id, name: data.name, is_scratch: true, sizings: [] };
-    enterSizer();
+    // Same clean-slate reload as "New sizing" — a quick sizing started after
+    // another one must not inherit its import.
+    location.href = '/?project=' + encodeURIComponent(data.id) + '&new=1';
 }
 
 // ── project view ────────────────────────────────────────────────────────────
@@ -599,9 +631,17 @@ function stopExportPolling() {
 
 // ── sizing actions ──────────────────────────────────────────────────────────
 
-async function addSizingToProject() {
+// "New sizing" must be a blank sheet. The sizer keeps its state in module-level
+// globals — imported VMs, exclusions, per-cluster options, the chosen
+// recommendation, the loaded-config handle — and clearing them by hand means
+// enumerating every one correctly, forever. Miss one and the new sizing quietly
+// inherits the last one's data, which is exactly the bug this fixes.
+//
+// A reload guarantees the clean slate; the project comes back through the URL.
+// Cloning an existing sizing is what Duplicate is for.
+function addSizingToProject() {
     if (!currentProject) return;
-    enterSizer();
+    location.href = '/?project=' + encodeURIComponent(currentProject.id) + '&new=1';
 }
 
 async function addDrTarget() {
@@ -909,5 +949,6 @@ Object.assign(window, {
     deleteCurrentProject,
     toggleSizing, clearSizingSelection, filterByTag,
     activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,
+    bootFromUrl,
     compareSelected, closeCompare, exportSelected, refreshProjectNow,
 });

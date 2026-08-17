@@ -69,7 +69,15 @@ function updateGate() {
             && !document.body.classList.contains('view-project')
             && !document.body.classList.contains('view-sizer')
             && window.openProjectsHome) {
-            window.openProjectsHome();
+            // A clean-slate reload carries the project in the URL; only fall
+            // back to the project home when the URL asked for nothing.
+            if (window.bootFromUrl) {
+                window.bootFromUrl().then(function (handled) {
+                    if (!handled) window.openProjectsHome();
+                });
+            } else {
+                window.openProjectsHome();
+            }
         }
         // Safety net for the boot hold: if the project layer never loaded,
         // showScreen() will never run and the app body would stay hidden
