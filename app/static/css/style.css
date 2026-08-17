@@ -2442,7 +2442,7 @@ body.auth-required #project-screens { display: none; }
     border-radius: var(--radius); cursor: pointer;
     transition: border-color 0.12s, transform 0.12s;
 }
-.project-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+.project-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 .project-card-name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
 .project-card-sub { color: var(--text-muted); font-size: 0.82rem; }
 
@@ -2467,7 +2467,7 @@ body.auth-required #project-screens { display: none; }
 .sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-name { font-weight: 500; }
 .sizing-source { color: var(--text-muted); font-size: 0.82rem; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.note-dot { color: var(--primary); font-size: 0.7rem; cursor: help; }
+.note-dot { color: var(--accent); font-size: 0.7rem; cursor: help; }
 
 .btn-xs { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
 
@@ -2492,7 +2492,7 @@ body.auth-required #project-screens { display: none; }
     border: 1px solid var(--border); background: var(--surface);
     color: var(--text); cursor: pointer;
 }
-.tag-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tag-chip-active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .tag-chip-sm { font-size: 0.7rem; cursor: default; }
 .tag-chip-clear { border-style: dashed; color: var(--text-muted); }
 .tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
@@ -2501,7 +2501,7 @@ body.auth-required #project-screens { display: none; }
 .project-selection-bar {
     display: flex; align-items: center; gap: 0.75rem;
     padding: 0.5rem 0.75rem; margin: 0.5rem 0;
-    background: var(--surface); border: 1px solid var(--primary);
+    background: var(--surface); border: 1px solid var(--accent);
     border-radius: var(--radius); font-size: 0.85rem;
 }
 
@@ -2528,7 +2528,7 @@ body.auth-required #project-screens { display: none; }
 .modal-footer-spacer { flex: 1; }
 .modal-error { color: var(--danger, #a32020); font-size: 0.85rem; margin-top: 0.5rem; }
 .field-hint { color: var(--text-muted); font-size: 0.8rem; margin: 0.2rem 0 0.75rem; }
-.sf-link { color: var(--primary); text-decoration: none; }
+.sf-link { color: var(--accent); text-decoration: none; }
 .sf-link:hover { text-decoration: underline; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -2673,7 +2673,7 @@ textarea.text-input:focus {
 
 /* Assigned: solid, and carries the × that takes it off. */
 .tag-chip-assigned {
-    background: var(--primary); border-color: var(--primary); color: #fff;
+    background: var(--accent); border-color: var(--accent); color: #fff;
     display: inline-flex; align-items: center; gap: 0.4rem;
 }
 .tag-chip-remove {
@@ -2687,7 +2687,7 @@ textarea.text-input:focus {
    glance rather than inferred from which heading it sits under. */
 .tag-chip-add { border-style: dashed; color: var(--text-muted); }
 .tag-chip-add::before { content: "+"; margin-right: 0.3rem; opacity: 0.7; }
-.tag-chip-add:hover { border-style: solid; border-color: var(--primary); color: var(--primary); }
+.tag-chip-add:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
 
 .tag-empty { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
 .tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
