@@ -474,6 +474,8 @@
   "footer.dev_tag": "Under utvikling",
   "footer.disclaimer": "Denne dimensjoneringen er under arbeid og er på ingen måte perfekt. Hver konfigurasjon den anbefaler leveres kun etter beste evne — ingen garantier gis, og intet ansvar kan påtas for beslutninger tatt på grunnlag av utdataene. Valider alltid resultatene før du stoler på dem.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Basert på Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Personvernerklæring</a>",
+  "header.language": "Språk",
+  "header.theme": "Tema",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Klynge",
   "import.configure_vms": "Konfigurer VM-er",

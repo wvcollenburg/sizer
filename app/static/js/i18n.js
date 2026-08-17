@@ -75,6 +75,14 @@
             el = nodes[i];
             el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
         }
+        // Icon-only controls carry their whole accessible name in aria-label,
+        // so it has to be translated too — otherwise screen-reader users get
+        // English labels regardless of the locale they chose.
+        nodes = root.querySelectorAll('[data-i18n-aria]');
+        for (i = 0; i < nodes.length; i++) {
+            el = nodes[i];
+            el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+        }
     }
     window.translateDOM = translateDOM;
 

@@ -12,3 +12,7 @@ __pycache__/
 
 # Generated export bundles (regenerable, customer data — never commit)
 app/data/exports/
+
+# Downloaded dev-only browser binary for UI screenshots (tools/shots.sh).
+.tools/
+docs/shots/

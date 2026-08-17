@@ -474,6 +474,8 @@
   "footer.dev_tag": "Under utveckling",
   "footer.disclaimer": "Denna sizer är under arbete och är på intet sätt perfekt. Varje konfiguration den rekommenderar tillhandahålls endast på bästa förmåga — inga garantier lämnas, och inget ansvar eller ingen skyldighet kan accepteras för beslut som fattas baserat på dess resultat. Validera alltid resultaten innan du förlitar dig på dem.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Baserad på Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Integritetspolicy</a>",
+  "header.language": "Språk",
+  "header.theme": "Tema",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Kluster",
   "import.configure_vms": "Konfigurera VM:ar",

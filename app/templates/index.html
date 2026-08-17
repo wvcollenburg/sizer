@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SC// Infrastructure Sizer</title>
+    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <!-- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
          older ones and the browser's unprompted /favicon.ico request. Built by
@@ -11,6 +12,9 @@
     <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
     <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
     <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
+    <!-- Theme must be stamped on <html> before the first paint, or dark-mode
+         users get a flash of the light theme on every load. -->
+    <script src="{{ asset('js/theme.js') }}"></script>
     <!-- i18n: English base (fallback) + the active locale, then the engine.
          Loaded in <head> so text is swapped before first paint. -->
     <script src="{{ asset('js/lang/en.js') }}"></script>
@@ -24,14 +28,30 @@
 <body class="app-booting" data-vcpu-ratio="{{ default_vcpu_ratio }}">
     <header>
         <div class="header-content">
-            <h1 data-i18n="header.title">SC// Infrastructure Sizer</h1>
+            {# Brand lockup. The <h1> stays for document structure and keeps the
+               translated product name; the logo is decorative beside it, so it
+               carries an empty alt rather than repeating the same words. #}
+            <h1 class="brand">
+                <img class="brand-logo" src="{{ asset('img/scale-computing-logo-white.svg') }}" alt="">
+                <span class="brand-name" data-i18n="header.title">SC// Infrastructure Sizer</span>
+            </h1>
             <span class="version">v0.9.0</span>
             <div class="account-bar" id="account-bar">
                 <!-- populated by auth.js -->
             </div>
+            {# Sun/moon swap by theme — only one is ever visible (see .theme-btn
+               in style.css), so the button reads correctly in both. #}
+            <button class="theme-btn" data-click='["toggleTheme"]'
+                    data-i18n-title="header.theme" title="Theme"
+                    data-i18n-aria="header.theme" aria-label="Theme">
+                <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
             <div class="lang-menu">
-                <button class="lang-btn" data-click='["toggleLangMenu"]' aria-label="Language" title="Language">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <button class="lang-btn" data-click='["toggleLangMenu"]'
+                        data-i18n-aria="header.language" aria-label="Language"
+                        data-i18n-title="header.language" title="Language">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </button>
                 <ul class="lang-dropdown" id="lang-dropdown" hidden>
                     {% for code in supported_langs %}
@@ -145,22 +165,22 @@
         </div>
         <section class="mode-selector">
             <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
-                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
                 <span class="mode-label" data-i18n="mode.appliance_label">Appliance (Certified)</span>
                 <span class="mode-desc" data-i18n="mode.appliance_desc">Fixed hardware configurations</span>
             </button>
             <button class="mode-btn" data-mode="validated" data-click='["requestSwitchMode","validated"]'>
-                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
                 <span class="mode-label" data-i18n="mode.validated_label">Software Only (Validated)</span>
                 <span class="mode-desc" data-i18n="mode.validated_desc">Flexible configurations with rules</span>
             </button>
             <button class="mode-btn" data-mode="import" data-click='["requestSwitchMode","import"]'>
-                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
                 <span class="mode-label" data-i18n="mode.import_label">VMware Import</span>
                 <span class="mode-desc" data-i18n="mode.import_desc">Import Live Optics or RVTools export</span>
             </button>
             <button class="mode-btn" data-mode="manual" data-click='["requestSwitchMode","manual"]'>
-                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+                <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
                 <span class="mode-label" data-i18n="mode.manual_label">Manual Input</span>
                 <span class="mode-desc" data-i18n="mode.manual_desc">Enter workload requirements manually</span>
             </button>
@@ -396,7 +416,7 @@
                 <h3 data-i18n="import.upload_title">Upload VMware Environment Export</h3>
                 <p class="import-desc" data-i18n="import.upload_desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
                 <div class="upload-area" id="upload-area">
-                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
                     <div class="upload-text" data-i18n="import.drop_hint">Drop .xlsx file here or click to browse</div>
                     <input type="file" id="file-input" accept=".xlsx" data-change='["handleFileSelect","$this"]'>
                 </div>
@@ -564,7 +584,21 @@
 
         <!-- SHARED SIZING OPTIONS + GROWTH + RECOMMENDATIONS (used by both VMware
              Import and Manual Input so the two flows can never drift apart). -->
+        {# Two-column sizing screen, mirroring SC//Design's scenario page: the
+           parameters stay in a sticky left rail while the recommendations scroll
+           beside them. The grid lives on .sizing-inner rather than on
+           #sizing-results itself because app.js and wizard.js drive this
+           section's visibility with an inline `style.display`, which would
+           overwrite a `display: grid` set here.
+
+           .sizing-rail / .sizing-output are also the seam the guided wizard
+           already splits on — it portals .ratio-control + .growth-control into
+           its parameters step and the recommendation blocks into its results
+           step. Portals restore to whatever parent they were captured under, so
+           these wrappers are transparent to it. #}
         <section id="sizing-results" class="config-form" style="display:none">
+          <div class="sizing-inner">
+            <div class="sizing-rail">
                 <div class="ratio-control">
                     <div class="ratio-header">
                         <h3 data-i18n="results.sizing_options">Sizing Options</h3>
@@ -716,7 +750,9 @@
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>
+            </div><!-- /.sizing-rail -->
 
+            <div class="sizing-output">
                 <!-- Primary / Replication-DR tabs (single-workload mode; shown by JS). -->
                 <div id="dr-tabs" class="cluster-tabs" style="display:none"></div>
                 <div id="primary-recommendations" class="import-recommendations">
@@ -732,6 +768,8 @@
                 </div>
                 <!-- Multi-site "Selected clusters" review tab content (hidden until that tab is active). -->
                 <div id="cluster-review" style="display:none"></div>
+            </div><!-- /.sizing-output -->
+          </div><!-- /.sizing-inner -->
         </section>
 
 
@@ -780,7 +818,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.vmexcl.title">Configure VMs for Sizing</h2>
-                <button class="modal-close" data-click='["closeVmExclusionModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeVmExclusionModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <!-- Portable VM-triage panel: the wizard relocates this whole block
                  into its "Review VMs" step; in classic view it stays in the modal. -->
@@ -842,7 +880,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.manualvm.title">Add VMs</h2>
-                <button class="modal-close" data-click='["closeManualVmModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeManualVmModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-toolbar">
                 <button class="btn btn-sm" type="button" data-click='["addManualVm"]' data-i18n="modal.manualvm.add_vm">+ Add VM</button>
@@ -881,7 +919,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 data-i18n="modal.sourcecpu.title">Source CPU performance</h2>
-                <button class="modal-close" data-click='["closeSourceCpuModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeSourceCpuModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <div id="source-cpu-panel"></div>
@@ -899,7 +937,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 id="diagram-modal-title" data-i18n="modal.diagram.title">Network diagram</h2>
-                <button class="modal-close" data-click='["closeClusterDiagram"]'>&times;</button>
+                <button class="modal-close" data-click='["closeClusterDiagram"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body" id="diagram-modal-body"></div>
             <div class="modal-footer">
@@ -916,7 +954,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2><span data-i18n="modal.clone.title">Clone</span> <span id="clone-source-name"></span></h2>
-                <button class="modal-close" data-click='["closeCloneModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeCloneModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -943,7 +981,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="auth-modal-title" data-i18n="modal.auth.signin">Sign in</h2>
-                <button class="modal-close" data-click='["closeAuthModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeAuthModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="auth-tabs">
@@ -1013,7 +1051,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.sizings.title">My Sizings</h2>
-                <button class="modal-close" data-click='["closeSizingsModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeSizingsModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-toolbar" id="sizings-toolbar">
                 <input type="text" id="sizings-search" class="vm-search"
@@ -1053,7 +1091,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.org.title">Organization</h2>
-                <button class="modal-close" data-click='["closeOrgModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeOrgModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <p class="rec-desc" id="org-desc"></p>
@@ -1075,7 +1113,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.name.title">Name this sizing</h2>
-                <button class="modal-close" data-click='["closeNameModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeNameModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <form id="name-sizing-form" data-submit='["submitNameSizing","$event"]'>
@@ -1098,7 +1136,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.reset.title">Set a new password</h2>
-                <button class="modal-close" data-click='["closeResetModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeResetModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <form id="reset-form" data-submit='["submitReset","$event"]'>
@@ -1138,7 +1176,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.leave.title">Unsaved sizing</h2>
-                <button class="modal-close" data-click='["closeLeavePage"]'>&times;</button>
+                <button class="modal-close" data-click='["closeLeavePage"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" data-i18n="modal.leave.msg">Switching pages will discard the data on this page. Would you like to save this configuration first?</p>
@@ -1155,7 +1193,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.save.title">Save sizing</h2>
-                <button class="modal-close" data-click='["closeSaveChoice"]'>&times;</button>
+                <button class="modal-close" data-click='["closeSaveChoice"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" id="save-choice-msg"></p>
@@ -1177,7 +1215,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="project.new.title">New project</h2>
-                <button class="modal-close" data-click='["closeNewProject"]'>&times;</button>
+                <button class="modal-close" data-click='["closeNewProject"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <label class="field-label" for="new-project-name"
@@ -1203,7 +1241,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="project.settings.title">Project details</h2>
-                <button class="modal-close" data-click='["closeProjectSettings"]'>&times;</button>
+                <button class="modal-close" data-click='["closeProjectSettings"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body" id="project-settings-body">
                 <label class="field-label" for="ps-name" data-i18n="project.settings.name">Name</label>
@@ -1263,7 +1301,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="sizing-modal-title">Sizing</h2>
-                <button class="modal-close" data-click='["closeSizingPanel"]'>&times;</button>
+                <button class="modal-close" data-click='["closeSizingPanel"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="panel-field">
@@ -1339,7 +1377,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="info-modal-title" data-i18n="modal.info.title">Notice</h2>
-                <button class="modal-close" data-click='["closeInfoModal"]'>&times;</button>
+                <button class="modal-close" data-click='["closeInfoModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
                 <p id="info-modal-msg" class="info-modal-msg"></p>

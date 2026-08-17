@@ -474,6 +474,8 @@
   "footer.dev_tag": "In ontwikkeling",
   "footer.disclaimer": "Deze sizer is een work in progress en is geenszins perfect. Elke configuratie die wordt aanbevolen, wordt uitsluitend op basis van beste inspanning verstrekt — er worden geen garanties gegeven en er kan geen verantwoordelijkheid of aansprakelijkheid worden aanvaard voor beslissingen die op basis van de uitvoer worden genomen. Valideer de resultaten altijd voordat u erop vertrouwt.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Gebaseerd op Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privacybeleid</a>",
+  "header.language": "Taal",
+  "header.theme": "Thema",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Cluster",
   "import.configure_vms": "VM's configureren",

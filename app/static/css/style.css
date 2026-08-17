@@ -1,34 +1,21 @@
-:root {
-    --bg: #f5f6f8;
-    --surface: #ffffff;
-    --surface2: #eef1f5;
-    --border: #d5dbe3;
-    --text: #2c3e50;
-    --text-muted: #6c7a89;
-    --accent: #0076CE;
-    --accent-dark: #005fa3;
-    --accent-light: #e8f0f8;
-    --green: #2e7d32;
-    --orange: #e67e22;
-    --red: #c0392b;
-    --yellow: #f39c12;
-    --radius: 8px;
-}
+/* Main sizer UI. Design tokens, fonts and the element baseline live in
+   tokens.css, which the template links first. */
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-}
-
+/* ── Nav bar ──────────────────────────────────────────────────────────────
+   SC//Design's shell: a sticky navy bar, white logo hard left, text links
+   beside it, identity right. Their `dashboard-nav.tsx` is `sticky top-0 z-50
+   bg-sc-navy` with `px-8 py-4`; the 2px gradient hairline under it comes from
+   their auth layout. z-index sits under modals (1000+) but over page content. */
 header {
-    background: #003a70;
-    border-bottom: 3px solid var(--accent);
-    padding: 1rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    background: var(--navy);
+    padding: 0.9rem 2rem;
+    /* The hairline replaces our old 3px accent rule — theirs is a sc-500 →
+       sc-400 gradient, which is the single most recognisable trim on the app. */
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(to right, var(--sc-500), var(--sc-400)) 1;
 }
 
 .header-content {
@@ -36,7 +23,35 @@ header {
     margin: 0 auto;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.4rem;
+}
+
+/* Brand lockup: the Scale Computing mark, then the product name as a muted
+   wordmark. Their nav shows the logo alone, but their own mockups carry a
+   "SC//Design" wordmark in the same slot — keeping ours is in-language and
+   is what distinguishes this tool from the rest of the SC estate. */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.brand-logo {
+    /* Logo viewBox is 294.47 × 83.75; theirs renders at 180 × 51. */
+    width: 168px;
+    height: auto;
+    display: block;
+}
+.brand-name {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    /* Divider between mark and wordmark, echoing the logo's own proportions. */
+    padding-left: 0.85rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 /* i18n: hide the page until translateDOM() has swapped text, so non-English
@@ -51,7 +66,7 @@ header {
 .lang-btn {
     background: transparent;
     border: none;
-    color: #cfe4f5;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     padding: 5px;
     display: flex;
@@ -59,7 +74,7 @@ header {
     border-radius: 6px;
     line-height: 0;
 }
-.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: var(--on-accent); }
 .lang-dropdown {
     position: absolute;
     right: 0;
@@ -93,25 +108,29 @@ header {
 .lang-option:hover { background: var(--surface2); }
 .lang-option.active { font-weight: 700; color: var(--accent); }
 
+/* The <h1> is now the brand lockup; its type comes from .brand-name. */
 header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #4db8ff;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: 1;
 }
 
+/* Version reads as metadata on the navy bar, not as a call to action — the
+   old solid accent pill fought the logo for attention. */
 .version {
-    background: var(--accent);
-    color: #fff;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.65);
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 main {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 1.5rem 2rem;
+    padding: 1.75rem 2rem;
 }
 
 .mode-selector {
@@ -121,31 +140,37 @@ main {
     margin-bottom: 1.5rem;
 }
 
+/* Their "action card" (mockups/project-create.html): white card, 2px neutral
+   border, hover to sc-300, selected to the accent border plus a 3px ring.
+   Left-aligned — theirs stacks icon, title and description to the left rather
+   than centring, which is what makes the descriptions readable. */
 .mode-btn {
     background: var(--surface);
     border: 2px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.2rem;
+    padding: 1.1rem 1.2rem;
     cursor: pointer;
-    transition: all 0.2s;
+    text-align: left;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease,
+                background-color 0.15s ease;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.3rem;
     color: var(--text);
 }
 
-.mode-btn:hover { border-color: var(--accent); }
+.mode-btn:hover { border-color: var(--sc-300); }
 
 .mode-btn.active {
     border-color: var(--accent);
-    background: var(--accent-light);
-    box-shadow: 0 2px 8px rgba(0, 118, 206, 0.12);
+    background: var(--sc-50);
+    box-shadow: 0 0 0 3px var(--ring);
 }
 
-.mode-icon { font-size: 1.8rem; }
-.mode-label { font-size: 1.1rem; font-weight: 600; }
-.mode-desc { font-size: 0.8rem; color: var(--text-muted); }
+.mode-icon { font-size: 1.4rem; line-height: 1.2; margin-bottom: 0.15rem; }
+.mode-label { font-size: var(--fs-sm); font-weight: 600; }
+.mode-desc { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.45; }
 
 .config-form {
     background: var(--surface);
@@ -154,6 +179,61 @@ main {
     padding: 1.5rem;
     margin-bottom: 1.5rem;
 }
+
+/* ── Sizing screen: sticky parameter rail ─────────────────────────────────
+   SC//Design's scenario page puts parameters and catalog filters in a sticky
+   420px left rail (`lg:w-[420px] lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)]
+   lg:overflow-y-auto`) with the recommendations in a `flex-1 min-w-0` column
+   beside it, `gap-6` apart. Those rem values resolve against the same 18px root
+   we now use, so the measurements below are the same pixels as theirs.
+
+   #sizing-results stops being a card here — the rail and the output column each
+   carry their own card chrome, matching their stacked-Card layout. */
+#sizing-results.config-form {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+}
+
+.sizing-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (min-width: 1024px) {
+    .sizing-inner {
+        grid-template-columns: 420px minmax(0, 1fr);
+    }
+
+    .sizing-rail {
+        position: sticky;
+        top: 6rem;
+        max-height: calc(100vh - 7rem);
+        overflow-y: auto;
+        /* Room for the focus ring on the last control, which `overflow-y`
+           would otherwise clip. */
+        padding-right: 2px;
+        scrollbar-width: thin;
+    }
+
+    /* Multi-site "Selected clusters" review hides every control in the rail
+       (setClusterReviewMode in app.js sets display:none on .ratio-control and
+       .growth-control), which would otherwise leave a 420px void beside the
+       review panel. Collapse to one column while that mode is active. */
+    .sizing-inner:not(:has(.ratio-control:not([style*="none"]))) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* The rail's cards stack like their CardContent sections. The coloured left
+   borders our controls used to carry are dropped — SC//Design's control panel
+   is a plain card, and two accent stripes in a narrow rail read as clutter. */
+.sizing-rail > * { margin-bottom: 1rem; }
+.sizing-rail > *:last-child { margin-bottom: 0; }
+.sizing-output > *:last-child { margin-bottom: 0; }
 
 .form-row {
     display: flex;
@@ -167,31 +247,49 @@ main {
     min-width: 200px;
 }
 
+/* Their <Label> is sentence-case, 500 weight, in the body ink — our
+   uppercase letterspaced labels were the loudest single giveaway that this
+   was a different tool, so they go. */
 .form-group label {
     display: block;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-bottom: 0.3rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0;
 }
 
+/* Their input.tsx: `h-9 w-full rounded-md border bg-transparent px-3 py-1
+   text-base shadow-xs`, focusing to a border-colour change plus a 3px ring.
+   White fill rather than our old page-grey, matching their `bg-transparent`
+   over a card. */
 select, input[type="number"], input[type="text"],
-input[type="email"], input[type="password"] {
+input[type="email"], input[type="password"], input[type="date"] {
     width: 100%;
-    background: var(--bg);
+    height: 2.25rem;
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 0 0.75rem;
     color: var(--text);
-    font-size: 0.9rem;
-    transition: border-color 0.2s;
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    box-shadow: var(--shadow-xs);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
+select::placeholder, input::placeholder { color: var(--text-subtle); }
 
 select:focus, input:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(0, 118, 206, 0.1);
+    box-shadow: 0 0 0 3px var(--ring);
+}
+
+select:disabled, input:disabled {
+    background: var(--surface2);
+    color: var(--text-muted);
+    cursor: not-allowed;
 }
 
 .model-details {
@@ -214,23 +312,43 @@ select:focus, input:focus {
     color: var(--accent);
 }
 
-.status-badge {
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
+/* ── Badges ───────────────────────────────────────────────────────────────
+   One pill shape for every status marker in the app, from SC//Design's
+   badge.tsx (`rounded-full px-2 py-0.5 text-xs font-medium`) with the
+   pastel-fill / dark-ink pairs their tables use for PASS / FAIL / pending.
+   The classes below all resolve to this shape so a badge looks the same
+   whether it came from a template, app.js or projects.js. */
+.status-badge,
+.category-badge,
+.state-badge,
+.project-badge,
+.account-badge,
+.rec-ratio-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
 }
 
-.status-active { background: #d4edda; color: var(--green); }
-.status-eos { background: #f8d7da; color: var(--red); }
-.status-eol { background: #fff3cd; color: #856404; }
+/* Semantic fills. Named so JS and templates can reach for a meaning rather
+   than a colour. */
+.badge-pass, .status-active { background: var(--green-bg); color: var(--green); }
+.badge-fail, .status-eos { background: var(--red-bg); color: var(--red); }
+.badge-warn, .status-eol { background: var(--orange-bg); color: var(--orange); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+.badge-accent { background: var(--sc-100); color: var(--sc-700); }
+.badge-neutral { background: var(--surface2); color: var(--text-muted); }
 
 .category-badge {
     background: var(--surface2);
-    border: 1px solid var(--border);
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    border-color: var(--border);
     color: var(--text-muted);
 }
 
@@ -282,11 +400,11 @@ select:focus, input:focus {
 }
 .validated-rules li[data-rule]::before {
     content: "\2713  ";
-    color: #c4ccd6;
+    color: var(--border-strong);
 }
 .validated-rules li[data-rule].met,
 .validated-rules li[data-rule].met::before {
-    color: #2a9d54;
+    color: var(--green);
 }
 .validated-rules li[data-rule].bad,
 .validated-rules li[data-rule].bad::before {
@@ -348,7 +466,7 @@ select:focus, input:focus {
     align-items: center;
     justify-content: center;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border-radius: 50%;
     font-size: 0.75rem;
     font-weight: 700;
@@ -396,38 +514,73 @@ select:focus, input:focus {
 
 .qty-label { font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0; }
 
+/* ── Buttons ──────────────────────────────────────────────────────────────
+   Ported from SC//Design's button.tsx. Their base is
+   `inline-flex items-center justify-center gap-2 rounded-md text-sm
+   font-medium`, default size `h-9 px-4`, small `h-8 px-3`, with a 3px
+   translucent focus ring (`focus-visible:ring-ring/50 ring-[3px]`).
+   Heights are in rem so they track the 18px root: h-9 = 2.25rem = 40.5px. */
 .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.25rem;
+    padding: 0 1rem;
     background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
-    font-weight: 600;
+    color: var(--on-accent);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+                color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.btn:hover { background: var(--accent-dark); }
+.btn:hover { background: var(--accent-hover); }
 
-.btn-sm { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+/* One focus treatment for every control in the app. Ours had almost no
+   visible focus state before; theirs is both on-brand and a real a11y win. */
+.btn:focus-visible,
+.text-input:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
+}
 
+.btn-sm {
+    height: 2rem;
+    padding: 0 0.75rem;
+    font-size: var(--fs-sm);
+}
+
+/* Full-width submit button inside forms. Kept as a block-level variant
+   because several forms rely on it filling the row. */
 .btn-primary {
-    display: block;
+    display: flex;
     width: 100%;
-    padding: 0.8rem;
-    font-size: 1rem;
+    height: 2.5rem;
+    padding: 0 1rem;
+    font-size: var(--fs-sm);
     margin-top: 1rem;
 }
 
 .btn-danger {
     background: var(--red);
-    color: #fff;
-    padding: 0.3rem 0.6rem;
+    color: var(--on-accent);
+    height: 2rem;
+    padding: 0 0.7rem;
     flex-shrink: 0;
 }
 
-.btn-danger:hover { background: #a93226; }
+.btn-danger:hover { background: #7f1d1d; }
 
 .validation-msg { margin-top: 0.5rem; }
 
@@ -452,13 +605,14 @@ select:focus, input:focus {
 }
 
 .results-section h2 {
-    color: var(--accent);
-    font-size: 1.3rem;
+    color: var(--text);
+    font-weight: 600;
+    font-size: var(--fs-xl);
     margin-bottom: 1rem;
 }
 
 .error-msg {
-    background: #f8d7da;
+    background: var(--red-bg);
     border: 1px solid var(--red);
     border-radius: var(--radius);
     padding: 1rem;
@@ -485,16 +639,17 @@ select:focus, input:focus {
 }
 
 .result-card h3 {
-    font-size: 0.95rem;
-    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
     margin-bottom: 0.8rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
 }
 
 .result-card.highlight {
-    border-color: var(--accent);
-    box-shadow: 0 2px 12px rgba(0, 118, 206, 0.1);
+    border-color: var(--sc-300);
+    background: var(--sc-50);
 }
 
 .result-card.highlight h3 { color: var(--accent); }
@@ -516,7 +671,7 @@ select:focus, input:focus {
    out and shows a no-redundancy notice instead of figures. */
 .result-card.n1.no-redundancy {
     border-color: var(--border);
-    background: #f6f7f9;
+    background: var(--surface2);
     opacity: 0.85;
 }
 
@@ -574,9 +729,9 @@ footer {
     bottom: 0;
     z-index: 1000;
     padding: 0.55rem 1rem;
-    background: #fff3cd;
-    border-top: 1px solid #e0c068;
-    color: #6b5616;
+    background: var(--orange-bg);
+    border-top: 1px solid var(--orange);
+    color: var(--orange);
     font-size: 0.78rem;
     line-height: 1.35;
     text-align: center;
@@ -586,8 +741,11 @@ footer {
     margin-right: 0.5rem;
     padding: 0.1rem 0.45rem;
     border-radius: 4px;
-    background: #e0a800;
-    color: #fff;
+    /* Fill is --orange, so the ink must be its partner token: --on-accent is
+       near-white and became unreadable once --orange inverted to light amber
+       in the dark theme. */
+    background: var(--orange);
+    color: var(--orange-bg);
     font-weight: 700;
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -658,12 +816,12 @@ body { padding-bottom: 64px; }
 }
 
 .upload-ok {
-    background: #d4edda;
+    background: var(--green-bg);
     color: var(--green);
 }
 
 .upload-error {
-    background: #f8d7da;
+    background: var(--red-bg);
     color: var(--red);
 }
 
@@ -751,8 +909,8 @@ body { padding-bottom: 64px; }
 .manual-vm-note {
     font-size: 0.78rem;
     color: var(--text-muted);
-    background: #f0fbf3;
-    border: 1px solid #cdebd6;
+    background: var(--green-bg);
+    border: 1px solid #bbf7d0;
     border-radius: 4px;
     padding: 0.4rem 0.6rem;
     margin-bottom: 0.8rem;
@@ -765,7 +923,7 @@ body { padding-bottom: 64px; }
 
 /* Brief flash when a workload field is clamped back up to its entered-VM total. */
 @keyframes field-clamp-flash {
-    0% { background: #fff3cd; border-color: var(--orange); }
+    0% { background: var(--orange-bg); border-color: var(--orange); }
     100% { background: var(--surface); }
 }
 .field-clamped { animation: field-clamp-flash 1.2s ease; }
@@ -775,7 +933,6 @@ body { padding-bottom: 64px; }
 .ratio-control {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--orange);
     border-radius: var(--radius);
     padding: 1.2rem 1.5rem;
     margin-bottom: 1.5rem;
@@ -791,8 +948,9 @@ body { padding-bottom: 64px; }
 }
 
 .ratio-header h3 {
-    color: var(--orange);
-    font-size: 1rem;
+    color: var(--text);
+    font-size: var(--fs-base);
+    font-weight: 600;
     margin: 0;
     border: none;
     padding: 0;
@@ -804,21 +962,27 @@ body { padding-bottom: 64px; }
 }
 
 .ratio-current strong {
-    color: var(--orange);
+    color: var(--accent);
+    font-weight: 600;
 }
 
 .ratio-slider-row {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
     margin-bottom: 1rem;
 }
+/* In the 420px rail the label, slider and readout do not fit on one line, so
+   the label takes its own — otherwise the trailing ":1" is clipped away. */
+.ratio-slider-row label { flex: 1 0 100%; }
+.ratio-slider-row input[type="range"] { min-width: 0; }
+.ratio-value { flex: 0 0 auto; }
 
 .ratio-slider-row label {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text);
     white-space: nowrap;
 }
 
@@ -836,34 +1000,37 @@ body { padding-bottom: 64px; }
 
 .ratio-slider-row input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 1.15rem;
+    height: 1.15rem;
     border-radius: 50%;
-    background: var(--orange);
+    background: var(--surface);
     cursor: pointer;
-    border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--accent);
+    box-shadow: var(--shadow-sm);
 }
 
 .ratio-slider-row input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: 1.15rem;
+    height: 1.15rem;
     border-radius: 50%;
-    background: var(--orange);
+    background: var(--surface);
     cursor: pointer;
-    border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    border: 2px solid var(--accent);
+    box-shadow: var(--shadow-sm);
 }
 
 .ratio-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--orange);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
     min-width: 70px;
     text-align: right;
 }
 
-.ratio-bar-container { margin-top: 0.2rem; }
+/* Headroom for .ratio-bar-marker::after, which is absolutely positioned above
+   the bar — without it the "current" caption sits on top of the slider's value
+   readout whenever the marker is near the right end. */
+.ratio-bar-container { margin-top: 0.2rem; padding-top: 1rem; }
 
 .ratio-bar {
     position: relative;
@@ -875,7 +1042,7 @@ body { padding-bottom: 64px; }
 
 .ratio-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--green) 0%, var(--orange) 50%, var(--red) 100%);
+    background: linear-gradient(90deg, var(--sc-400) 0%, var(--sc-700) 100%);
     border-radius: 4px;
     transition: width 0.15s;
 }
@@ -888,7 +1055,7 @@ body { padding-bottom: 64px; }
     background: var(--accent);
     border-radius: 1px;
     transform: translateX(-50%);
-    box-shadow: 0 0 4px rgba(0, 118, 206, 0.5);
+    box-shadow: 0 0 4px var(--ring);
     cursor: help;
 }
 
@@ -918,7 +1085,7 @@ body { padding-bottom: 64px; }
 
 /* Sizing Options — consolidated controls (ratio + node/storage/mode + toggles) */
 .ratio-slider-row.compact { margin-bottom: 0.5rem; }
-.ratio-slider-row.compact .ratio-value { font-size: 0.95rem; min-width: 64px; }
+.ratio-slider-row.compact .ratio-value { font-size: var(--fs-sm); min-width: 5rem; }
 
 .sizing-options-grid {
     display: flex;
@@ -963,15 +1130,15 @@ body { padding-bottom: 64px; }
 .growth-control {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--green);
     border-radius: var(--radius);
     padding: 1.2rem 1.5rem;
     margin-bottom: 1.5rem;
 }
 
 .growth-control h3 {
-    color: var(--green);
-    font-size: 1rem;
+    color: var(--text);
+    font-size: var(--fs-base);
+    font-weight: 600;
     margin-bottom: 0.8rem;
     padding: 0;
     border: none;
@@ -1047,21 +1214,16 @@ body { padding-bottom: 64px; }
 }
 
 .rec-ratio-badge {
-    background: #fff3e0;
-    border: 1px solid var(--orange);
+    background: var(--orange-bg);
     color: var(--orange);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
 }
 
 .info-bar {
     display: flex;
     align-items: flex-start;
     gap: 0.6rem;
-    background: #e8f2fc;
-    border: 1px solid #b6d8f5;
+    background: var(--sc-50);
+    border: 1px solid var(--sc-300);
     border-left: 4px solid var(--accent);
     color: var(--text);
     border-radius: 4px;
@@ -1080,7 +1242,7 @@ body { padding-bottom: 64px; }
     justify-content: center;
     border-radius: 50%;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     font-size: 0.72rem;
     font-weight: 700;
     font-style: italic;
@@ -1089,8 +1251,7 @@ body { padding-bottom: 64px; }
 }
 
 .rec-ratio-badge.degraded {
-    background: #fdecea;
-    border-color: var(--red);
+    background: var(--red-bg);
     color: var(--red);
     cursor: help;
 }
@@ -1130,6 +1291,11 @@ body { padding-bottom: 64px; }
     cursor: pointer;
 }
 
+/* Approximates lucide's `circle-help`, which is what SC//Design's HelpTip
+   renders: a muted outlined glyph, not a filled dot. Drawn in CSS rather than
+   swapped for an <svg> because these are authored at ~18 call sites across the
+   template and app.js, all of which pass their tooltip text as the title
+   attribute — the ring is indistinguishable at 16px and costs no churn. */
 .info-icon {
     display: inline-flex;
     align-items: center;
@@ -1137,25 +1303,28 @@ body { padding-bottom: 64px; }
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--text-muted);
-    color: #fff;
-    font-size: 0.7rem;
+    background: none;
+    border: 1.5px solid currentColor;
+    color: var(--text-muted);
+    font-size: 0.62rem;
     font-weight: 700;
-    font-style: italic;
-    font-family: Georgia, "Times New Roman", serif;
+    font-style: normal;
+    font-family: inherit;
     cursor: pointer;
     flex-shrink: 0;
     user-select: none;
 }
-.info-icon:hover, .info-icon:focus { background: var(--accent); outline: none; }
+/* Outlined now, so hover darkens the glyph rather than filling the disc —
+   filling it would put muted ink on an accent ground. */
+.info-icon:hover, .info-icon:focus { color: var(--accent); outline: none; }
 
 /* Custom tooltip shown for .info-icon (hover / focus / tap). */
 .info-tooltip {
     position: absolute;
     z-index: 2000;
     max-width: 320px;
-    background: #1f2a37;
-    color: #f3f6fa;
+    background: var(--navy);
+    color: var(--sc-50);
     padding: 0.55rem 0.7rem;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -1177,7 +1346,7 @@ body { padding-bottom: 64px; }
     border-radius: var(--radius);
     margin-bottom: 1rem;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--shadow-sm);
 }
 
 .rec-card.rec-best { border-color: var(--accent); }
@@ -1193,7 +1362,7 @@ body { padding-bottom: 64px; }
 
 .rec-rank {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     width: 28px;
     height: 28px;
     display: flex;
@@ -1205,7 +1374,7 @@ body { padding-bottom: 64px; }
     flex-shrink: 0;
 }
 
-.rec-best .rec-rank { background: var(--green); }
+.rec-best .rec-rank { background: var(--accent); }
 
 .rec-model {
     font-size: 1.2rem;
@@ -1305,7 +1474,7 @@ body { padding-bottom: 64px; }
     padding: 0.4rem 1.2rem;
     font-size: 0.78rem;
     color: var(--text-muted);
-    border-top: 1px solid var(--border, #e2e8f0);
+    border-top: 1px solid var(--border, var(--border));
 }
 .rec-iops-headroom .iops-ok { color: var(--green); font-weight: 600; }
 .rec-iops-headroom .iops-short { color: var(--red); font-weight: 600; }
@@ -1315,7 +1484,7 @@ body { padding-bottom: 64px; }
    stripe), so a config sized to 90% projected doesn't read as 90% load today. */
 .rec-utilization {
     padding: 0.5rem 1.2rem 0.2rem;
-    border-top: 1px solid var(--border, #e2e8f0);
+    border-top: 1px solid var(--border, var(--border));
 }
 .util-head {
     display: flex;
@@ -1325,62 +1494,76 @@ body { padding-bottom: 64px; }
     margin-bottom: 0.35rem;
     flex-wrap: wrap;
 }
+/* ── Utilisation bars ─────────────────────────────────────────────────────
+   Geometry and palette from SC//Design's UtilizationBar (sizing-result-panel):
+   a `h-2.5 rounded-full` track in gray-200, segments filled from the sc ramp
+   darkest-first, a diagonal-stripe segment for capacity that exists but isn't
+   usable, and a swatch legend underneath.
+
+   Our segmentation is kept as-is — current / N-1 reserve / replication reserve
+   / free / HA reserve is more than their four-part split, and it is the
+   sizing model talking. Only the colours and metrics change. */
 .util-title {
-    font-size: 0.72rem;
+    font-size: var(--fs-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
 }
 .util-legend {
     display: flex;
-    gap: 0.7rem;
-    font-size: 0.68rem;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
 }
-.util-key { display: inline-flex; align-items: center; gap: 0.25rem; }
+.util-key { display: inline-flex; align-items: center; gap: 0.35rem; }
 .util-sw {
-    width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+    width: 8px; height: 8px; border-radius: 2px; display: inline-block;
 }
-.util-sw-now { background: var(--green, #2e7d32); }
+.util-sw-now { background: var(--sc-700); }
 .util-sw-reserve {
-    background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+    background: repeating-linear-gradient(45deg, var(--sc-300), var(--sc-300) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }
 .util-sw-ha {
-    background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
+    background: repeating-linear-gradient(-45deg, var(--sc-400), var(--sc-400) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }
 .util-sw-replication {
-    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
+    background: repeating-linear-gradient(45deg, #a16207, #a16207 3px, #fde047 3px, #fde047 6px);
 }
 .util-row {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    margin: 0.22rem 0;
+    margin: 0.3rem 0;
 }
 .util-label {
     flex: 0 0 7.5rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--text);
     white-space: nowrap;
 }
+/* The constraining resource. Their "Primary driver" chip:
+   `rounded bg-sc-100 px-1.5 py-0.5 text-xs font-semibold text-sc-700`. */
 .util-bind {
     display: inline-block;
-    font-size: 0.55rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--orange);
-    border: 1px solid var(--orange);
-    border-radius: 3px;
-    padding: 0 0.2rem;
-    margin-left: 0.25rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: none;
+    color: var(--sc-700);
+    background: var(--sc-100);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    margin-left: 0.4rem;
     vertical-align: 1px;
 }
 .util-track {
     flex: 1 1 auto;
     display: flex;
-    height: 8px;
-    background: #eef1f5;
-    border-radius: 4px;
+    height: 0.625rem;
+    background: var(--border);
+    border-radius: 999px;
     overflow: hidden;
 }
 .util-fill {
@@ -1388,26 +1571,31 @@ body { padding-bottom: 64px; }
     height: 100%;
     transition: width 0.3s ease;
 }
-.util-fill.util-low { background: var(--green, #2e7d32); }
-.util-fill.util-mid { background: var(--orange, #e67e22); }
-.util-fill.util-high { background: var(--red, #c0392b); }
+/* Current demand. Their bar is a flat sc-700 at every level; ours keeps the
+   threshold colouring, because "this cluster is 90% full" is a finding the
+   sizing engine is making and the colour is how it says so. Under the normal
+   (low) case the bar is their blue, so the common view matches theirs. */
+.util-fill.util-low { background: var(--sc-700); }
+.util-fill.util-mid { background: #c2410c; }
+.util-fill.util-high { background: #b91c1c; }
 .util-fill.util-reserve {
-    background: repeating-linear-gradient(45deg, #8ca3c6, #8ca3c6 3px, #b9c7de 3px, #b9c7de 6px);
+    background: repeating-linear-gradient(45deg, var(--sc-300), var(--sc-300) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }
-/* Replication reserve (inbound DR replicas + snapshots) — dark yellow. */
+/* Replication reserve (inbound DR replicas + snapshots) — amber, the one hue
+   held outside the blue ramp so it stays legible against the other stripes. */
 .util-fill.util-replication {
-    background: repeating-linear-gradient(45deg, #b8860b, #b8860b 3px, #d4af37 3px, #d4af37 6px);
+    background: repeating-linear-gradient(45deg, #a16207, #a16207 3px, #fde047 3px, #fde047 6px);
 }
 /* Operational free space — let the track background show through. */
 .util-fill.util-free { background: transparent; }
 /* HA failover reserve (the held-back node), distinct hatch at the right edge. */
 .util-fill.util-ha {
-    background: repeating-linear-gradient(-45deg, #5f7aa6, #5f7aa6 3px, #93a8cb 3px, #93a8cb 6px);
+    background: repeating-linear-gradient(-45deg, var(--sc-400), var(--sc-400) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }
 .util-pct {
     flex: 0 0 5rem;
     text-align: right;
-    font-size: 0.78rem;
+    font-size: var(--fs-xs);
     font-weight: 600;
     color: var(--text);
     white-space: nowrap;
@@ -1422,20 +1610,26 @@ body { padding-bottom: 64px; }
 }
 
 .btn-export {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: 2rem;
     background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 0.3rem 0.8rem;
-    border-radius: var(--radius);
-    font-size: 0.78rem;
+    color: var(--on-accent);
+    border: 1px solid transparent;
+    padding: 0 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
     font-style: normal;
-    font-weight: 600;
+    font-weight: 500;
+    line-height: 1;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-export:hover {
-    background: var(--accent-dark);
+    background: var(--accent-hover);
 }
 
 .btn-export:disabled {
@@ -1444,11 +1638,11 @@ body { padding-bottom: 64px; }
 }
 
 .no-recs {
-    background: #fff3e0;
+    background: var(--orange-bg);
     border: 1px solid var(--orange);
     border-radius: var(--radius);
     padding: 1rem;
-    color: #b35900;
+    color: var(--orange);
     font-size: 0.9rem;
 }
 
@@ -1457,14 +1651,14 @@ body { padding-bottom: 64px; }
 }
 
 .rec-warning {
-    background: #fff3cd;
+    background: var(--orange-bg);
     border: 1px solid var(--yellow);
     border-left: 4px solid var(--orange);
     border-radius: var(--radius);
     padding: 0.6rem 1rem;
     margin-bottom: 0.5rem;
     font-size: 0.85rem;
-    color: #856404;
+    color: var(--orange);
 }
 
 /* ── Section header with inline button ──────────────────────────────── */
@@ -1476,31 +1670,45 @@ body { padding-bottom: 64px; }
     gap: 1rem;
 }
 
+/* Their `outline` variant: neutral border on the card surface, tinting to the
+   accent on hover rather than inverting to a solid block. */
 .btn-advanced {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: 2rem;
     background: var(--surface);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    padding: 0.35rem 0.9rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border-radius: 4px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0 0.75rem;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-xs);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+                color 0.15s ease, box-shadow 0.15s ease;
     white-space: nowrap;
 }
 
 .btn-advanced:hover {
-    background: var(--accent);
-    color: #fff;
+    background: var(--surface2);
+    border-color: var(--border-strong);
+    color: var(--text);
 }
 
+/* Count of excluded VMs riding on the button — a badge, so it takes the
+   badge shape used everywhere else rather than a saturated orange block. */
 .btn-advanced .exclusion-active {
-    background: var(--orange);
-    color: #fff;
-    border-radius: 10px;
-    padding: 0 6px;
-    font-size: 0.75rem;
-    margin-left: 4px;
+    background: var(--orange-bg);
+    color: var(--orange);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    margin-left: 2px;
 }
 
 .btn-muted {
@@ -1517,7 +1725,7 @@ body { padding-bottom: 64px; }
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(2, 6, 24, 0.45);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -1527,8 +1735,9 @@ body { padding-bottom: 64px; }
 
 .modal-content {
     background: var(--surface);
-    border-radius: var(--radius);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
     max-height: 85vh;
@@ -1551,21 +1760,33 @@ body { padding-bottom: 64px; }
 }
 
 .modal-header h2 {
-    font-size: 1.1rem;
+    font-size: var(--fs-base);
     font-weight: 600;
 }
 
+/* Their DialogClose: a ghost icon button that tints its background on hover
+   rather than only changing the glyph colour. */
 .modal-close {
     background: none;
     border: none;
-    font-size: 1.5rem;
     cursor: pointer;
     color: var(--text-muted);
-    padding: 0 0.3rem;
-    line-height: 1;
+    padding: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    line-height: 0;
+    transition: background-color 0.12s ease, color 0.12s ease;
 }
 
-.modal-close:hover { color: var(--text); }
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+.modal-close:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
+}
 
 .modal-toolbar {
     display: flex;
@@ -1598,7 +1819,7 @@ body { padding-bottom: 64px; }
     align-items: center;
     gap: 0.35rem;
     font-size: 0.8rem;
-    color: var(--text-muted, #666);
+    color: var(--text-muted, var(--text-muted));
     cursor: pointer;
     user-select: none;
 }
@@ -1645,15 +1866,22 @@ body { padding-bottom: 64px; }
     z-index: 2;
 }
 
+/* Their table head is a pale bar with uppercase letterspaced labels, not a
+   filled navy block — see the `.bom-table` treatment in their mockups and
+   the catalog tables. The head must stay opaque: it is sticky over scrolling
+   rows, so any transparency lets the data show through it. */
 .vm-table th {
-    background: #003a70;
-    color: #fff;
+    background: var(--surface3);
+    color: var(--text-muted);
     padding: 0.5rem 0.6rem;
     text-align: left;
     font-weight: 600;
-    font-size: 0.78rem;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     white-space: nowrap;
     user-select: none;
+    border-bottom: 1px solid var(--border);
     /* Sticky on each th as well — with border-collapse some browsers ignore a
        sticky thead, so the cells carry the stick. */
     position: sticky;
@@ -1661,22 +1889,22 @@ body { padding-bottom: 64px; }
 }
 
 .vm-table th.sortable { cursor: pointer; }
-.vm-table th.sortable:hover { background: var(--accent); }
+.vm-table th.sortable:hover { background: var(--surface2); color: var(--text); }
 .vm-table th .sort-arrow { margin-left: 3px; font-size: 0.7rem; }
 
 .vm-table td {
-    padding: 0.35rem 0.6rem;
+    padding: 0.4rem 0.6rem;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
 }
 
-.vm-table tbody tr:hover { background: var(--accent-light); }
-.vm-table tbody tr.vm-excluded { background: #fff5f5; }
+.vm-table tbody tr:hover { background: var(--surface3); }
+.vm-table tbody tr.vm-excluded { background: var(--red-bg); }
 .vm-table tbody tr.vm-excluded td { color: var(--text-muted); }
-.vm-table tbody tr.vm-edited { background: #f0f7ff; }
-.vm-table tbody tr.vm-edited.vm-excluded { background: #fff5f5; }
+.vm-table tbody tr.vm-edited { background: var(--sc-50); }
+.vm-table tbody tr.vm-edited.vm-excluded { background: var(--red-bg); }
 .vm-table tbody tr.vm-hidden { display: none; }
-.vm-table tbody tr.vm-added { background: #f0fbf3; }
+.vm-table tbody tr.vm-added { background: var(--green-bg); }
 .vm-table tbody tr.vm-removed td { text-decoration: line-through; color: var(--text-muted); opacity: 0.7; }
 
 .vm-col-check { width: 90px; text-align: center; }
@@ -1712,10 +1940,10 @@ body { padding-bottom: 64px; }
     border-radius: 4px;
     color: var(--text-muted);
 }
-.vm-action-btn.vm-remove:hover { color: var(--red); background: #fff0f0; }
+.vm-action-btn.vm-remove:hover { color: var(--red); background: var(--red-bg); }
 .vm-action-btn.vm-restore { color: var(--accent); }
 .vm-action-btn.vm-clone { color: var(--text-muted); }
-.vm-action-btn.vm-clone:hover { color: var(--accent); background: #eef5fc; }
+.vm-action-btn.vm-clone:hover { color: var(--accent); background: var(--sc-50); }
 .vm-action-btn.vm-clone svg { vertical-align: -2px; }
 
 /* Manual-VM action column holds clone + remove. */
@@ -1802,7 +2030,7 @@ body { padding-bottom: 64px; }
 .storage-only-block {
     margin-top: 1rem;
     padding-top: 0.9rem;
-    border-top: 1px dashed var(--border, #d0d5dd);
+    border-top: 1px dashed var(--border, var(--border-strong));
 }
 .storage-only-header {
     display: flex;
@@ -1816,8 +2044,8 @@ body { padding-bottom: 64px; }
 tr.so-divider td {
     padding-top: 0.6rem;
     font-weight: 600;
-    color: var(--accent, #0076ce);
-    border-top: 1px dashed var(--border, #d0d5dd);
+    color: var(--accent);
+    border-top: 1px dashed var(--border, var(--border-strong));
 }
 
 @media (max-width: 900px) {
@@ -1836,55 +2064,94 @@ tr.so-divider td {
    reset modals are top-level overlays, so they remain visible. */
 body.auth-required main { display: none; }
 body.auth-required footer { display: none; }
+/* The account bar carries what SC//Design puts in its nav: destinations on the
+   left of the divider, identity on the right. auth.js builds the markup, so
+   the nav look is achieved here rather than by rewriting that renderer —
+   .account-actions buttons become text nav links, identity stays muted white.
+   Their nav uses text-white/70 → text-white on hover, gap-5 / gap-4. */
 .account-bar {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 1.1rem;
 }
-.account-actions,
+.account-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.15rem;
+}
 .account-identity {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.7rem;
 }
 .account-sep {
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.2);
     font-weight: 300;
 }
 .account-email {
-    color: #cdd6e0;
-    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: var(--fs-sm);
 }
-/* Every account-bar button is the same size and centred. The Admin entry is an
-   <a>, so pin line-height/box-sizing/height to match the <button>s exactly. */
+
+/* Nav-link treatment: strip the button chrome entirely. These are <button>s
+   and one <a> (Admin), so reset both to the same baseline. */
 .account-bar .btn,
 .account-bar a.btn {
-    min-width: 96px;
-    height: 32px;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
     box-sizing: border-box;
-    line-height: 1;
-    justify-content: center;
-    text-align: center;
+    line-height: 1.2;
+    font-size: var(--fs-sm);
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    white-space: nowrap;
+    transition: color 0.12s ease;
 }
-.btn-account { background: var(--accent); color: #fff; }
+.account-bar .btn:hover,
+.account-bar a.btn:hover {
+    background: none;
+    color: var(--on-accent);
+}
+.account-bar .btn:focus-visible,
+.account-bar a.btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+/* "Save sizing" is the one genuine action in the bar, so it keeps a filled
+   treatment — their nav does the same for its single primary affordance. */
+.account-bar .btn-account {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 500;
+    padding: 0.32rem 0.85rem;
+    border-radius: var(--radius-sm);
+}
+.account-bar .btn-account:hover { background: var(--accent-hover); color: var(--on-accent); }
 
 .account-badge {
-    color: #fff;
-    padding: 2px 9px;
-    border-radius: 10px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    color: var(--on-accent);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    letter-spacing: 0.01em;
     white-space: nowrap;
 }
-.account-badge.super { background: #7d3cc9; }   /* purple — super admin */
-.account-badge.scale { background: #0076CE; }   /* blue — scale user */
-.account-badge.user  { background: #2a9d54; }   /* green — everyone else */
+/* Role tints, moved onto the pastel badge pairs used everywhere else in the
+   restyle so the nav doesn't carry three saturated blocks of its own. */
+.account-badge.super { background: #ede9fe; color: #6d28d9; }  /* super admin */
+.account-badge.scale { background: var(--sc-100); color: var(--sc-700); }  /* scale user */
+.account-badge.user  { background: var(--green-bg); color: var(--green); }  /* everyone else */
 
 .modal-sm { max-width: 420px; }
 
@@ -2018,40 +2285,46 @@ body.auth-required footer { display: none; }
     flex-wrap: wrap;
     margin: 0.25rem 0 1rem;
 }
+/* Segmented control, from SC//Design's default TabsList: a muted track
+   (`bg-muted rounded-lg p-[3px]`) with the active tab raised onto the card
+   surface (`data-[state=active]:bg-background shadow-sm`). Replaces the old
+   solid-accent pill, which read far heavier than anything in their UI. */
 .cluster-tab-row {
-    display: flex;
-    gap: 0.4rem;
+    display: inline-flex;
+    gap: 3px;
     flex-wrap: wrap;
-}
-/* Pill / button-style tabs so it's obvious they're clickable and which one is
-   selected (shared by the wizard bar, classic bar, VM-modal bar, DR tabs). */
-.cluster-tab {
     background: var(--surface2);
-    border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 0.45rem 0.9rem;
+    padding: 3px;
+}
+/* Shared by the wizard bar, classic bar, VM-modal bar and DR tabs. */
+.cluster-tab {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.7rem;
     cursor: pointer;
     color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: var(--fs-sm);
+    font-weight: 500;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
-.cluster-tab:hover { color: var(--text); border-color: var(--accent); }
+.cluster-tab:hover { color: var(--text); }
 .cluster-tab.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-xs);
 }
 .cluster-tab-badge {
-    font-size: 0.72rem;
+    font-size: var(--fs-xs);
     font-weight: 500;
     color: var(--text-muted);
     opacity: 0.85;
 }
-.cluster-tab.active .cluster-tab-badge { color: #fff; opacity: 0.9; }
+.cluster-tab.active .cluster-tab-badge { color: var(--accent); opacity: 1; }
 .cluster-apply-all { white-space: nowrap; }
 .cluster-tab-actions {
     display: flex;
@@ -2090,15 +2363,15 @@ body.auth-required footer { display: none; }
     cursor: pointer;
     white-space: nowrap;
 }
-.rec-select:hover { background: var(--accent); color: #fff; }
+.rec-select:hover { background: var(--accent); color: var(--on-accent); }
 .rec-select.selected {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     cursor: default;
 }
 .rec-card.rec-selected {
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent) inset;
+    box-shadow: 0 0 0 3px var(--ring);
 }
 /* "Selected clusters" review tab. */
 .cluster-tab-review { font-weight: 700; }
@@ -2144,14 +2417,16 @@ body.auth-required footer { display: none; }
     gap: 0.75rem;
     margin-top: 0.6rem;
 }
+/* Inbound replication note — carries the same gold as the replication band in
+   the utilisation bars, so the two read as the same subject. */
 .rep-inbound {
     margin-top: 0.6rem;
-    font-size: 0.82rem;
-    color: var(--accent);
-    background: rgba(184, 134, 11, 0.08);
-    border-left: 3px solid #b8860b;
+    font-size: var(--fs-xs);
+    color: var(--text);
+    background: rgba(161, 98, 7, 0.08);
+    border-left: 3px solid #a16207;
     padding: 0.4rem 0.6rem;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
 }
 .rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
 .cluster-tab-dedicated { font-style: italic; }
@@ -2161,7 +2436,7 @@ body.auth-required footer { display: none; }
     font-size: 0.82rem;
     margin: 0.5rem 0;
 }
-.auth-error { background: rgba(220, 53, 69, 0.12); color: #ff6b7a; }
+.auth-error { background: rgba(220, 53, 69, 0.12); color: var(--red); }
 .auth-resend { font-size: 0.82rem; margin: 0.25rem 0 0.5rem; }
 .auth-resend a { color: var(--accent); text-decoration: none; }
 .auth-resend a:hover { text-decoration: underline; }
@@ -2185,11 +2460,11 @@ body.auth-required footer { display: none; }
     content: "✓";
     position: absolute;
     left: 0;
-    color: #c4ccd6;
+    color: var(--border-strong);
     font-weight: 700;
 }
-.pw-rules li.met { color: #2a9d54; }
-.pw-rules li.met::before { color: #2a9d54; }
+.pw-rules li.met { color: var(--green); }
+.pw-rules li.met::before { color: var(--green); }
 
 .auth-consent { margin: 0.25rem 0 0.85rem; font-size: 0.84rem; }
 .auth-consent .checkbox-inline { align-items: flex-start; gap: 0.5rem; text-transform: none; letter-spacing: normal; }
@@ -2213,9 +2488,9 @@ body.auth-required footer { display: none; }
 .legal-meta { color: var(--text-muted); font-size: 0.85rem; }
 .legal-back { margin-top: 1.5rem; }
 .legal-template-note {
-    background: #fff3cd;
-    border: 1px solid #e0c068;
-    color: #6b5616;
+    background: var(--orange-bg);
+    border: 1px solid #fde68a;
+    color: var(--orange);
     padding: 0.75rem 1rem;
     border-radius: 6px;
     font-size: 0.85rem;
@@ -2224,8 +2499,8 @@ body.auth-required footer { display: none; }
 .auth-links { text-align: center; margin-top: 0.75rem; font-size: 0.82rem; }
 .auth-links a { color: var(--text-muted); text-decoration: none; }
 .auth-links a:hover { color: var(--accent); text-decoration: underline; }
-.sizings-status.upload-ok { background: rgba(40, 167, 69, 0.12); color: #4dd07a; }
-.sizings-status.upload-error { background: rgba(220, 53, 69, 0.12); color: #ff6b7a; }
+.sizings-status.upload-ok { background: rgba(40, 167, 69, 0.12); color: var(--green); }
+.sizings-status.upload-error { background: rgba(220, 53, 69, 0.12); color: var(--red); }
 
 .sizing-code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -2244,8 +2519,8 @@ body.auth-required footer { display: none; }
 .perf-comparison {
     margin-top: 0.75rem;
     padding: 0.6rem 0.85rem;
-    background: var(--accent-light, #eef4fb);
-    border: 1px solid var(--border, #cfe0f0);
+    background: var(--accent-light, var(--sc-50));
+    border: 1px solid var(--border, var(--sc-300));
     border-radius: 6px;
     font-size: 0.9rem;
     line-height: 1.4;
@@ -2257,7 +2532,7 @@ body.auth-required footer { display: none; }
     margin-left: 0.5rem;
     font-size: 0.78rem;
     font-weight: 400;
-    color: var(--accent, #0076CE);
+    color: var(--accent);
     text-decoration: underline;
     cursor: pointer;
     white-space: nowrap;
@@ -2283,13 +2558,13 @@ body.auth-required footer { display: none; }
     color: var(--text);
     border-bottom: 1px solid var(--border);
 }
-.rec-perf-line strong { color: var(--accent, #0076CE); }
+.rec-perf-line strong { color: var(--accent); }
 .rec-perf-explain {
     margin-left: 0.4rem;
     padding: 0;
     background: none;
     border: none;
-    color: var(--accent, #0076CE);
+    color: var(--accent);
     font: inherit;
     font-size: 0.85rem;
     text-decoration: underline;
@@ -2318,16 +2593,16 @@ body.auth-required footer { display: none; }
 }
 .wiz-railstep[data-click] { cursor: pointer; }
 .wiz-railstep[data-click]:hover { border-color: var(--accent); }
-.wiz-railstep.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.wiz-railstep.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .wiz-railstep.done { color: var(--text); }
-.wiz-railstep.done .wiz-railnum { background: var(--green); color: #fff; }
+.wiz-railstep.done .wiz-railnum { background: var(--green); color: var(--green-bg); }
 .wiz-railstep.locked { opacity: 0.5; }
 .wiz-railnum {
     display: inline-flex; align-items: center; justify-content: center;
     width: 1.4rem; height: 1.4rem; border-radius: 50%;
     background: var(--border); color: var(--text); font-size: 0.78rem; font-weight: 600; flex: 0 0 auto;
 }
-.wiz-railstep.active .wiz-railnum { background: #fff; color: var(--accent); }
+.wiz-railstep.active .wiz-railnum { background: var(--surface); color: var(--accent); }
 .wiz-raillabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Step panes */
@@ -2447,11 +2722,9 @@ body.auth-required #project-screens { display: none; }
 .project-card-sub { color: var(--text-muted); font-size: 0.82rem; }
 
 .project-badge {
-    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 0.1rem 0.4rem; border-radius: 999px;
-    background: var(--border); color: var(--text-muted);
+    background: var(--surface2); color: var(--text-muted);
 }
-.project-badge-shared { background: #e3ecff; color: #2d5bbf; }
+.project-badge-shared { background: var(--sc-100); color: var(--sc-700); }
 
 /* Project view: the sizing table. */
 .sizing-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -2473,15 +2746,15 @@ body.auth-required #project-screens { display: none; }
 
 /* Three distinct cache states. "Re-import" is deliberately not a shade of
    "stale": recalculating cannot fix it, so it must not invite a refresh. */
-.state-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
-.state-fresh    { background: #e6f4ea; color: #1e7a3c; }
-.state-stale    { background: #fdf1dc; color: #96690d; cursor: help; }
-.state-none     { background: var(--border); color: var(--text-muted); }
-.state-reimport { background: #fde8e8; color: #a32020; cursor: help; }
+/* Fill comes from a .badge-* class alongside it. */
+.state-fresh    { background: var(--green-bg); color: var(--green); }
+.state-stale    { background: var(--orange-bg); color: var(--orange); cursor: help; }
+.state-none     { background: var(--surface2); color: var(--text-muted); }
+.state-reimport { background: var(--red-bg); color: var(--red); cursor: help; }
 
 .role-chip { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
-.role-alternative { background: #eef0ff; color: #4348a8; }
-.role-additive    { background: #e8f3ee; color: #256d4d; }
+.role-alternative { background: var(--info-bg); color: var(--info); }
+.role-additive    { background: var(--green-bg); color: var(--green); }
 .role-unset       { color: var(--text-muted); }
 
 /* Tags: freeform, project-scoped, used both as filters and in the panel. */
@@ -2492,7 +2765,7 @@ body.auth-required #project-screens { display: none; }
     border: 1px solid var(--border); background: var(--surface);
     color: var(--text); cursor: pointer;
 }
-.tag-chip-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tag-chip-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .tag-chip-sm { font-size: 0.7rem; cursor: default; }
 .tag-chip-clear { border-style: dashed; color: var(--text-muted); }
 .tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
@@ -2526,7 +2799,7 @@ body.auth-required #project-screens { display: none; }
 .sizer-project-label strong { color: var(--text); }
 
 .modal-footer-spacer { flex: 1; }
-.modal-error { color: var(--danger, #a32020); font-size: 0.85rem; margin-top: 0.5rem; }
+.modal-error { color: var(--red); font-size: 0.85rem; margin-top: 0.5rem; }
 .field-hint { color: var(--text-muted); font-size: 0.8rem; margin: 0.2rem 0 0.75rem; }
 .sf-link { color: var(--accent); text-decoration: none; }
 .sf-link:hover { text-decoration: underline; }
@@ -2548,8 +2821,8 @@ body.refresh-mode { visibility: hidden; }
 
 .project-refresh-bar {
     padding: 0.4rem 0.75rem; margin: 0.5rem 0;
-    background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius);
-    font-size: 0.82rem; color: #7a5c12;
+    background: var(--orange-bg); border: 1px solid #fde68a; border-radius: var(--radius);
+    font-size: 0.82rem; color: var(--orange);
 }
 
 .inline-select { width: auto; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
@@ -2563,9 +2836,9 @@ body.refresh-mode { visibility: hidden; }
 .compare-table th:first-child, .compare-metric { text-align: left; white-space: nowrap; color: var(--text-muted); }
 .compare-note { font-size: 0.8rem; color: var(--text-muted); max-width: 26ch; }
 .delta { font-size: 0.75rem; margin-left: 0.2rem; }
-.delta-up { color: #a35a20; }
-.delta-down { color: #1e7a3c; }
-.compare-warnings { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem 0.5rem 1.75rem; background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius); font-size: 0.82rem; color: #7a5c12; }
+.delta-up { color: var(--orange); }
+.delta-down { color: var(--green); }
+.compare-warnings { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem 0.5rem 1.75rem; background: var(--orange-bg); border: 1px solid #fde68a; border-radius: var(--radius); font-size: 0.82rem; color: var(--orange); }
 .compare-rollup { font-size: 0.85rem; margin: 0.75rem 0 0; }
 .compare-rollup-none { color: var(--text-muted); }
 
@@ -2575,7 +2848,7 @@ body.refresh-mode { visibility: hidden; }
 .export-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
 .export-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .export-note { color: var(--text-muted); font-size: 0.8rem; }
-.export-failed { color: #a32020; cursor: help; }
+.export-failed { color: var(--red); cursor: help; }
 .export-skip { flex-basis: 100%; color: var(--text-muted); font-size: 0.75rem; }
 
 /* Sizing identity in the project bar. An unsaved sizing is called out rather
@@ -2583,7 +2856,7 @@ body.refresh-mode { visibility: hidden; }
 .sizer-sizing-label { color: var(--text-muted); }
 .sizer-sizing-label strong { color: var(--text); }
 .sizer-sizing-label strong.sizer-unsaved {
-    color: #a35a20; letter-spacing: 0.04em; font-size: 0.78rem;
+    color: var(--orange); letter-spacing: 0.04em; font-size: 0.78rem;
 }
 
 /* Save-and-close at the foot of the wizard's last step — the end of the
@@ -2613,29 +2886,31 @@ body.app-booting footer { visibility: hidden; }
 
 .field-label {
     display: block;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin: 0 0 0.35rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--text);
+    margin: 0 0 0.4rem;
+    letter-spacing: 0;
 }
 
 textarea.text-input {
     width: 100%;
-    background: var(--bg);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
     color: var(--text);
-    font-size: 0.9rem;
+    font-size: var(--fs-sm);
     font-family: inherit;
+    line-height: 1.5;
+    box-shadow: var(--shadow-xs);
     resize: vertical;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 textarea.text-input:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(0, 118, 206, 0.1);
+    box-shadow: 0 0 0 3px var(--ring);
 }
 
 /* Each label + control is one block with breathing room between them. */
@@ -2673,14 +2948,14 @@ textarea.text-input:focus {
 
 /* Assigned: solid, and carries the × that takes it off. */
 .tag-chip-assigned {
-    background: var(--accent); border-color: var(--accent); color: #fff;
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent);
     display: inline-flex; align-items: center; gap: 0.4rem;
 }
 .tag-chip-remove {
     font-weight: 700; font-size: 0.95rem; line-height: 1;
     opacity: 0.8; margin-left: 0.1rem;
 }
-.tag-chip-assigned:hover { background: #a32020; border-color: #a32020; }
+.tag-chip-assigned:hover { background: var(--red); border-color: var(--red); }
 .tag-chip-assigned:hover .tag-chip-remove { opacity: 1; }
 
 /* Available: outlined and dashed, so "not on this sizing yet" is visible at a
@@ -2703,7 +2978,7 @@ textarea.text-input:focus {
 
 /* The account name doubles as the control for changing it. Deliberately sets
    neither `color` nor the `font` shorthand: this element also carries
-   .account-email, whose colour (#cdd6e0, readable on the dark header) and size
+   .account-email, whose colour (white/60, readable on the navy bar) and size
    must survive. `color: inherit` here resolved to the body text colour and made
    the name invisible against the header. */
 .account-name-btn {
@@ -2715,7 +2990,7 @@ textarea.text-input:focus {
     text-decoration: underline dotted;
     text-underline-offset: 3px;
 }
-.account-name-btn:hover { color: #fff; text-decoration-style: solid; }
+.account-name-btn:hover { color: var(--on-accent); text-decoration-style: solid; }
 
 /* Label row that can carry a small inline action on the right (e.g. "use my
    name" beside Prepared by). */
@@ -2733,14 +3008,17 @@ textarea.text-input:focus {
    width:100%). Using it for toolbar buttons is what made them stretch across
    the row and wrap unpredictably. Toolbars use these inline variants instead. */
 
+/* These map onto SC//Design's button variants: cta = `default` (solid
+   primary), soft = `secondary`, ghost = `ghost`. */
 .btn-cta, .btn-soft, .btn-ghost {
     display: inline-flex; align-items: center; justify-content: center;
-    width: auto; margin: 0;
-    padding: 0.45rem 1rem; font-size: 0.85rem; line-height: 1.2;
-    border-radius: 4px; white-space: nowrap; flex: 0 0 auto;
+    gap: 0.5rem; width: auto; margin: 0;
+    height: 2.25rem; padding: 0 1rem;
+    font-size: var(--fs-sm); font-weight: 500; line-height: 1;
+    border-radius: var(--radius-sm); white-space: nowrap; flex: 0 0 auto;
 }
-.btn-cta { background: var(--accent); color: #fff; }
-.btn-cta:hover { background: var(--accent-dark); }
+.btn-cta { background: var(--accent); color: var(--on-accent); }
+.btn-cta:hover { background: var(--accent-hover); }
 .btn-soft { background: var(--surface2); color: var(--text); }
 .btn-soft:hover { background: var(--border); }
 .btn-ghost { background: none; color: var(--text-muted); }

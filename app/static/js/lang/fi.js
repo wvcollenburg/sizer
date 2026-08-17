@@ -474,6 +474,8 @@
   "footer.dev_tag": "Kehitteillä",
   "footer.disclaimer": "Tämä mitoitustyökalu on kehitteillä eikä se ole millään tavoin täydellinen. Jokainen sen suosittelema kokoonpano tarjotaan ainoastaan parhaan mahdollisen pyrkimyksen periaatteella — takuita ei anneta, eikä sen tuloksiin perustuvista päätöksistä voida ottaa mitään vastuuta. Vahvista tulokset aina ennen kuin luotat niihin.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Perustuu Node Summary Template -mallipohjaan v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Tietosuojakäytäntö</a>",
+  "header.language": "Kieli",
+  "header.theme": "Teema",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Klusteri",
   "import.configure_vms": "Määritä VM:t",

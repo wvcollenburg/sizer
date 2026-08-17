@@ -34,8 +34,12 @@ from i18n import translator, font_for, is_cjk
 _TEMPLATE = os.path.join(os.path.dirname(__file__), "..", "resources",
                          "TMPL - Generic Document Template_2025.docx")
 
-DK2 = RGBColor(0x11, 0x38, 0x59)
-MUTED = RGBColor(0x5A, 0x6B, 0x7D)
+# Colours from palette.py — DK2 is the brand navy pinned to the Word template,
+# the rest are the app's own neutrals so a proposal matches the tool.
+import palette as _p
+
+DK2 = RGBColor(*_p.rgb(_p.SC_DARK_NAVY))
+MUTED = RGBColor(*_p.rgb(_p.TEXT_MUTED))
 
 # The template's named styles carry the Martel Sans branding font. Martel can't
 # render CJK scripts, so for those languages we force a CJK-capable font on the
@@ -134,7 +138,7 @@ def _shade(cell, hex_fill):
     tcPr.append(shd)
 
 
-def _set_table_borders(table, color="DDE2E6"):
+def _set_table_borders(table, color=_p.BORDER):
     borders = _set_tblpr_child(table._tbl.tblPr, "w:tblBorders")
     for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
         el = OxmlElement(f"w:{edge}")
@@ -268,7 +272,7 @@ def _spec_table(doc, rows, total_w, label_w=2.5, lang="en"):
     _cell_margins(t)
     for k, v in rows:
         cells = t.add_row().cells
-        _style_cell(cells[0], k, bold=True, color=DK2, fill="EEF2F7", lang=lang)
+        _style_cell(cells[0], k, bold=True, color=DK2, fill=_p.SURFACE_3, lang=lang)
         _style_cell(cells[1], v, lang=lang)
     _fixed_layout(t, [label_w, total_w - label_w])
     _keep_table_together(t)
@@ -283,7 +287,7 @@ def _grid_table(doc, headers, rows, total_w, weights=None, lang="en"):
     _cell_margins(t)
     for i, h in enumerate(headers):
         _style_cell(t.rows[0].cells[i], h, bold=True,
-                    color=RGBColor(0xFF, 0xFF, 0xFF), fill="113859", lang=lang)
+                    color=RGBColor(*_p.rgb(_p.WHITE)), fill=_p.SC_DARK_NAVY, lang=lang)
     for r in rows:
         cells = t.add_row().cells
         for i, val in enumerate(r):

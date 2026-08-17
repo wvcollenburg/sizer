@@ -474,6 +474,8 @@
   "footer.dev_tag": "開発中",
   "footer.disclaimer": "このサイザーは開発途上であり、決して完璧ではありません。推奨されるすべての構成は最善の努力に基づいて提供されるものであり、いかなる保証も行われず、その出力に基づいて行われた決定について一切の責任を負いかねます。結果に依存する前に、必ず内容を検証してください。",
   "footer.text": "SC// Infrastructure Sizer &mdash; Node Summary Template v9.8 (05-2026) に基づく\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">プライバシーポリシー</a>",
+  "header.language": "言語",
+  "header.theme": "テーマ",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "クラスター",
   "import.configure_vms": "VMを構成",

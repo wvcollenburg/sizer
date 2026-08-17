@@ -475,6 +475,8 @@
   "footer.dev_tag": "In development",
   "footer.disclaimer": "This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a best-effort basis only — no guarantees are made, and no responsibility or liability can be accepted for any decisions taken based on its output. Always validate results before relying on them.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Based on Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privacy Policy</a>",
+  "header.language": "Language",
+  "header.theme": "Theme",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Cluster",
   "import.configure_vms": "Configure VMs",

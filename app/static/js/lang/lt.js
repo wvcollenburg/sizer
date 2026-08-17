@@ -474,6 +474,8 @@
   "footer.dev_tag": "Kuriama",
   "footer.disclaimer": "Šis dydžio parinkimo įrankis vis dar tobulinamas ir jokiu būdu nėra tobulas. Kiekviena jo rekomenduojama konfigūracija teikiama tik dedant visas pastangas — jokios garantijos nesuteikiamos ir jokia atsakomybė už sprendimus, priimtus remiantis jo rezultatais, negali būti prisiimta. Prieš pasikliaudami rezultatais, visada juos patikrinkite.",
   "footer.text": "SC// Infrastructure Sizer &mdash; Pagal Node Summary Template v9.8 (05-2026)\n           &nbsp;&middot;&nbsp; <a href=\"/privacy\" target=\"_blank\" rel=\"noopener\">Privatumo politika</a>",
+  "header.language": "Kalba",
+  "header.theme": "Tema",
   "header.title": "SC// Infrastructure Sizer",
   "import.cluster": "Klasteris",
   "import.configure_vms": "Konfigūruoti VM",
