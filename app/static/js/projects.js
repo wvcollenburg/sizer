@@ -140,8 +140,29 @@ function backToProject() {
 
 // ── project home ────────────────────────────────────────────────────────────
 
+// Whose projects the home screen lists. Defaults to your own work; the toggle
+// widens it to the whole organization. Remembered across visits, since it is a
+// standing preference rather than a per-visit choice.
+function projectScope() {
+    try {
+        return localStorage.getItem('sizer.projectScope') === 'tenant' ? 'tenant' : 'mine';
+    } catch (e) {
+        return 'mine';      // private mode / storage disabled
+    }
+}
+
+function toggleProjectScope(on) {
+    try {
+        localStorage.setItem('sizer.projectScope', on ? 'tenant' : 'mine');
+    } catch (e) { /* preference just won't persist */ }
+    loadProjects();
+}
+
 async function loadProjects() {
-    const { ok, data } = await api('/api/projects/');
+    const scope = projectScope();
+    const box = document.getElementById('project-scope-all');
+    if (box) box.checked = scope === 'tenant';
+    const { ok, data } = await api('/api/projects/?scope=' + scope);
     const host = document.getElementById('project-list');
     if (!host) return;
     if (!ok) {
@@ -150,7 +171,10 @@ async function loadProjects() {
     }
     projectList = data || [];
     if (!projectList.length) {
-        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.home.empty'))}</p>`;
+        // Distinguish "you have none" from "none of yours, but colleagues have
+        // some" — otherwise the toggle looks broken when the list stays empty.
+        const key = scope === 'tenant' ? 'project.home.empty' : 'project.home.empty_mine';
+        host.innerHTML = `<p class="project-empty">${escHtml(tt(key))}</p>`;
         return;
     }
     host.innerHTML = projectList.map(projectCard).join('');
@@ -996,7 +1020,7 @@ Object.assign(window, {
     onNewTagKey, addTagFromInput,
     openProjectSettings, closeProjectSettings, submitProjectSettings,
     deleteCurrentProject,
-    toggleSizing, clearSizingSelection, filterByTag,
+    toggleSizing, clearSizingSelection, filterByTag, toggleProjectScope,
     activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,
     bootFromUrl,
     compareSelected, closeCompare, exportSelected, refreshProjectNow,

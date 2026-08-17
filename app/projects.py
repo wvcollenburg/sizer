@@ -96,7 +96,16 @@ def _sizing_count(project_id):
 @projects_bp.route("/", methods=["GET"])
 @login_required
 def list_projects():
+    """Projects the user can see.
+
+    Defaults to **their own work**: projects they created, plus any project
+    holding a sizing they made — a colleague can own the project while your
+    sizing lives in it. ``?scope=tenant`` widens it to everything in the
+    organization, which is the opt-in behind the checkbox rather than the
+    default; a shared tenant would otherwise bury your own engagements.
+    """
     user = current_user()
+    scope = (request.args.get("scope") or "mine").lower()
     seen, rows = set(), []
 
     def add(project, source):
@@ -107,10 +116,29 @@ def list_projects():
 
     for project in Project.query.filter_by(owner_id=user.id, is_deleted=False).all():
         add(project, "owned")
-    if user.tenant_id:
+
+    # Projects that hold a sizing of mine, whoever owns the project itself.
+    contributed = {
+        row.project_id for row in Configuration.query.with_entities(
+            Configuration.project_id).filter(
+                Configuration.owner_id == user.id,
+                Configuration.is_deleted.is_(False),
+                Configuration.project_id.isnot(None)).distinct()
+    }
+    for project_id in contributed:
+        project = Project.query.get(project_id)
+        if project and not project.is_deleted:
+            source = _project_source_for(user, project)
+            if source:
+                add(project, source)
+
+    if scope == "tenant" and user.tenant_id:
         for project in Project.query.filter_by(
                 tenant_id=user.tenant_id, is_deleted=False).all():
             add(project, _project_source_for(user, project) or "tenant")
+
+    # A project pulled in by code was asked for explicitly, so it belongs in
+    # the default view regardless of scope.
     if user.is_scale:
         links = ScaleProjectLink.query.filter_by(user_id=user.id).all()
         for link in links:

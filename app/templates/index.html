@@ -59,6 +59,11 @@
                 A project holds the sizings for one customer — several imports, options
                 to compare, and the replication between them.
             </p>
+            <label class="project-scope-toggle">
+                <input type="checkbox" id="project-scope-all"
+                       data-change='["toggleProjectScope","$checked"]'>
+                <span data-i18n="project.home.scope_all">Also show my colleagues' projects</span>
+            </label>
             <div id="project-list" class="project-list"><!-- rendered by projects.js --></div>
         </section>
 

@@ -2597,3 +2597,10 @@ body.refresh-mode { visibility: hidden; }
 body.app-booting main,
 body.app-booting #project-screens,
 body.app-booting footer { visibility: hidden; }
+
+/* Scope toggle on the project home: your own work by default, the whole
+   organization on request. */
+.project-scope-toggle {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    margin: 0 0 1.25rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+}

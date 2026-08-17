@@ -130,8 +130,11 @@ def test_shared_project_is_read_only_for_a_colleague(app):
     project = make_project(owner)
     save_sizing(owner, "Option 1", project_id=project["id"])
 
-    colleague = client_for(app, COLLEAGUE_EMAIL)          # same tenant, sees it
-    listing = colleague.get("/api/projects/").get_json()
+    # A colleague sees it only after opting into the organization-wide scope;
+    # the default listing is the user's own work.
+    colleague = client_for(app, COLLEAGUE_EMAIL)
+    assert colleague.get("/api/projects/").get_json() == []
+    listing = colleague.get("/api/projects/?scope=tenant").get_json()
     assert [p["id"] for p in listing] == [project["id"]]
     assert listing[0]["can_edit"] is False
 
@@ -317,6 +320,49 @@ def test_tag_names_are_unique_per_project(app):
     first = c.post(f"/api/projects/{project['id']}/tags", json={"name": "option-1"})
     again = c.post(f"/api/projects/{project['id']}/tags", json={"name": "option-1"})
     assert first.get_json()["id"] == again.get_json()["id"]
+
+
+def test_listing_defaults_to_my_own_projects(app):
+    """A shared tenant would otherwise bury your engagements under everyone
+    else's the moment a second person signs up."""
+    mine = client_for(app, PARTNER_EMAIL)
+    make_project(mine, "My engagement")
+
+    theirs = client_for(app, COLLEAGUE_EMAIL)
+    make_project(theirs, "Their engagement")
+
+    names = [p["name"] for p in mine.get("/api/projects/").get_json()]
+    assert names == ["My engagement"]
+
+
+def test_scope_tenant_shows_the_whole_organization(app):
+    mine = client_for(app, PARTNER_EMAIL)
+    make_project(mine, "My engagement")
+    theirs = client_for(app, COLLEAGUE_EMAIL)
+    make_project(theirs, "Their engagement")
+
+    names = {p["name"] for p in
+             mine.get("/api/projects/?scope=tenant").get_json()}
+    assert names == {"My engagement", "Their engagement"}
+
+
+def test_a_project_holding_my_sizing_counts_as_mine(app):
+    """Ownership of the project and authorship of the sizing are different
+    things: a colleague can own the engagement while my sizing lives in it."""
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner, "Shared engagement")
+
+    colleague = client_for(app, COLLEAGUE_EMAIL)
+    assert colleague.get("/api/projects/").get_json() == []
+
+    save_sizing(colleague, "My option", project_id=None)      # scratch first
+    with app.app_context():
+        row = Configuration.query.filter_by(name="My option").first()
+        row.project_id = project["id"]
+        db.session.commit()
+
+    names = [p["name"] for p in colleague.get("/api/projects/").get_json()]
+    assert "Shared engagement" in names
 
 
 def test_provenance_is_stored_with_the_sizing(app):
