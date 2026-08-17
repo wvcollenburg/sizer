@@ -18,7 +18,7 @@ let selectedSizings = new Set();
 let activeTagFilter = null;
 let panelSizing = null;         // the sizing whose panel is open
 
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 function tt(key, vars) {
@@ -68,12 +68,12 @@ async function loadProjects() {
     const host = document.getElementById('project-list');
     if (!host) return;
     if (!ok) {
-        host.innerHTML = `<p class="project-empty">${esc(tt('project.home.load_failed'))}</p>`;
+        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.home.load_failed'))}</p>`;
         return;
     }
     projectList = data || [];
     if (!projectList.length) {
-        host.innerHTML = `<p class="project-empty">${esc(tt('project.home.empty'))}</p>`;
+        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.home.empty'))}</p>`;
         return;
     }
     host.innerHTML = projectList.map(projectCard).join('');
@@ -82,22 +82,22 @@ async function loadProjects() {
 function projectCard(p) {
     const count = p.sizing_count || 0;
     const sub = [
-        p.customer_name ? esc(p.customer_name) : '',
+        p.customer_name ? escHtml(p.customer_name) : '',
         tt('project.card.sizings', { count: count }),
-        fmtDate(p.updated_at),
+        fmtProjectDate(p.updated_at),
     ].filter(Boolean).join(' · ');
     const badge = p.is_scratch
-        ? `<span class="project-badge" title="${esc(tt('project.card.scratch_hint'))}">${esc(tt('project.card.scratch'))}</span>`
+        ? `<span class="project-badge" title="${escHtml(tt('project.card.scratch_hint'))}">${escHtml(tt('project.card.scratch'))}</span>`
         : '';
     const shared = p.source && p.source !== 'owned'
-        ? `<span class="project-badge project-badge-shared">${esc(tt('project.card.shared'))}</span>` : '';
+        ? `<span class="project-badge project-badge-shared">${escHtml(tt('project.card.shared'))}</span>` : '';
     return `<button class="project-card" data-click='["openProject",${p.id}]'>
-        <span class="project-card-name">${esc(p.name)}${badge}${shared}</span>
+        <span class="project-card-name">${escHtml(p.name)}${badge}${shared}</span>
         <span class="project-card-sub">${sub}</span>
     </button>`;
 }
 
-function fmtDate(iso) {
+function fmtProjectDate(iso) {
     if (!iso) return '';
     const d = new Date(iso);
     return isNaN(d) ? '' : d.toLocaleDateString();
@@ -182,19 +182,19 @@ function renderProject() {
     const meta = document.getElementById('project-view-meta');
     if (meta) {
         const bits = [];
-        if (currentProject.customer_name) bits.push(esc(currentProject.customer_name));
-        if (currentProject.opportunity_ref) bits.push(esc(currentProject.opportunity_ref));
-        bits.push(`<code class="sizing-code">${esc(currentProject.code)}</code>`);
+        if (currentProject.customer_name) bits.push(escHtml(currentProject.customer_name));
+        if (currentProject.opportunity_ref) bits.push(escHtml(currentProject.opportunity_ref));
+        bits.push(`<code class="sizing-code">${escHtml(currentProject.code)}</code>`);
         if (currentProject.salesforce_url) {
             // Present only for scale users — the server omits the key entirely
             // for everyone else, so this link cannot leak by rendering.
-            bits.push(`<a href="${esc(currentProject.salesforce_url)}" target="_blank"
-                rel="noopener noreferrer" class="sf-link">${esc(tt('project.view.salesforce'))}</a>`);
+            bits.push(`<a href="${escHtml(currentProject.salesforce_url)}" target="_blank"
+                rel="noopener noreferrer" class="sf-link">${escHtml(tt('project.view.salesforce'))}</a>`);
         }
         meta.innerHTML = bits.join(' · ');
     }
     renderTagFilter();
-    renderSizings();
+    renderSizingRows();
     renderReplication();
     renderSelectionBar();
     loadExports();
@@ -213,24 +213,24 @@ function renderTagFilter() {
     if (!tags.length) { host.innerHTML = ''; return; }
     host.innerHTML = tags.map(tag => {
         const on = activeTagFilter === tag.id ? ' tag-chip-active' : '';
-        return `<button class="tag-chip${on}" data-click='["filterByTag",${tag.id}]'>${esc(tag.name)}</button>`;
+        return `<button class="tag-chip${on}" data-click='["filterByTag",${tag.id}]'>${escHtml(tag.name)}</button>`;
     }).join('') + (activeTagFilter
-        ? `<button class="tag-chip tag-chip-clear" data-click='["filterByTag",null]'>${esc(tt('project.view.all_tags'))}</button>`
+        ? `<button class="tag-chip tag-chip-clear" data-click='["filterByTag",null]'>${escHtml(tt('project.view.all_tags'))}</button>`
         : '');
 }
 
 function filterByTag(tagId) {
     activeTagFilter = (activeTagFilter === tagId) ? null : tagId;
     renderTagFilter();
-    renderSizings();
+    renderSizingRows();
 }
 
-function renderSizings() {
+function renderSizingRows() {
     const host = document.getElementById('project-sizings');
     if (!host) return;
     const rows = visibleSizings();
     if (!rows.length) {
-        host.innerHTML = `<p class="project-empty">${esc(tt('project.view.empty'))}</p>`;
+        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.view.empty'))}</p>`;
         return;
     }
     const canEdit = !!(currentProject && currentProject.can_edit);
@@ -250,38 +250,38 @@ function renderSizings() {
 
 function sizingRow(s, canEdit) {
     const checked = selectedSizings.has(s.id) ? ' checked' : '';
-    const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${esc(t.name)}</span>`).join('');
+    const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${escHtml(t.name)}</span>`).join('');
     const role = s.role
-        ? `<span class="role-chip role-${esc(s.role)}">${esc(tt('project.role.' + s.role))}</span>`
+        ? `<span class="role-chip role-${escHtml(s.role)}">${escHtml(tt('project.role.' + s.role))}</span>`
         : `<span class="role-chip role-unset">—</span>`;
     const source = s.is_dr_target
-        ? esc(tt('project.table.dr_target'))
-        : esc((s.source_meta && s.source_meta.file_name) || tt('project.table.manual'));
+        ? escHtml(tt('project.table.dr_target'))
+        : escHtml((s.source_meta && s.source_meta.file_name) || tt('project.table.manual'));
 
     // Three distinct states, deliberately not merged: a re-import cannot be
     // fixed by recalculating (§3.3), so it must not read as ordinary staleness.
     let state;
     if (s.needs_reimport) {
-        state = `<span class="state-badge state-reimport" title="${esc(tt('project.state.reimport_hint'))}">${esc(tt('project.state.reimport'))}</span>`;
+        state = `<span class="state-badge state-reimport" title="${escHtml(tt('project.state.reimport_hint'))}">${escHtml(tt('project.state.reimport'))}</span>`;
     } else if (!s.has_result) {
-        state = `<span class="state-badge state-none">${esc(tt('project.state.none'))}</span>`;
+        state = `<span class="state-badge state-none">${escHtml(tt('project.state.none'))}</span>`;
     } else if (s.stale) {
-        state = `<span class="state-badge state-stale" title="${esc(tt('project.state.stale_hint'))}">${esc(tt('project.state.stale'))}</span>`;
+        state = `<span class="state-badge state-stale" title="${escHtml(tt('project.state.stale_hint'))}">${escHtml(tt('project.state.stale'))}</span>`;
     } else {
-        state = `<span class="state-badge state-fresh">${esc(tt('project.state.fresh'))}</span>`;
+        state = `<span class="state-badge state-fresh">${escHtml(tt('project.state.fresh'))}</span>`;
     }
 
     const actions = canEdit ? `
         <button class="btn btn-xs" data-click='["openSizing",${s.id}]' data-i18n="project.action.open">Open</button>
         <button class="btn btn-xs" data-click='["openSizingPanel",${s.id}]' data-i18n="project.action.panel">Options</button>
         <button class="btn btn-xs" data-click='["duplicateSizing",${s.id}]' data-i18n="project.action.duplicate">Duplicate</button>
-        <button class="btn btn-xs btn-danger" data-click='["deleteSizing",${s.id}]' data-i18n="project.action.delete">Delete</button>`
+        <button class="btn btn-xs btn-danger" data-click='["deleteProjectSizing",${s.id}]' data-i18n="project.action.delete">Delete</button>`
         : `<button class="btn btn-xs" data-click='["openSizing",${s.id}]' data-i18n="project.action.open">Open</button>
            <button class="btn btn-xs" data-click='["duplicateSizing",${s.id}]' data-i18n="project.action.copy">Copy to mine</button>`;
 
     return `<tr>
         <td class="col-check"><input type="checkbox"${checked} data-change='["toggleSizing",${s.id},"$checked"]'></td>
-        <td class="sizing-name">${esc(s.name)}${s.notes ? ` <span class="note-dot" title="${esc(s.notes)}">●</span>` : ''}</td>
+        <td class="sizing-name">${escHtml(s.name)}${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}</td>
         <td>${tags}</td>
         <td>${role}</td>
         <td class="sizing-source">${source}</td>
@@ -295,13 +295,13 @@ function renderReplication() {
     if (!host) return;
     const links = (currentProject && currentProject.replication_links) || [];
     if (!links.length) { host.innerHTML = ''; return; }
-    host.innerHTML = `<h3 class="rep-heading">${esc(tt('project.rep.title'))}</h3>
+    host.innerHTML = `<h3 class="rep-heading">${escHtml(tt('project.rep.title'))}</h3>
         <ul class="rep-list">${links.map(l => `<li>
-            <strong>${esc(l.source_label)}</strong> →
-            <strong>${esc(l.target_label)}</strong>
-            <span class="rep-terms">${l.compute_pct}% ${esc(tt('project.rep.compute'))} ·
-                ${l.storage_pct}% ${esc(tt('project.rep.storage'))} ·
-                ${esc(tt('project.sizing.rep_' + l.mode))}</span>
+            <strong>${escHtml(l.source_label)}</strong> →
+            <strong>${escHtml(l.target_label)}</strong>
+            <span class="rep-terms">${l.compute_pct}% ${escHtml(tt('project.rep.compute'))} ·
+                ${l.storage_pct}% ${escHtml(tt('project.rep.storage'))} ·
+                ${escHtml(tt('project.sizing.rep_' + l.mode))}</span>
         </li>`).join('')}</ul>`;
 }
 
@@ -414,7 +414,7 @@ function toggleSizing(id, on) {
 
 function clearSizingSelection() {
     selectedSizings = new Set();
-    renderSizings();
+    renderSizingRows();
     renderSelectionBar();
 }
 
@@ -433,13 +433,13 @@ async function compareSelected() {
     const host = document.getElementById('project-compare');
     if (!host) return;
     host.hidden = false;
-    host.innerHTML = `<p class="project-empty">${esc(tt('project.compare.loading'))}</p>`;
+    host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.loading'))}</p>`;
 
     const { ok, data } = await api(`/api/projects/${currentProject.id}/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sizing_ids: [...selectedSizings] }),
     });
-    if (!ok) { host.innerHTML = `<p class="project-empty">${esc(tt('project.compare.failed'))}</p>`; return; }
+    if (!ok) { host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.failed'))}</p>`; return; }
 
     const rows = data.rows || [];
     const baseline = rows[0];
@@ -453,7 +453,7 @@ async function compareSelected() {
     const round = (n) => (Math.round(n * 100) / 100);
 
     const cols = [
-        ['project.compare.model', r => esc(r.totals.model || '—')],
+        ['project.compare.model', r => escHtml(r.totals.model || '—')],
         ['project.compare.nodes', r => `${metric('nodes', r)} ${delta('nodes', r)}`],
         ['project.compare.cores', r => `${metric('cores', r)} ${delta('cores', r)}`],
         ['project.compare.ram', r => `${metric('ram_gb', r)} GB ${delta('ram_gb', r)}`],
@@ -466,32 +466,32 @@ async function compareSelected() {
     // is invalid, and saying so is the whole point of decision 16.
     const warn = (data.warnings || []).map(w => {
         const key = 'project.compare.warn_' + w.code;
-        return `<li>${esc(tt(key, { name: w.name || '' }))}</li>`;
+        return `<li>${escHtml(tt(key, { name: w.name || '' }))}</li>`;
     }).join('');
 
-    const rollup = data.rollup ? `<p class="compare-rollup">${esc(tt('project.compare.rollup', {
+    const rollup = data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         cores: data.rollup.cores, ram: data.rollup.ram_gb,
         storage: round(data.rollup.usable_tb),
-    }))}</p>` : `<p class="compare-rollup compare-rollup-none">${esc(tt('project.compare.no_rollup'))}</p>`;
+    }))}</p>` : `<p class="compare-rollup compare-rollup-none">${escHtml(tt('project.compare.no_rollup'))}</p>`;
 
     host.innerHTML = `
         <div class="compare-head">
-            <h3>${esc(tt('project.compare.title'))}</h3>
+            <h3>${escHtml(tt('project.compare.title'))}</h3>
             <button class="btn btn-xs" data-click='["closeCompare"]'
                     data-i18n="common.close">Close</button>
         </div>
         ${warn ? `<ul class="compare-warnings">${warn}</ul>` : ''}
         <div class="compare-scroll"><table class="sizing-table compare-table">
-            <thead><tr><th>${esc(tt('project.compare.metric'))}</th>
-                ${rows.map(r => `<th>${esc(r.name)}${r.role ? ` <span class="role-chip role-${esc(r.role)}">${esc(tt('project.role.' + r.role))}</span>` : ''}</th>`).join('')}
+            <thead><tr><th>${escHtml(tt('project.compare.metric'))}</th>
+                ${rows.map(r => `<th>${escHtml(r.name)}${r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : ''}</th>`).join('')}
             </tr></thead>
             <tbody>${cols.map(([label, render]) => `<tr>
-                <td class="compare-metric">${esc(tt(label))}</td>
+                <td class="compare-metric">${escHtml(tt(label))}</td>
                 ${rows.map(r => `<td>${render(r)}</td>`).join('')}
             </tr>`).join('')}
-            <tr><td class="compare-metric">${esc(tt('project.compare.why'))}</td>
-                ${rows.map(r => `<td class="compare-note">${esc(r.notes || '—')}</td>`).join('')}</tr>
+            <tr><td class="compare-metric">${escHtml(tt('project.compare.why'))}</td>
+                ${rows.map(r => `<td class="compare-note">${escHtml(r.notes || '—')}</td>`).join('')}</tr>
             </tbody>
         </table></div>
         ${rollup}`;
@@ -532,7 +532,7 @@ async function loadExports() {
     const jobs = data || [];
     if (!jobs.length) { host.innerHTML = ''; stopExportPolling(); return; }
 
-    host.innerHTML = `<h3 class="rep-heading">${esc(tt('project.export.title'))}</h3>
+    host.innerHTML = `<h3 class="rep-heading">${escHtml(tt('project.export.title'))}</h3>
         <ul class="export-list">${jobs.map(exportRow).join('')}</ul>`;
 
     // Keep polling only while something is actually running.
@@ -541,20 +541,20 @@ async function loadExports() {
 }
 
 function exportRow(j) {
-    const when = fmtDate(j.created_at);
+    const when = fmtProjectDate(j.created_at);
     let right;
     if (j.status === 'done' && !j.expired) {
-        right = `<a class="btn btn-xs btn-primary" href="/api/export-jobs/${j.id}/file">${esc(tt('project.export.download'))}</a>`;
+        right = `<a class="btn btn-xs btn-primary" href="/api/export-jobs/${j.id}/file">${escHtml(tt('project.export.download'))}</a>`;
     } else if (j.status === 'done') {
-        right = `<span class="export-note">${esc(tt('project.export.expired'))}</span>`;
+        right = `<span class="export-note">${escHtml(tt('project.export.expired'))}</span>`;
     } else if (j.status === 'failed') {
-        right = `<span class="export-note export-failed" title="${esc(j.error || '')}">${esc(tt('project.export.failed_short'))}</span>`;
+        right = `<span class="export-note export-failed" title="${escHtml(j.error || '')}">${escHtml(tt('project.export.failed_short'))}</span>`;
     } else {
-        right = `<span class="export-note">${esc(tt('project.export.working'))}</span>`;
+        right = `<span class="export-note">${escHtml(tt('project.export.working'))}</span>`;
     }
     const note = j.status === 'done' && j.error
-        ? `<div class="export-skip">${esc(j.error)}</div>` : '';
-    return `<li><span>${esc(j.format.toUpperCase())} · ${esc(when)}</span>${right}${note}</li>`;
+        ? `<div class="export-skip">${escHtml(j.error)}</div>` : '';
+    return `<li><span>${escHtml(j.format.toUpperCase())} · ${escHtml(when)}</span>${right}${note}</li>`;
 }
 
 function startExportPolling() {
@@ -608,7 +608,7 @@ async function duplicateSizing(id) {
     openProject(data.project_id);
 }
 
-async function deleteSizing(id) {
+async function deleteProjectSizing(id) {
     if (!window.confirm(tt('project.action.delete_confirm'))) return;
     const { ok, data } = await api('/api/configs/' + id, { method: 'DELETE' });
     if (!ok) {
@@ -646,13 +646,13 @@ function renderTagPicker() {
     if (!host) return;
     const tags = (currentProject && currentProject.tags) || [];
     if (!tags.length) {
-        host.innerHTML = `<span class="field-hint">${esc(tt('project.sizing.no_tags'))}</span>`;
+        host.innerHTML = `<span class="field-hint">${escHtml(tt('project.sizing.no_tags'))}</span>`;
         return;
     }
     const mine = new Set((panelSizing.tags || []).map(t => t.id));
     host.innerHTML = tags.map(tag => {
         const on = mine.has(tag.id) ? ' tag-chip-active' : '';
-        return `<button class="tag-chip${on}" data-click='["togglePanelTag",${tag.id}]'>${esc(tag.name)}</button>`;
+        return `<button class="tag-chip${on}" data-click='["togglePanelTag",${tag.id}]'>${escHtml(tag.name)}</button>`;
     }).join('');
 }
 
@@ -697,10 +697,10 @@ function renderRepPicker() {
     const existing = ((currentProject.replication_links || [])
         .find(l => l.source_configuration_id === panelSizing.id)) || null;
 
-    select.innerHTML = `<option value="">${esc(tt('project.sizing.rep_none'))}</option>` +
+    select.innerHTML = `<option value="">${escHtml(tt('project.sizing.rep_none'))}</option>` +
         others.map(s => {
             const sel = existing && existing.target_configuration_id === s.id ? ' selected' : '';
-            return `<option value="${s.id}"${sel}>${esc(s.name)}</option>`;
+            return `<option value="${s.id}"${sel}>${escHtml(s.name)}</option>`;
         }).join('');
 
     document.getElementById('sizing-rep-compute').value = existing ? existing.compute_pct : 100;
@@ -847,7 +847,7 @@ Object.assign(window, {
     openProjectsHome, backToProjects, backToProject, openProject,
     openNewProject, closeNewProject, submitNewProject, onNewProjectKey,
     openProjectByCodePrompt, startQuickSizing,
-    addSizingToProject, addDrTarget, openSizing, duplicateSizing, deleteSizing,
+    addSizingToProject, addDrTarget, openSizing, duplicateSizing, deleteProjectSizing,
     openSizingPanel, closeSizingPanel, submitSizingPanel, togglePanelTag,
     onNewTagKey, addTagFromInput,
     openProjectSettings, closeProjectSettings, submitProjectSettings,

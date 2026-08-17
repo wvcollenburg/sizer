@@ -122,11 +122,11 @@ function accountBadge(u) {
     return { label: t('auth.badge.user'), cls: 'user' };
 }
 
-function esc(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// esc() lives in app.js, which loads first on every page that loads this file.
+// This file used to declare its own weaker copy (no single-quote escaping);
+// because classic scripts share one global scope, that copy silently replaced
+// app.js's for BOTH files — and single quotes matter here, since the delegate's
+// data-click attributes are single-quoted. One definition, the stronger one.
 
 // ── password policy (mirrors backend validate_password) ──────────────────────
 

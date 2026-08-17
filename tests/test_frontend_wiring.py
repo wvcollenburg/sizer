@@ -99,6 +99,62 @@ def test_delegate_specs_are_valid_json():
     assert not bad, f"malformed delegate specs: {bad}"
 
 
+def test_no_top_level_name_collisions_between_scripts():
+    """Page scripts are classic scripts sharing one global scope.
+
+    Two files declaring the same top-level `function` do not error — the later
+    one silently replaces the earlier, so the *other* file's feature breaks with
+    no clue in the console. Two `const`/`let` declarations of the same name do
+    throw, which kills the whole script. Both are worth failing the build over.
+    """
+    sources = _js_sources()
+    failures = {}
+    # Only scripts loaded by the SAME template share a scope: admin.js and
+    # app.js never meet, so identical names there are harmless.
+    for template in sorted(n for n in os.listdir(TEMPLATES) if n.endswith(".html")):
+        html = _read(os.path.join(TEMPLATES, template))
+        loaded = [os.path.basename(m) for m in
+                  re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
+        declared = {}
+        for name in loaded:
+            text = sources.get(name)
+            if text is None:
+                continue
+            found = set(re.findall(r"^(?:async\s+)?function\s+(\w+)", text, re.M))
+            found |= set(re.findall(r"^(?:const|let|var)\s+(\w+)", text, re.M))
+            for symbol in found:
+                declared.setdefault(symbol, []).append(name)
+        clashes = {s: files for s, files in declared.items() if len(files) > 1}
+        if clashes:
+            failures[template] = clashes
+
+    assert not failures, (
+        "these top-level names are declared by more than one script on the same "
+        f"page and will collide in the shared global scope: {failures}")
+
+
+def test_locale_files_are_syntactically_valid_javascript():
+    """The locale files are executable JS, not JSON.
+
+    Checking only the object body (as the parity tests do) cannot see a broken
+    assignment header — which is exactly how a rewrite once shipped 15 files
+    that parsed as data and crashed as script.
+    """
+    lang_dir = os.path.join(JS_DIR, "lang")
+    for name in sorted(os.listdir(lang_dir)):
+        if not name.endswith(".js"):
+            continue
+        code = name[:-3]
+        text = _read(os.path.join(lang_dir, name))
+        expected = "(window.I18N_LANGS = window.I18N_LANGS || {})." + code + " = {"
+        assert expected in text, (
+            f"{name} is missing its assignment header `{expected}` — the file "
+            f"would raise a SyntaxError in the browser")
+        # Braces must balance, so the object actually closes before the `;`.
+        assert text.count("{") == text.count("}"), f"{name} has unbalanced braces"
+        assert text.rstrip().endswith("};"), f"{name} does not close its object"
+
+
 def test_project_screens_are_present_and_scripted():
     """The project layer is only reachable if its markup and script both ship."""
     html = _read(os.path.join(TEMPLATES, "index.html"))

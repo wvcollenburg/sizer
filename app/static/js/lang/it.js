@@ -1,6 +1,6 @@
 /* SC// Infrastructure Sizer — it translations. Keys mirror en.js;
    missing keys fall back to English at runtime (see i18n.js). */
-(window.I18N_LANGS = window.I18N_LANGS || {
+(window.I18N_LANGS = window.I18N_LANGS || {}).it = {
   "admin.audit.col_action": "Azione",
   "admin.audit.col_actor": "Autore",
   "admin.audit.col_detail": "Dettaglio",

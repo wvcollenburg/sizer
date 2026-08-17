@@ -1,7 +1,7 @@
 /* SC// Infrastructure Sizer — English (base / fallback) translations.
    Auto-assembled source of truth for all UI strings. Other locales
    (de/fr/nl) mirror these keys; missing keys fall back to English. */
-(window.I18N_LANGS = window.I18N_LANGS || {
+(window.I18N_LANGS = window.I18N_LANGS || {}).en = {
   "admin.audit.col_action": "Action",
   "admin.audit.col_actor": "Actor",
   "admin.audit.col_detail": "Detail",

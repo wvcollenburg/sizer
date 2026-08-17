@@ -1,6 +1,6 @@
 /* SC// Infrastructure Sizer — et translations. Keys mirror en.js;
    missing keys fall back to English at runtime (see i18n.js). */
-(window.I18N_LANGS = window.I18N_LANGS || {
+(window.I18N_LANGS = window.I18N_LANGS || {}).et = {
   "admin.audit.col_action": "Toiming",
   "admin.audit.col_actor": "Tegija",
   "admin.audit.col_detail": "Üksikasjad",
