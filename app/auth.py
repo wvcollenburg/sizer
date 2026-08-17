@@ -488,10 +488,12 @@ def purge_expired():
 
     db.session.commit()
 
+    artifacts_purged = _purge_expired_exports()
     tenants_removed = _cleanup_empty_tenants()
     db.session.commit()
     pii_anonymized = anonymize_expired_pii()
     return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users),
+            "artifacts_purged": artifacts_purged,
             "tenants_removed": tenants_removed, "pii_anonymized": pii_anonymized}
 
 
@@ -992,6 +994,83 @@ def list_configs():
     return jsonify([c.to_summary(user, source) for c, source in pairs])
 
 
+def _purge_expired_exports():
+    """Delete generated bundles past their 24-hour life, file and row together.
+
+    Customer sizing data shouldn't accumulate on disk, and a row pointing at a
+    file that no longer exists is worse than no row (decision 20).
+    """
+    import os as _os
+
+    from project_models import ExportJob
+    expired = ExportJob.query.filter(
+        ExportJob.expires_at.isnot(None),
+        ExportJob.expires_at < _utcnow()).all()
+    for job in expired:
+        if job.artifact_path:
+            try:
+                _os.remove(job.artifact_path)
+            except OSError:
+                pass    # already gone, or never written
+        db.session.delete(job)
+    if expired:
+        db.session.commit()
+    return len(expired)
+
+
+def _replication_dependents(config_id):
+    """Names of the sizings that replicate INTO ``config_id``.
+
+    Used to refuse a delete or a move-out rather than silently stripping the
+    inbound reserve those partners were sized around (§8.5).
+    """
+    from project_models import ReplicationLink
+    links = ReplicationLink.query.filter_by(
+        target_configuration_id=config_id).all()
+    if not links:
+        return []
+    sources = Configuration.query.filter(
+        Configuration.id.in_([l.source_configuration_id for l in links]),
+        Configuration.is_deleted.is_(False)).all()
+    return sorted({c.name for c in sources})
+
+
+def _payload_digest(payload):
+    """Digest of a sizing's inputs, stored on save.
+
+    A DR target's fingerprint folds in the digests of every sizing replicating
+    into it (§8.5), so changing a source's workload marks its targets stale.
+    Held as a column rather than recomputed, so opening a project doesn't
+    re-hash several megabytes of VM lists.
+    """
+    import hashlib
+    import json
+    try:
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                               default=str)
+    except (TypeError, ValueError):
+        return None
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _resolve_save_project(user, project_id):
+    """Which project a new sizing is filed under. Returns (project, error).
+
+    A named project must be owned by the saver — saving into someone else's
+    project is the same write a read-only viewer is refused elsewhere.
+    """
+    from project_models import Project, ensure_scratch_project
+    if project_id:
+        project = Project.query.get(project_id)
+        if project is None or project.is_deleted:
+            return None, (jsonify({"error": "Project not found"}), 404)
+        if not project.can_edit(user):
+            return None, (jsonify({
+                "error": "You cannot save into that project."}), 403)
+        return project, None
+    return ensure_scratch_project(user.id, user.tenant_id), None
+
+
 @configs_bp.route("/", methods=["POST"])
 @login_required
 def create_config():
@@ -1007,10 +1086,32 @@ def create_config():
     if len(request.get_data() or b"") > MAX_PAYLOAD_BYTES:
         return jsonify({"error": "Configuration is too large to save"}), 413
 
+    # Every sizing belongs to a project (docs/projects-plan.md decision 2). A
+    # named project must be one the user owns; the quick-sizing path sends none
+    # and resolves to their scratch project here rather than client-side.
+    project, err = _resolve_save_project(user, data.get("project_id"))
+    if err:
+        return err
+    position = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).count()
+
+    # Provenance travels with the sizing (§8): which file it came from, when,
+    # and which parser read it. parser_version is stored in its own column so a
+    # later parser fix can flag "re-import needed" (§3.3) — recalculating can't
+    # repair it, since the source file itself is never kept.
+    source_meta = data.get("source_meta")
+    if not isinstance(source_meta, dict):
+        source_meta = None
+
     for _ in range(6):
         config = Configuration(
             code=_generate_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id, payload=payload,
+            project_id=project.id, position=position,
+            role=project.default_role,
+            source_meta=source_meta,
+            parser_version=(source_meta or {}).get("parser_version"),
+            payload_digest=_payload_digest(payload),
         )
         db.session.add(config)
         try:
@@ -1088,6 +1189,9 @@ def update_config(config_id):
         if len(request.get_data() or b"") > MAX_PAYLOAD_BYTES:
             return jsonify({"error": "Configuration is too large to save"}), 413
         config.payload = data["payload"]
+        # Keep the digest in step: anything replicating into this sizing folds
+        # it into its own fingerprint and must go stale when the workload moves.
+        config.payload_digest = _payload_digest(data["payload"])
     db.session.commit()
     return jsonify(config.to_summary(user, "owned"))
 
@@ -1099,6 +1203,18 @@ def delete_config(config_id):
     config = Configuration.query.get(config_id)
     if config is None:
         return jsonify({"error": "Configuration not found"}), 404
+
+    # Refuse while anything still replicates into this sizing (decision 32):
+    # deleting it would silently drop the inbound reserve its partners were
+    # sized for. Deleting the whole PROJECT still cascades — source and target
+    # go together there, so nothing is left dangling.
+    blockers = _replication_dependents(config.id)
+    if blockers and not config.is_deleted:
+        return jsonify({
+            "error": "Other sizings replicate to this one. Remove those "
+                     "replication links first.",
+            "replicated_from": blockers,
+        }), 409
 
     # Owner / super admin → soft delete (vanishes for all but super admin).
     if config.owner_id == user.id or user.is_super_admin:

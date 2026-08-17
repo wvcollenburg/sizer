@@ -178,7 +178,7 @@ def _slide_replication_topology(prs, clusters, t, lang="en"):
                              Inches(avail_t + (avail_h - bh) / 2), Inches(bw), Inches(bh))
 
 
-def _slide_multisite_overview(prs, clusters, t, lang="en"):
+def _slide_bundle_overview(prs, clusters, t, lang="en"):
     """A leading slide summarising every sized source cluster."""
     slide = _add_slide(prs)
     _add_title(slide, t("export.pptx.multisite_title"),
@@ -218,14 +218,14 @@ def _slide_section_divider(prs, name, t, lang="en"):
     _add_title(slide, t("export.pptx.cluster_section", name=name), lang=lang)
 
 
-def generate_multisite_proposal(clusters, lang="en"):
+def generate_bundle_proposal(clusters, lang="en"):
     """One combined deck: an overview slide, then the full per-cluster proposal
     slides for each source cluster (each preceded by a section-break slide).
     `clusters` = [{name, summary, recommendation, projection, source_perf}]."""
     t = translator(lang)
     prs = _new_deck()
 
-    _slide_multisite_overview(prs, clusters, t, lang)
+    _slide_bundle_overview(prs, clusters, t, lang)
     _slide_replication_topology(prs, clusters, t, lang)
     for cl in clusters:
         s = cl["summary"]

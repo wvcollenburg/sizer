@@ -25,6 +25,10 @@ let lastConfigResult = null;
 
 let importVms = [];
 let originalImportSummary = null;
+// Provenance of the import behind the current sizing (file name, type, digest,
+// counts, parser version). Saved alongside the sizing so a project can show
+// which file each number came from.
+let lastSourceMeta = null;
 let includeLocalStorage = false;   // include per-host local datastores in sizing
 let vmExclusions = { compute: new Set(), storage: new Set() };
 // Per-VM edits keyed by index: { [idx]: { model?, vcpus?, provisioned_memory_gb? } }.
@@ -967,6 +971,9 @@ async function uploadFile(file) {
 
         importSummary = data.summary;
         originalImportSummary = JSON.parse(JSON.stringify(data.summary));
+        // Provenance for the project view and the export appendix: which file
+        // produced these numbers, and which parser read it.
+        lastSourceMeta = data.source_meta || null;
         importVms = data.vms || [];
         includeLocalStorage = false;
         vmExclusions = { compute: new Set(), storage: new Set() };
@@ -2211,10 +2218,10 @@ async function exportProposal(mode, recIndex, fmt = 'pptx') {
 
 // ---- Combined multi-site export (one document, all clusters) --------------
 const _MULTISITE_ENDPOINTS = {
-    pptx: '/api/export-multisite-proposal',
-    docx: '/api/export-multisite-docx',
-    pdf: '/api/export-multisite-pdf',
-    'presentation-pdf': '/api/export-multisite-presentation-pdf',
+    pptx: '/api/export-bundle-proposal',
+    docx: '/api/export-bundle-docx',
+    pdf: '/api/export-bundle-pdf',
+    'presentation-pdf': '/api/export-bundle-presentation-pdf',
 };
 
 function _optVal(opts, id, dflt) {
@@ -3594,6 +3601,120 @@ async function restoreSizingState(snap) {
 window.captureSizingState = captureSizingState;
 window.restoreSizingState = restoreSizingState;
 window.hasSizingToSave = hasSizingToSave;
+window.currentSourceMeta = () => lastSourceMeta;
+
+// ── result snapshot (docs/projects-plan.md §3.1) ─────────────────────────────
+// The payload a saved sizing stores holds inputs only; this captures what those
+// inputs currently CALCULATE to, in the same {name, summary, recommendation,
+// projection} shape the bundle exports already consume. The server fingerprints
+// it so a project can be listed, compared and exported without reopening every
+// sizing in a browser.
+//
+// `refs` is the catalog identity behind each cluster, taken from whatever the
+// engine returned — it is what lets the server tell later whether the stored
+// numbers still match the live catalog.
+async function buildResultSnapshot() {
+    const clusters = [];
+
+    if (currentMode === 'import' && separateClusters) {
+        await ensureAllClusterResults();
+        sourceClusters.forEach(c => {
+            const res = clusterResults[c.name];
+            if (!res || !res.recommendations || !res.recommendations.length) return;
+            const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
+            const rec = res.recommendations[sel];
+            const target = (clusterReplication[c.name] || {}).target || '';
+            clusters.push({
+                name: c.name,
+                summary: res.summary,
+                recommendation: rec,
+                projection: res.projection,
+                source_perf: null,
+                replicates_to: target ? clusterDisplayName(target) : '',
+                refs: (rec && rec.refs) || { mode: 'import' },
+            });
+        });
+    } else if (currentMode === 'import' || currentMode === 'manual') {
+        const recs = lastRecommendations[currentMode];
+        const summary = lastSummary[currentMode];
+        const projection = lastProjection[currentMode];
+        if (recs && recs.length && summary && projection) {
+            const rec = recs[0];
+            clusters.push({
+                name: window.t('project.snapshot.cluster'),
+                summary, recommendation: rec, projection,
+                source_perf: buildSourcePerfExport ? buildSourcePerfExport() : null,
+                replicates_to: '',
+                refs: (rec && rec.refs) || { mode: currentMode },
+            });
+        }
+    } else if (lastConfigResult) {
+        // Appliance / validated: a hardware configuration rather than a
+        // proposal. Captured so the project can show it is current, but it
+        // carries no recommendation, so bundles skip it (they are proposals).
+        clusters.push({
+            name: lastConfigResult.model || window.t('project.snapshot.cluster'),
+            summary: null,
+            recommendation: null,
+            projection: null,
+            config: lastConfigResult,
+            refs: lastConfigResult.refs || { mode: currentMode },
+        });
+    }
+
+    if (!clusters.length) return null;
+    return { clusters, totals: null };
+}
+
+window.buildResultSnapshot = buildResultSnapshot;
+
+// ── refresh mode (docs/projects-plan.md §4) ──────────────────────────────────
+// A stale sizing is recalculated in a throwaway hidden iframe: this page loads
+// with ?refresh=<id>, restores that sizing, waits for the calculation to
+// settle, and posts the result back to the opener. The iframe is then
+// destroyed, taking every module-level global with it — which is the point.
+// Running these back-to-back in one page would bleed importVms, sourceClusters,
+// clusterOptions and friends between sizings.
+async function runRefreshMode(configId) {
+    const report = (payload) => {
+        try {
+            window.parent.postMessage(
+                Object.assign({ type: 'sizer:refresh', configId: configId }, payload),
+                window.location.origin);
+        } catch (e) { /* opener went away */ }
+    };
+    try {
+        const resp = await fetch('/api/configs/' + configId, { credentials: 'same-origin' });
+        if (!resp.ok) return report({ ok: false, error: 'load-failed' });
+        const data = await resp.json();
+
+        await restoreSizingState(data.payload);
+        // restoreSizingState kicks off calculation; let the microtask queue and
+        // any in-flight /api/recommend settle before snapshotting.
+        await new Promise(r => setTimeout(r, 400));
+
+        const snapshot = await buildResultSnapshot();
+        if (!snapshot) return report({ ok: false, error: 'no-result' });
+
+        const put = await fetch('/api/sizings/' + configId + '/result', {
+            method: 'PUT', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
+        });
+        report({ ok: put.ok });
+    } catch (err) {
+        report({ ok: false, error: String(err && err.message || err) });
+    }
+}
+
+// Entered only inside an iframe, so a shared link carrying the parameter can
+// never silently rewrite someone's stored result in their main window.
+(function () {
+    const id = new URLSearchParams(location.search).get('refresh');
+    if (!id || window.parent === window) return;
+    document.body.classList.add('refresh-mode');
+    window.addEventListener('load', () => runRefreshMode(parseInt(id, 10)));
+})();
 
 // (Re)load catalog data after sign-in, since the initial page-load fetches are
 // rejected (401) while anonymous under the mandatory-login gate.

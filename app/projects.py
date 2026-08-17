@@ -1,0 +1,1016 @@
+"""Project API — the container endpoints for grouping sizings.
+
+Visibility mirrors the saved-sizing rules already in auth.py one level up: you
+see your own projects, your tenant's, and (as a scale user) any you pulled in by
+code. What differs is *writes*: a project reached by code is read-only, and an
+edit copies the sizing into the viewer's own project rather than changing the
+original (docs/projects-plan.md decision 22), so a project can never shift under
+someone who is presenting it.
+
+Routes here own project membership and the sizing-level operations that only
+make sense inside a project (move, duplicate, role, notes, tags). Sizing
+save/load itself stays in auth.py's configs blueprint.
+"""
+from flask import Blueprint, jsonify, request
+from sqlalchemy.exc import IntegrityError
+
+from auth import current_user, login_required
+from auth_models import Configuration, ScaleConfigLink, _utcnow
+from database import db
+from extensions import limiter
+from project_models import (
+    Project, ProjectTag, ConfigurationTag, ReplicationLink, ScaleProjectLink,
+    SIZING_ROLES, ensure_scratch_project, new_code, valid_salesforce_url,
+)
+
+projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
+
+# Free-text fields a project owner may set. salesforce_url is deliberately NOT
+# here — it is scale-only and handled separately (§9.1).
+EDITABLE_FIELDS = {
+    "name": 200,
+    "customer_name": 200,
+    "opportunity_ref": 120,
+    "prepared_by": 200,
+    "description": 4000,
+    "lang": 5,
+}
+
+
+# ── visibility ───────────────────────────────────────────────────────────────
+
+def _project_source_for(user, project):
+    """Why (if at all) ``user`` can see ``project``. Mirrors auth._config_source_for."""
+    if project is None:
+        return None
+    if project.is_deleted and not user.is_super_admin:
+        return None
+    if user.is_super_admin:
+        return "owned" if project.owner_id == user.id else "tenant"
+    if project.owner_id == user.id:
+        return "owned"
+    if user.is_scale:
+        if project.tenant and project.tenant.is_scale:
+            return "scale"
+        link = ScaleProjectLink.query.filter_by(
+            user_id=user.id, project_id=project.id).first()
+        if link and not (project.tenant and project.tenant.is_blocked):
+            return "linked"
+        return None
+    if project.tenant_id == user.tenant_id:
+        return "tenant"
+    return None
+
+
+def _visible_project(project_id, user):
+    """(project, source) for a project the user may see, else (None, None)."""
+    project = Project.query.get(project_id)
+    source = _project_source_for(user, project)
+    return (project, source) if source else (None, None)
+
+
+def _owned_project_or_error(project_id, user):
+    """A project the user may WRITE to, or an error response.
+
+    Read-only viewers are refused here rather than in the UI: hiding a button is
+    not a permission model, and every new write route must land on this check.
+    """
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return None, (jsonify({"error": "Project not found"}), 404)
+    if not project.can_edit(user):
+        return None, (jsonify({
+            "error": "This project is shared with you read-only. Duplicate a "
+                     "sizing into your own project to make changes."
+        }), 403)
+    return project, None
+
+
+def _sizing_count(project_id):
+    return Configuration.query.filter_by(
+        project_id=project_id, is_deleted=False).count()
+
+
+# ── project CRUD ─────────────────────────────────────────────────────────────
+
+@projects_bp.route("/", methods=["GET"])
+@login_required
+def list_projects():
+    user = current_user()
+    seen, rows = set(), []
+
+    def add(project, source):
+        if project.id in seen:
+            return
+        seen.add(project.id)
+        rows.append((project, source))
+
+    for project in Project.query.filter_by(owner_id=user.id, is_deleted=False).all():
+        add(project, "owned")
+    if user.tenant_id:
+        for project in Project.query.filter_by(
+                tenant_id=user.tenant_id, is_deleted=False).all():
+            add(project, _project_source_for(user, project) or "tenant")
+    if user.is_scale:
+        links = ScaleProjectLink.query.filter_by(user_id=user.id).all()
+        for link in links:
+            project = Project.query.get(link.project_id)
+            if project and not project.is_deleted:
+                add(project, _project_source_for(user, project) or "linked")
+
+    rows.sort(key=lambda pair: pair[0].updated_at or pair[0].created_at, reverse=True)
+    return jsonify([
+        p.to_summary(user, source, sizing_count=_sizing_count(p.id))
+        for p, source in rows
+    ])
+
+
+@projects_bp.route("/", methods=["POST"])
+@login_required
+def create_project():
+    """Creation asks for a name and nothing else (decision 24). Optional detail
+    is filled in later from project settings, so a partner is never required to
+    hand over customer information to use the tool."""
+    user = current_user()
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "A project name is required"}), 400
+
+    for _ in range(6):
+        project = Project(
+            code=new_code(), name=name[:200],
+            owner_id=user.id, tenant_id=user.tenant_id,
+            lang=(data.get("lang") or None),
+        )
+        _apply_optional_fields(project, data, user)
+        db.session.add(project)
+        try:
+            db.session.commit()
+            break
+        except IntegrityError:      # code collision — regenerate and retry
+            db.session.rollback()
+    else:
+        return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    return jsonify(project.to_summary(user, "owned", sizing_count=0)), 201
+
+
+@projects_bp.route("/<int:project_id>", methods=["GET"])
+@login_required
+def get_project(project_id):
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+
+    sizings = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).order_by(
+            Configuration.position, Configuration.id).all()
+    tag_map = _tags_by_configuration([s.id for s in sizings])
+
+    # One tunables read for the whole project rather than one per sizing.
+    from fingerprint import tunables_digest
+    tunables = tunables_digest()
+
+    rows = []
+    for sizing in sizings:
+        row = sizing.to_summary(user, "owned" if sizing.owner_id == user.id else source)
+        row["tags"] = tag_map.get(sizing.id, [])
+        row.update(_result_state(sizing, tunables))
+        rows.append(row)
+
+    payload = project.to_dict(user, source, sizings=rows)
+    names = {s.id: s.name for s in sizings}
+    payload["replication_links"] = [
+        link.to_dict(names) for link in ReplicationLink.query.filter_by(
+            project_id=project.id).order_by(
+                ReplicationLink.source_configuration_id).all()
+    ]
+    return jsonify(payload)
+
+
+@projects_bp.route("/<int:project_id>", methods=["PUT"])
+@login_required
+def update_project(project_id):
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+
+    data = request.json or {}
+    if "name" in data:
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "Name cannot be empty"}), 400
+        project.name = name[:200]
+    if "default_role" in data:
+        role = data.get("default_role")
+        if role is not None and role not in SIZING_ROLES:
+            return jsonify({"error": "Unknown role"}), 400
+        project.default_role = role
+
+    field_err = _apply_optional_fields(project, data, user)
+    if field_err:
+        return field_err
+
+    db.session.commit()
+    return jsonify(project.to_summary(user, "owned",
+                                      sizing_count=_sizing_count(project.id)))
+
+
+def _apply_optional_fields(project, data, user):
+    """Copy the optional metadata fields onto ``project``.
+
+    The Salesforce link is dropped silently for non-scale users — not rejected
+    with an error, which would itself disclose that the field exists.
+    """
+    for field, limit in EDITABLE_FIELDS.items():
+        if field == "name" or field not in data:
+            continue
+        value = data.get(field)
+        value = (value or "").strip()[:limit] or None
+        setattr(project, field, value)
+
+    if "salesforce_url" in data and Project.may_see_salesforce(user):
+        url = (data.get("salesforce_url") or "").strip()
+        if not url:
+            project.salesforce_url = None
+        elif valid_salesforce_url(url):
+            project.salesforce_url = url
+        else:
+            return jsonify({
+                "error": "The opportunity link must be an https URL on a "
+                         "Salesforce domain."
+            }), 400
+    return None
+
+
+@projects_bp.route("/<int:project_id>", methods=["DELETE"])
+@login_required
+def delete_project(project_id):
+    """Soft-delete the project and its sizings together (decision 15), so the
+    existing recovery, audit and purge paths apply unchanged."""
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+
+    now = _utcnow()
+    if not project.is_deleted:
+        project.is_deleted = True
+        project.deleted_at = now
+        project.deleted_by_user_id = user.id
+    sizings = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).all()
+    for sizing in sizings:
+        sizing.is_deleted = True
+        sizing.deleted_at = now
+        sizing.deleted_by_user_id = user.id
+    db.session.commit()
+    return jsonify({"message": "Project deleted", "sizings_deleted": len(sizings)})
+
+
+@projects_bp.route("/code/<code>", methods=["GET"])
+@login_required
+@limiter.limit("30 per minute")
+def get_project_by_code(code):
+    """Open a project by its share code. Cross-tenant retrieval stays a scale-user
+    (and super-admin) privilege, as it is for single sizings."""
+    user = current_user()
+    project = Project.query.filter_by(code=(code or "").strip()).first()
+    if project is None or (project.is_deleted and not user.is_super_admin):
+        return jsonify({"error": "No project found for that code"}), 404
+
+    already = _project_source_for(user, project)
+    if already is not None:
+        return jsonify(project.to_summary(
+            user, already, sizing_count=_sizing_count(project.id)))
+
+    if user.is_super_admin:
+        return jsonify(project.to_summary(
+            user, "tenant", sizing_count=_sizing_count(project.id)))
+
+    if user.is_scale:
+        if project.tenant and project.tenant.is_blocked:
+            return jsonify({"error": "No project found for that code"}), 404
+        if not ScaleProjectLink.query.filter_by(
+                user_id=user.id, project_id=project.id).first():
+            db.session.add(ScaleProjectLink(user_id=user.id, project_id=project.id))
+            db.session.commit()
+        return jsonify(project.to_summary(
+            user, "linked", sizing_count=_sizing_count(project.id)))
+
+    return jsonify({"error": "No project found for that code"}), 404
+
+
+@projects_bp.route("/<int:project_id>/source-check", methods=["POST"])
+@login_required
+def check_source_duplicate(project_id):
+    """Has this exact file already been imported into this project? (§8)
+
+    Answers on the file digest, not the name — the same Live Optics export is
+    routinely re-downloaded under a different filename, and two genuinely
+    different customers' exports are often called the same thing.
+    """
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+
+    digest = ((request.json or {}).get("file_sha256") or "").strip()
+    if not digest:
+        return jsonify({"duplicate": False})
+
+    for sizing in Configuration.query.filter_by(
+            project_id=project.id, is_deleted=False).all():
+        meta = sizing.source_meta or {}
+        if meta.get("file_sha256") == digest:
+            return jsonify({
+                "duplicate": True,
+                "sizing_id": sizing.id,
+                "sizing_name": sizing.name,
+                "file_name": meta.get("file_name"),
+                "imported_at": meta.get("imported_at"),
+            })
+    return jsonify({"duplicate": False})
+
+
+@projects_bp.route("/scratch", methods=["POST"])
+@login_required
+def get_or_create_scratch():
+    """The quick-sizing path: a sizing still belongs to a project, it just isn't
+    one the user had to name first (decision 2)."""
+    user = current_user()
+    project = ensure_scratch_project(user.id, user.tenant_id)
+    return jsonify(project.to_summary(user, "owned",
+                                      sizing_count=_sizing_count(project.id)))
+
+
+# ── sizing operations within a project ───────────────────────────────────────
+
+sizings_bp = Blueprint("sizings", __name__, url_prefix="/api/sizings")
+
+
+def _writable_sizing(config_id, user):
+    """(sizing, None) when the user may modify it, else (None, error response)."""
+    sizing = Configuration.query.get(config_id)
+    if sizing is None or sizing.is_deleted:
+        return None, (jsonify({"error": "Sizing not found"}), 404)
+    if sizing.owner_id != user.id and not user.is_super_admin:
+        return None, (jsonify({
+            "error": "This sizing belongs to someone else. Duplicate it into "
+                     "your own project to make changes."
+        }), 403)
+    return sizing, None
+
+
+@sizings_bp.route("/<int:config_id>/duplicate", methods=["POST"])
+@login_required
+def duplicate_sizing(config_id):
+    """Clone a sizing — the fastest way to build "Option 2 is Option 1 with RF3".
+
+    A viewer duplicating someone else's sizing gets a copy in their own scratch
+    project; provenance and the cached result come along, the share code does
+    not (the copy is a new sizing).
+    """
+    user = current_user()
+    source = Configuration.query.get(config_id)
+    if source is None or source.is_deleted:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    from auth import _config_source_for
+    if _config_source_for(user, source) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    data = request.json or {}
+    target_id = data.get("project_id")
+    if target_id and source.owner_id == user.id:
+        target, err = _owned_project_or_error(target_id, user)
+        if err:
+            return err
+    elif source.owner_id == user.id and source.project_id:
+        target, err = _owned_project_or_error(source.project_id, user)
+        if err:      # own sizing sitting in a project one can't write: fall back
+            target = ensure_scratch_project(user.id, user.tenant_id)
+    else:
+        target = ensure_scratch_project(user.id, user.tenant_id)
+
+    last = Configuration.query.filter_by(
+        project_id=target.id, is_deleted=False).count()
+
+    for _ in range(6):
+        copy = Configuration(
+            code=new_code(),
+            name=(data.get("name") or f"{source.name} (copy)")[:200],
+            owner_id=user.id, tenant_id=user.tenant_id,
+            payload=source.payload,
+            project_id=target.id, position=last,
+            role=source.role, notes=source.notes,
+            source_meta=source.source_meta,
+            result_snapshot=source.result_snapshot,
+            result_fingerprint=source.result_fingerprint,
+            result_computed_at=source.result_computed_at,
+            parser_version=source.parser_version,
+        )
+        db.session.add(copy)
+        try:
+            db.session.commit()
+            break
+        except IntegrityError:
+            db.session.rollback()
+    else:
+        return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    return jsonify(copy.to_summary(user, "owned")), 201
+
+
+@sizings_bp.route("/<int:config_id>/result", methods=["PUT"])
+@login_required
+def store_sizing_result(config_id):
+    """Store a freshly calculated result for a sizing (§4).
+
+    Deliberately allowed for **anyone who can see the sizing**, not only its
+    owner. Refresh is the only path to current numbers, so gating it on
+    ownership would leave a read-only viewer permanently unable to compare or
+    export a shared project full of stale sizings.
+
+    It is not an edit: only the result and its refs are accepted — never
+    payload, name, tags or role — and the server derives the fingerprint
+    itself rather than trusting one from the client.
+    """
+    from auth import _config_source_for
+    from fingerprint import (PARSER_VERSION, fingerprint_snapshot,
+                             inbound_replication_digest)
+
+    user = current_user()
+    sizing = Configuration.query.get(config_id)
+    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    data = request.json or {}
+    clusters = data.get("clusters")
+    if not isinstance(clusters, list) or not clusters:
+        return jsonify({"error": "A result must carry at least one cluster"}), 400
+
+    from fingerprint import tunables_digest
+    # Stamped so the comparison can say "these were sized under different
+    # assumptions" — the check decision 16 asks for, warn-only.
+    snapshot = {"clusters": clusters, "totals": data.get("totals"),
+                "tunables": tunables_digest()}
+    fingerprint = fingerprint_snapshot(
+        snapshot, replication=inbound_replication_digest(sizing.id))
+    if not fingerprint:
+        return jsonify({"error": "Result is missing the refs needed to "
+                                 "validate it later"}), 400
+
+    sizing.result_snapshot = snapshot
+    sizing.result_fingerprint = fingerprint
+    sizing.result_computed_at = _utcnow()
+    # Stamped on write: a sizing refreshed now was replayed through the current
+    # parsers' output only if it was imported with them (§3.3).
+    if sizing.parser_version is None:
+        sizing.parser_version = PARSER_VERSION
+    db.session.commit()
+
+    row = sizing.to_summary(user, "owned" if sizing.owner_id == user.id else "tenant")
+    row.update(_result_state(sizing))
+    return jsonify(row)
+
+
+def _result_state(sizing, tunables=None):
+    from fingerprint import result_state
+    return result_state(sizing, tunables)
+
+
+@sizings_bp.route("/<int:config_id>/move", methods=["POST"])
+@login_required
+def move_sizing(config_id):
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    target, err = _owned_project_or_error((request.json or {}).get("project_id"), user)
+    if err:
+        return err
+
+    # Moving out is a deletion as far as its replication partners are concerned:
+    # links may not span projects, so they would have to be dropped, silently
+    # stripping the inbound reserve those partners were sized for.
+    from auth import _replication_dependents
+    blockers = _replication_dependents(sizing.id)
+    if blockers:
+        return jsonify({
+            "error": "Other sizings replicate to this one. Remove those "
+                     "replication links before moving it.",
+            "replicated_from": blockers,
+        }), 409
+    # Its own outbound links can't survive the move either.
+    ReplicationLink.query.filter_by(source_configuration_id=sizing.id).delete()
+
+    sizing.project_id = target.id
+    sizing.position = Configuration.query.filter_by(
+        project_id=target.id, is_deleted=False).count()
+    # Tags are project-scoped, so they cannot follow the sizing to another
+    # project — drop the links rather than leave them pointing at a stranger's
+    # vocabulary.
+    ConfigurationTag.query.filter_by(configuration_id=sizing.id).delete()
+    db.session.commit()
+    return jsonify(sizing.to_summary(user, "owned"))
+
+
+# ── comparison (§6) ──────────────────────────────────────────────────────────
+
+def _metrics_from_snapshot(snapshot):
+    """Flatten a stored result into the columns the comparison table shows.
+
+    A sizing holding several clusters has no single node count, so its clusters
+    are summed into one row and carried as sub-rows — mixing a three-cluster
+    sizing into a flat table as if it were one appliance would misstate every
+    column.
+    """
+    clusters = (snapshot or {}).get("clusters") or []
+    rows, total = [], {
+        "nodes": 0, "cores": 0, "ram_gb": 0, "usable_tb": 0.0,
+        "n1_cores": 0, "n1_ram_gb": 0, "rack_units": 0,
+    }
+    models = []
+    for cluster in clusters:
+        rec = cluster.get("recommendation") or cluster.get("config") or {}
+        # Two shapes reach here: a recommendation from /api/recommend calls its
+        # cluster figures "totals", while an appliance/validated calculation
+        # calls them "cluster_total". Reading only one silently yields zeros.
+        totals = rec.get("totals") or rec.get("cluster_total") or {}
+        n1 = rec.get("n_minus_1") or {}
+        row = {
+            "name": cluster.get("name"),
+            "model": rec.get("model"),
+            "nodes": rec.get("node_count") or rec.get("total_node_count") or 0,
+            "cores": totals.get("cores") or 0,
+            "ram_gb": totals.get("ram_gb") or 0,
+            "usable_tb": totals.get("usable_storage_tb") or 0,
+            "n1_cores": n1.get("cores") or 0,
+            "n1_ram_gb": n1.get("ram_gb") or 0,
+        }
+        if rec.get("model"):
+            models.append(rec["model"])
+        for key in ("nodes", "cores", "ram_gb", "n1_cores", "n1_ram_gb"):
+            total[key] += row[key] or 0
+        total["usable_tb"] += float(row["usable_tb"] or 0)
+        rows.append(row)
+
+    total["usable_tb"] = round(total["usable_tb"], 2)
+    total["model"] = ", ".join(sorted(set(models))) if models else None
+    return total, rows
+
+
+@projects_bp.route("/<int:project_id>/compare", methods=["POST"])
+@login_required
+def compare_sizings(project_id):
+    """Side-by-side figures for the selected sizings, plus the caveats that make
+    a comparison invalid if ignored (§6)."""
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+
+    wanted = (request.json or {}).get("sizing_ids") or []
+    sizings = Configuration.query.filter(
+        Configuration.project_id == project.id,
+        Configuration.is_deleted.is_(False),
+        Configuration.id.in_(wanted or [-1])).order_by(
+            Configuration.position, Configuration.id).all()
+
+    from fingerprint import result_state, tunables_digest
+    tunables = tunables_digest()
+
+    rows, warnings, seen_tunables = [], [], set()
+    for sizing in sizings:
+        state = result_state(sizing, tunables)
+        totals, clusters = _metrics_from_snapshot(sizing.result_snapshot)
+        rows.append({
+            "id": sizing.id, "name": sizing.name, "role": sizing.role,
+            "notes": sizing.notes, "is_dr_target": sizing.is_dr_target,
+            "totals": totals, "clusters": clusters,
+            "stale": state["stale"], "cache": state["cache"],
+            "needs_reimport": state["needs_reimport"],
+        })
+        stamp = (sizing.result_snapshot or {}).get("tunables")
+        if stamp:
+            seen_tunables.add(stamp)
+        if state["cache"] == "none":
+            warnings.append({"code": "not_sized", "name": sizing.name})
+        elif state["stale"]:
+            warnings.append({"code": "stale", "name": sizing.name})
+        if state["needs_reimport"]:
+            warnings.append({"code": "reimport", "name": sizing.name})
+
+    # Comparing options sized under different assumptions is invalid; say so
+    # rather than enforce it (decision 16 — warn only).
+    if len(seen_tunables) > 1:
+        warnings.append({"code": "mixed_tunables"})
+
+    roles = {r["role"] for r in rows}
+    if "additive" in roles and "alternative" in roles:
+        warnings.append({"code": "mixed_roles"})
+
+    # Only additive sizings are summed: adding Option 1 to Option 2 would
+    # invent a cluster nobody is buying (decision 3).
+    additive = [r for r in rows if r["role"] == "additive"]
+    rollup = None
+    if additive:
+        rollup = {key: sum(r["totals"][key] for r in additive)
+                  for key in ("nodes", "cores", "ram_gb", "n1_cores", "n1_ram_gb")}
+        rollup["usable_tb"] = round(
+            sum(float(r["totals"]["usable_tb"]) for r in additive), 2)
+        rollup["count"] = len(additive)
+
+    return jsonify({"rows": rows, "warnings": warnings, "rollup": rollup})
+
+
+# ── replication partners (§8.5) ──────────────────────────────────────────────
+
+REPLICATION_MODES = ("reserved", "failover")
+
+
+def _pct(value, default=100):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(100, number))
+
+
+@sizings_bp.route("/<int:config_id>/replication", methods=["POST"])
+@login_required
+def set_replication_link(config_id):
+    """Point one of this sizing's clusters at a cluster in another sizing.
+
+    Both ends must sit in the same project (decision 29): a link across
+    projects would pull one customer's demand into another's sizing. Mutual
+    links are allowed on purpose — the reserve is computed from each side's
+    *demand*, never from the other's sized result, so A<->B is well-defined
+    rather than circular.
+    """
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+
+    data = request.json or {}
+    target_id = data.get("target_configuration_id")
+    target = Configuration.query.get(target_id) if target_id else None
+    if target is None or target.is_deleted:
+        return jsonify({"error": "Replication target not found"}), 404
+    if target.project_id != sizing.project_id:
+        return jsonify({
+            "error": "A replication partner must be in the same project."}), 400
+    if target.id == sizing.id and (data.get("target_cluster") or "") == \
+            (data.get("source_cluster") or ""):
+        return jsonify({"error": "A cluster cannot replicate to itself."}), 400
+
+    mode = (data.get("mode") or "reserved").lower()
+    if mode not in REPLICATION_MODES:
+        return jsonify({"error": "Unknown replication mode"}), 400
+
+    source_cluster = (data.get("source_cluster") or "")[:120]
+    link = ReplicationLink.query.filter_by(
+        source_configuration_id=sizing.id, source_cluster=source_cluster).first()
+    if link is None:
+        link = ReplicationLink(project_id=sizing.project_id,
+                               source_configuration_id=sizing.id,
+                               source_cluster=source_cluster)
+        db.session.add(link)
+
+    link.target_configuration_id = target.id
+    link.target_cluster = (data.get("target_cluster") or "")[:120]
+    link.compute_pct = _pct(data.get("compute_pct"))
+    link.storage_pct = _pct(data.get("storage_pct"))
+    link.mode = mode
+    db.session.commit()
+
+    return jsonify(link.to_dict(_sizing_names(sizing.project_id))), 201
+
+
+@sizings_bp.route("/<int:config_id>/replication", methods=["DELETE"])
+@login_required
+def clear_replication_link(config_id):
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    source_cluster = (request.args.get("source_cluster") or "")[:120]
+    ReplicationLink.query.filter_by(
+        source_configuration_id=sizing.id,
+        source_cluster=source_cluster).delete()
+    db.session.commit()
+    return jsonify({"message": "Replication link removed"})
+
+
+def _sizing_names(project_id):
+    return {c.id: c.name for c in Configuration.query.filter_by(
+        project_id=project_id).all()}
+
+
+@projects_bp.route("/<int:project_id>/dr-target", methods=["POST"])
+@login_required
+def create_dr_target(project_id):
+    """Add a sizing that carries no workload of its own and exists purely as a
+    replication target (decision 30) — the DR site you have no Live Optics for.
+    It is sized from what replicates into it."""
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+
+    name = ((request.json or {}).get("name") or "DR target").strip()[:200]
+    position = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).count()
+
+    for _ in range(6):
+        sizing = Configuration(
+            code=new_code(), name=name,
+            owner_id=user.id, tenant_id=user.tenant_id,
+            payload={"mode": "dr_target"},
+            project_id=project.id, position=position,
+            role=project.default_role, is_dr_target=True,
+        )
+        db.session.add(sizing)
+        try:
+            db.session.commit()
+            break
+        except IntegrityError:
+            db.session.rollback()
+    else:
+        return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    return jsonify(sizing.to_summary(user, "owned")), 201
+
+
+@sizings_bp.route("/<int:config_id>/role", methods=["POST"])
+@login_required
+def set_sizing_role(config_id):
+    """Alternative (never summed) vs additive (part of one estate) — the flag the
+    rollup depends on (decision 3)."""
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    role = (request.json or {}).get("role")
+    if role is not None and role not in SIZING_ROLES:
+        return jsonify({"error": "Unknown role"}), 400
+    sizing.role = role
+    db.session.commit()
+    return jsonify(sizing.to_summary(user, "owned"))
+
+
+@sizings_bp.route("/<int:config_id>/notes", methods=["POST"])
+@login_required
+def set_sizing_notes(config_id):
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    notes = (request.json or {}).get("notes")
+    sizing.notes = ((notes or "").strip()[:4000]) or None
+    db.session.commit()
+    return jsonify(sizing.to_summary(user, "owned"))
+
+
+@sizings_bp.route("/reorder", methods=["POST"])
+@login_required
+def reorder_sizings():
+    """Persist the project view's ordering — the exported bundle follows
+    ``position``, so dragging Option 1 above Option 2 must survive (§7.1)."""
+    user = current_user()
+    data = request.json or {}
+    project, err = _owned_project_or_error(data.get("project_id"), user)
+    if err:
+        return err
+
+    order = data.get("sizing_ids") or []
+    if not isinstance(order, list):
+        return jsonify({"error": "sizing_ids must be a list"}), 400
+    rows = {c.id: c for c in Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).all()}
+    for position, sizing_id in enumerate(order):
+        row = rows.get(sizing_id)
+        if row is not None:
+            row.position = position
+    db.session.commit()
+    return jsonify({"message": "Order saved", "count": len(order)})
+
+
+# ── tags ─────────────────────────────────────────────────────────────────────
+
+def _tags_by_configuration(config_ids):
+    if not config_ids:
+        return {}
+    links = ConfigurationTag.query.filter(
+        ConfigurationTag.configuration_id.in_(config_ids)).all()
+    tag_ids = {link.tag_id for link in links}
+    tags = {t.id: t for t in ProjectTag.query.filter(ProjectTag.id.in_(tag_ids)).all()}
+    out = {}
+    for link in links:
+        tag = tags.get(link.tag_id)
+        if tag:
+            out.setdefault(link.configuration_id, []).append(tag.to_dict())
+    for rows in out.values():
+        rows.sort(key=lambda t: t["name"].lower())
+    return out
+
+
+@projects_bp.route("/<int:project_id>/tags", methods=["POST"])
+@login_required
+def create_tag(project_id):
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+    data = request.json or {}
+    name = (data.get("name") or "").strip()[:60]
+    if not name:
+        return jsonify({"error": "A tag name is required"}), 400
+
+    existing = ProjectTag.query.filter_by(project_id=project.id, name=name).first()
+    if existing:
+        return jsonify(existing.to_dict())
+    tag = ProjectTag(project_id=project.id, name=name,
+                     color=(data.get("color") or None))
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify(tag.to_dict()), 201
+
+
+@projects_bp.route("/<int:project_id>/tags/<int:tag_id>", methods=["DELETE"])
+@login_required
+def delete_tag(project_id, tag_id):
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+    tag = ProjectTag.query.filter_by(id=tag_id, project_id=project.id).first()
+    if tag is None:
+        return jsonify({"error": "Tag not found"}), 404
+    ConfigurationTag.query.filter_by(tag_id=tag.id).delete()
+    db.session.delete(tag)
+    db.session.commit()
+    return jsonify({"message": "Tag deleted"})
+
+
+@sizings_bp.route("/<int:config_id>/tags", methods=["POST"])
+@login_required
+def set_sizing_tags(config_id):
+    """Replace a sizing's tags with ``tag_ids``. Tags must belong to the
+    sizing's own project — project-scoped vocabulary (decision 10)."""
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    tag_ids = (request.json or {}).get("tag_ids") or []
+    if not isinstance(tag_ids, list):
+        return jsonify({"error": "tag_ids must be a list"}), 400
+
+    valid = {t.id for t in ProjectTag.query.filter(
+        ProjectTag.project_id == sizing.project_id,
+        ProjectTag.id.in_(tag_ids or [-1])).all()}
+    ConfigurationTag.query.filter_by(configuration_id=sizing.id).delete()
+    for tag_id in valid:
+        db.session.add(ConfigurationTag(configuration_id=sizing.id, tag_id=tag_id))
+    db.session.commit()
+    row = sizing.to_summary(user, "owned")
+    row["tags"] = _tags_by_configuration([sizing.id]).get(sizing.id, [])
+    return jsonify(row)
+
+
+# ── bundle exports (§7.2) ────────────────────────────────────────────────────
+
+export_jobs_bp = Blueprint("export_jobs", __name__, url_prefix="/api/export-jobs")
+
+EXPORT_FORMATS = ("pptx", "docx", "pdf", "presentation-pdf")
+
+
+@projects_bp.route("/<int:project_id>/export", methods=["POST"])
+@login_required
+def queue_export(project_id):
+    """Queue a bundle of the selected sizings.
+
+    Returns immediately with a job id: the build is CPU-heavy and the PDF
+    variants shell out to LibreOffice, so a ten-sizing bundle would otherwise
+    hold a request open for minutes (§7.2).
+    """
+    from app import MAX_EXPORT_SECTIONS
+    from project_models import ExportJob, JOB_QUEUED
+
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+
+    data = request.json or {}
+    fmt = (data.get("format") or "pptx").lower()
+    if fmt not in EXPORT_FORMATS:
+        return jsonify({"error": "Unknown export format"}), 400
+
+    # Editable source files stay a scale-user privilege, exactly as they are for
+    # single-sizing exports.
+    if fmt in ("pptx", "docx") and not (user.is_scale or user.is_super_admin):
+        return jsonify({"error": "The editable PowerPoint and Word files are "
+                                 "available to Scale users only. Use a PDF."}), 403
+
+    wanted = data.get("sizing_ids") or []
+    sizings = Configuration.query.filter(
+        Configuration.project_id == project.id,
+        Configuration.is_deleted.is_(False),
+        Configuration.id.in_(wanted or [-1])).all()
+    if not sizings:
+        return jsonify({"error": "Select at least one sizing to export"}), 400
+
+    # The limit counts flattened sections, and is enforced at selection time so
+    # the user is told before the job runs rather than after it fails.
+    sections = sum(len(((s.result_snapshot or {}).get("clusters")) or []) or 1
+                   for s in sizings)
+    if sections > MAX_EXPORT_SECTIONS:
+        return jsonify({
+            "error": f"That selection is {sections} sections; the limit for one "
+                     f"document is {MAX_EXPORT_SECTIONS}. Export it in parts."
+        }), 400
+
+    job = ExportJob(
+        user_id=user.id, project_id=project.id, fmt=fmt, status=JOB_QUEUED,
+        sizing_ids=[s.id for s in sizings],
+        # The project remembers the language it was created in; the caller may
+        # override, but the request never silently inherits the session's.
+        lang=(data.get("lang") or project.lang or "en"),
+        notify_email=bool(data.get("notify_email")),
+    )
+    db.session.add(job)
+    db.session.commit()
+    return jsonify(job.to_dict()), 202
+
+
+@projects_bp.route("/<int:project_id>/exports", methods=["GET"])
+@login_required
+def list_exports(project_id):
+    """Recent jobs for this project. Exists regardless of email: a job runs
+    server-side whether or not anyone is watching, and without this panel a user
+    who navigates away has no route back to a finished bundle."""
+    from project_models import ExportJob
+
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    jobs = ExportJob.query.filter_by(
+        project_id=project.id, user_id=user.id).order_by(
+            ExportJob.created_at.desc()).limit(10).all()
+    return jsonify([j.to_dict() for j in jobs])
+
+
+@export_jobs_bp.route("/<int:job_id>", methods=["GET"])
+@login_required
+def get_export_job(job_id):
+    from project_models import ExportJob
+    user = current_user()
+    job = ExportJob.query.get(job_id)
+    if job is None or (job.user_id != user.id and not user.is_super_admin):
+        return jsonify({"error": "Export not found"}), 404
+    return jsonify(job.to_dict())
+
+
+@export_jobs_bp.route("/<int:job_id>/file", methods=["GET"])
+@login_required
+def download_export(job_id):
+    """Hand over the artifact.
+
+    Ownership is checked rather than relying on an unguessable id — a bundle is
+    customer sizing data, not a public download. Expiry is checked here too: the
+    daily sweep can leave a file on disk up to a day past its deadline, so the
+    file's presence is not proof it is still offered (§7.2).
+    """
+    import os as _os
+
+    from flask import send_file
+
+    from project_models import ExportJob, JOB_DONE
+
+    user = current_user()
+    job = ExportJob.query.get(job_id)
+    if job is None or (job.user_id != user.id and not user.is_super_admin):
+        return jsonify({"error": "Export not found"}), 404
+    if job.status != JOB_DONE or not job.artifact_path:
+        return jsonify({"error": "That export is not ready yet."}), 409
+    if job.is_expired():
+        return jsonify({"error": "That export has expired. Generate it again "
+                                 "from the project."}), 410
+    if not _os.path.exists(job.artifact_path):
+        return jsonify({"error": "That export is no longer available. Generate "
+                                 "it again from the project."}), 410
+    return send_file(job.artifact_path, as_attachment=True,
+                     download_name=job.filename or "export")
+
+
+def register_projects(app):
+    app.register_blueprint(projects_bp)
+    app.register_blueprint(sizings_bp)
+    app.register_blueprint(export_jobs_bp)

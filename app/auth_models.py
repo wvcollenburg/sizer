@@ -148,6 +148,39 @@ class Configuration(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"),
                           nullable=False, index=True)
     payload = db.Column(JSON_TYPE, nullable=False)
+
+    # ── project membership (docs/projects-plan.md §2.2) ──────────────────────
+    # Nullable in the schema so the additive migration can add the column to a
+    # populated table; the backfill then files every existing sizing into its
+    # owner's scratch project, and the API never creates a sizing without one.
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), index=True)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    # "alternative" (never summed) or "additive" (part of one estate). NULL
+    # until the project's default is set by the second-sizing question.
+    role = db.Column(db.String(12))
+    notes = db.Column(db.Text)          # "why this option" — lands in the export
+
+    # ── cached result + its validity fingerprint (§3) ────────────────────────
+    # The payload holds inputs only; these hold the computed result so a project
+    # can be listed, compared and exported without opening each sizing. A
+    # snapshot is trusted only while its fingerprint matches the current engine,
+    # tunables and referenced catalog rows.
+    result_snapshot = db.Column(JSON_TYPE)
+    result_fingerprint = db.Column(db.String(64))
+    result_computed_at = db.Column(db.DateTime(timezone=True))
+    # Separate from the fingerprint on purpose: a parser fix cannot be repaired
+    # by recalculating (the source file isn't stored), so it marks the sizing
+    # "re-import needed" rather than merely stale (§3.3).
+    parser_version = db.Column(db.String(64))
+    source_meta = db.Column(JSON_TYPE)  # provenance: file name, type, hash, counts
+    # Digest of the payload, maintained on save. A DR target's fingerprint folds
+    # in the digests of everything replicating into it (§8.5), so this is read
+    # once per link instead of re-hashing a 4 MB payload on every project open.
+    payload_digest = db.Column(db.String(64))
+    # A sizing that carries no workload of its own and exists purely as a
+    # replication target, sized from what replicates into it (decision 30).
+    is_dr_target = db.Column(db.Boolean, nullable=False, default=False)
+
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime(timezone=True))
     deleted_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
@@ -183,6 +216,14 @@ class Configuration(db.Model):
             "updated_at": _iso(self.updated_at),
             "source": source,
             "can_delete": can_delete,
+            "project_id": self.project_id,
+            "position": self.position,
+            "role": self.role,
+            "notes": self.notes,
+            "source_meta": self.source_meta,
+            "is_dr_target": self.is_dr_target,
+            "has_result": self.result_snapshot is not None,
+            "result_computed_at": _iso(self.result_computed_at),
         }
 
     def to_dict(self, current_user=None, source="tenant"):

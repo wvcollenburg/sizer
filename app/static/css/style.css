@@ -2403,3 +2403,177 @@ body.wiz-active #vm-triage-panel .vm-table-wrap {
     .wiz-raillabel { display: none; }
     .wiz-railstep { flex: 0 0 auto; }
 }
+
+/* ── Project screens ─────────────────────────────────────────────────────────
+   Sizing happens inside a project, so the project home and project view sit in
+   front of the sizer. One body class decides which is showing; the sizer's own
+   markup is untouched and simply hidden while a project screen is up. */
+
+#project-screens { display: none; }
+body.view-projects #project-screens,
+body.view-project  #project-screens { display: block; max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+body.view-projects main,
+body.view-project  main { display: none; }
+body.auth-required #project-screens { display: none; }
+
+.project-screen { animation: fadeIn 0.15s ease-out; }
+
+.project-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+.project-head h2 { margin: 0.25rem 0; }
+.project-head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.project-title-block { display: flex; flex-direction: column; gap: 0.25rem; }
+.project-meta { color: var(--text-muted); font-size: 0.85rem; }
+.project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
+.project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
+
+/* Home: one card per project, newest first. */
+.project-list { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.project-card {
+    display: flex; flex-direction: column; gap: 0.3rem;
+    text-align: left; padding: 0.9rem 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer;
+    transition: border-color 0.12s, transform 0.12s;
+}
+.project-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+.project-card-name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+.project-card-sub { color: var(--text-muted); font-size: 0.82rem; }
+
+.project-badge {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0.1rem 0.4rem; border-radius: 999px;
+    background: var(--border); color: var(--text-muted);
+}
+.project-badge-shared { background: #e3ecff; color: #2d5bbf; }
+
+/* Project view: the sizing table. */
+.sizing-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.sizing-table th {
+    text-align: left; font-weight: 600; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-muted); padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+}
+.sizing-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.sizing-table tr:hover td { background: rgba(0,0,0,0.015); }
+.sizing-table .col-check { width: 2rem; }
+.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
+.sizing-name { font-weight: 500; }
+.sizing-source { color: var(--text-muted); font-size: 0.82rem; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-dot { color: var(--primary); font-size: 0.7rem; cursor: help; }
+
+.btn-xs { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
+
+/* Three distinct cache states. "Re-import" is deliberately not a shade of
+   "stale": recalculating cannot fix it, so it must not invite a refresh. */
+.state-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.state-fresh    { background: #e6f4ea; color: #1e7a3c; }
+.state-stale    { background: #fdf1dc; color: #96690d; cursor: help; }
+.state-none     { background: var(--border); color: var(--text-muted); }
+.state-reimport { background: #fde8e8; color: #a32020; cursor: help; }
+
+.role-chip { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.role-alternative { background: #eef0ff; color: #4348a8; }
+.role-additive    { background: #e8f3ee; color: #256d4d; }
+.role-unset       { color: var(--text-muted); }
+
+/* Tags: freeform, project-scoped, used both as filters and in the panel. */
+.project-tag-filter { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.75rem 0; }
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.tag-chip {
+    font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); cursor: pointer;
+}
+.tag-chip-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tag-chip-sm { font-size: 0.7rem; cursor: default; }
+.tag-chip-clear { border-style: dashed; color: var(--text-muted); }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
+.tag-add-row .text-input { flex: 1; }
+
+.project-selection-bar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+    background: var(--surface); border: 1px solid var(--primary);
+    border-radius: var(--radius); font-size: 0.85rem;
+}
+
+/* Replication summary under the table. */
+.rep-heading { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 1.5rem 0 0.4rem; }
+.rep-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.rep-list li { padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.rep-terms { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.4rem; }
+.rep-pct-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rep-pct { width: 5.5rem; }
+.field-label-inline { font-size: 0.8rem; color: var(--text-muted); }
+.panel-rule { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+/* Which project the open sizing belongs to. */
+.sizer-project-bar {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; margin-bottom: 1rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 0.85rem;
+}
+.sizer-project-label { color: var(--text-muted); }
+.sizer-project-label strong { color: var(--text); }
+
+.modal-footer-spacer { flex: 1; }
+.modal-error { color: var(--danger, #a32020); font-size: 0.85rem; margin-top: 0.5rem; }
+.field-hint { color: var(--text-muted); font-size: 0.8rem; margin: 0.2rem 0 0.75rem; }
+.sf-link { color: var(--primary); text-decoration: none; }
+.sf-link:hover { text-decoration: underline; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 700px) {
+    .sizing-table .sizing-source, .sizing-table th:nth-child(5) { display: none; }
+    .project-head { flex-direction: column; }
+}
+
+/* Refresh iframes: real, loaded, and invisible. display:none would stop some
+   browsers running them, so they are moved out of view instead. */
+.refresh-frame {
+    position: absolute; width: 1px; height: 1px;
+    left: -9999px; top: -9999px; border: 0; visibility: hidden;
+}
+body.refresh-mode { visibility: hidden; }
+
+.project-refresh-bar {
+    padding: 0.4rem 0.75rem; margin: 0.5rem 0;
+    background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius);
+    font-size: 0.82rem; color: #7a5c12;
+}
+
+.inline-select { width: auto; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
+.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); }
+
+/* Comparison table: options side by side, deltas against the first column. */
+.project-compare { margin: 1rem 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.compare-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.compare-head h3 { margin: 0; font-size: 1rem; }
+.compare-scroll { overflow-x: auto; }
+.compare-table th:first-child, .compare-metric { text-align: left; white-space: nowrap; color: var(--text-muted); }
+.compare-note { font-size: 0.8rem; color: var(--text-muted); max-width: 26ch; }
+.delta { font-size: 0.75rem; margin-left: 0.2rem; }
+.delta-up { color: #a35a20; }
+.delta-down { color: #1e7a3c; }
+.compare-warnings { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem 0.5rem 1.75rem; background: #fdf8ec; border: 1px solid #e7d4a8; border-radius: var(--radius); font-size: 0.82rem; color: #7a5c12; }
+.compare-rollup { font-size: 0.85rem; margin: 0.75rem 0 0; }
+.compare-rollup-none { color: var(--text-muted); }
+
+/* Exports panel — a job runs whether or not anyone is watching, so there has
+   to be a way back to a finished bundle. */
+.project-exports { margin-top: 1.5rem; }
+.export-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.export-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.export-note { color: var(--text-muted); font-size: 0.8rem; }
+.export-failed { color: #a32020; cursor: help; }
+.export-skip { flex-basis: 100%; color: var(--text-muted); font-size: 0.75rem; }

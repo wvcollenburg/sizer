@@ -60,6 +60,17 @@ function updateGate() {
         }
     } else {
         document.body.classList.remove('auth-required');
+        // Sizing always happens inside a project, so signing in lands on the
+        // project home rather than straight in the sizer. Only on the first
+        // reveal — later calls (e.g. a refreshed account) must not yank the
+        // user out of a sizing they're in the middle of.
+        if (!document.body.classList.contains('refresh-mode')
+            && !document.body.classList.contains('view-projects')
+            && !document.body.classList.contains('view-project')
+            && !document.body.classList.contains('view-sizer')
+            && window.openProjectsHome) {
+            window.openProjectsHome();
+        }
     }
 }
 
@@ -542,10 +553,19 @@ async function saveCurrentSizing() {
     const name = await promptSizingName();
     if (!name) return false;
 
+    // File the sizing in whichever project is open. When none is (the quick
+    // path), the server resolves it to the user's scratch project rather than
+    // leaving it unfiled — no sizing exists outside a project.
+    const projectId = window.activeProjectId ? window.activeProjectId() : null;
     const { ok, data } = await apiJson('/api/configs/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, payload: snap }),
+        body: JSON.stringify({
+            name, payload: snap,
+            project_id: projectId || undefined,
+            // Provenance from the import that produced this sizing, if any.
+            source_meta: (window.currentSourceMeta && window.currentSourceMeta()) || undefined,
+        }),
     });
     if (!ok) {
         showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
@@ -580,10 +600,19 @@ function _resolveSaveChoice(value) {
 function closeSaveChoice() { _resolveSaveChoice(null); }
 function chooseSave(which) { _resolveSaveChoice(which); }
 
+// Let the project view hand a loaded sizing back, so "save" offers to update it
+// in place rather than always creating a copy.
+window.setLoadedConfig = function (data) {
+    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+};
+
 async function loadSizing(id) {
     const { ok, data } = await apiJson('/api/configs/' + id);
     if (!ok) { sizingsStatus((data && data.error) || t('auth.load_failed'), true); return; }
     closeSizingsModal();
+    // The modal can be opened from a project screen, where the sizer is hidden;
+    // reveal it before restoring or the sizing loads into an invisible page.
+    if (window.enterSizer) window.enterSizer();
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }
@@ -597,6 +626,9 @@ async function retrieveByCode() {
     sizingsStatus(t('auth.code_loaded', { name: data.name }), false);
     loadSizingsList();
     closeSizingsModal();
+    // The modal can be opened from a project screen, where the sizer is hidden;
+    // reveal it before restoring or the sizing loads into an invisible page.
+    if (window.enterSizer) window.enterSizer();
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
 }

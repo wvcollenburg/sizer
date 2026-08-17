@@ -16,7 +16,13 @@ from orm_models import (
 )
 # Imported so db.create_all() discovers the auth/multitenancy tables.
 from auth_models import (
-    Tenant, User, AppSetting, AdminAuditLog, PiiErasure, ROLE_SUPER_ADMIN,
+    Tenant, User, Configuration, AppSetting, AdminAuditLog, PiiErasure,
+    ROLE_SUPER_ADMIN,
+)
+# Likewise for the project tables (docs/projects-plan.md §2).
+from project_models import (  # noqa: F401
+    Project, ProjectTag, ConfigurationTag, ScaleProjectLink, ExportJob,
+    ReplicationLink, ensure_scratch_project,
 )
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
@@ -132,6 +138,29 @@ def _migrate_schema():
         "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS specrate_int DOUBLE PRECISION",
         "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS passmark_cpu_mark INTEGER",
         "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS passmark_single INTEGER",
+        # Project membership + cached results on existing sizings
+        # (docs/projects-plan.md §2.2). All nullable/defaulted so the ALTER is
+        # safe on a populated table; _backfill_projects() then files every
+        # existing sizing into its owner's scratch project.
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS project_id INTEGER "
+        "REFERENCES projects(id)",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
+        "position INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS role VARCHAR(12)",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS notes TEXT",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS result_snapshot JSONB",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
+        "result_fingerprint VARCHAR(64)",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
+        "result_computed_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS parser_version VARCHAR(64)",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS source_meta JSONB",
+        "CREATE INDEX IF NOT EXISTS ix_configurations_project "
+        "ON configurations (project_id)",
+        # Cross-sizing replication partners (§8.5).
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS payload_digest VARCHAR(64)",
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
+        "is_dr_target BOOLEAN NOT NULL DEFAULT false",
     ]
     for sql in stmts:
         db.session.execute(text(sql))
@@ -164,8 +193,40 @@ def _migrate_schema():
     db.session.commit()
 
     _backfill_cpu_specs()
+    _backfill_projects()
     _bootstrap_super_admin()
     _purge_on_boot()
+
+
+def _backfill_projects():
+    """File every pre-projects sizing into its owner's scratch project.
+
+    Guarded on "any configuration still has project_id IS NULL", so it is a
+    no-op from the second boot onward. Soft-deleted rows are included on
+    purpose: they are restorable and still visible to super admins, so leaving
+    them unfiled would strand rows the app now expects to have a project
+    (docs/projects-plan.md §2.3).
+    """
+    unfiled = Configuration.query.filter(
+        Configuration.project_id.is_(None)).order_by(
+            Configuration.owner_id, Configuration.updated_at).all()
+    if not unfiled:
+        return
+
+    by_owner = {}
+    for config in unfiled:
+        by_owner.setdefault(config.owner_id, []).append(config)
+
+    filed = 0
+    for owner_id, configs in by_owner.items():
+        project = ensure_scratch_project(owner_id, configs[0].tenant_id)
+        for position, config in enumerate(configs):
+            config.project_id = project.id
+            config.position = position
+            filed += 1
+    db.session.commit()
+    print(f"[seed] filed {filed} pre-existing sizing(s) into "
+          f"{len(by_owner)} scratch project(s)")
 
 
 def _backfill_cpu_specs():
