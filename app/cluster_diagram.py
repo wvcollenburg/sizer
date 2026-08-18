@@ -24,17 +24,22 @@ from xml.sax.saxutils import escape
 from i18n import translator
 
 # ── house palette ────────────────────────────────────────────────────────────
-DK2 = "#113859"          # navy — HCI nodes, borders, labels
-SWITCH_FILL = "#2C5F8A"  # switch bars
-EXIST_FILL = "#EEF2F7"
-MUTED = "#5A6B7D"        # witness node (lighter grey)
+# Brand blues and the app's neutrals both come from palette.py. The link
+# colours stay hand-picked: the four legs have to stay tellable apart at print
+# size, which a single-hue ramp can't do.
+import palette as _p
+
+DK2 = _p.css(_p.SC_DARK_NAVY)      # navy — HCI nodes, borders, labels
+SWITCH_FILL = "#2C5F8A"            # switch bars
+EXIST_FILL = _p.css(_p.SURFACE_3)
+MUTED = _p.css(_p.TEXT_MUTED)      # witness node (lighter grey)
 STORAGE_FILL = "#45555F"  # storage-only node (slightly darker grey than witness)
-ROLE_LABEL = "#B9C7D4"   # role sub-label on the dark node bars
-L0 = "#009ADE"           # LAN leg to switch 1 (bright blue)
+ROLE_LABEL = _p.css(_p.SC_300)     # role sub-label on the dark node bars
+L0 = _p.css(_p.SC_BRIGHT_BLUE)     # LAN leg to switch 1 (bright blue)
 L1 = "#0B4A8A"           # LAN leg to switch 2 (deep blue)
 B0 = "#F2C200"           # backplane leg to switch 1 (yellow)
 B1 = "#BD9100"           # backplane leg to switch 2 (dark gold)
-WHITE = "#FFFFFF"
+WHITE = _p.css(_p.WHITE)
 
 # Include a CJK fallback so cairosvg resolves CJK glyphs (installed via
 # fonts-noto-cjk); Arial/Helvetica alone can't render CJK.
@@ -189,7 +194,7 @@ def render_cluster_svg(nodes, witness=False, single_switch=False, title=None,
         _chip(svg, node_x + 4, l1y, "L1", L1, WHITE)
         if vlan_bp:
             svg.text(node_x + 4 + CHIP_W + 5, ny + node_h / 2, t("export.net.bp_vlan"),
-                     size=9, fill="#BFE3F7", anchor="start")
+                     size=9, fill=_p.css(_p.SC_100), anchor="start")
 
         lane = lan_lane0 - i * lane_step     # < sw_x, so vertical run clears the switch
         svg.path([(node_x + 4, l0y + CHIP_H / 2), (lane, l0y + CHIP_H / 2),
@@ -248,8 +253,8 @@ def network_svg_for(hci_count, storage_count=0, nic_ports=2, lang="en"):
         return None
 
 
-REP_ARROW = "#B8860B"    # replication flow — matches the reserve band's dark yellow
-GW_FILL = "#EEF2F7"      # gateway box (same light fill as the existing-network box)
+REP_ARROW = _p.css(_p.UTIL_REPLICATION_HATCH[0])  # replication flow — matches the reserve band
+GW_FILL = _p.css(_p.SURFACE_3)  # gateway box (same light fill as the existing-network box)
 
 
 def render_replication_topology_svg(clusters, lang="en"):

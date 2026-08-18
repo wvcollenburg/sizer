@@ -23,23 +23,33 @@ from recommend import _rec_network_svg
 from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for
 
-# Brand palette taken from the template theme (resources/template.pptx):
+# Colours come from palette.py. The brand blues below are pinned to the theme
+# slots of resources/template.pptx and must not drift from it:
 #   dk1 272727 · dk2 113859 · lt2 E9EAF0 · accent1 009ADE · accent2 194F90
 #   accent4 3FB748 · accent5 97CAEB · accent6 F78D2C
-SC_BLUE = RGBColor(0x00, 0x9A, 0xDE)       # accent1 — primary SC blue
-SC_DARK_BLUE = RGBColor(0x11, 0x38, 0x59)  # dk2 — title bar / headings
-SC_DEEP_BLUE = RGBColor(0x19, 0x4F, 0x90)  # accent2 — secondary accent / rules
-SC_LIGHT_BLUE = RGBColor(0x97, 0xCA, 0xEB)  # accent5 — "SC//" prefix on dark
-CHARCOAL = RGBColor(0x27, 0x27, 0x27)      # dk1
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-LIGHT_GRAY = RGBColor(0xE9, 0xEA, 0xF0)    # lt2
-MID_GRAY = RGBColor(0x66, 0x66, 0x66)
-GREEN = RGBColor(0x3F, 0xB7, 0x48)         # accent4
-RED = RGBColor(0xC6, 0x28, 0x28)           # semantic warning (no template red)
-ORANGE = RGBColor(0xF7, 0x8D, 0x2C)        # accent6
-BORDER_SUBTLE = RGBColor(0xDE, 0xE2, 0xE6)
-CARD_BG = RGBColor(0xE9, 0xEA, 0xF0)       # lt2
-CARD_BORDER = RGBColor(0xDD, 0xDD, 0xDD)
+# The neutrals are the app's own (tokens.css), so a deck looks like the tool
+# that produced it rather than carrying a third set of greys.
+import palette as _p
+
+
+def _c(value):
+    return RGBColor(*_p.rgb(value))
+
+
+SC_BLUE = _c(_p.SC_BRIGHT_BLUE)       # accent1 — primary SC blue
+SC_DARK_BLUE = _c(_p.SC_DARK_NAVY)    # dk2 — title bar / headings
+SC_DEEP_BLUE = _c(_p.SC_DEEP_BLUE)    # accent2 — secondary accent / rules
+SC_LIGHT_BLUE = _c(_p.SC_LIGHT_BLUE)  # accent5 — "SC//" prefix on dark
+CHARCOAL = _c(_p.CHARCOAL)            # dk1
+WHITE = _c(_p.WHITE)
+LIGHT_GRAY = RGBColor(0xE9, 0xEA, 0xF0)    # lt2 — template slot, left as-is
+MID_GRAY = _c(_p.TEXT_MUTED)
+GREEN = _c(_p.TEMPLATE_GREEN)         # accent4
+RED = _c(_p.RED)                      # semantic warning (no template red)
+ORANGE = _c(_p.TEMPLATE_ORANGE)       # accent6
+BORDER_SUBTLE = _c(_p.BORDER)
+CARD_BG = _c(_p.SURFACE_3)
+CARD_BORDER = _c(_p.BORDER)
 
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "resources", "template.pptx")
 

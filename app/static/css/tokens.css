@@ -1,0 +1,294 @@
+/* Design foundation shared by every page of the sizer.
+ *
+ * Linked BEFORE style.css / admin.css in each template. Both stylesheets used
+ * to carry their own copy of the palette, which is how the admin screens drifted
+ * a full redesign behind the main app. One definition, one place to change it.
+ *
+ * The palette is Scale Computing's, carried over from SC//Design.
+ */
+
+/* ── Raleway ──────────────────────────────────────────────────────────────
+   Self-hosted, not pulled from Google Fonts: we deploy onto self-hosted
+   infrastructure that can't be assumed to reach a CDN. Variable font, 400-700
+   in one file per subset. Only latin/latin-ext are shipped — Raleway has no
+   CJK glyphs, so Japanese falls through to the system stack in `body` below.
+   Re-download with tools/fetch_fonts.py if the version ever needs bumping. */
+/* latin-ext */
+@font-face {
+  font-family: 'Raleway';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fonts/raleway-latin-ext-italic.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Raleway';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fonts/raleway-latin-italic.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fonts/raleway-latin-ext-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fonts/raleway-latin-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Design tokens ────────────────────────────────────────────────────────
+   The palette is Scale Computing's, carried over from SC//Design's
+   globals.css (which declares them in OKLCH; converted to hex here). Keep the
+   variable NAMES stable — several hundred rules downstream read them, which is
+   what let the whole tool change identity from this one block.
+   Every colour below must have a counterpart in the [data-theme="dark"] block
+   further down; never give a colour its only definition inside that block. */
+:root {
+    /* Surfaces */
+    --bg: #f9fafb;              /* page          — their gray-50            */
+    --surface: #ffffff;         /* cards         — their --card             */
+    --surface2: #f1f5f9;        /* subtle fills  — their --muted/--secondary */
+    --surface3: #f8fafc;        /* table headers — their --sidebar          */
+    --border: #e2e8f0;          /* every hairline — their --border/--input  */
+    --border-strong: #cbd5e1;   /* dashed drop zones, emphasised dividers   */
+
+    /* Ink */
+    --text: #020618;            /* their --foreground                       */
+    --text-muted: #62748e;      /* their --muted-foreground                 */
+    --text-subtle: #94a3b8;     /* timestamps, placeholders                 */
+    --on-accent: #ffffff;
+
+    /* Scale Computing blue ramp (their --color-sc-*) */
+    --sc-50: #f0f5fa;
+    --sc-100: #dae5f2;
+    --sc-300: #a1bddf;
+    --sc-400: #6a96cb;
+    --sc-500: #3d72ad;
+    --sc-600: #2d5f99;
+    --sc-700: #194f90;
+    --navy: #28293d;            /* the nav bar — their --color-sc-navy      */
+
+    /* Accent aliases. Pre-existing names, repointed at the SC ramp so the
+       ~80 rules already using them move without being touched. */
+    --accent: var(--sc-600);
+    --accent-dark: var(--sc-700);
+    --accent-light: var(--sc-100);
+    --accent-tint: var(--sc-50);
+    --accent-hover: var(--sc-500);     /* their bg-primary/90 over white    */
+    --ring: rgba(61, 114, 173, 0.4);   /* sc-500 @ 40% — focus rings        */
+
+    /* State colours. Kept as our own (they read well and the export palette
+       matches them), but retuned to sit against the new blue. */
+    --green: #166534;
+    --green-bg: #dcfce7;
+    --orange: #854d0e;
+    --orange-bg: #fef9c3;
+    --red: #991b1b;
+    --red-bg: #fee2e2;
+    --yellow: #f39c12;
+    --info: #1d4ed8;
+    --info-bg: #dbeafe;
+
+    /* Geometry — their --radius: 0.625rem, with shadcn's derived steps */
+    --radius: 0.625rem;                        /* cards, modals             */
+    --radius-sm: calc(var(--radius) - 4px);    /* buttons, inputs, badges   */
+    --radius-lg: calc(var(--radius) + 4px);    /* large surfaces            */
+
+    /* Elevation — deliberately faint. Their cards lean on the border, not
+       the shadow; anything heavier reads as "not their tool". */
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.07);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+    /* Type scale. These are Tailwind's steps resolved against the 18px root
+       set on `html` below, which is how SC//Design gets its size — their
+       globals.css comments the 112.5% as "makes text-sm ≈ 16px". */
+    --fs-xs: 0.75rem;      /* 13.5px — hints, table headers, badges         */
+    --fs-sm: 0.875rem;     /* 15.75px — BODY DEFAULT, labels, buttons       */
+    --fs-base: 1rem;       /* 18px   — card titles                          */
+    --fs-lg: 1.125rem;     /* 20.25px                                       */
+    --fs-xl: 1.25rem;      /* 22.5px — page headings                        */
+    --fs-2xl: 1.5rem;      /* 27px                                          */
+}
+
+/* ── Dark theme ───────────────────────────────────────────────────────────
+   SC//Design ships a complete `.dark` token set (next-themes drives it); this
+   is the same set mapped onto our variable names. Nothing outside this block
+   needs to know dark mode exists — that is the whole point of routing every
+   colour through :root first.
+
+   Two things flip rather than merely darken:
+     • the light end of the SC ramp (--sc-50/--sc-100) becomes a dark tint,
+       and --sc-700 becomes light, because we use them as fill/ink pairs;
+     • each state colour swaps role with its -bg partner for the same reason.
+   Applied via [data-theme="dark"] on <html>, set by i18n-independent JS below
+   and pre-applied inline in the template to avoid a light flash on load. */
+:root[data-theme="dark"] {
+    --bg: #020618;
+    --surface: #0f172b;
+    --surface2: #1d293d;
+    --surface3: #16233c;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.2);
+
+    --text: #f8fafc;
+    --text-muted: #90a1b9;
+    --text-subtle: #62748e;
+    --on-accent: #f8fafc;
+
+    /* Their dark --primary is sc-400; the pale ramp steps invert so the
+       tint/ink pairs built on them keep their contrast. */
+    --sc-50: #0e1b2f;
+    --sc-100: #16294a;
+    --sc-300: #3d72ad;
+    --sc-400: #6a96cb;
+    --sc-500: #a1bddf;
+    --sc-600: #6a96cb;
+    --sc-700: #a1bddf;
+    --navy: #0f172b;
+
+    --accent: var(--sc-400);
+    --accent-dark: var(--sc-500);
+    --accent-light: var(--sc-100);
+    --accent-tint: var(--sc-50);
+    /* Darker than --accent here: their bg-primary/90 composites toward the
+       background, which is dark in this theme. */
+    --accent-hover: #4f7fb8;
+    --ring: rgba(106, 150, 203, 0.45);
+
+    --green: #86efac;
+    --green-bg: #14532d;
+    --orange: #fcd34d;
+    --orange-bg: #422006;
+    --red: #fca5a5;
+    --red-bg: #450a0a;
+    --yellow: #fcd34d;
+    --info: #93c5fd;
+    --info-bg: #172554;
+
+    /* Shadows need more weight on a dark ground to read at all. */
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+}
+
+/* Their 112.5% root is the whole reason the UI reads the way it does; every
+   rem below resolves against it. Overriding this re-densifies the tool and
+   breaks parity — change it only as a deliberate product decision. */
+html { font-size: 112.5%; }
+
+/* Form controls, scrollbars and the like are painted by the browser from this. */
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Checked controls take the brand colour rather than the OS default blue. */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
+
+/* ── Toasts ───────────────────────────────────────────────────────────────
+   Top-right stack, as SC//Design places sonner. Lives with the tokens because
+   both the sizer and the admin console load it. Above modals (1000) so an
+   outcome is never hidden behind the dialog that caused it. */
+.toast-host {
+    position: fixed;
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    right: 1.25rem;
+    z-index: 2500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(24rem, calc(100vw - 2.5rem));
+    pointer-events: none;
+}
+.toast {
+    pointer-events: auto;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    padding: 0.65rem 0.85rem;
+    font-size: var(--fs-sm);
+    line-height: 1.45;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast.is-in { opacity: 1; transform: none; }
+.toast.is-leaving { opacity: 0; transform: translateY(-6px); }
+
+.toast-success { border-left-color: var(--green); }
+.toast-error   { border-left-color: var(--red); }
+.toast-warn    { border-left-color: var(--orange); }
+.toast-info    { border-left-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { transition: none; opacity: 1; transform: none; }
+}
+
+/* The `hidden` attribute is only `display: none` in the UA stylesheet, so any
+   author rule setting `display` beats it. That is why the project selection bar
+   stayed on screen at "0 selected" despite projects.js setting `bar.hidden`.
+   One defensive rule rather than a per-component workaround. */
+[hidden] { display: none !important; }
+
+body {
+    /* Japanese has no Raleway coverage, so the CJK faces below are the real
+       fallback for `ja` rather than dead entries. */
+    font-family: 'Raleway', system-ui, -apple-system, 'Segoe UI',
+                 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif;
+    font-size: var(--fs-sm);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Shared header chrome ─────────────────────────────────────────────────
+   Used by both index.html and admin.html, so it lives with the tokens rather
+   than in either page's stylesheet. */
+/* Theme switch, sharing the language button's icon-button treatment. Only one
+   of the two icons is shown, so the control always depicts the theme you get
+   by pressing it. */
+.theme-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    line-height: 0;
+}
+.theme-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.theme-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.6);
+    outline-offset: 2px;
+}
+/* Light theme: offer the moon. Dark theme: offer the sun. */
+.theme-icon-sun { display: none; }
+.theme-icon-moon { display: block; }
+:root[data-theme="dark"] .theme-icon-sun { display: block; }
+:root[data-theme="dark"] .theme-icon-moon { display: none; }

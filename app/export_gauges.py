@@ -5,10 +5,13 @@ as a single PNG block that drops identically into every export format
 (python-pptx and python-docx both take PNGs; the PDF is the LibreOffice render
 of the PPTX). The full bar = 100% of the full cluster:
 
-  now            solid, coloured by current load (green / orange / red)
-  growth+snap    45deg light hatch (#8ca3c6 / #b9c7de), fills up to the sized %
+  now            solid, coloured by current load (SC blue / amber / red)
+  growth+snap    45deg light hatch, fills up to the sized %
   free           track gap in the middle
-  HA reserve    -45deg dark hatch (#5f7aa6 / #93a8cb), anchored at the right edge
+  HA reserve    -45deg hatch, anchored at the right edge
+
+Colours come from palette.py; see the .util-* rules in style.css for the
+on-screen counterpart these are meant to match.
 """
 import io
 import os
@@ -17,18 +20,23 @@ from PIL import Image, ImageDraw, ImageFont
 
 from i18n import translator, is_cjk
 
-# ── Sizer palette (kept in sync with style.css .util-* rules) ────────────────
-NOW_LOW = "#2e7d32"      # < 70% load
-NOW_MID = "#e67e22"      # 70-90%
-NOW_HIGH = "#c0392b"     # > 90%
-RESERVE_HATCH = ("#8ca3c6", "#b9c7de")   # growth + snapshot, +45deg
-REPLICATION_HATCH = ("#b8860b", "#d4af37")  # replication (DR) reserve, +45deg dark yellow
-HA_HATCH = ("#5f7aa6", "#93a8cb")        # HA failover reserve, -45deg
-TRACK = "#cfe0f4"        # free / unused — light blue, enough contrast to read
-HAIRLINE = "#9fb2cf"     # thin outline around each bar pill
-TEXT = "#2c3e50"
-MUTED = "#6b7a90"
-ORANGE = "#e67e22"
+# ── Sizer palette ───────────────────────────────────────────────────────────
+# Sourced from palette.py, which mirrors the .util-* rules in style.css — the
+# gauge PNG and the on-screen bar are meant to be the same picture, and keeping
+# two hand-maintained copies is what let them drift apart before.
+import palette as _p
+
+NOW_LOW = _p.css(_p.UTIL_NOW_LOW)      # < 70% load
+NOW_MID = _p.css(_p.UTIL_NOW_MID)      # 70-90%
+NOW_HIGH = _p.css(_p.UTIL_NOW_HIGH)    # > 90%
+RESERVE_HATCH = tuple(_p.css(c) for c in _p.UTIL_RESERVE_HATCH)          # growth + snapshot, +45deg
+REPLICATION_HATCH = tuple(_p.css(c) for c in _p.UTIL_REPLICATION_HATCH)  # replication (DR) reserve, +45deg
+HA_HATCH = tuple(_p.css(c) for c in _p.UTIL_HA_HATCH)                    # HA failover reserve, -45deg
+TRACK = _p.css(_p.UTIL_TRACK)          # free / unused
+HAIRLINE = _p.css(_p.UTIL_HAIRLINE)    # thin outline around each bar pill
+TEXT = _p.css(_p.TEXT)
+MUTED = _p.css(_p.TEXT_MUTED)
+ORANGE = _p.css(_p.ORANGE)
 
 _SS = 4                  # supersample factor for crisp edges + hatching
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "resources", "fonts")

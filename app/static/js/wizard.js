@@ -165,6 +165,14 @@
         portalInto('#vm-triage-panel', 'wiz-body-4');
         portalInto('.ratio-control', 'wiz-body-5');
         portalInto('.growth-control', 'wiz-body-5');
+        // In the rail these panels start collapsed; as a wizard step they ARE
+        // the content, so nothing should be hidden behind a chevron here.
+        ['.ratio-control', '.growth-control'].forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (el) el.classList.remove('is-collapsed');
+            var btn = el && el.querySelector('.panel-toggle');
+            if (btn) btn.setAttribute('aria-expanded', 'true');
+        });
         portalInto('#dr-tabs', 'wiz-body-6');
         portalInto('#primary-recommendations', 'wiz-body-6');
         portalInto('#dr-recommendations', 'wiz-body-6');

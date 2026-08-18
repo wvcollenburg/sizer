@@ -970,19 +970,34 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             # Replication reserve band (dark yellow in the UI): capacity held for
             # inbound DR replicas. RAM/storage totals already include it (folded
             # into needs above); CPU total adds rep_cores here for display.
+            # `abs` carries the same three quantities in real units, so the bar
+            # legend can print "now 122 cores" instead of the UI dividing
+            # already-rounded percentages back out and drifting from the tables.
             utilization = {
                 "cpu": {"current": _u(base_required_cores, full_cores),
                         "total": _u(required_cores + rep_cores, full_cores),
                         "replication": _u(rep_cores, full_cores),
-                        "ha_reserve": _ha(full_cores, n1_usable_cores)},
+                        "ha_reserve": _ha(full_cores, n1_usable_cores),
+                        "abs": {"current": base_required_cores,
+                                "total": required_cores + rep_cores,
+                                "capacity": full_cores,
+                                "unit": "cores"}},
                 "ram": {"current": _u(needs["base_ram_gb"], full_ram),
                         "total": _u(needs["ram_gb"] + rep_ram, full_ram),
                         "replication": _u(rep_ram, full_ram),
-                        "ha_reserve": _ha(full_ram, n1_ram)},
+                        "ha_reserve": _ha(full_ram, n1_ram),
+                        "abs": {"current": round(needs["base_ram_gb"], 1),
+                                "total": round(needs["ram_gb"] + rep_ram, 1),
+                                "capacity": round(full_ram, 1),
+                                "unit": "GB"}},
                 "storage": {"current": _u(needs["base_storage_tb"], usable),
                             "total": _u(needs["usable_storage_tb"], usable),
                             "replication": _u(needs["rep_storage_tb"], usable),
-                            "ha_reserve": 0},
+                            "ha_reserve": 0,
+                            "abs": {"current": round(needs["base_storage_tb"], 2),
+                                    "total": round(needs["usable_storage_tb"], 2),
+                                    "capacity": round(usable, 2),
+                                    "unit": "TB"}},
             }
 
             # Right-sizing score (lower = better) — see the weight block above

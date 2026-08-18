@@ -1,33 +1,16 @@
-:root {
-    --bg: #f5f6f8;
-    --surface: #ffffff;
-    --surface2: #eef1f5;
-    --border: #d5dbe3;
-    --text: #2c3e50;
-    --text-muted: #6c7a89;
-    --accent: #0076CE;
-    --accent-dark: #005fa3;
-    --accent-light: #e8f0f8;
-    --green: #2e7d32;
-    --orange: #e67e22;
-    --red: #c0392b;
-    --radius: 8px;
-}
+/* Admin console. Design tokens, fonts and the element baseline come from
+   tokens.css, which admin.html links first — this file used to redefine the
+   whole palette, which is how it drifted behind the main app's design. */
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-}
-
+/* Same navy bar and gradient hairline as the main app (see style.css). */
 header {
-    background: #003a70;
-    border-bottom: 3px solid var(--accent);
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    background: var(--navy);
     padding: 0.75rem 2rem;
+    border-bottom: 2px solid transparent;
+    border-image: linear-gradient(to right, var(--sc-500), var(--sc-400)) 1;
 }
 
 .header-content {
@@ -39,13 +22,13 @@ header {
 }
 
 header h1 {
-    font-size: 1.3rem;
+    font-size: var(--fs-base);
     font-weight: 600;
-    color: #4db8ff;
+    color: rgba(255, 255, 255, 0.92);
 }
 
-.header-sep { color: #5a8ab5; }
-.header-sub { color: #b0cfe0; font-size: 0.95rem; }
+.header-sep { color: rgba(255, 255, 255, 0.3); }
+.header-sub { color: rgba(255, 255, 255, 0.6); font-size: var(--fs-sm); }
 
 /* i18n: hide until translated (non-English only) to avoid an English flash. */
 [data-i18n-pending] body { visibility: hidden; }
@@ -55,7 +38,7 @@ header h1 {
 .lang-btn {
     background: transparent;
     border: none;
-    color: #cfe4f5;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     padding: 5px;
     display: flex;
@@ -235,7 +218,7 @@ hr {
 
 .model-table th {
     background: var(--accent-light);
-    color: #003a70;
+    color: var(--accent);
     font-weight: 600;
     text-align: left;
     padding: 0.6rem 0.75rem;
@@ -273,7 +256,7 @@ hr {
 .field-hint { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.73rem; }
 
 .iops-card {
-    background: var(--card-bg, #fff);
+    background: var(--surface);
     border: 1px solid var(--border, #e2e8f0);
     border-radius: 8px;
     padding: 14px 18px;
@@ -331,7 +314,7 @@ hr {
     border-bottom: 1px solid var(--border);
 }
 
-.modal-header h2 { font-size: 1.1rem; color: #003a70; }
+.modal-header h2 { font-size: 1.1rem; color: var(--accent); }
 
 .modal-close {
     background: none;
@@ -368,7 +351,7 @@ hr {
     margin-bottom: 0.5rem;
 }
 
-.sub-header h3 { font-size: 0.9rem; color: #003a70; }
+.sub-header h3 { font-size: 0.9rem; color: var(--accent); }
 .sub-header h4 { font-size: 0.82rem; color: var(--text-muted); }
 
 .sub-table {
@@ -531,7 +514,7 @@ hr {
 }
 
 .hint-tag {
-    color: #003a70;
+    color: var(--accent);
 }
 
 /* ── Picker row ─────────────────────────────────────────────────────────── */
@@ -721,7 +704,7 @@ body { padding-bottom: 64px; }
     cursor: pointer;
     vertical-align: middle;
 }
-.tunable-info-btn:hover { color: #003a70; border-color: #003a70; }
+.tunable-info-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Centred variant of the modal overlay (default overlay is top-aligned). */
 .modal-overlay.centered { align-items: center; }
@@ -735,7 +718,7 @@ body { padding-bottom: 64px; }
     letter-spacing: 0.04em;
 }
 .tun-info-section p { margin: 0; line-height: 1.5; color: var(--text); }
-.tun-info-what h4 { color: #003a70; }
+.tun-info-what h4 { color: var(--accent); }
 .tun-info-how h4 { color: #2e7d32; }
 .tun-info-beware {
     background: #fdecea;
