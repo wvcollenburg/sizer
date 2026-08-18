@@ -2000,6 +2000,23 @@ body { padding-bottom: 64px; }
     overflow: auto;
 }
 
+/* #vm-triage-panel sits between .modal-content and .modal-body (it wraps the
+   toolbar and body together so the guided wizard can portal the whole panel
+   into a step). As a plain block it took its content height — 4,599px for a
+   78-VM import — and every descendant inherited that, so .vm-table-wrap was
+   never taller than its content and had nothing to scroll: the rows simply
+   spilled out past the bottom of the modal.
+   Making it a shrinkable flex item *and* a flex container reconnects the chain
+   from .modal-content's max-height down to the table wrapper.
+   Scoped to the modal: when the wizard portals this panel into a pane it is a
+   plain block again, capped by its own max-height rule further down. */
+#vm-exclusion-modal #vm-triage-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 .vm-table {
     width: 100%;
     border-collapse: collapse;
