@@ -997,6 +997,7 @@
   "dr.intro": "Šī vietne mitina tikai replicētus datus. Tā tiek izmērīta pēc ienākošās replikācijas rezerves — novirziet avota izmēra replikāciju uz šo mērķi.",
   "dr.reserve_title": "Ienākošā rezerve",
   "dr.no_inbound": "Neviens izmērs vēl neveic replikāciju uz šo mērķi. Atveriet avota izmēru un iestatiet šo kā tā replikācijas mērķi.",
+  "dr.sources_no_demand": "Izmēri replicējas uz šo mērķi, bet nevienam vēl nav pieprasījuma. Vispirms atveriet un aprēķiniet/saglabājiet katru avota izmēru.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Izmēra režīms",
   "dr.mode_certified": "Sertificēts (ierīce)",

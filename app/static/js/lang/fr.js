@@ -997,6 +997,7 @@
   "dr.intro": "Ce site n'héberge que des données répliquées. Il est dimensionné à partir de la réserve de réplication entrante — dirigez la réplication d'un dimensionnement source vers cette cible.",
   "dr.reserve_title": "Réserve entrante",
   "dr.no_inbound": "Aucun dimensionnement ne réplique encore vers cette cible. Ouvrez un dimensionnement source et définissez cette cible comme destination de réplication.",
+  "dr.sources_no_demand": "Des dimensionnements répliquent vers cette cible, mais aucun ne porte encore de demande. Ouvrez puis calculez/enregistrez d'abord chaque dimensionnement source.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Mode de dimensionnement",
   "dr.mode_certified": "Certifié (appliance)",

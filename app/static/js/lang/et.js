@@ -997,6 +997,7 @@
   "dr.intro": "See sait majutab ainult repliteeritud andmeid. See mõõdetakse sissetuleva replikatsioonireservi põhjal — suuna lähtemõõtmise replikatsioon sellele sihtmärgile.",
   "dr.reserve_title": "Sissetulev reserv",
   "dr.no_inbound": "Ükski mõõtmine ei repliteeru veel sellele sihtmärgile. Ava lähtemõõtmine ja määra see selle replikatsioonisihtmärgiks.",
+  "dr.sources_no_demand": "Mõõtmised repliteeruvad sellele sihtmärgile, kuid ükski ei kanna veel nõudlust. Ava ja arvuta/salvesta esmalt iga lähtemõõtmine.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Mõõtmisrežiim",
   "dr.mode_certified": "Sertifitseeritud (seade)",

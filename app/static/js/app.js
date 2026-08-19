@@ -4007,8 +4007,10 @@ function renderDrRecommendations() {
     const warnings = (drTargetResult && drTargetResult.warnings) || [];
     if (!recs.length) {
         const noInbound = warnings.some(w => w && w.code === 'dr_no_inbound');
+        const noDemand = warnings.some(w => w && w.code === 'dr_sources_no_demand');
         const strWarns = warnings.filter(w => typeof w === 'string');
         const msg = noInbound ? window.t('dr.no_inbound')
+            : noDemand ? window.t('dr.sources_no_demand')
             : (strWarns.length ? strWarns.join(' ') : window.t('results.no_matching_configs'));
         list.innerHTML = `<div class="no-recs">${esc(msg)}</div>`;
         return;

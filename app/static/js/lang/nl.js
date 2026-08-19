@@ -997,6 +997,7 @@
   "dr.intro": "Deze site host alleen gerepliceerde data. Hij wordt gedimensioneerd op de inkomende replicatiereserve — richt de replicatie van een bron-sizing op dit doel.",
   "dr.reserve_title": "Inkomende reserve",
   "dr.no_inbound": "Er repliceert nog geen sizing naar dit doel. Open een bron-sizing en stel dit in als replicatiedoel.",
+  "dr.sources_no_demand": "Er repliceren sizings naar dit doel, maar geen enkele bevat nog vraag. Open en bereken/bewaar eerst elke bron-sizing.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Sizingmodus",
   "dr.mode_certified": "Certified (appliance)",

@@ -997,6 +997,7 @@
   "dr.intro": "Dieser Standort hostet nur replizierte Daten. Er wird aus der eingehenden Replikationsreserve dimensioniert — richten Sie die Replikation einer Quell-Dimensionierung auf dieses Ziel aus.",
   "dr.reserve_title": "Eingehende Reserve",
   "dr.no_inbound": "Noch repliziert keine Dimensionierung in dieses Ziel. Öffnen Sie eine Quell-Dimensionierung und setzen Sie ihr Replikationsziel auf dieses.",
+  "dr.sources_no_demand": "Dimensionierungen replizieren in dieses Ziel, aber noch keine hat einen Bedarf. Öffnen und berechnen/speichern Sie zuerst jede Quell-Dimensionierung.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Dimensionierungsmodus",
   "dr.mode_certified": "Zertifiziert (Appliance)",

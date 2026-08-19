@@ -997,6 +997,7 @@
   "dr.intro": "Ši svetainė talpina tik replikuotus duomenis. Ji matuojama pagal gaunamą replikacijos rezervą — nukreipkite šaltinio matmens replikaciją į šią paskirtį.",
   "dr.reserve_title": "Gaunamas rezervas",
   "dr.no_inbound": "Kol kas nė vienas matmuo nereplikuoja į šią paskirtį. Atidarykite šaltinio matmenį ir nustatykite šią kaip jo replikacijos paskirtį.",
+  "dr.sources_no_demand": "Matmenys replikuoja į šią paskirtį, bet nė vienas dar neturi poreikio. Pirmiausia atidarykite ir apskaičiuokite/išsaugokite kiekvieną šaltinio matmenį.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Matavimo režimas",
   "dr.mode_certified": "Sertifikuota (įrenginys)",

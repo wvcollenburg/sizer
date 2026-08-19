@@ -998,6 +998,7 @@
   "dr.intro": "This site hosts only replicated data. It is sized from the inbound replication reserve — point a source sizing's replication at this target to feed it.",
   "dr.reserve_title": "Inbound reserve",
   "dr.no_inbound": "No sizings replicate into this target yet. Open a source sizing and set its replication target to this one.",
+  "dr.sources_no_demand": "Sizings replicate into this target, but none carry any demand yet. Open and calculate/save each source sizing first.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Sizing mode",
   "dr.mode_certified": "Certified (appliance)",

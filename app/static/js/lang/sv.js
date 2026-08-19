@@ -997,6 +997,7 @@
   "dr.intro": "Den här platsen lagrar endast replikerade data. Den dimensioneras utifrån den inkommande replikeringsreserven — rikta en källsizings replikering mot det här målet.",
   "dr.reserve_title": "Inkommande reserv",
   "dr.no_inbound": "Ingen sizing replikerar ännu till det här målet. Öppna en källsizing och ange det här som dess replikeringsmål.",
+  "dr.sources_no_demand": "Sizingar replikerar till det här målet, men ingen bär ännu någon efterfrågan. Öppna och beräkna/spara varje källsizing först.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Dimensioneringsläge",
   "dr.mode_certified": "Certifierad (appliance)",

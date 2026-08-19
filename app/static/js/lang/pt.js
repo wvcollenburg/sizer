@@ -997,6 +997,7 @@
   "dr.intro": "Este site aloja apenas dados replicados. É dimensionado a partir da reserva de replicação recebida — aponte a replicação de um dimensionamento de origem para este destino.",
   "dr.reserve_title": "Reserva recebida",
   "dr.no_inbound": "Ainda não há dimensionamentos a replicar para este destino. Abra um dimensionamento de origem e defina este como o seu destino de replicação.",
+  "dr.sources_no_demand": "Há dimensionamentos a replicar para este destino, mas nenhum tem procura ainda. Abra e calcule/guarde primeiro cada dimensionamento de origem.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Modo de dimensionamento",
   "dr.mode_certified": "Certificado (appliance)",

@@ -828,32 +828,85 @@ def create_dr_target(project_id):
 # ── DR-target sizing (workload-less, sized from inbound replication) ──────────
 
 def _demand_of_cluster(cluster):
-    """Day-one demand (vCPU / RAM GB / used TB) a stored result cluster carries.
-    Read from the cluster's summary — the input demand, not its sized result, so
-    a target never depends on another sizing's output (§8.5)."""
-    s = (cluster or {}).get("summary") or {}
+    """Reserve one stored result cluster contributes to a DR target.
+
+    Two shapes reach here:
+      * a WORKLOAD cluster (import/manual) carries a ``summary`` — use its
+        measured demand (vCPUs / provisioned RAM / used TB), the input demand so
+        a target never depends on another sizing's sized output (§8.5);
+      * an APPLIANCE/VALIDATED cluster is a hardware config with no measured
+        workload (``summary`` is null) — replicating it reserves the cluster's
+        provisioned USABLE capacity instead, read from ``config.cluster_total``
+        (usable cores as vCPU demand, usable RAM, usable storage).
+    """
+    cluster = cluster or {}
+    s = cluster.get("summary") or {}
+    if s:
+        return {
+            "vcpus": s.get("total_vcpus", 0) or 0,
+            "ram_gb": s.get("total_vm_provisioned_memory_gb", 0) or 0,
+            "storage_tb": s.get("datastore_used_tb", 0) or 0,
+        }
+    ct = (cluster.get("config") or {}).get("cluster_total") or {}
+    if ct:
+        return {
+            "vcpus": ct.get("cores", 0) or 0,
+            "ram_gb": ct.get("ram_gb", 0) or 0,
+            "storage_tb": ct.get("usable_storage_tb", 0) or 0,
+        }
+    return {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+
+
+def _demand_from_payload(payload):
+    """Fallback demand read straight from a source sizing's saved inputs, so a
+    source that has been imported/entered but not yet sized-and-saved still
+    contributes its reserve (the reserve is input demand, not a sized result).
+
+    Handles the import and manual payload shapes; returns None for shapes that
+    carry no workload (appliance/validated hardware configs, or a DR target)."""
+    if not isinstance(payload, dict):
+        return None
+    summ = None
+    imp = payload.get("import")
+    if isinstance(imp, dict):
+        summ = imp.get("importSummary") or imp.get("originalImportSummary")
+    if not isinstance(summ, dict):
+        man = payload.get("manual")
+        if isinstance(man, dict):
+            summ = man.get("manualSummary")
+    if not isinstance(summ, dict):
+        return None
     return {
-        "vcpus": s.get("total_vcpus", 0) or 0,
-        "ram_gb": s.get("total_vm_provisioned_memory_gb", 0) or 0,
-        "storage_tb": s.get("datastore_used_tb", 0) or 0,
+        "vcpus": summ.get("total_vcpus", 0) or 0,
+        "ram_gb": summ.get("total_vm_provisioned_memory_gb", 0) or 0,
+        "storage_tb": summ.get("datastore_used_tb", 0) or 0,
     }
 
 
 def _source_cluster_demand(source, cluster_name):
-    """Demand of one source cluster (by name) within a source sizing's stored
-    result. An empty/blank name — a single-cluster source — aggregates every
-    cluster the source holds."""
+    """Demand of one source cluster (by name) that replicates into a target.
+
+    Prefers the source's stored per-cluster result summary; an empty/blank name
+    (a single-cluster source, which is what the project UI sends) aggregates
+    every cluster. Falls back to the raw imported/entered demand in the source's
+    payload, so a source that was linked before it was sized still counts."""
     clusters = ((source.result_snapshot or {}).get("clusters")) or []
     for c in clusters:
         if (c.get("name") or "") == (cluster_name or ""):
-            return _demand_of_cluster(c)
+            d = _demand_of_cluster(c)
+            if any(d.values()):
+                return d
     if not (cluster_name or "").strip():
         agg = {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
         for c in clusters:
             d = _demand_of_cluster(c)
             for k in agg:
                 agg[k] += d[k]
-        return agg
+        if any(agg.values()):
+            return agg
+        payload_demand = _demand_from_payload(source.payload)
+        if payload_demand:
+            return payload_demand
     return {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
 
 
@@ -978,12 +1031,14 @@ def dr_recommend(config_id):
 
     has_reserve = any(reserve[k] > 0 for k in reserve)
     if not has_reserve:
-        # Nothing replicates in yet — there is nothing to size. Report the empty
-        # reserve so the UI can prompt the user to point a source at this target.
+        # Nothing to size. Distinguish the two reasons so the message is honest:
+        # no inbound links at all, versus links whose sources carry no demand yet
+        # (e.g. a source that hasn't been calculated/saved).
+        code = "dr_sources_no_demand" if sources else "dr_no_inbound"
         return jsonify({"reserve": {k: round(v, 2) for k, v in reserve.items()},
                         "sources": sources, "recommendations": [],
                         "projection": None, "size_full_cluster": size_full_cluster,
-                        "warnings": [{"code": "dr_no_inbound"}]})
+                        "warnings": [{"code": code}]})
 
     result = generate_recommendations(
         summary,

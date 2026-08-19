@@ -237,3 +237,67 @@ def test_dr_recommend_failover_uses_full_cluster(client):
         "mode": "failover"})
     out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
     assert out["size_full_cluster"] is True        # all-failover -> full-cluster basis
+
+
+def test_dr_reserve_from_appliance_source(client):
+    """An appliance source has no workload summary — the reserve comes from its
+    config's usable capacity (cluster_total), not zero."""
+    _signup(client)
+    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    src = client.post("/api/configs/", json={
+        "name": "option 1 site 1", "payload": {"mode": "appliance"},
+        "project_id": pid}).get_json()
+    client.put(f"/api/sizings/{src['id']}/result", json={"clusters": [{
+        "name": "HW", "summary": None, "recommendation": None, "projection": None,
+        "config": {"cluster_total": {"cores": 252, "ram_gb": 2008,
+                                     "usable_storage_tb": 92}},
+        "refs": {"mode": "appliance"}}], "totals": None})
+    dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
+    client.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": dr["id"], "source_cluster": "",
+        "target_cluster": "", "compute_pct": 100, "storage_pct": 100,
+        "mode": "failover"})
+    out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
+    assert out["reserve"] == {"vcpus": 252, "ram_gb": 2008, "storage_tb": 92}
+
+
+def test_dr_reserve_from_unsized_import_payload(client):
+    """A source linked before it was sized still contributes — the demand is
+    read from its saved import payload as a fallback."""
+    _signup(client)
+    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    src = client.post("/api/configs/", json={
+        "name": "Site A", "project_id": pid,
+        "payload": {"mode": "import", "import": {"importSummary": {
+            "total_vcpus": 100, "total_vm_provisioned_memory_gb": 256,
+            "datastore_used_tb": 8}}}}).get_json()
+    # deliberately NO /result stored (unsized)
+    dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
+    client.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": dr["id"], "source_cluster": "",
+        "target_cluster": "", "compute_pct": 100, "storage_pct": 100,
+        "mode": "reserved"})
+    out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
+    assert out["reserve"] == {"vcpus": 100, "ram_gb": 256, "storage_tb": 8}
+
+
+def test_dr_message_distinguishes_no_demand_from_no_links(client):
+    """Links present but zero demand reports dr_sources_no_demand, not the
+    misleading 'no sizings replicate' message."""
+    _signup(client)
+    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    # A source with a payload that carries no workload at all.
+    src = client.post("/api/configs/", json={
+        "name": "Empty", "payload": {"mode": "appliance"},
+        "project_id": pid}).get_json()
+    dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
+    client.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": dr["id"], "source_cluster": "",
+        "target_cluster": "", "compute_pct": 100, "storage_pct": 100,
+        "mode": "reserved"})
+    out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
+    assert any(w.get("code") == "dr_sources_no_demand" for w in out["warnings"])
+    # And with no links at all it's the other code.
+    dr2 = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR2"}).get_json()
+    out2 = client.post(f"/api/sizings/{dr2['id']}/dr-recommend", json={}).get_json()
+    assert any(w.get("code") == "dr_no_inbound" for w in out2["warnings"])

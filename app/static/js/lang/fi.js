@@ -997,6 +997,7 @@
   "dr.intro": "Tämä sivusto isännöi vain replikoitua dataa. Se mitoitetaan saapuvan replikointivarauksen perusteella — osoita lähdemitoituksen replikointi tähän kohteeseen.",
   "dr.reserve_title": "Saapuva varaus",
   "dr.no_inbound": "Mikään mitoitus ei vielä replikoidu tähän kohteeseen. Avaa lähdemitoitus ja aseta tämä sen replikointikohteeksi.",
+  "dr.sources_no_demand": "Mitoituksia replikoituu tähän kohteeseen, mutta millään ei ole vielä kysyntää. Avaa ja laske/tallenna ensin jokainen lähdemitoitus.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Mitoitustila",
   "dr.mode_certified": "Sertifioitu (laite)",

@@ -997,6 +997,7 @@
   "dr.intro": "Dette sted hoster kun replikerede data. Det dimensioneres ud fra den indgående replikeringsreserve — ret en kildesizings replikering mod dette mål.",
   "dr.reserve_title": "Indgående reserve",
   "dr.no_inbound": "Ingen sizing replikerer endnu til dette mål. Åbn en kildesizing, og angiv dette som dens replikeringsmål.",
+  "dr.sources_no_demand": "Sizinger replikerer til dette mål, men ingen har endnu nogen efterspørgsel. Åbn og beregn/gem hver kildesizing først.",
   "dr.vcpu": "vCPU",
   "dr.sizing_mode": "Dimensioneringstilstand",
   "dr.mode_certified": "Certificeret (appliance)",
