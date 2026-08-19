@@ -873,10 +873,9 @@
                     <table id="n1-table"></table>
                 </div>
             </div>
-            <div class="results-export">
-                <button class="btn btn-muted btn-sm" data-click='["exportConfig","pptx"]' id="config-export-btn" style="display:none" data-i18n-title="results.export_pptx_title" title="Download the editable PowerPoint (Scale users)">PPTX</button>
-                <button class="btn btn-export" data-click='["exportConfig","pdf"]' id="config-export-pdf-btn" style="display:none" data-i18n-title="results.export_pdf_title" title="Download the configuration as PDF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="results.export_pdf">Export PDF</span></button>
-            </div>
+            <!-- Config exports moved to the project level: save the sizing, then
+                 export it from its project (the scratch project for quick
+                 sizings). No per-config export button here. -->
         </section>
     </main>
 

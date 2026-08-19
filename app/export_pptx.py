@@ -204,12 +204,21 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
         header.append(t("export.pptx.multisite_col_replicates"))
     rows = [header]
     for cl in clusters:
-        r = cl["recommendation"]
-        tot = r.get("totals", {})
+        r = cl.get("recommendation")
+        if r:
+            tot = r.get("totals", {})
+            model = r.get("model", "")
+            nodes = r.get("node_count", "")
+        else:
+            # Config section (appliance/validated) — summarise its usable capacity.
+            cfg = cl.get("config", {})
+            tot = cfg.get("cluster_total", {})
+            model = cfg.get("model") or t("export.pptx.configuration_software_only")
+            nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
         row = [
             cl.get("name", ""),
-            r.get("model", ""),
-            str(r.get("node_count", "")),
+            model,
+            str(nodes),
             str(tot.get("cores", "")),
             f"{round(tot.get('ram_gb', 0))} GB",
             f"{tot.get('usable_storage_tb', 0)} TB",
@@ -236,13 +245,22 @@ def generate_bundle_proposal(clusters, lang="en"):
     prs = _new_deck()
 
     _slide_bundle_overview(prs, clusters, t, lang)
-    _slide_replication_topology(prs, clusters, t, lang)
+    # Only proposal sections take part in replication; config sizings are
+    # standalone hardware, so they never appear in the topology.
+    _slide_replication_topology(
+        prs, [c for c in clusters if c.get("recommendation")], t, lang)
     for cl in clusters:
+        _slide_section_divider(prs, cl.get("name", ""), t, lang)
+        # A config section (appliance/validated hardware) carries no proposal —
+        # render its configuration slides instead of the current-env → proposal
+        # → projection sequence.
+        if cl.get("config") and not cl.get("recommendation"):
+            _slides_config(prs, cl["config"], t, lang)
+            continue
         s = cl["summary"]
         r = cl["recommendation"]
         p = cl["projection"]
         sp = cl.get("source_perf")
-        _slide_section_divider(prs, cl.get("name", ""), t, lang)
         _slide_current_env(prs, s, t, lang)
         _slide_workload(prs, s, t, lang)
         _slide_proposal(prs, r, p, t, lang)
@@ -260,7 +278,17 @@ def generate_bundle_proposal(clusters, lang="en"):
 def generate_config_slide(result, lang="en"):
     t = translator(lang)
     prs = _new_deck()
+    _slides_config(prs, result, t, lang)
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
 
+
+def _slides_config(prs, result, t, lang="en"):
+    """Configuration slides for one appliance/validated hardware result: the
+    per-node / cluster-total / N-1 tables plus the network diagram. Shared by the
+    single-config export and the project bundle (config sizings)."""
     slide = _add_slide(prs)
     mode = result.get("mode", "appliance")
     node_count = result["node_count"]
@@ -351,11 +379,6 @@ def generate_config_slide(result, lang="en"):
 
     # Append the cluster network diagram as its own slide (manual builder).
     _slide_network(prs, result, t, lang)
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
 
 
 def _add_slide(prs):

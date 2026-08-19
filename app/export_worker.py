@@ -127,25 +127,35 @@ def sections_for(job):
     sections, skipped = [], []
     for sizing in sizings:
         clusters = ((sizing.result_snapshot or {}).get("clusters")) or []
-        # The generators index summary/recommendation/projection unconditionally,
-        # so a section missing any of them takes down the whole bundle rather
-        # than just itself. Skip it here instead.
+        # Two renderable section shapes:
+        #   * a PROPOSAL cluster — summary + recommendation + projection (the
+        #     generators index these unconditionally, so a partial one would take
+        #     the whole bundle down; it must be complete);
+        #   * a CONFIG cluster — an appliance/validated hardware config with no
+        #     recommendation, rendered as a configuration section instead.
         usable = [c for c in clusters
                   if c.get("recommendation") and c.get("summary")
                   and c.get("projection")]
-        if not usable:
-            # Appliance/validated sizings are hardware configurations, not
-            # proposals — they carry no recommendation for a bundle to render.
+        config_only = [c for c in clusters
+                       if c.get("config") and not c.get("recommendation")]
+        if not usable and not config_only:
+            # Nothing renderable (e.g. a sizing that was never calculated/saved).
             skipped.append(sizing.name)
             continue
-        for cluster in usable:
+
+        def _named(cluster, siblings):
             section = dict(cluster)
             # Qualify the section name so "Prod" from two sizings can't read as
             # one cluster in the document.
             base = cluster.get("name") or ""
-            section["name"] = f"{sizing.name} — {base}" if base and len(usable) > 1 \
+            section["name"] = f"{sizing.name} — {base}" if base and len(siblings) > 1 \
                 else (sizing.name or base)
-            sections.append(section)
+            return section
+
+        for cluster in usable:
+            sections.append(_named(cluster, usable))
+        for cluster in config_only:
+            sections.append(_named(cluster, config_only))
     return sections, skipped
 
 

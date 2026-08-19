@@ -829,11 +829,8 @@ function displayResults(result) {
     section.style.display = 'block';
 
     lastConfigResult = result;
-    // PDF export is open to everyone; the editable PPTX is Scale-only.
-    const exportPdfBtn = document.getElementById('config-export-pdf-btn');
-    if (exportPdfBtn) exportPdfBtn.style.display = 'inline-block';
-    const exportBtn = document.getElementById('config-export-btn');
-    if (exportBtn) exportBtn.style.display = canExportEditable() ? 'inline-block' : 'none';
+    // Exports are project-level now: save the sizing, then export it from its
+    // project. No per-config export buttons on the results screen.
 
     const so = result.storage_only;
     const numClusters = result.num_clusters || 1;
@@ -1732,13 +1729,12 @@ function recCardHtml(r, i, mode, demand, opts) {
                     <tr><td>${window.t('results.row.cpu')}</td><td>${so.cpu}</td></tr>
                     <tr><td>${window.t('results.row.ram')}</td><td>${formatRam(so.ram_gb)}</td></tr>
                     <tr><td>${window.t('results.row.storage')}</td><td>${esc(r.storage_config.desc)}</td></tr>` : '';
-    const footerActionsHtml = footerActions ? `
+    // Exports moved to the project level (decision: proposals/configs are
+    // generated once per project, not per recommendation card). Only the network
+    // diagram — a view, not a document export — remains on the card.
+    const footerActionsHtml = (footerActions && r.network_svg) ? `
                 <div class="rec-footer-actions">
-                    ${r.network_svg ? `<button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"docx"]' title="${window.t('results.btn_word_title')}">Word</button>` : ''}
-                    ${canExportEditable() ? `<button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"pptx"]' title="${window.t('results.btn_pptx_title')}">PPTX</button>` : ''}
-                    <button class="btn btn-muted btn-sm" data-click='["exportProposal","${mode}",${i},"presentation-pdf"]' title="${window.t('results.btn_slides_pdf_title')}">${window.t('results.btn_slides_pdf')}</button>
-                    <button class="btn btn-export" data-click='["exportProposal","${mode}",${i},"pdf"]' title="${window.t('results.btn_proposal_pdf_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${window.t('results.btn_proposal_pdf')}</button>
+                    <button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>
                 </div>` : '';
     return `
         <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
@@ -2318,96 +2314,9 @@ function downloadClusterDiagram() {
     URL.revokeObjectURL(url);
 }
 
-const _EXPORT_ENDPOINTS = {
-    pptx: '/api/export-proposal',
-    pdf: '/api/export-pdf',
-    docx: '/api/export-docx',
-    'presentation-pdf': '/api/export-presentation-pdf',
-};
-
-async function exportProposal(mode, recIndex, fmt = 'pptx') {
-    const recs = lastRecommendations[mode];
-    const summary = lastSummary[mode];
-    const projection = lastProjection[mode];
-
-    if (!recs || !recs[recIndex] || !summary || !projection) {
-        toastError(window.t('results.export_missing_data'));
-        return;
-    }
-
-    const btn = (event.target.closest && event.target.closest('button')) || event.target;
-    const origHtml = btn.innerHTML;
-    btn.textContent = window.t('results.generating');
-    btn.disabled = true;
-
-    // With a single-mode DR cluster configured, export one combined document
-    // covering the primary workload AND its DR target (reuses the multi-site
-    // builder). Otherwise export the single recommendation as before.
-    const drExport = !separateClusters && drCluster.enabled
-        && lastDrResult && lastDrResult.recommendations && lastDrResult.recommendations.length
-        && (mode === 'import' || mode === 'manual');
-
-    try {
-        let resp, fallbackName;
-        if (drExport) {
-            const clusters = [
-                { name: window.t('cluster.dr_tab_primary'), summary,
-                  recommendation: recs[recIndex], projection, source_perf: buildSourcePerfExport(),
-                  replicates_to: window.t('cluster.dr_tab_dr') },
-                { name: window.t('cluster.dr_tab_dr'), summary: lastDrResult.summary,
-                  recommendation: lastDrResult.recommendations[0], projection: lastDrResult.projection,
-                  source_perf: null, replicates_to: '' },
-            ];
-            resp = await fetch(_MULTISITE_ENDPOINTS[fmt] || _MULTISITE_ENDPOINTS.pptx, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ clusters }),
-            });
-            fallbackName = `SC_Proposal_Primary_plus_DR.${fmt}`;
-        } else {
-            resp = await fetch(_EXPORT_ENDPOINTS[fmt] || _EXPORT_ENDPOINTS.pptx, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    summary: summary,
-                    recommendation: recs[recIndex],
-                    projection: projection,
-                    source_perf: buildSourcePerfExport(),
-                }),
-            });
-            fallbackName = `SC_Proposal_${recs[recIndex].model}_${recs[recIndex].node_count}N.${fmt}`;
-        }
-
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            toastError(err.error || window.t('results.export_failed'));
-            return;
-        }
-
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1] || fallbackName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (e) {
-        toastError(window.t('results.export_failed_detail', {error: e.message}));
-    } finally {
-        btn.innerHTML = origHtml;
-        btn.disabled = false;
-    }
-}
-
-// ---- Combined multi-site export (one document, all clusters) --------------
-const _MULTISITE_ENDPOINTS = {
-    pptx: '/api/export-bundle-proposal',
-    docx: '/api/export-bundle-docx',
-    pdf: '/api/export-bundle-pdf',
-    'presentation-pdf': '/api/export-bundle-presentation-pdf',
-};
-
+// ---- Sizing helpers: build /api/recommend bodies from captured options ----
+// (Used to size clusters the user hasn't opened yet — combined project export
+// and DR reserve both rely on these; exports themselves are project-level now.)
 function _optVal(opts, id, dflt) {
     const v = opts ? opts[id] : undefined;
     return v === undefined ? dflt : v;
@@ -2462,107 +2371,6 @@ async function ensureAllClusterResults() {
             perfSource: data.perf_comparison || null,
             summary,
         };
-    }
-}
-
-// Export one combined document covering every source cluster (each uses its
-// top recommendation). Only meaningful in separate-clusters mode.
-async function exportMultisite(fmt = 'pptx') {
-    if (!separateClusters) return;
-    const btn = (event && event.target.closest && event.target.closest('button')) || (event && event.target);
-    const origHtml = btn && btn.innerHTML;
-    if (btn) { btn.textContent = window.t('results.generating'); btn.disabled = true; }
-    try {
-        await ensureAllClusterResults();
-        const payloadClusters = sourceClusters.map(c => {
-            const res = clusterResults[c.name];
-            if (!res || !res.recommendations || !res.recommendations.length) return null;
-            // Use the cluster's chosen recommendation (defaults to #1), clamped
-            // in case a re-size shortened the list.
-            const sel = Math.min(clusterSelectedRec[c.name] ?? 0, res.recommendations.length - 1);
-            const target = (clusterReplication[c.name] || {}).target || '';
-            return {
-                name: c.name,
-                summary: res.summary,
-                recommendation: res.recommendations[sel],
-                projection: res.projection,
-                source_perf: null,
-                replicates_to: target ? clusterDisplayName(target) : '',
-            };
-        }).filter(Boolean);
-
-        if (!payloadClusters.length) {
-            toastError(window.t('results.export_missing_data'));
-            return;
-        }
-
-        const resp = await fetch(_MULTISITE_ENDPOINTS[fmt] || _MULTISITE_ENDPOINTS.pptx, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ clusters: payloadClusters }),
-        });
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            toastError(err.error || window.t('results.export_failed'));
-            return;
-        }
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Proposal_MultiSite.${fmt}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (e) {
-        toastError(window.t('results.export_failed_detail', {error: e.message}));
-    } finally {
-        if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
-    }
-}
-
-async function exportConfig(fmt = 'pptx') {
-    if (!lastConfigResult) {
-        toastError(window.t('results.no_config_to_export'));
-        return;
-    }
-
-    const endpoint = fmt === 'pdf' ? '/api/export-config-pdf' : '/api/export-config';
-    const btn = (event && event.target.closest && event.target.closest('button'))
-        || document.getElementById('config-export-btn');
-    const origHtml = btn.innerHTML;
-    btn.textContent = window.t('results.generating');
-    btn.disabled = true;
-
-    try {
-        const resp = await fetch(endpoint, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(lastConfigResult),
-        });
-
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            toastError(err.error || window.t('results.export_failed'));
-            return;
-        }
-
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = resp.headers.get('content-disposition')?.match(/filename="?(.+?)"?$/)?.[1]
-            || `SC_Config_${lastConfigResult.node_count}N.${fmt}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (e) {
-        toastError(window.t('results.export_failed_detail', {error: e.message}));
-    } finally {
-        btn.innerHTML = origHtml;
-        btn.disabled = false;
     }
 }
 
@@ -3063,12 +2871,6 @@ async function renderSelectedClustersTab() {
     review.innerHTML = `
         <div class="review-header">
             <h3>${window.t('cluster.review_title')}</h3>
-            <span class="cluster-export-all">
-                <span class="cluster-export-label">${window.t('cluster.export_all')}</span>
-                <button class="btn btn-sm" data-click='["exportMultisite","pptx"]'>PPTX</button>
-                <button class="btn btn-sm" data-click='["exportMultisite","docx"]'>Word</button>
-                <button class="btn btn-sm" data-click='["exportMultisite","pdf"]'>PDF</button>
-            </span>
         </div>
         <p class="rec-desc">${window.t('cluster.review_desc')}</p>
         ${blocks}`;
@@ -4023,7 +3825,7 @@ function renderDrRecommendations() {
         : '';
     list.innerHTML = warnHtml + recs.map((r, i) => recCardHtml(r, i, 'dr', demand, {
         showPicker: true, selIdx: sel, footerActions: false,
-        pickerAction: `["selectDrRec",${i}]`,
+        pickerAction: `["selectDrRecAndSave",${i}]`,
         pickerLabel: window.t('dr.select_option'),
         selectedLabel: window.t('dr.selected_option'),
     })).join('');
@@ -4032,6 +3834,14 @@ function renderDrRecommendations() {
 function selectDrRec(i) {
     selectedRec['dr'] = i;
     renderDrRecommendations();
+}
+
+// Picking an option from a card selects AND saves it in place — so the user
+// doesn't have to scroll to the Save button at the foot of the list. The bottom
+// Save button stays as an alternative.
+async function selectDrRecAndSave(i) {
+    selectedRec['dr'] = i;
+    return saveDrTarget();
 }
 
 function _updateDrSaveState() {
@@ -4086,6 +3896,7 @@ async function saveDrTarget() {
 
 window.enterDrTarget = enterDrTarget;
 window.saveDrTarget = saveDrTarget;
+window.selectDrRecAndSave = selectDrRecAndSave;
 window.isDrTarget = () => currentMode === 'dr_target';
 
 // ── refresh mode (docs/projects-plan.md §4) ──────────────────────────────────

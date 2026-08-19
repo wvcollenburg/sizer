@@ -301,3 +301,42 @@ def test_dr_message_distinguishes_no_demand_from_no_links(client):
     dr2 = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR2"}).get_json()
     out2 = client.post(f"/api/sizings/{dr2['id']}/dr-recommend", json={}).get_json()
     assert any(w.get("code") == "dr_no_inbound" for w in out2["warnings"])
+
+
+# ── Project export: proposal + config sizings both become bundle sections ─────
+
+def test_bundle_sections_include_config_sizings(client):
+    """A config-only (appliance/validated) sizing is now a renderable bundle
+    section, not silently skipped — so it can be exported at the project level."""
+    from export_worker import sections_for
+
+    _signup(client)
+    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+
+    prop = client.post("/api/configs/", json={
+        "name": "Import site", "payload": {"mode": "import"}, "project_id": pid}).get_json()
+    client.put(f"/api/sizings/{prop['id']}/result", json={"clusters": [{
+        "name": "Prod",
+        "summary": {"total_vcpus": 100, "total_vm_provisioned_memory_gb": 256,
+                    "datastore_used_tb": 8},
+        "recommendation": {"model": "X", "node_count": 3, "totals": {}},
+        "projection": {"years": 5}, "refs": {"mode": "import"}}], "totals": None})
+
+    appl = client.post("/api/configs/", json={
+        "name": "Appliance opt", "payload": {"mode": "appliance"}, "project_id": pid}).get_json()
+    client.put(f"/api/sizings/{appl['id']}/result", json={"clusters": [{
+        "name": "HW", "summary": None, "recommendation": None, "projection": None,
+        "config": {"cluster_total": {"cores": 100, "ram_gb": 512, "usable_storage_tb": 40}},
+        "refs": {"mode": "appliance"}}], "totals": None})
+
+    class _Job:
+        sizing_ids = [prop["id"], appl["id"]]
+
+    with appmod.app.app_context():
+        sections, skipped = sections_for(_Job())
+
+    assert skipped == []
+    assert len(sections) == 2
+    # One proposal section (has recommendation) and one config section (has config).
+    assert any(s.get("recommendation") for s in sections)
+    assert any(s.get("config") and not s.get("recommendation") for s in sections)
