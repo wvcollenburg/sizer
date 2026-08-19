@@ -107,8 +107,8 @@ def test_deleting_a_user_removes_their_projects_and_links(app):
         db.session.commit()
 
         assert User.query.filter_by(email=OWNER).first() is None
-        assert Project.query.get(project["id"]) is None
-        assert Configuration.query.get(first["id"]) is None
+        assert db.session.get(Project, project["id"]) is None
+        assert db.session.get(Configuration, first["id"]) is None
         assert ProjectTag.query.count() == 0
         assert ConfigurationTag.query.count() == 0
         assert ReplicationLink.query.count() == 0
@@ -124,17 +124,17 @@ def test_deleting_a_user_rehomes_a_colleagues_sizing(app):
     stray = colleague.post("/api/configs/", json={
         "name": "Their option", "payload": {"mode": "manual"}}).get_json()
     with app.app_context():
-        Configuration.query.get(stray["id"]).project_id = project["id"]
+        db.session.get(Configuration, stray["id"]).project_id = project["id"]
         db.session.commit()
 
         from auth import _delete_user_cascade
         _delete_user_cascade(User.query.filter_by(email=OWNER).first())
         db.session.commit()
 
-        survivor = Configuration.query.get(stray["id"])
+        survivor = db.session.get(Configuration, stray["id"])
         assert survivor is not None, "a colleague's sizing must not be deleted"
         assert survivor.project_id != project["id"]
-        assert Project.query.get(survivor.project_id).owner_id == survivor.owner_id
+        assert db.session.get(Project, survivor.project_id).owner_id == survivor.owner_id
 
 
 def test_purge_removes_tagged_and_linked_configurations(app):
@@ -147,14 +147,14 @@ def test_purge_removes_tagged_and_linked_configurations(app):
         from auth import RETENTION_DAYS, purge_expired
         old = _utcnow() - timedelta(days=RETENTION_DAYS + 1)
         for cid in (first["id"], second["id"]):
-            row = Configuration.query.get(cid)
+            row = db.session.get(Configuration, cid)
             row.is_deleted = True
             row.deleted_at = old
         db.session.commit()
 
         result = purge_expired()
         assert result["configs_purged"] == 2
-        assert Configuration.query.get(first["id"]) is None
+        assert db.session.get(Configuration, first["id"]) is None
         assert ConfigurationTag.query.count() == 0
         assert ReplicationLink.query.count() == 0
 

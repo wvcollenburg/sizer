@@ -113,7 +113,7 @@ def test_calculate_clamps_node_count(client):
 def test_login_no_weaponizable_lockout_and_logout_clears(client):
     _signup(client)
     client.post("/api/auth/logout")
-    for _ in range(6):  # exceed LOCKOUT_THRESHOLD with wrong password
+    for _ in range(6):  # repeated wrong passwords must never lock the account
         r = client.post("/api/auth/login",
                         json={"email": "alice@examplecorp.com", "password": "WRONGpw1!"})
         assert r.status_code == 401  # never a 429 account-lock (only per-IP limiter would)

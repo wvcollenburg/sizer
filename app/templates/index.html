@@ -25,7 +25,11 @@
    you land on depends on /api/auth/me, so without this the sizer paints first
    and is then replaced by the project home — a visible flash on every load.
    Removed by showScreen(), or by auth.js if the project layer never loads. #}
-<body class="app-booting" data-vcpu-ratio="{{ default_vcpu_ratio }}">
+<body class="app-booting" data-vcpu-ratio="{{ default_vcpu_ratio }}"
+      data-max-cluster-disks="{{ max_cluster_disks }}"
+      data-hybrid-flash-min="{{ hybrid_flash_min_pct }}"
+      data-hybrid-flash-max="{{ hybrid_flash_max_pct }}"
+      data-hybrid-min-hdd-per-flash="{{ hybrid_min_hdd_per_flash }}">
     <header>
         <div class="header-content">
             {# Brand lockup. The <h1> stays for document structure and keeps the
@@ -582,6 +586,68 @@
 
         </section>
 
+        <!-- DR target: workload-less sizing driven by inbound replication -->
+        <section id="dr-target-form" class="config-form" style="display:none">
+            <div class="dr-target-head">
+                <h3 data-i18n="dr.title">DR target</h3>
+                <p class="rec-desc" data-i18n="dr.intro">This site hosts only replicated data. It is sized from the inbound replication reserve — set a replication target on a source sizing to feed it.</p>
+            </div>
+
+            <div id="dr-reserve" class="dr-reserve"></div>
+
+            <div class="dr-controls">
+                <div class="form-group">
+                    <label data-i18n="results.target_ratio">Target vCPU : Core ratio</label>
+                    <input type="number" id="dr-ratio" min="1" max="8" step="0.25" value="3" data-change='["sizeDrTarget"]'>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="results.projection_years">Projection Years</label>
+                    <input type="number" id="dr-growth-years" min="1" max="5" step="1" value="5" data-change='["sizeDrTarget"]'>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="results.yoy_growth">YoY Growth %</label>
+                    <input type="number" id="dr-growth-pct" min="0" max="100" step="1" value="10" data-change='["sizeDrTarget"]'>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="results.snapshot_overhead">Snapshot Overhead %</label>
+                    <input type="number" id="dr-snapshot-pct" min="0" max="200" step="1" value="20" data-change='["sizeDrTarget"]'>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="dr.sizing_mode">Sizing mode</label>
+                    <select id="dr-sizing-mode" data-change='["sizeDrTarget"]'>
+                        <option value="certified" data-i18n="dr.mode_certified">Certified (appliance)</option>
+                        <option value="validated" data-i18n="dr.mode_validated">Validated (software-only)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="dr.target_model">Size for model (optional)</label>
+                    <select id="dr-target-model" data-change='["sizeDrTarget"]'>
+                        <option value="" data-i18n="dr.model_any">Any model</option>
+                    </select>
+                </div>
+            </div>
+            <div class="dr-toggles">
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="dr-allow-single-node" data-change='["sizeDrTarget"]'>
+                    <span data-i18n="dr.allow_single_node">Allow a single-node target (no failover — a DR cluster is already a redundancy tier)</span>
+                </label>
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="dr-allow-storage-only" data-change='["sizeDrTarget"]'>
+                    <span data-i18n="dr.allow_storage_only">Allow storage-only nodes</span>
+                </label>
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="dr-include-eol" data-change='["sizeDrTarget"]'>
+                    <span data-i18n="dr.include_eol">Include EOL/EOS models</span>
+                </label>
+            </div>
+
+            <div id="dr-rec-list" class="dr-rec-list"></div>
+
+            <div class="dr-save-row">
+                <button class="btn btn-primary" id="dr-save-btn" data-click='["saveDrTarget"]' data-i18n="dr.save">Save DR target</button>
+            </div>
+        </section>
+
         <!-- SHARED SIZING OPTIONS + GROWTH + RECOMMENDATIONS (used by both VMware
              Import and Manual Input so the two flows can never drift apart). -->
         {# Two-column sizing screen, mirroring SC//Design's scenario page: the
@@ -1049,6 +1115,12 @@
                             <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></span>
                         </label>
                     </div>
+                    <div class="auth-consent" id="auth-marketing-row" style="display:none">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="auth-marketing-consent">
+                            <span data-i18n="modal.auth.marketing">Email me occasional product updates (e.g. new hardware models). Optional — you can opt out any time.</span>
+                        </label>
+                    </div>
                     <div class="auth-error" id="auth-error" style="display:none"></div>
                     <div class="auth-resend" id="auth-resend" style="display:none">
                         <a href="#" data-click='["resendVerification","$event"]' data-i18n="modal.auth.resend">Resend verification email</a>
@@ -1119,6 +1191,34 @@
                         </thead>
                         <tbody id="org-table-body"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My data & privacy modal (GDPR self-service) -->
+    <div class="modal-overlay" id="privacy-modal" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-i18n="auth.privacy.title">My data &amp; privacy</h2>
+                <button class="modal-close" data-click='["closePrivacyModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="sizings-status" id="privacy-status" style="display:none"></div>
+                <div class="auth-consent">
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="privacy-marketing" data-change='["toggleMarketing","$checked"]'>
+                        <span data-i18n="modal.auth.marketing">Email me occasional product updates (e.g. new hardware models). Optional — you can opt out any time.</span>
+                    </label>
+                </div>
+                <hr class="modal-sep">
+                <div class="privacy-action">
+                    <button class="btn btn-sm" data-click='["downloadMyData"]' data-i18n="auth.privacy.export">Download my data</button>
+                    <p class="rec-desc" data-i18n="auth.privacy.export_hint">A JSON copy of your account, projects and sizings.</p>
+                </div>
+                <div class="privacy-action">
+                    <button class="btn btn-sm btn-danger" data-click='["deleteMyAccount"]' data-i18n="auth.privacy.delete">Delete my account</button>
+                    <p class="rec-desc" data-i18n="auth.privacy.delete_hint">Closes your account; it is permanently deleted after the retention period.</p>
                 </div>
             </div>
         </div>

@@ -277,7 +277,7 @@ def test_refresh_cannot_smuggle_an_edit(app):
         role="additive", notes="injected"))
 
     with app.app_context():
-        row = Configuration.query.get(sizing["id"])
+        row = db.session.get(Configuration, sizing["id"])
         assert row.name == "Option 1"
         assert row.payload == {"mode": "appliance"}
         assert row.role is None

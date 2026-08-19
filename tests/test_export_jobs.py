@@ -111,7 +111,7 @@ def test_an_abandoned_job_returns_to_the_queue(app):
         db.session.commit()
 
         assert export_worker.requeue_abandoned_jobs() == 1
-        assert ExportJob.query.get(job.id).status == JOB_QUEUED
+        assert db.session.get(ExportJob, job.id).status == JOB_QUEUED
         assert export_worker.claim_next_job() is not None
 
 
@@ -158,7 +158,7 @@ def test_a_sizing_deleted_after_queueing_does_not_break_the_build(app):
     with app.app_context():
         job = ExportJob(user_id=1, project_id=project["id"], fmt="pptx",
                         sizing_ids=[one["id"], two["id"]])
-        Configuration.query.get(two["id"]).is_deleted = True
+        db.session.get(Configuration, two["id"]).is_deleted = True
         db.session.commit()
         sections, _ = export_worker.sections_for(job)
         assert [s["name"] for s in sections] == ["Site A"]
@@ -254,7 +254,7 @@ def test_an_expired_artifact_is_refused_even_if_the_file_remains(app, tmp_path):
     artifact = tmp_path / "bundle.pptx"
     artifact.write_bytes(b"still here")
     with app.app_context():
-        row = ExportJob.query.get(job["id"])
+        row = db.session.get(ExportJob, job["id"])
         row.status = JOB_DONE
         row.artifact_path = str(artifact)
         row.filename = "bundle.pptx"
@@ -277,14 +277,14 @@ def test_purge_removes_expired_artifacts_and_rows(app, tmp_path):
     artifact.write_bytes(b"old")
 
     with app.app_context():
-        row = ExportJob.query.get(job["id"])
+        row = db.session.get(ExportJob, job["id"])
         row.status = JOB_DONE
         row.artifact_path = str(artifact)
         row.expires_at = _utcnow() - timedelta(hours=1)
         db.session.commit()
 
         assert _purge_expired_exports() == 1
-        assert ExportJob.query.get(job["id"]) is None
+        assert db.session.get(ExportJob, job["id"]) is None
         assert not artifact.exists()
 
 

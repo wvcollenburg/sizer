@@ -80,7 +80,7 @@ def claim_next_job():
         """), {"running": JOB_RUNNING, "queued": JOB_QUEUED,
                "worker": _worker_id(), "now": _utcnow()}).first()
         db.session.commit()
-        return ExportJob.query.get(row[0]) if row else None
+        return db.session.get(ExportJob, row[0]) if row else None
 
     job = ExportJob.query.filter_by(status=JOB_QUEUED).order_by(
         ExportJob.created_at).first()
@@ -169,7 +169,7 @@ def build_artifact(job, sections):
 
     lang = job.lang or "en"
     fmt = job.fmt
-    project = Project.query.get(job.project_id)
+    project = db.session.get(Project, job.project_id)
     stem = "SC_Proposal_" + _safe_stem(project.name if project else "project")
 
     if fmt == "pptx":
@@ -257,10 +257,10 @@ def _notify(job, app=None):
         from auth import app_base_url, send_email, smtp_configured
         if not smtp_configured():
             return
-        user = User.query.get(job.user_id)
+        user = db.session.get(User, job.user_id)
         if not user or not user.email:
             return
-        project = Project.query.get(job.project_id)
+        project = db.session.get(Project, job.project_id)
         name = project.name if project else "your project"
         link = f"{app_base_url()}/#project-{job.project_id}"
         if job.status == JOB_DONE:

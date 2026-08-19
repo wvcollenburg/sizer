@@ -1010,7 +1010,10 @@ def _office_to_pdf(data_bytes, in_ext):
                 except Exception:
                     return None
                 out = os.path.join(d, "doc.pdf")
-                return open(out, "rb").read() if os.path.exists(out) else None
+                if not os.path.exists(out):
+                    return None
+                with open(out, "rb") as pdf:
+                    return pdf.read()
         finally:
             _lo_semaphore.release()
     finally:

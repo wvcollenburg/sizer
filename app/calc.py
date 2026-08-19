@@ -368,17 +368,21 @@ def calculate_validated(data, node_count):
     if hci_err:
         return hci_err
 
-    # 100-disk hard limit binds on the LARGEST cluster, not the total node
-    # count. Storage-only nodes carry the same disks, so they count too.
+    # Per-cluster disk hard limit binds on the LARGEST cluster, not the total
+    # node count. Storage-only nodes carry the same disks, so they count too.
+    # The cap is admin-tunable (T.max_cluster_disks) — read it live so the manual
+    # calculator and the recommendation engine enforce the same limit.
+    disk_cap = T.max_cluster_disks
     largest_cluster = max(layout)
     max_cluster_disks = disk_count * largest_cluster
-    if max_cluster_disks > 100:
+    if max_cluster_disks > disk_cap:
         return {
             "error": (
                 f"Cluster disk limit exceeded: {max_cluster_disks} disks "
                 f"({disk_count} per node × {largest_cluster} nodes in the largest "
-                f"cluster). The maximum is 100 disks per cluster. When more storage "
-                f"capacity is required, deploy more clusters or use bigger disks."
+                f"cluster). The maximum is {disk_cap} disks per cluster. When more "
+                f"storage capacity is required, deploy more clusters or use bigger "
+                f"disks."
             )
         }
 
@@ -387,13 +391,18 @@ def calculate_validated(data, node_count):
     is_hybrid = has_spinning and has_flash
 
     if is_hybrid:
+        # Flash-capacity band is admin-tunable (T.hybrid_flash_min_pct/max_pct);
+        # read it live so this matches what the recommendation engine enforces.
+        flash_min = T.hybrid_flash_min_pct
+        flash_max = T.hybrid_flash_max_pct
         total_cap = sum(d["size_tb"] for d in disks)
         flash_cap = sum(d["size_tb"] for d in disks if d["type"] in ("SSD", "NVMe"))
         if total_cap > 0:
             flash_pct = (flash_cap / total_cap) * 100
-            if flash_pct < 7 or flash_pct > 25:
+            if flash_pct < flash_min or flash_pct > flash_max:
                 return {
-                    "error": f"Hybrid fast tier must be 7-25% of total capacity. Currently {flash_pct:.1f}%",
+                    "error": (f"Hybrid fast tier must be {flash_min:g}-{flash_max:g}% "
+                              f"of total capacity. Currently {flash_pct:.1f}%"),
                     "flash_percentage": round(flash_pct, 1),
                 }
         # HEAT best practice: enough HDD spindles per flash disk so the slow tier

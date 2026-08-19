@@ -1,9 +1,24 @@
 """Shared helpers for reading the openpyxl workbooks we ingest.
 
-These three were duplicated verbatim across rvtools.py, liveoptics.py and
-admin_routes.py (the LiveOptics/RVTools/catalog parsers). Centralised here so a
-fix to header handling or numeric coercion lands everywhere at once.
+These were duplicated verbatim across rvtools.py, liveoptics.py, admin_routes.py
+and seed.py (the LiveOptics/RVTools/catalog parsers). Centralised here so a fix
+to header handling, numeric coercion or quantity parsing lands everywhere at once.
 """
+import re
+
+# A leading "N x " quantity prefix on a CPU/NIC description ("2 x Xeon Gold …").
+_QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
+
+
+def parse_quantity(desc):
+    """Split a leading "N x " quantity prefix off a description. Returns
+    (qty, remainder); (1, desc) when there is no prefix. Shared by the catalog
+    importer and the seed loader so both count sockets the same way."""
+    m = _QTY_RE.match(desc)
+    if m:
+        return int(m.group(1)), desc[m.end():]
+    return 1, desc
+
 
 # Hard caps on how much of an uploaded sheet we will materialize. Uploads are
 # untrusted: an .xlsx is a ZIP, and a sheet declaring an enormous used-range of

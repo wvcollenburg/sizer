@@ -1,6 +1,5 @@
 """Admin blueprint – model CRUD + Excel import/export."""
 import io
-import re
 import tempfile
 import os
 
@@ -14,19 +13,10 @@ from orm_models import (
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
-from xlsx_utils import sheet_rows as _sheet_rows
+from xlsx_utils import sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
 _TUNABLE_BY_KEY = {d["key"]: d for d in TUNABLE_DEFS}
-
-_QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
-
-
-def _parse_quantity(desc):
-    m = _QTY_RE.match(desc)
-    if m:
-        return int(m.group(1)), desc[m.end():]
-    return 1, desc
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -121,7 +111,7 @@ def create_cpu():
 
 @admin_bp.route("/api/cpus/<int:cpu_id>", methods=["PUT"])
 def update_cpu(cpu_id):
-    cpu = CpuCatalog.query.get_or_404(cpu_id)
+    cpu = db.get_or_404(CpuCatalog, cpu_id)
     data = request.json
     if data.get("desc") and data["desc"] != cpu.description:
         if CpuCatalog.query.filter_by(description=data["desc"]).first():
@@ -137,7 +127,7 @@ def update_cpu(cpu_id):
 
 @admin_bp.route("/api/cpus/<int:cpu_id>", methods=["DELETE"])
 def delete_cpu(cpu_id):
-    cpu = CpuCatalog.query.get_or_404(cpu_id)
+    cpu = db.get_or_404(CpuCatalog, cpu_id)
     used = ModelCpuOption.query.filter_by(cpu_id=cpu.id).count()
     if used:
         return jsonify({"error": f"CPU is used by {used} model(s). Remove it from those models first."}), 409
@@ -172,7 +162,7 @@ def create_nic():
 
 @admin_bp.route("/api/nics/<int:nic_id>", methods=["PUT"])
 def update_nic(nic_id):
-    nic = NicCatalog.query.get_or_404(nic_id)
+    nic = db.get_or_404(NicCatalog, nic_id)
     data = request.json
     if data.get("desc") and data["desc"] != nic.description:
         if NicCatalog.query.filter_by(description=data["desc"]).first():
@@ -186,7 +176,7 @@ def update_nic(nic_id):
 
 @admin_bp.route("/api/nics/<int:nic_id>", methods=["DELETE"])
 def delete_nic(nic_id):
-    nic = NicCatalog.query.get_or_404(nic_id)
+    nic = db.get_or_404(NicCatalog, nic_id)
     used = ModelNicOption.query.filter_by(nic_id=nic.id).count()
     if used:
         return jsonify({"error": f"NIC is used by {used} model(s). Remove it from those models first."}), 409
@@ -222,7 +212,7 @@ def create_drive():
 
 @admin_bp.route("/api/drives/<int:drive_id>", methods=["PUT"])
 def update_drive(drive_id):
-    drive = DriveCatalog.query.get_or_404(drive_id)
+    drive = db.get_or_404(DriveCatalog, drive_id)
     data = request.json
     new_type = data.get("drive_type", drive.drive_type)
     new_size = float(data.get("size_tb", drive.size_tb))
@@ -237,7 +227,7 @@ def update_drive(drive_id):
 
 @admin_bp.route("/api/drives/<int:drive_id>", methods=["DELETE"])
 def delete_drive(drive_id):
-    drive = DriveCatalog.query.get_or_404(drive_id)
+    drive = db.get_or_404(DriveCatalog, drive_id)
     used = StorageConfigDrive.query.filter_by(drive_id=drive.id).count()
     if used:
         return jsonify({"error": f"Drive is used by {used} storage config(s). Remove it from those models first."}), 409
@@ -485,7 +475,7 @@ def create_model():
 
 @admin_bp.route("/api/models/<int:model_id>", methods=["PUT"])
 def update_model(model_id):
-    model = Model.query.get_or_404(model_id)
+    model = db.get_or_404(Model, model_id)
     data = request.json
 
     if data.get("name") and data["name"] != model.name:
@@ -553,7 +543,7 @@ def update_model(model_id):
 
 @admin_bp.route("/api/models/<int:model_id>", methods=["DELETE"])
 def delete_model(model_id):
-    model = Model.query.get_or_404(model_id)
+    model = db.get_or_404(Model, model_id)
     name = model.name
     db.session.delete(model)
     db.session.commit()

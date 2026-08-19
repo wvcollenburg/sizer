@@ -179,6 +179,7 @@ function closeLeavePage() { chooseLeave('cancel'); }
 
 // Is there entered or loaded work that a page switch would throw away?
 function hasUnsavedWork() {
+    if (currentMode === 'dr_target') return false;  // DR view has its own Save
     if (window.hasSizingToSave && window.hasSizingToSave()) return true;
     if (currentMode === 'manual') {           // figures typed but not yet sized
         const v = document.getElementById('man-vcpus');
@@ -196,6 +197,10 @@ function switchMode(mode) {
     if (mode === 'validated') updateValidatedRules();
     document.getElementById('import-form').style.display = mode === 'import' ? 'block' : 'none';
     document.getElementById('manual-form').style.display = mode === 'manual' ? 'block' : 'none';
+    // The DR-target view is a distinct, workload-less flow; leaving it for any of
+    // the four builders hides it (enterDrTarget shows it again).
+    const drForm = document.getElementById('dr-target-form');
+    if (drForm) drForm.style.display = 'none';
     document.getElementById('results').style.display = 'none';
 
     // The shared Sizing Options + Growth + Recommendations block is shown for
@@ -542,10 +547,11 @@ async function calculateValidated() {
 
     const validation = validateDisks(disks);
     const totalClusterDisks = disks.length * nodeCount;
-    if (totalClusterDisks > 100) {
+    if (totalClusterDisks > VALIDATED_LIMITS.maxClusterDisks) {
         validation.errors.push(
             window.t('validated.disk_limit_exceeded', {
                 total: totalClusterDisks, perNode: disks.length, nodes: nodeCount,
+                max: VALIDATED_LIMITS.maxClusterDisks,
             })
         );
     }
@@ -608,9 +614,10 @@ function validateDisks(disks) {
         const total = disks.reduce((s, d) => s + d.size_tb, 0);
         const flash = disks.filter(d => ['SSD', 'NVMe'].includes(d.type)).reduce((s, d) => s + d.size_tb, 0);
         const pct = (flash / total) * 100;
-        if (pct < 7) errors.push(window.t('validated.flash_too_small', {pct: pct.toFixed(1)}));
-        if (pct > 24.3) errors.push(window.t('validated.flash_too_large', {pct: pct.toFixed(1)}));
-        if (pct >= 7 && pct <= 24.3) warnings.push(window.t('validated.hybrid_ok', {pct: pct.toFixed(1)}));
+        const lo = VALIDATED_LIMITS.flashMinPct, hi = VALIDATED_LIMITS.flashMaxPct;
+        if (pct < lo) errors.push(window.t('validated.flash_too_small', {pct: pct.toFixed(1), min: lo}));
+        if (pct > hi) errors.push(window.t('validated.flash_too_large', {pct: pct.toFixed(1), max: hi}));
+        if (pct >= lo && pct <= hi) warnings.push(window.t('validated.hybrid_ok', {pct: pct.toFixed(1)}));
     }
 
     if (disks.length >= 3 && !hasSpinning && hasFlash) {
@@ -619,10 +626,6 @@ function validateDisks(disks) {
 
     return {errors, warnings};
 }
-
-// Client-side mirror of the hybrid_min_hdd_per_flash tunable (default 3). The
-// server is authoritative; this only drives the live rule indicators.
-const VALIDATED_MIN_HDD_PER_FLASH = 3;
 
 // Live state of the Validated Installer Rules that can be derived from the disk
 // + node form. Toggles the green/red/dimmed markers and disables Calculate while
@@ -653,9 +656,11 @@ function updateValidatedRules() {
     const states = {
         disks: (disks.length === 0 || disks.length === 2) ? 'bad' : 'met',
         nodes: nodeCount >= 2 ? 'met' : 'bad',
-        band: !isHybrid ? 'na' : (flashPct >= 7 && flashPct <= 24.3 ? 'met' : 'bad'),
+        band: !isHybrid ? 'na'
+            : (flashPct >= VALIDATED_LIMITS.flashMinPct
+               && flashPct <= VALIDATED_LIMITS.flashMaxPct ? 'met' : 'bad'),
         ratio: !isHybrid ? 'na'
-            : (hddN >= VALIDATED_MIN_HDD_PER_FLASH * flashN ? 'met' : 'bad'),
+            : (hddN >= VALIDATED_LIMITS.minHddPerFlash * flashN ? 'met' : 'bad'),
     };
 
     let anyBad = false;
@@ -786,6 +791,17 @@ async function loadValidatedNics() {
 // the page by the server via <body data-vcpu-ratio>; 3.0 is the fallback.
 const DEFAULT_SIZING_RATIO =
     parseFloat(document.body.dataset.vcpuRatio) || 3.0;
+
+// Validated (software-only) rule limits, injected by the server from the live
+// admin tunables via <body data-*> so the client's rule indicators mirror the
+// exact values the calculator enforces server-side (no drift). Fallbacks match
+// the product defaults in tunables.py. The server remains authoritative.
+const VALIDATED_LIMITS = {
+    maxClusterDisks: parseInt(document.body.dataset.maxClusterDisks, 10) || 100,
+    flashMinPct: parseFloat(document.body.dataset.hybridFlashMin) || 7,
+    flashMaxPct: parseFloat(document.body.dataset.hybridFlashMax) || 25,
+    minHddPerFlash: parseInt(document.body.dataset.hybridMinHddPerFlash, 10) || 3,
+};
 
 function witnessBarHtml() {
     return '<div class="info-bar">' +
@@ -1674,12 +1690,15 @@ function recCardHtml(r, i, mode, demand, opts) {
     // the bundle quietly exports the previous one.
     const pickerTitle = window.t(perCluster ? 'cluster.select_for_export_title'
                                             : 'cluster.select_for_sizing_title');
-    const pickerLabel = isSelected ? window.t('cluster.selected_for_export')
-        : window.t(perCluster ? 'cluster.select_for_export'
-                              : 'cluster.select_and_save');
-    const pickerAction = perCluster
-        ? `["selectClusterRec",${i}]`
-        : `["selectRecAndSave",${i}]`;
+    const pickerLabel = isSelected
+        ? (opts.selectedLabel || window.t('cluster.selected_for_export'))
+        : (opts.pickerLabel || window.t(perCluster ? 'cluster.select_for_export'
+                                                   : 'cluster.select_and_save'));
+    // Callers can override the picker action (the DR-target view selects an
+    // option without the import/manual save-and-return behaviour).
+    const pickerAction = opts.pickerAction
+        ? opts.pickerAction
+        : (perCluster ? `["selectClusterRec",${i}]` : `["selectRecAndSave",${i}]`);
     const recPicker = showRecPicker
         ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='${pickerAction}'
                 title="${pickerTitle}">${pickerLabel}</button>`
@@ -3681,6 +3700,7 @@ function captureSizingState() {
 
 // Does the current screen hold something worth saving?
 function hasSizingToSave() {
+    if (currentMode === 'dr_target') return !!(lastRecommendations['dr'] || []).length;
     if (currentMode === 'import') return !!originalImportSummary;
     if (currentMode === 'manual') return !!manualSummary;
     return !!lastConfigResult;  // appliance / validated
@@ -3868,6 +3888,203 @@ async function buildResultSnapshot() {
 }
 
 window.buildResultSnapshot = buildResultSnapshot;
+
+// ── DR target (workload-less; sized from inbound replication reserve) ─────────
+// A project-level DR target carries no workload of its own — it is sized from
+// what replicates INTO it (docs/projects-plan.md decision 30). It is a distinct
+// flow from the four builders: opening one lands here, not in the classic sizer.
+let drTargetConfig = null;   // the loaded DR-target configuration row
+let drTargetResult = null;   // last /dr-recommend response
+
+async function _drFetchJson(url, opts) {
+    const resp = await fetch(url, opts);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { data = null; }
+    return { ok: resp.ok, status: resp.status, data };
+}
+
+async function enterDrTarget(config) {
+    drTargetConfig = config;
+    drTargetResult = null;
+    currentMode = 'dr_target';
+    selectedRec['dr'] = 0;
+
+    ['appliance-form', 'validated-form', 'import-form', 'manual-form',
+     'sizing-results', 'results'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('dr-target-form').style.display = 'block';
+
+    // Restore saved sizing options from the DR payload (if it was sized before).
+    const dr = (config.payload && config.payload.dr) || {};
+    _writeField('dr-ratio', dr.vcpu_ratio != null ? dr.vcpu_ratio : DEFAULT_SIZING_RATIO);
+    _writeField('dr-growth-years', dr.years != null ? dr.years : 5);
+    _writeField('dr-growth-pct', dr.growth_pct != null ? dr.growth_pct : 10);
+    _writeField('dr-snapshot-pct', dr.snapshot_pct != null ? dr.snapshot_pct : 20);
+    _writeField('dr-sizing-mode', dr.sizing_mode || 'certified');
+    _writeField('dr-allow-single-node', !!dr.allow_single_node);
+    _writeField('dr-allow-storage-only', !!dr.allow_storage_only);
+    _writeField('dr-include-eol', !!dr.include_eol_eos);
+    await populateSizingModelDropdown('dr-target-model', !!dr.include_eol_eos);
+    _writeField('dr-target-model', dr.target_model || '');
+    if (dr.selectedRec != null) selectedRec['dr'] = dr.selectedRec;
+
+    await sizeDrTarget();
+}
+
+function _drOptions() {
+    const val = (id, dflt) => {
+        const el = document.getElementById(id);
+        if (!el) return dflt;
+        return el.type === 'checkbox' ? el.checked : el.value;
+    };
+    return {
+        vcpu_ratio: parseFloat(val('dr-ratio', DEFAULT_SIZING_RATIO)) || DEFAULT_SIZING_RATIO,
+        years: parseInt(val('dr-growth-years', 5), 10) || 5,
+        growth_pct: parseFloat(val('dr-growth-pct', 10)) || 0,
+        snapshot_pct: parseFloat(val('dr-snapshot-pct', 20)) || 0,
+        sizing_mode: val('dr-sizing-mode', 'certified') || 'certified',
+        target_model: val('dr-target-model', '') || '',
+        allow_single_node: !!val('dr-allow-single-node', false),
+        allow_storage_only: !!val('dr-allow-storage-only', false),
+        include_eol_eos: !!val('dr-include-eol', false),
+    };
+}
+
+async function sizeDrTarget() {
+    if (!drTargetConfig) return;
+    const list = document.getElementById('dr-rec-list');
+    list.innerHTML = `<div class="review-loading">${window.t('results.generating')}</div>`;
+    const { ok, data } = await _drFetchJson(
+        `/api/sizings/${drTargetConfig.id}/dr-recommend`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(_drOptions()),
+        });
+    if (!ok || !data) {
+        list.innerHTML = `<div class="rec-warning">${esc((data && data.error) || window.t('results.export_failed'))}</div>`;
+        return;
+    }
+    drTargetResult = data;
+    lastRecommendations['dr'] = data.recommendations || [];
+    lastProjection['dr'] = data.projection || {};
+    lastSummary['dr'] = data.summary || null;
+    renderDrReserve(data);
+    renderDrRecommendations();
+    _updateDrSaveState();
+}
+
+function renderDrReserve(data) {
+    const el = document.getElementById('dr-reserve');
+    if (!el) return;
+    const r = data.reserve || { vcpus: 0, ram_gb: 0, storage_tb: 0 };
+    const srcRows = (data.sources || []).map(s => {
+        const label = s.cluster ? `${esc(s.sizing_name)} — ${esc(s.cluster)}` : esc(s.sizing_name);
+        const warn = s.sized ? ''
+            : ` <span class="dr-src-warn" title="${esc(window.t('dr.source_unsized_hint'))}">${esc(window.t('dr.source_unsized'))}</span>`;
+        // Built as a variable rather than a literal so it reads as a dynamic key.
+        const modeKey = 'project.sizing.rep_' + s.mode;
+        const figs = `${Math.round(s.vcpus)} ${esc(window.t('dr.vcpu'))} · ${formatRam(Math.round(s.ram_gb))} · `
+            + `${Math.round(s.storage_tb * 10) / 10} TB · ${s.compute_pct}% / ${s.storage_pct}% · `
+            + `${esc(window.t(modeKey))}`;
+        return `<li>${label}${warn} <span class="dr-src-figs">${figs}</span></li>`;
+    }).join('');
+    const modeNote = data.size_full_cluster
+        ? window.t('dr.mode_failover_note') : window.t('dr.mode_reserved_note');
+    el.innerHTML = `
+        <div class="dr-reserve-head">
+            <strong>${esc(window.t('dr.reserve_title'))}</strong>
+            <span class="dr-reserve-figs">${Math.round(r.vcpus)} ${esc(window.t('dr.vcpu'))} · ${formatRam(Math.round(r.ram_gb))} · ${Math.round(r.storage_tb * 10) / 10} TB</span>
+        </div>
+        ${srcRows ? `<ul class="dr-src-list">${srcRows}</ul>` : `<p class="dr-reserve-empty">${esc(window.t('dr.no_inbound'))}</p>`}
+        ${srcRows ? `<p class="dr-mode-note">${esc(modeNote)}</p>` : ''}`;
+}
+
+function renderDrRecommendations() {
+    const list = document.getElementById('dr-rec-list');
+    const recs = lastRecommendations['dr'] || [];
+    const warnings = (drTargetResult && drTargetResult.warnings) || [];
+    if (!recs.length) {
+        const noInbound = warnings.some(w => w && w.code === 'dr_no_inbound');
+        const strWarns = warnings.filter(w => typeof w === 'string');
+        const msg = noInbound ? window.t('dr.no_inbound')
+            : (strWarns.length ? strWarns.join(' ') : window.t('results.no_matching_configs'));
+        list.innerHTML = `<div class="no-recs">${esc(msg)}</div>`;
+        return;
+    }
+    const sel = Math.min(selectedRec['dr'] ?? 0, recs.length - 1);
+    const demand = (lastProjection['dr'] || {}).iops_demand || null;
+    const strWarns = warnings.filter(w => typeof w === 'string');
+    const warnHtml = strWarns.length
+        ? '<div class="rec-warnings">' + strWarns.map(w => `<div class="rec-warning">${esc(w)}</div>`).join('') + '</div>'
+        : '';
+    list.innerHTML = warnHtml + recs.map((r, i) => recCardHtml(r, i, 'dr', demand, {
+        showPicker: true, selIdx: sel, footerActions: false,
+        pickerAction: `["selectDrRec",${i}]`,
+        pickerLabel: window.t('dr.select_option'),
+        selectedLabel: window.t('dr.selected_option'),
+    })).join('');
+}
+
+function selectDrRec(i) {
+    selectedRec['dr'] = i;
+    renderDrRecommendations();
+}
+
+function _updateDrSaveState() {
+    const btn = document.getElementById('dr-save-btn');
+    if (btn) btn.disabled = !(lastRecommendations['dr'] || []).length;
+}
+
+async function saveDrTarget() {
+    if (!drTargetConfig) return false;
+    const recs = lastRecommendations['dr'] || [];
+    if (!recs.length) {
+        if (window.toastError) toastError(window.t('dr.nothing_to_size'));
+        return false;
+    }
+    const sel = Math.min(selectedRec['dr'] ?? 0, recs.length - 1);
+    const opts = _drOptions();
+
+    // Persist the DR sizing options in the payload so reopening restores them.
+    const payload = { mode: 'dr_target', dr: { ...opts, selectedRec: sel } };
+    const put = await _drFetchJson(`/api/configs/${drTargetConfig.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload }),
+    });
+    if (!put.ok) {
+        if (window.toastError) toastError((put.data && put.data.error) || window.t('results.export_failed'));
+        return false;
+    }
+    drTargetConfig.payload = payload;
+
+    // Store the chosen result so the project can list / compare / export it.
+    const snapshot = {
+        clusters: [{
+            name: drTargetConfig.name,
+            summary: lastSummary['dr'],
+            recommendation: recs[sel],
+            projection: lastProjection['dr'],
+            source_perf: null,
+            replicates_to: '',
+            refs: (recs[sel] && recs[sel].refs) || { mode: 'appliance' },
+        }],
+        totals: null,
+    };
+    await _drFetchJson(`/api/sizings/${drTargetConfig.id}/result`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(snapshot),
+    });
+
+    if (window.toast) window.toast(window.t('dr.saved'), 'success');
+    if (window.backToProject) window.backToProject();
+    return true;
+}
+
+window.enterDrTarget = enterDrTarget;
+window.saveDrTarget = saveDrTarget;
+window.isDrTarget = () => currentMode === 'dr_target';
 
 // ── refresh mode (docs/projects-plan.md §4) ──────────────────────────────────
 // A stale sizing is recalculated in a throwaway hidden iframe: this page loads

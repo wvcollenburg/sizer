@@ -783,6 +783,14 @@ async function openSizing(id, push) {
                '&sizing=' + encodeURIComponent(id),
                { screen: 'sizer', projectId: projectId, sizingId: id }, push);
     enterSizer(data.name);
+    // A DR target has no workload of its own — it opens in its dedicated view
+    // (sized from inbound replication), not the classic sizer, which has no
+    // 'dr_target' mode and would otherwise crash on restore.
+    if (data.is_dr_target && window.enterDrTarget) {
+        if (window.setLoadedConfig) window.setLoadedConfig(data);
+        await window.enterDrTarget(data);
+        return;
+    }
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
 }

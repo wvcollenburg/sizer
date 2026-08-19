@@ -259,7 +259,7 @@ def test_cannot_delete_a_sizing_others_replicate_to(app, c):
     assert resp.status_code == 409
     assert resp.get_json()["replicated_from"] == ["Site A"]
     with app.app_context():
-        assert Configuration.query.get(site_b["id"]).is_deleted is False
+        assert db.session.get(Configuration, site_b["id"]).is_deleted is False
 
 
 def test_can_delete_once_the_link_is_removed(app, c):

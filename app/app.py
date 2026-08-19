@@ -216,7 +216,15 @@ def create_app():
             pass
         return render_template("index.html", default_vcpu_ratio=T.default_vcpu_ratio,
                                max_day_one_storage_pct=T.max_day_one_storage_pct,
-                               max_day_one_ram_pct=T.max_day_one_ram_pct)
+                               max_day_one_ram_pct=T.max_day_one_ram_pct,
+                               # Validated (software-only) rule limits, surfaced so
+                               # the client's live rule indicators mirror the same
+                               # admin-tuned values the calculator enforces server-
+                               # side (rather than hardcoded constants that drift).
+                               max_cluster_disks=T.max_cluster_disks,
+                               hybrid_flash_min_pct=T.hybrid_flash_min_pct,
+                               hybrid_flash_max_pct=T.hybrid_flash_max_pct,
+                               hybrid_min_hdd_per_flash=T.hybrid_min_hdd_per_flash)
 
     @app.route("/favicon.ico")
     def favicon():
@@ -376,9 +384,14 @@ def create_app():
 
     @app.route("/api/recommend", methods=["POST"])
     def recommend():
-        data = request.json
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid request body"}), 400
         summary = data.get("summary")
-        if not summary:
+        # The summary is a bag of measured numbers the engine does arithmetic on;
+        # a non-dict (or non-numeric field inside it) would otherwise surface as a
+        # 500 deep in the math. Require a dict here and coerce failures to 400.
+        if not isinstance(summary, dict) or not summary:
             return jsonify({"error": "No summary provided"}), 400
         vcpu_ratio = data.get("vcpu_ratio")
         growth_pct = data.get("growth_pct", 10)
@@ -402,22 +415,29 @@ def create_app():
         replication_reserve = data.get("replication_reserve")
         replication_compute_mode = data.get("replication_compute_mode", "reserved")
         allow_single_node = data.get("allow_single_node", False)
-        result = generate_recommendations(summary, vcpu_ratio,
-                                          growth_pct, snapshot_pct, years,
-                                          target_nodes=target_nodes,
-                                          storage_pref=storage_pref,
-                                          size_full_cluster=size_full_cluster,
-                                          sizing_mode=sizing_mode,
-                                          allow_storage_only=allow_storage_only,
-                                          target_model=target_model,
-                                          include_eol_eos=include_eol_eos,
-                                          max_day_one_storage_pct=max_day_one_storage_pct,
-                                          max_day_one_ram_pct=max_day_one_ram_pct,
-                                          source_perf_index=source_perf_index,
-                                          source_perf_type=source_perf_type,
-                                          replication_reserve=replication_reserve,
-                                          replication_compute_mode=replication_compute_mode,
-                                          allow_single_node=allow_single_node)
+        try:
+            result = generate_recommendations(summary, vcpu_ratio,
+                                              growth_pct, snapshot_pct, years,
+                                              target_nodes=target_nodes,
+                                              storage_pref=storage_pref,
+                                              size_full_cluster=size_full_cluster,
+                                              sizing_mode=sizing_mode,
+                                              allow_storage_only=allow_storage_only,
+                                              target_model=target_model,
+                                              include_eol_eos=include_eol_eos,
+                                              max_day_one_storage_pct=max_day_one_storage_pct,
+                                              max_day_one_ram_pct=max_day_one_ram_pct,
+                                              source_perf_index=source_perf_index,
+                                              source_perf_type=source_perf_type,
+                                              replication_reserve=replication_reserve,
+                                              replication_compute_mode=replication_compute_mode,
+                                              allow_single_node=allow_single_node)
+        except (TypeError, ValueError, KeyError):
+            # Malformed numeric fields in the client-supplied summary/params
+            # (e.g. a non-numeric vCPU count). A bad request, not a server fault.
+            app.logger.warning("Recommend rejected malformed input")
+            return jsonify({"error": "The imported figures are incomplete or "
+                                     "malformed. Re-import the environment."}), 400
         return jsonify(result)
 
     @app.route("/api/cpu-perf")
