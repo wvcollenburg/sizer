@@ -956,6 +956,7 @@
   "results.row.storage_type": "Krātuves tips",
   "results.row.threads": "Pavedieni",
   "results.row.total_cores": "Kopējie kodoli",
+  "results.row.system_reserved": "Rezervēts sistēmai",
   "results.row.total_ghz": "Kopējie GHz",
   "results.row.total_ram": "Kopējā RAM",
   "results.row.total_raw_storage": "Kopējā neapstrādātā krātuve",

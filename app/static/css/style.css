@@ -2597,6 +2597,11 @@ body.auth-required footer { display: none; }
 }
 .rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
 
+/* "System reserved" sub-rows on the config result cards: the OS deduction that
+   separates the physical configuration from the usable totals. */
+.reserved-row td { color: var(--text-muted); font-size: 0.88em; }
+.reserved-row td:first-child { padding-left: 1.1rem; }
+
 /* ── DR-target view (workload-less sizing) ─────────────────────────────────
    Controls follow the house .form-row pattern: side-by-side groups that wrap,
    not full-width stacked rows. */

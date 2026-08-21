@@ -584,15 +584,26 @@ def _append_config_sizing(doc, cfg, lang, cw):
                   f"{model} · {nodes_label} · {cl_label}")]
     if pn.get("cpu"):
         spec_rows.append((t9n("export.docx.per_node_cpu"), pn["cpu"]))
+    # Per node = the PHYSICAL configuration; the OS deduction is its own
+    # "system reserved" line against the usable cluster totals below. Older
+    # snapshots carry only the usable figures — fall back to those.
     spec_rows += [
         (t9n("export.docx.per_node_cores_threads"),
-         t9n("export.docx.cores_threads_val", cores=pn.get("cores", 0),
+         t9n("export.docx.cores_threads_val",
+             cores=pn.get("physical_cores", pn.get("cores", 0)),
              threads=pn.get("threads", 0))),
-        (t9n("export.docx.per_node_ram"), _fmt_ram(pn.get("ram_gb", 0))),
+        (t9n("export.docx.per_node_ram"),
+         _fmt_ram(pn.get("physical_ram_gb", pn.get("ram_gb", 0)))),
         (t9n("export.docx.cluster_cores"), str(tot.get("cores", 0))),
         (t9n("export.docx.cluster_ram"), _fmt_ram(tot.get("ram_gb", 0))),
-        (t9n("export.docx.cluster_usable_storage"), f"{tot.get('usable_storage_tb', 0)} TB"),
     ]
+    if tot.get("reserved_cores") or tot.get("reserved_ram_gb"):
+        spec_rows.append((t9n("export.common.system_reserved"),
+                          t9n("export.docx.reserved_val",
+                              cores=tot.get("reserved_cores", 0),
+                              ram=_fmt_ram(tot.get("reserved_ram_gb", 0)))))
+    spec_rows.append((t9n("export.docx.cluster_usable_storage"),
+                      f"{tot.get('usable_storage_tb', 0)} TB"))
     if not cfg.get("single_node") and n1:
         spec_rows.append((t9n("export.docx.n1_resilient"),
                           t9n("export.docx.n1_resilient_val", cores=n1.get("cores", 0),

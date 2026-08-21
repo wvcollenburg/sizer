@@ -956,6 +956,7 @@
   "results.row.storage_type": "Salvestustüüp",
   "results.row.threads": "Lõimed",
   "results.row.total_cores": "Tuumasid kokku",
+  "results.row.system_reserved": "Süsteemile reserveeritud",
   "results.row.total_ghz": "GHz kokku",
   "results.row.total_ram": "RAM kokku",
   "results.row.total_raw_storage": "Töötlemata salvestusruum kokku",

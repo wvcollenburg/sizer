@@ -956,6 +956,7 @@
   "results.row.storage_type": "ストレージ種類",
   "results.row.threads": "スレッド",
   "results.row.total_cores": "合計コア数",
+  "results.row.system_reserved": "システム予約",
   "results.row.total_ghz": "合計GHz",
   "results.row.total_ram": "合計RAM",
   "results.row.total_raw_storage": "合計RAWストレージ",

@@ -956,6 +956,7 @@
   "results.row.storage_type": "Tallennustyyppi",
   "results.row.threads": "Säikeet",
   "results.row.total_cores": "Ytimiä yhteensä",
+  "results.row.system_reserved": "Järjestelmälle varattu",
   "results.row.total_ghz": "GHz yhteensä",
   "results.row.total_ram": "RAM yhteensä",
   "results.row.total_raw_storage": "Raakatallennustila yhteensä",

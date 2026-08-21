@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "ワークロード分析",
   "export.pptx.workload_subtitle": "全 {total} 台中 {active} 台のアクティブ VM",
   "export.pptx.year_projected": "{years} 年目予測",
-  "export.pptx.your_current_cpus": "現在のCPU"
+  "export.pptx.your_current_cpus": "現在のCPU",
+  "export.common.system_reserved": "システム予約",
+  "export.docx.reserved_val": "{cores}コア · {ram}"
 }

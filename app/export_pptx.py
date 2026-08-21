@@ -307,6 +307,17 @@ def _slides_config(prs, result, t, lang="en"):
     pn = result["per_node"]
     cl = result["cluster_total"]
     n1 = result["n_minus_1"]
+    # Per Node shows the PHYSICAL configuration; the OS deduction appears as
+    # "system reserved" rows in the cluster/N-1 tables (older snapshots carry
+    # only the usable figures, so fall back to those).
+    pn_cores = pn.get("physical_cores", pn["cores"])
+    pn_ram = pn.get("physical_ram_gb", pn["ram_gb"])
+
+    def _reserved_row(val, as_ram=False):
+        if not val:
+            return []
+        return [[t("export.common.system_reserved"),
+                 _fmt_ram(val) if as_ram else str(val)]]
 
     if mode == "appliance":
         title = t("export.pptx.configuration_model", model=result.get('model', ''))
@@ -320,10 +331,10 @@ def _slides_config(prs, result, t, lang="en"):
         node_rows = [
             [t("export.common.per_node"), ""],
             ["CPU", pn.get("cpu", "")],
-            [t("export.common.cores"), str(pn["cores"])],
+            [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn["ram_gb"])],
+            [t("export.common.ram"), _fmt_ram(pn_ram)],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
     else:
@@ -337,25 +348,27 @@ def _slides_config(prs, result, t, lang="en"):
 
         node_rows = [
             [t("export.common.per_node"), ""],
-            [t("export.common.cores"), str(pn["cores"])],
+            [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn["ram_gb"])],
+            [t("export.common.ram"), _fmt_ram(pn_ram)],
             [t("export.pptx.drives"), str(pn.get("disk_count", 0))],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
 
     _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
 
-    total_rows = [
+    total_rows = ([
         [t("export.common.cluster_total"), ""],
-        [t("export.common.cores"), str(cl["cores"])],
-        [t("export.common.threads"), str(cl["threads"])],
+        [t("export.common.cores"), str(cl["cores"])]]
+        + _reserved_row(cl.get("reserved_cores"))
+        + [[t("export.common.threads"), str(cl["threads"])],
         ["GHz", str(cl["total_ghz"])],
-        [t("export.common.ram"), _fmt_ram(cl["ram_gb"])],
-        [t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
+        [t("export.common.ram"), _fmt_ram(cl["ram_gb"])]]
+        + _reserved_row(cl.get("reserved_ram_gb"), as_ram=True)
+        + [[t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
         [t("export.common.usable_storage"), f"{cl['usable_storage_tb']} TB"],
-    ]
+    ])
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
     if result.get("single_node"):
@@ -364,14 +377,16 @@ def _slides_config(prs, result, t, lang="en"):
         _add_no_redundancy_box(slide, 9.0, 1.6, 4.0,
                                t("export.common.no_redundancy"), t)
     else:
-        n1_rows = [
+        n1_rows = ([
             [t("export.common.n1_available"), ""],
-            [t("export.common.cores"), str(n1["cores"])],
-            [t("export.common.threads"), str(n1["threads"])],
+            [t("export.common.cores"), str(n1["cores"])]]
+            + _reserved_row(n1.get("reserved_cores"))
+            + [[t("export.common.threads"), str(n1["threads"])],
             ["GHz", str(n1["total_ghz"])],
-            [t("export.common.ram"), _fmt_ram(n1["ram_gb"])],
-            [t("export.common.usable_storage"), f"{n1['usable_storage_tb']} TB"],
-        ]
+            [t("export.common.ram"), _fmt_ram(n1["ram_gb"])]]
+            + _reserved_row(n1.get("reserved_ram_gb"), as_ram=True)
+            + [[t("export.common.usable_storage"), f"{n1['usable_storage_tb']} TB"],
+        ])
         _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     if so:

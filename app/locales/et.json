@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Töökoormuse analüüs",
   "export.pptx.workload_subtitle": "{active} aktiivset VM-i {total}-st kokku",
   "export.pptx.year_projected": "Aasta {years} prognoositud",
-  "export.pptx.your_current_cpus": "Teie praegused CPU-d"
+  "export.pptx.your_current_cpus": "Teie praegused CPU-d",
+  "export.common.system_reserved": "Süsteemile reserveeritud",
+  "export.docx.reserved_val": "{cores} tuuma · {ram}"
 }

@@ -956,6 +956,7 @@
   "results.row.storage_type": "Saugyklos tipas",
   "results.row.threads": "Gijos",
   "results.row.total_cores": "Iš viso branduolių",
+  "results.row.system_reserved": "Rezervuota sistemai",
   "results.row.total_ghz": "Iš viso GHz",
   "results.row.total_ram": "Iš viso RAM",
   "results.row.total_raw_storage": "Iš viso neapdorotos saugyklos",

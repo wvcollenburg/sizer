@@ -956,6 +956,7 @@
   "results.row.storage_type": "Type de stockage",
   "results.row.threads": "Threads",
   "results.row.total_cores": "Total des cœurs",
+  "results.row.system_reserved": "Réservé au système",
   "results.row.total_ghz": "GHz total",
   "results.row.total_ram": "RAM totale",
   "results.row.total_raw_storage": "Stockage brut total",

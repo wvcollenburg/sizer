@@ -956,6 +956,7 @@
   "results.row.storage_type": "Lagringstype",
   "results.row.threads": "Tråder",
   "results.row.total_cores": "Totalt antall kjerner",
+  "results.row.system_reserved": "Systemreservert",
   "results.row.total_ghz": "Totalt GHz",
   "results.row.total_ram": "Total RAM",
   "results.row.total_raw_storage": "Total RÅ lagring",

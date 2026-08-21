@@ -956,6 +956,7 @@
   "results.row.storage_type": "Lagertype",
   "results.row.threads": "Tråde",
   "results.row.total_cores": "Kerner i alt",
+  "results.row.system_reserved": "Systemreserveret",
   "results.row.total_ghz": "GHz i alt",
   "results.row.total_ram": "RAM i alt",
   "results.row.total_raw_storage": "RAW-lagring i alt",

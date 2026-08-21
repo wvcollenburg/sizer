@@ -956,6 +956,7 @@
   "results.row.storage_type": "Speichertyp",
   "results.row.threads": "Threads",
   "results.row.total_cores": "Kerne gesamt",
+  "results.row.system_reserved": "Systemreserviert",
   "results.row.total_ghz": "GHz gesamt",
   "results.row.total_ram": "RAM gesamt",
   "results.row.total_raw_storage": "Roh-Speicher gesamt",

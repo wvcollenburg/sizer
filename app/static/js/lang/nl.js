@@ -956,6 +956,7 @@
   "results.row.storage_type": "Opslagtype",
   "results.row.threads": "Threads",
   "results.row.total_cores": "Totaal cores",
+  "results.row.system_reserved": "Systeemreservering",
   "results.row.total_ghz": "Totaal GHz",
   "results.row.total_ram": "Totaal RAM",
   "results.row.total_raw_storage": "Totaal RAW-opslag",

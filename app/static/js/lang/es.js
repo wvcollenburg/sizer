@@ -956,6 +956,7 @@
   "results.row.storage_type": "Tipo de almacenamiento",
   "results.row.threads": "Subprocesos",
   "results.row.total_cores": "Núcleos totales",
+  "results.row.system_reserved": "Reservado para el sistema",
   "results.row.total_ghz": "GHz totales",
   "results.row.total_ram": "RAM total",
   "results.row.total_raw_storage": "Almacenamiento bruto total",

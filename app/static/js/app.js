@@ -893,25 +893,30 @@ function displayResults(result) {
     }
 
     const pn = result.per_node;
+    // The Per Node card shows the PHYSICAL configuration as ordered; the OS
+    // deduction appears as "System reserved" on the cluster/N-1 cards instead.
+    // Falls back to the usable figures for snapshots stored by older engines.
+    const pnCores = pn.physical_cores != null ? pn.physical_cores : pn.cores;
+    const pnRam = pn.physical_ram_gb != null ? pn.physical_ram_gb : pn.ram_gb;
     const perNodeTable = document.getElementById('per-node-table');
     let perNodeHtml = '';
     if (result.mode === 'appliance') {
         perNodeHtml = `
             <tr><td>${window.t('results.row.cpu')}</td><td>${pn.cpu}</td></tr>
-            <tr><td>${window.t('results.row.cores')}</td><td>${pn.cores}</td></tr>
+            <tr><td>${window.t('results.row.cores')}</td><td>${pnCores}</td></tr>
             <tr><td>${window.t('results.row.threads')}</td><td>${pn.threads}</td></tr>
             <tr><td>${window.t('results.row.clock_speed')}</td><td>${pn.ghz} GHz</td></tr>
-            <tr><td>${window.t('results.row.ram')}</td><td>${pn.ram_gb} GB</td></tr>
+            <tr><td>${window.t('results.row.ram')}</td><td>${pnRam} GB</td></tr>
             <tr><td>${window.t('results.row.raw_storage')}</td><td>${pn.raw_storage_tb} TB</td></tr>`;
         if (result.form_factor) {
             perNodeHtml += `<tr><td>${window.t('results.row.form_factor')}</td><td>${result.form_factor}</td></tr>`;
         }
     } else {
         perNodeHtml = `
-            <tr><td>${window.t('results.row.cores')}</td><td>${pn.cores}</td></tr>
+            <tr><td>${window.t('results.row.cores')}</td><td>${pnCores}</td></tr>
             <tr><td>${window.t('results.row.threads')}</td><td>${pn.threads}</td></tr>
             <tr><td>${window.t('results.row.clock_speed')}</td><td>${pn.ghz} GHz</td></tr>
-            <tr><td>${window.t('results.row.ram')}</td><td>${pn.ram_gb} GB</td></tr>
+            <tr><td>${window.t('results.row.ram')}</td><td>${pnRam} GB</td></tr>
             <tr><td>${window.t('results.row.disks')}</td><td>${window.t('results.disks_drives', {count: pn.disk_count})}</td></tr>
             <tr><td>${window.t('results.row.raw_storage')}</td><td>${pn.raw_storage_tb} TB</td></tr>`;
         if (result.storage_type) {
@@ -931,11 +936,18 @@ function displayResults(result) {
     perNodeTable.innerHTML = perNodeHtml;
 
     const cl = result.cluster_total;
+    // Cluster totals stay USABLE; the OS deduction is spelled out as its own
+    // "System reserved" line under cores and RAM (absent on older snapshots).
+    const reservedRow = (val, unit) => (val != null && val > 0)
+        ? `<tr class="reserved-row"><td>${window.t('results.row.system_reserved')}</td><td>${unit === 'GB' ? formatRam(val) : val}</td></tr>`
+        : '';
     document.getElementById('cluster-table').innerHTML = `
         <tr><td>${window.t('results.row.total_cores')}</td><td>${cl.cores}</td></tr>
+        ${reservedRow(cl.reserved_cores, '')}
         <tr><td>${window.t('results.row.total_threads')}</td><td>${cl.threads}</td></tr>
         <tr><td>${window.t('results.row.total_ghz')}</td><td>${cl.total_ghz} GHz</td></tr>
         <tr><td>${window.t('results.row.total_ram')}</td><td>${formatRam(cl.ram_gb)}</td></tr>
+        ${reservedRow(cl.reserved_ram_gb, 'GB')}
         <tr><td>${window.t('results.row.total_raw_storage')}</td><td>${cl.raw_storage_tb} TB</td></tr>
         <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
 
@@ -958,9 +970,11 @@ function displayResults(result) {
         n1Card.classList.remove('no-redundancy');
         document.getElementById('n1-table').innerHTML = `
             <tr><td>${window.t('results.row.available_cores')}</td><td>${n1.cores}</td></tr>
+            ${reservedRow(n1.reserved_cores, '')}
             <tr><td>${window.t('results.row.available_threads')}</td><td>${n1.threads}</td></tr>
             <tr><td>${window.t('results.row.available_ghz')}</td><td>${n1.total_ghz} GHz</td></tr>
             <tr><td>${window.t('results.row.available_ram')}</td><td>${formatRam(n1.ram_gb)}</td></tr>
+            ${reservedRow(n1.reserved_ram_gb, 'GB')}
             <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${n1.usable_storage_tb} TB</td></tr>`;
     }
 
