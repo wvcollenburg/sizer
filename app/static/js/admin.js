@@ -1014,7 +1014,9 @@ function showNameHints(hints) {
     }
     if (hints.length === 0) { el.style.display = 'none'; return; }
     el.style.display = '';
-    el.innerHTML = hints.map(h => `<span class="hint-tag">${h}</span>`).join(' ');
+    // Hints are translated literals today, but escape defensively so this never
+    // becomes an injection sink if a caller ever passes model-derived text.
+    el.innerHTML = hints.map(h => `<span class="hint-tag">${esc(h)}</span>`).join(' ');
 }
 
 function hideNameHints() {

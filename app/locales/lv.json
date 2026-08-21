@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Darba slodzes analīze",
   "export.pptx.workload_subtitle": "{active} aktīvi VM no {total} kopā",
   "export.pptx.year_projected": "{years}. gads prognozēts",
-  "export.pptx.your_current_cpus": "Jūsu pašreizējie CPU"
+  "export.pptx.your_current_cpus": "Jūsu pašreizējie CPU",
+  "export.common.system_reserved": "Rezervēts sistēmai",
+  "export.docx.reserved_val": "{cores} kodoli · {ram}"
 }

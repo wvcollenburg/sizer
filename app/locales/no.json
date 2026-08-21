@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Analyse av arbeidsbelastning",
   "export.pptx.workload_subtitle": "{active} aktive VM-er av {total} totalt",
   "export.pptx.year_projected": "År {years} prognostisert",
-  "export.pptx.your_current_cpus": "Dine nåværende CPU-er"
+  "export.pptx.your_current_cpus": "Dine nåværende CPU-er",
+  "export.common.system_reserved": "Systemreservert",
+  "export.docx.reserved_val": "{cores} kjerner · {ram}"
 }

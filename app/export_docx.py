@@ -559,6 +559,70 @@ def _append_site_sizing(doc, cl, lang, cw):
         _spacer(doc)
 
 
+def _append_config_sizing(doc, cfg, lang, cw):
+    """Per-site detail for an appliance/validated CONFIG section (hardware, no
+    proposal): the capacity tables + network diagram, mirroring the config
+    export's slides. Reuses the proposal document's labels — no new strings."""
+    t9n = translator(lang)
+    mode = cfg.get("mode", "appliance")
+    pn = cfg.get("per_node", {})
+    tot = cfg.get("cluster_total", {})
+    n1 = cfg.get("n_minus_1", {})
+    so = cfg.get("storage_only")
+    node_count = cfg.get("node_count", 0)
+    nodes_label = (t9n("export.common.hci_plus_storage_only", hci=node_count, storage=so["count"])
+                   if so else t9n("export.common.node_count", count=node_count))
+    num_cl = cfg.get("num_clusters", 1)
+    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
+                    layout=" + ".join(map(str, cfg.get("cluster_layout", []))))
+                if num_cl > 1 else t9n("export.common.single_cluster"))
+    model = (cfg.get("model", "") if mode == "appliance"
+             else t9n("export.pptx.configuration_software_only"))
+
+    _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=2)
+    spec_rows = [(t9n("export.docx.recommended_platform"),
+                  f"{model} · {nodes_label} · {cl_label}")]
+    if pn.get("cpu"):
+        spec_rows.append((t9n("export.docx.per_node_cpu"), pn["cpu"]))
+    # Per node = the PHYSICAL configuration; the OS deduction is its own
+    # "system reserved" line against the usable cluster totals below. Older
+    # snapshots carry only the usable figures — fall back to those.
+    spec_rows += [
+        (t9n("export.docx.per_node_cores_threads"),
+         t9n("export.docx.cores_threads_val",
+             cores=pn.get("physical_cores", pn.get("cores", 0)),
+             threads=pn.get("threads", 0))),
+        (t9n("export.docx.per_node_ram"),
+         _fmt_ram(pn.get("physical_ram_gb", pn.get("ram_gb", 0)))),
+        (t9n("export.docx.cluster_cores"), str(tot.get("cores", 0))),
+        (t9n("export.docx.cluster_ram"), _fmt_ram(tot.get("ram_gb", 0))),
+    ]
+    if tot.get("reserved_cores") or tot.get("reserved_ram_gb"):
+        spec_rows.append((t9n("export.common.system_reserved"),
+                          t9n("export.docx.reserved_val",
+                              cores=tot.get("reserved_cores", 0),
+                              ram=_fmt_ram(tot.get("reserved_ram_gb", 0)))))
+    spec_rows.append((t9n("export.docx.cluster_usable_storage"),
+                      f"{tot.get('usable_storage_tb', 0)} TB"))
+    if not cfg.get("single_node") and n1:
+        spec_rows.append((t9n("export.docx.n1_resilient"),
+                          t9n("export.docx.n1_resilient_val", cores=n1.get("cores", 0),
+                              ram=_fmt_ram(n1.get("ram_gb", 0)),
+                              usable_tb=n1.get("usable_storage_tb", 0))))
+    _spec_table(doc, spec_rows, total_w=cw, lang=lang)
+    if cfg.get("single_node"):
+        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    _spacer(doc)
+
+    svg = _rec_network_svg(cfg, lang) or cfg.get("network_svg")
+    if svg:
+        png = _svg_to_png_bytes(svg, out_width=2200)
+        if png:
+            _heading(doc, t9n("export.docx.cluster_network"), lang, level=3)
+            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
+            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
 def build_bundle_proposal_docx(clusters, lang="en"):
     """A single commercial multi-site proposal with one narrative flow:
     executive summary → solution at a glance (overview + topology) → why
@@ -576,15 +640,27 @@ def build_bundle_proposal_docx(clusters, lang="en"):
         t9n("export.docx.multisite_subtitle", count=len(clusters)), style="Subtitle"), lang)
 
     # ── aggregate figures across all sites ────────────────────────────────────
+    # Proposal sections carry a measured workload + recommendation; config
+    # sections (appliance/validated hardware) carry only their sized capacity.
+    proposals = [cl for cl in clusters if cl.get("recommendation")]
     sites = len(clusters)
-    agg_hosts = sum(cl["summary"].get("host_count", 0) for cl in clusters)
-    agg_vms = sum(cl["summary"].get("active_vms", 0) for cl in clusters)
-    agg_used_tb = round(sum(cl["summary"].get("datastore_used_tb", 0) for cl in clusters), 1)
-    tot_nodes = sum(cl["recommendation"].get("node_count", 0) for cl in clusters)
-    tot_cores = sum(cl["recommendation"]["totals"].get("cores", 0) for cl in clusters)
-    tot_ram = sum(cl["recommendation"]["totals"].get("ram_gb", 0) for cl in clusters)
-    tot_usable = round(sum(cl["recommendation"]["totals"].get("usable_storage_tb", 0) for cl in clusters), 1)
-    years = clusters[0]["projection"].get("years", 5) if clusters else 5
+    agg_hosts = sum(cl["summary"].get("host_count", 0) for cl in proposals)
+    agg_vms = sum(cl["summary"].get("active_vms", 0) for cl in proposals)
+    agg_used_tb = round(sum(cl["summary"].get("datastore_used_tb", 0) for cl in proposals), 1)
+
+    def _sec_nodes_totals(cl):
+        r = cl.get("recommendation")
+        if r:
+            return r.get("node_count", 0), r.get("totals", {})
+        cfg = cl.get("config", {})
+        return (cfg.get("total_node_count") or cfg.get("node_count", 0),
+                cfg.get("cluster_total", {}))
+
+    tot_nodes = sum(_sec_nodes_totals(cl)[0] for cl in clusters)
+    tot_cores = sum(_sec_nodes_totals(cl)[1].get("cores", 0) for cl in clusters)
+    tot_ram = sum(_sec_nodes_totals(cl)[1].get("ram_gb", 0) for cl in clusters)
+    tot_usable = round(sum(_sec_nodes_totals(cl)[1].get("usable_storage_tb", 0) for cl in clusters), 1)
+    years = proposals[0]["projection"].get("years", 5) if proposals else 5
 
     # ── Executive summary ─────────────────────────────────────────────────────
     _heading(doc, t9n("export.docx.multisite_exec_heading"), lang, level=1)
@@ -603,9 +679,17 @@ def build_bundle_proposal_docx(clusters, lang="en"):
         header.append(t9n("export.pptx.multisite_col_replicates"))
     rows = []
     for cl in clusters:
-        r = cl["recommendation"]
-        tot = r.get("totals", {})
-        row = [cl.get("name", ""), r.get("model", ""), str(r.get("node_count", "")),
+        r = cl.get("recommendation")
+        if r:
+            tot = r.get("totals", {})
+            model = r.get("model", "")
+            nodes = r.get("node_count", "")
+        else:
+            cfg = cl.get("config", {})
+            tot = cfg.get("cluster_total", {})
+            model = cfg.get("model") or t9n("export.pptx.configuration_software_only")
+            nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
+        row = [cl.get("name", ""), model, str(nodes),
                str(tot.get("cores", "")), _fmt_ram(tot.get("ram_gb", 0)),
                f"{tot.get('usable_storage_tb', 0)} TB"]
         if show_rep:
@@ -623,7 +707,9 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     _spacer(doc)
 
     # Replication & DR (topology diagram + one explanation) — only if configured.
-    topo_svg = render_replication_topology_svg(clusters, lang)
+    # Config sizings are standalone hardware and never replicate, so the topology
+    # is drawn over the proposal sections only.
+    topo_svg = render_replication_topology_svg(proposals, lang)
     if topo_svg:
         png = _svg_to_png_bytes(topo_svg, out_width=2200)
         if png:
@@ -650,7 +736,10 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     for cl in clusters:
         doc.add_page_break()
         _heading(doc, t9n("export.docx.multisite_site_heading", name=cl.get("name", "")), lang, level=1)
-        _append_site_sizing(doc, cl, lang, cw)
+        if cl.get("config") and not cl.get("recommendation"):
+            _append_config_sizing(doc, cl["config"], lang, cw)
+        else:
+            _append_site_sizing(doc, cl, lang, cw)
 
     # ── Assumptions (once) ────────────────────────────────────────────────────
     _spacer(doc)
@@ -1010,7 +1099,10 @@ def _office_to_pdf(data_bytes, in_ext):
                 except Exception:
                     return None
                 out = os.path.join(d, "doc.pdf")
-                return open(out, "rb").read() if os.path.exists(out) else None
+                if not os.path.exists(out):
+                    return None
+                with open(out, "rb") as pdf:
+                    return pdf.read()
         finally:
             _lo_semaphore.release()
     finally:

@@ -65,7 +65,7 @@ def _project_source_for(user, project):
 
 def _visible_project(project_id, user):
     """(project, source) for a project the user may see, else (None, None)."""
-    project = Project.query.get(project_id)
+    project = db.session.get(Project, project_id)
     source = _project_source_for(user, project)
     return (project, source) if source else (None, None)
 
@@ -127,7 +127,7 @@ def list_projects():
                 Configuration.project_id.isnot(None)).distinct()
     }
     for project_id in contributed:
-        project = Project.query.get(project_id)
+        project = db.session.get(Project, project_id)
         if project and not project.is_deleted:
             source = _project_source_for(user, project)
             if source:
@@ -143,7 +143,7 @@ def list_projects():
     if user.is_scale:
         links = ScaleProjectLink.query.filter_by(user_id=user.id).all()
         for link in links:
-            project = Project.query.get(link.project_id)
+            project = db.session.get(Project, link.project_id)
             if project and not project.is_deleted:
                 add(project, _project_source_for(user, project) or "linked")
 
@@ -419,7 +419,7 @@ sizings_bp = Blueprint("sizings", __name__, url_prefix="/api/sizings")
 
 def _writable_sizing(config_id, user):
     """(sizing, None) when the user may modify it, else (None, error response)."""
-    sizing = Configuration.query.get(config_id)
+    sizing = db.session.get(Configuration, config_id)
     if sizing is None or sizing.is_deleted:
         return None, (jsonify({"error": "Sizing not found"}), 404)
     if sizing.owner_id != user.id and not user.is_super_admin:
@@ -440,7 +440,7 @@ def duplicate_sizing(config_id):
     not (the copy is a new sizing).
     """
     user = current_user()
-    source = Configuration.query.get(config_id)
+    source = db.session.get(Configuration, config_id)
     if source is None or source.is_deleted:
         return jsonify({"error": "Sizing not found"}), 404
 
@@ -509,7 +509,7 @@ def store_sizing_result(config_id):
                              inbound_replication_digest)
 
     user = current_user()
-    sizing = Configuration.query.get(config_id)
+    sizing = db.session.get(Configuration, config_id)
     if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
         return jsonify({"error": "Sizing not found"}), 404
 
@@ -607,6 +607,7 @@ def _metrics_from_snapshot(snapshot):
         "clusters": 0,
     }
     models, layout = [], []
+    software_only = False
     for cluster in clusters:
         rec = cluster.get("recommendation") or cluster.get("config") or {}
         # Two shapes reach here: a recommendation from /api/recommend calls its
@@ -627,6 +628,11 @@ def _metrics_from_snapshot(snapshot):
         }
         if rec.get("model"):
             models.append(rec["model"])
+        elif rec.get("mode") == "validated" or rec.get("validated"):
+            # A software-only cluster has no appliance model by definition —
+            # flag it so the comparison can label it instead of showing "—".
+            # The label itself is translated client-side.
+            software_only = True
         layout.extend(rec.get("cluster_layout") or [])
         for key in ("nodes", "clusters", "cores", "ram_gb", "n1_cores", "n1_ram_gb"):
             total[key] += row[key] or 0
@@ -635,6 +641,7 @@ def _metrics_from_snapshot(snapshot):
 
     total["usable_tb"] = round(total["usable_tb"], 2)
     total["model"] = ", ".join(sorted(set(models))) if models else None
+    total["software_only"] = software_only
     # e.g. "8 + 5" — how those nodes actually divide, so a cluster count of 2
     # can be read as the split it represents.
     total["layout"] = layout
@@ -737,7 +744,7 @@ def set_replication_link(config_id):
 
     data = request.json or {}
     target_id = data.get("target_configuration_id")
-    target = Configuration.query.get(target_id) if target_id else None
+    target = db.session.get(Configuration, target_id) if target_id else None
     if target is None or target.is_deleted:
         return jsonify({"error": "Replication target not found"}), 404
     if target.project_id != sizing.project_id:
@@ -823,6 +830,248 @@ def create_dr_target(project_id):
         return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
 
     return jsonify(sizing.to_summary(user, "owned")), 201
+
+
+# ── DR-target sizing (workload-less, sized from inbound replication) ──────────
+
+def _demand_of_cluster(cluster):
+    """Reserve one stored result cluster contributes to a DR target.
+
+    Two shapes reach here:
+      * a WORKLOAD cluster (import/manual) carries a ``summary`` — use its
+        measured demand (vCPUs / provisioned RAM / used TB), the input demand so
+        a target never depends on another sizing's sized output (§8.5);
+      * an APPLIANCE/VALIDATED cluster is a hardware config with no measured
+        workload (``summary`` is null) — replicating it reserves the cluster's
+        provisioned USABLE capacity instead, read from ``config.cluster_total``
+        (usable cores as vCPU demand, usable RAM, usable storage).
+    """
+    cluster = cluster or {}
+    s = cluster.get("summary") or {}
+    if s:
+        return {
+            "vcpus": s.get("total_vcpus", 0) or 0,
+            "ram_gb": s.get("total_vm_provisioned_memory_gb", 0) or 0,
+            "storage_tb": s.get("datastore_used_tb", 0) or 0,
+        }
+    ct = (cluster.get("config") or {}).get("cluster_total") or {}
+    if ct:
+        return {
+            "vcpus": ct.get("cores", 0) or 0,
+            "ram_gb": ct.get("ram_gb", 0) or 0,
+            "storage_tb": ct.get("usable_storage_tb", 0) or 0,
+        }
+    return {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+
+
+def _demand_from_payload(payload):
+    """Fallback demand read straight from a source sizing's saved inputs, so a
+    source that has been imported/entered but not yet sized-and-saved still
+    contributes its reserve (the reserve is input demand, not a sized result).
+
+    Handles the import and manual payload shapes; returns None for shapes that
+    carry no workload (appliance/validated hardware configs, or a DR target)."""
+    if not isinstance(payload, dict):
+        return None
+    summ = None
+    imp = payload.get("import")
+    if isinstance(imp, dict):
+        summ = imp.get("importSummary") or imp.get("originalImportSummary")
+    if not isinstance(summ, dict):
+        man = payload.get("manual")
+        if isinstance(man, dict):
+            summ = man.get("manualSummary")
+    if not isinstance(summ, dict):
+        return None
+    return {
+        "vcpus": summ.get("total_vcpus", 0) or 0,
+        "ram_gb": summ.get("total_vm_provisioned_memory_gb", 0) or 0,
+        "storage_tb": summ.get("datastore_used_tb", 0) or 0,
+    }
+
+
+def _source_cluster_demand(source, cluster_name):
+    """Demand of one source cluster (by name) that replicates into a target.
+
+    Prefers the source's stored per-cluster result summary; an empty/blank name
+    (a single-cluster source, which is what the project UI sends) aggregates
+    every cluster. Falls back to the raw imported/entered demand in the source's
+    payload, so a source that was linked before it was sized still counts."""
+    clusters = ((source.result_snapshot or {}).get("clusters")) or []
+    for c in clusters:
+        if (c.get("name") or "") == (cluster_name or ""):
+            d = _demand_of_cluster(c)
+            if any(d.values()):
+                return d
+    if not (cluster_name or "").strip():
+        agg = {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+        for c in clusters:
+            d = _demand_of_cluster(c)
+            for k in agg:
+                agg[k] += d[k]
+        if any(agg.values()):
+            return agg
+        payload_demand = _demand_from_payload(source.payload)
+        if payload_demand:
+            return payload_demand
+    return {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+
+
+def _dr_inbound_reserve(dr_sizing):
+    """Aggregate the inbound replication reserve a DR target must host.
+
+    Returns (reserve, sources, size_full_cluster):
+      * reserve — day-one {vcpus, ram_gb, storage_tb} summed over every sizing
+        that replicates INTO this target, each scaled by its link's percentages;
+      * sources — per-link breakdown for the UI;
+      * size_full_cluster — False when any inbound link is held at N-1
+        ("reserved"), True only when they are all "failover" (replicas need to
+        fit only with all nodes up). This maps the link mode onto the engine's
+        own-workload N-1 vs full-cluster basis.
+    """
+    from project_models import ReplicationLink
+    links = ReplicationLink.query.filter_by(
+        target_configuration_id=dr_sizing.id).order_by(
+            ReplicationLink.source_configuration_id,
+            ReplicationLink.source_cluster).all()
+    reserve = {"vcpus": 0.0, "ram_gb": 0.0, "storage_tb": 0.0}
+    sources, modes = [], set()
+    if not links:
+        return reserve, sources, False
+
+    src_ids = [l.source_configuration_id for l in links]
+    src_map = {c.id: c for c in Configuration.query.filter(
+        Configuration.id.in_(src_ids)).all()}
+    for link in links:
+        src = src_map.get(link.source_configuration_id)
+        if src is None or src.is_deleted:
+            continue
+        demand = _source_cluster_demand(src, link.source_cluster)
+        v = demand["vcpus"] * (link.compute_pct or 0) / 100.0
+        r = demand["ram_gb"] * (link.compute_pct or 0) / 100.0
+        s = demand["storage_tb"] * (link.storage_pct or 0) / 100.0
+        reserve["vcpus"] += v
+        reserve["ram_gb"] += r
+        reserve["storage_tb"] += s
+        modes.add(link.mode)
+        sources.append({
+            "sizing_name": src.name,
+            "cluster": link.source_cluster,
+            "vcpus": round(v), "ram_gb": round(r), "storage_tb": round(s, 2),
+            "compute_pct": link.compute_pct, "storage_pct": link.storage_pct,
+            "mode": link.mode,
+            "sized": bool((src.result_snapshot or {}).get("clusters")),
+        })
+    # Reserved (N-1) is the conservative default; only go full-cluster when every
+    # inbound link is failover-only.
+    size_full_cluster = bool(modes) and "reserved" not in modes
+    return reserve, sources, size_full_cluster
+
+
+def _dr_demand_summary(reserve):
+    """A summary dict standing in for the DR target's 'own' workload — the
+    inbound reserve. Shaped like a parser summary (so the engine and the exporter
+    read the fields they expect), with the reserve as demand and everything
+    measured-but-absent (perf, IOPS, per-VM maxima) left at 0."""
+    return {
+        "host_count": 0,
+        "cluster_name": "",
+        "current_platform": "DR replication reserve",
+        "source_cpus": [],
+        "total_host_cores": 0, "total_host_threads": 0, "total_host_ghz": 0,
+        "total_host_ram_gb": 0, "per_host_cores": 0, "per_host_ram_gb": 0,
+        "total_vms": 0, "active_vms": 0,
+        "total_vcpus": round(reserve["vcpus"]),
+        "total_vm_provisioned_memory_gb": round(reserve["ram_gb"], 1),
+        "total_vm_used_memory_gb": round(reserve["ram_gb"], 1),
+        "total_vm_provisioned_storage_gb": round(reserve["storage_tb"] * 1024, 1),
+        "total_vm_used_storage_gb": round(reserve["storage_tb"] * 1024, 1),
+        "total_vm_provisioned_storage_tb": round(reserve["storage_tb"], 2),
+        "total_vm_used_storage_tb": round(reserve["storage_tb"], 2),
+        "datastore_total_tb": round(reserve["storage_tb"], 2),
+        "datastore_used_tb": round(reserve["storage_tb"], 2),
+        "local_total_tb": 0, "local_used_tb": 0, "local_used_gb": 0,
+        "peak_cpu_pct": 0, "avg_cpu_pct": 0, "peak_cpu_ghz": 0, "avg_cpu_ghz": 0,
+        "peak_mem_pct": 0, "avg_mem_pct": 0,
+        "total_peak_iops": 0, "total_avg_iops": 0, "p95_iops": 0,
+        "nic_speed_mbps": 0,
+        "vcpu_per_core_ratio": 0, "vcpu_per_thread_ratio": 0,
+        "max_vm_ram_gb": 0, "max_vm_cores": 0,
+    }
+
+
+@sizings_bp.route("/<int:config_id>/dr-recommend", methods=["POST"])
+@login_required
+def dr_recommend(config_id):
+    """Size a workload-less DR target from its inbound replication reserve.
+
+    The reserve (Σ of what replicates in, per §8.5) is treated as the target's
+    own demand and run through the normal engine, so the projection, utilization
+    and recommendation cards all come out coherent. Available to anyone who can
+    see the sizing (not only its owner) — the same rule as storing a result — so
+    a shared project's DR target can still be sized and compared.
+    """
+    from auth import _config_source_for
+    from recommend import generate_recommendations
+
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+    if not sizing.is_dr_target:
+        return jsonify({"error": "Not a DR target"}), 400
+
+    reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
+    summary = _dr_demand_summary(reserve)
+
+    data = request.json or {}
+
+    def _num(key, default):
+        try:
+            return float(data.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    from i18n import SUPPORTED_LANGS  # noqa: F401 (kept parallel to other routes)
+    sizing_mode = "validated" if data.get("sizing_mode") == "validated" else "certified"
+    target_model = (data.get("target_model") or "").strip() or None
+
+    has_reserve = any(reserve[k] > 0 for k in reserve)
+    if not has_reserve:
+        # Nothing to size. Distinguish the two reasons so the message is honest:
+        # no inbound links at all, versus links whose sources carry no demand yet
+        # (e.g. a source that hasn't been calculated/saved).
+        code = "dr_sources_no_demand" if sources else "dr_no_inbound"
+        return jsonify({"reserve": {k: round(v, 2) for k, v in reserve.items()},
+                        "sources": sources, "recommendations": [],
+                        "projection": None, "size_full_cluster": size_full_cluster,
+                        "warnings": [{"code": code}]})
+
+    result = generate_recommendations(
+        summary,
+        vcpu_ratio=_num("vcpu_ratio", None) if data.get("vcpu_ratio") is not None else None,
+        growth_pct=_num("growth_pct", 10),
+        snapshot_pct=_num("snapshot_pct", 20),
+        years=int(_num("years", 5)),
+        storage_pref=data.get("storage_pref"),
+        size_full_cluster=size_full_cluster,
+        sizing_mode=sizing_mode,
+        allow_storage_only=bool(data.get("allow_storage_only")),
+        target_model=target_model,
+        include_eol_eos=bool(data.get("include_eol_eos")),
+        allow_single_node=bool(data.get("allow_single_node")),
+    )
+    return jsonify({
+        "reserve": {k: round(v, 2) for k, v in reserve.items()},
+        "sources": sources,
+        "size_full_cluster": size_full_cluster,
+        "recommendations": result["recommendations"],
+        "projection": result["projection"],
+        "warnings": result.get("warnings", []),
+        # Handed back so the client stores exactly the summary the engine sized
+        # against — the DR reserve as the "current environment" in exports.
+        "summary": summary,
+    })
 
 
 @sizings_bp.route("/<int:config_id>/role", methods=["POST"])
@@ -1050,7 +1299,7 @@ def list_exports(project_id):
 def get_export_job(job_id):
     from project_models import ExportJob
     user = current_user()
-    job = ExportJob.query.get(job_id)
+    job = db.session.get(ExportJob, job_id)
     if job is None or (job.user_id != user.id and not user.is_super_admin):
         return jsonify({"error": "Export not found"}), 404
     return jsonify(job.to_dict())
@@ -1073,7 +1322,7 @@ def download_export(job_id):
     from project_models import ExportJob, JOB_DONE
 
     user = current_user()
-    job = ExportJob.query.get(job_id)
+    job = db.session.get(ExportJob, job_id)
     if job is None or (job.user_id != user.id and not user.is_super_admin):
         return jsonify({"error": "Export not found"}), 404
     if job.status != JOB_DONE or not job.artifact_path:

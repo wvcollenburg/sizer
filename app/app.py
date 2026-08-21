@@ -1,4 +1,3 @@
-import io
 import os
 import secrets
 import tempfile
@@ -8,7 +7,7 @@ from flask import Flask, render_template, jsonify, request, send_file
 from werkzeug.middleware.proxy_fix import ProxyFix
 from database import init_db
 from extensions import limiter
-from auth import register_auth, start_scheduler, current_user
+from auth import register_auth, start_scheduler
 from projects import register_projects
 from sqlalchemy.orm import joinedload
 from orm_models import (
@@ -23,10 +22,9 @@ from rvtools import parse_rvtools
 from import_checks import build_import_warnings
 from recommend import generate_recommendations
 from tunables import T, refresh_from_db
-from export_pptx import generate_proposal, generate_config_slide, generate_bundle_proposal
-from export_docx import (build_proposal_docx, build_bundle_proposal_docx,
-                         convert_docx_to_pdf, convert_pptx_to_pdf)
-from export_gate import export_gate
+# NOTE: the synchronous single-sizing/inline export routes and their document
+# generators moved to unused_exports.py when exports became project-level only.
+# Re-enable them by calling register_unused_exports(app, pick_lang) in create_app.
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
 from calc import (calculate_appliance, calculate_validated, MAX_STORAGE_ONLY_COUNT,
@@ -216,7 +214,15 @@ def create_app():
             pass
         return render_template("index.html", default_vcpu_ratio=T.default_vcpu_ratio,
                                max_day_one_storage_pct=T.max_day_one_storage_pct,
-                               max_day_one_ram_pct=T.max_day_one_ram_pct)
+                               max_day_one_ram_pct=T.max_day_one_ram_pct,
+                               # Validated (software-only) rule limits, surfaced so
+                               # the client's live rule indicators mirror the same
+                               # admin-tuned values the calculator enforces server-
+                               # side (rather than hardcoded constants that drift).
+                               max_cluster_disks=T.max_cluster_disks,
+                               hybrid_flash_min_pct=T.hybrid_flash_min_pct,
+                               hybrid_flash_max_pct=T.hybrid_flash_max_pct,
+                               hybrid_min_hdd_per_flash=T.hybrid_min_hdd_per_flash)
 
     @app.route("/favicon.ico")
     def favicon():
@@ -376,9 +382,14 @@ def create_app():
 
     @app.route("/api/recommend", methods=["POST"])
     def recommend():
-        data = request.json
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid request body"}), 400
         summary = data.get("summary")
-        if not summary:
+        # The summary is a bag of measured numbers the engine does arithmetic on;
+        # a non-dict (or non-numeric field inside it) would otherwise surface as a
+        # 500 deep in the math. Require a dict here and coerce failures to 400.
+        if not isinstance(summary, dict) or not summary:
             return jsonify({"error": "No summary provided"}), 400
         vcpu_ratio = data.get("vcpu_ratio")
         growth_pct = data.get("growth_pct", 10)
@@ -402,22 +413,29 @@ def create_app():
         replication_reserve = data.get("replication_reserve")
         replication_compute_mode = data.get("replication_compute_mode", "reserved")
         allow_single_node = data.get("allow_single_node", False)
-        result = generate_recommendations(summary, vcpu_ratio,
-                                          growth_pct, snapshot_pct, years,
-                                          target_nodes=target_nodes,
-                                          storage_pref=storage_pref,
-                                          size_full_cluster=size_full_cluster,
-                                          sizing_mode=sizing_mode,
-                                          allow_storage_only=allow_storage_only,
-                                          target_model=target_model,
-                                          include_eol_eos=include_eol_eos,
-                                          max_day_one_storage_pct=max_day_one_storage_pct,
-                                          max_day_one_ram_pct=max_day_one_ram_pct,
-                                          source_perf_index=source_perf_index,
-                                          source_perf_type=source_perf_type,
-                                          replication_reserve=replication_reserve,
-                                          replication_compute_mode=replication_compute_mode,
-                                          allow_single_node=allow_single_node)
+        try:
+            result = generate_recommendations(summary, vcpu_ratio,
+                                              growth_pct, snapshot_pct, years,
+                                              target_nodes=target_nodes,
+                                              storage_pref=storage_pref,
+                                              size_full_cluster=size_full_cluster,
+                                              sizing_mode=sizing_mode,
+                                              allow_storage_only=allow_storage_only,
+                                              target_model=target_model,
+                                              include_eol_eos=include_eol_eos,
+                                              max_day_one_storage_pct=max_day_one_storage_pct,
+                                              max_day_one_ram_pct=max_day_one_ram_pct,
+                                              source_perf_index=source_perf_index,
+                                              source_perf_type=source_perf_type,
+                                              replication_reserve=replication_reserve,
+                                              replication_compute_mode=replication_compute_mode,
+                                              allow_single_node=allow_single_node)
+        except (TypeError, ValueError, KeyError):
+            # Malformed numeric fields in the client-supplied summary/params
+            # (e.g. a non-numeric vCPU count). A bad request, not a server fault.
+            app.logger.warning("Recommend rejected malformed input")
+            return jsonify({"error": "The imported figures are incomplete or "
+                                     "malformed. Re-import the environment."}), 400
         return jsonify(result)
 
     @app.route("/api/cpu-perf")
@@ -458,232 +476,6 @@ def create_app():
                 "samples": hit["samples"],
             })
         return jsonify({"found": False})
-
-    @app.route("/api/export-config", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_config():
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        if not _can_export_editable():
-            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
-        try:
-            buf = generate_config_slide(data, lang=pick_lang())
-            mode = data.get("mode", "config")
-            model = data.get("model", mode)
-            nodes = data.get("node_count", "")
-            filename = f"SC_Config_{model}_{nodes}N.pptx"
-            return send_file(buf, as_attachment=True, download_name=filename,
-                             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-        except Exception as e:
-            app.logger.exception("Config slide generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the configuration slide."}), 500
-
-    @app.route("/api/export-config-pdf", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_config_pdf():
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-        try:
-            pptx_buf = generate_config_slide(data, lang=pick_lang())
-            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
-            if not pdf:
-                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
-            model = data.get("model", data.get("mode", "config"))
-            nodes = data.get("node_count", "")
-            filename = f"SC_Config_{model}_{nodes}N.pdf"
-            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=filename,
-                             mimetype="application/pdf")
-        except Exception as e:
-            app.logger.exception("Config PDF generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the configuration PDF."}), 500
-
-    @app.route("/api/export-proposal", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_proposal():
-        data = request.json
-        summary = data.get("summary")
-        recommendation = data.get("recommendation")
-        projection = data.get("projection")
-        source_perf = data.get("source_perf")
-        if not summary or not recommendation or not projection:
-            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
-        if not _can_export_editable():
-            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
-
-        try:
-            buf = generate_proposal(summary, recommendation, projection, source_perf,
-                                    lang=pick_lang())
-            model_name = recommendation.get("model", "proposal")
-            filename = f"SC_Proposal_{model_name}_{recommendation.get('node_count', '')}N.pptx"
-            return send_file(buf, as_attachment=True, download_name=filename,
-                             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-        except Exception as e:
-            app.logger.exception("Proposal generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the proposal."}), 500
-
-    def _proposal_payload():
-        data = request.json or {}
-        return (data.get("summary"), data.get("recommendation"),
-                data.get("projection"), data.get("source_perf"))
-
-    def _can_export_editable():
-        # Editable source files (Word, PPTX) are limited to Scale users and super
-        # admins; everyone else is restricted to read-only PDFs.
-        u = current_user()
-        return bool(u and (u.is_scale or u.is_super_admin))
-
-    @app.route("/api/export-docx", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_docx_route():
-        summary, recommendation, projection, source_perf = _proposal_payload()
-        if not summary or not recommendation or not projection:
-            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
-        if not _can_export_editable():
-            return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
-        try:
-            buf = build_proposal_docx(summary, recommendation, projection, source_perf,
-                                      lang=pick_lang())
-            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.docx"
-            return send_file(buf, as_attachment=True, download_name=fn,
-                             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        except Exception as e:
-            app.logger.exception("Document generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the document."}), 500
-
-    @app.route("/api/export-pdf", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_pdf_route():
-        summary, recommendation, projection, source_perf = _proposal_payload()
-        if not summary or not recommendation or not projection:
-            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
-        try:
-            docx_buf = build_proposal_docx(summary, recommendation, projection, source_perf,
-                                           lang=pick_lang())
-            pdf = convert_docx_to_pdf(docx_buf.getvalue())
-            if not pdf:
-                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
-            fn = f"SC_Proposal_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
-            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
-                             mimetype="application/pdf")
-        except Exception as e:
-            app.logger.exception("PDF generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the PDF."}), 500
-
-    @app.route("/api/export-presentation-pdf", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_presentation_pdf_route():
-        summary, recommendation, projection, source_perf = _proposal_payload()
-        if not summary or not recommendation or not projection:
-            return jsonify({"error": "Missing summary, recommendation, or projection"}), 400
-        try:
-            pptx_buf = generate_proposal(summary, recommendation, projection, source_perf,
-                                         lang=pick_lang())
-            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
-            if not pdf:
-                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
-            fn = f"SC_Presentation_{recommendation.get('model', 'proposal')}_{recommendation.get('node_count', '')}N.pdf"
-            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
-                             mimetype="application/pdf")
-        except Exception as e:
-            app.logger.exception("Presentation PDF generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the presentation PDF."}), 500
-
-    # ---- Combined multi-site exports (one document, per-cluster sections) ----
-    def _bundle_payload():
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return None
-        clusters = data.get("clusters")
-        if not isinstance(clusters, list) or not clusters:
-            return None
-        if len(clusters) > MAX_EXPORT_SECTIONS:
-            return None
-        for cl in clusters:
-            if not (cl.get("summary") and cl.get("recommendation") and cl.get("projection")):
-                return None
-        return clusters
-
-    @app.route("/api/export-bundle-proposal", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_bundle_proposal():
-        clusters = _bundle_payload()
-        if not clusters:
-            return jsonify({"error": "Missing or incomplete cluster data"}), 400
-        if not _can_export_editable():
-            return jsonify({"error": "The editable PowerPoint is available to Scale users only. Use the PDF instead."}), 403
-        try:
-            buf = generate_bundle_proposal(clusters, lang=pick_lang())
-            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.pptx"
-            return send_file(buf, as_attachment=True, download_name=fn,
-                             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-        except Exception as e:
-            app.logger.exception("Multi-site proposal generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the proposal."}), 500
-
-    @app.route("/api/export-bundle-docx", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_bundle_docx():
-        clusters = _bundle_payload()
-        if not clusters:
-            return jsonify({"error": "Missing or incomplete cluster data"}), 400
-        if not _can_export_editable():
-            return jsonify({"error": "The editable Word document is available to Scale users only. Use the PDF instead."}), 403
-        try:
-            buf = build_bundle_proposal_docx(clusters, lang=pick_lang())
-            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.docx"
-            return send_file(buf, as_attachment=True, download_name=fn,
-                             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        except Exception as e:
-            app.logger.exception("Multi-site document generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the document."}), 500
-
-    @app.route("/api/export-bundle-pdf", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_bundle_pdf():
-        clusters = _bundle_payload()
-        if not clusters:
-            return jsonify({"error": "Missing or incomplete cluster data"}), 400
-        try:
-            docx_buf = build_bundle_proposal_docx(clusters, lang=pick_lang())
-            pdf = convert_docx_to_pdf(docx_buf.getvalue())
-            if not pdf:
-                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
-            fn = f"SC_Proposal_MultiSite_{len(clusters)}clusters.pdf"
-            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
-                             mimetype="application/pdf")
-        except Exception as e:
-            app.logger.exception("Multi-site PDF generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the PDF."}), 500
-
-    @app.route("/api/export-bundle-presentation-pdf", methods=["POST"])
-    @limiter.limit("20 per minute")
-    @export_gate
-    def export_bundle_presentation_pdf():
-        clusters = _bundle_payload()
-        if not clusters:
-            return jsonify({"error": "Missing or incomplete cluster data"}), 400
-        try:
-            pptx_buf = generate_bundle_proposal(clusters, lang=pick_lang())
-            pdf = convert_pptx_to_pdf(pptx_buf.getvalue())
-            if not pdf:
-                return jsonify({"error": "PDF conversion is unavailable on this server."}), 503
-            fn = f"SC_Presentation_MultiSite_{len(clusters)}clusters.pdf"
-            return send_file(io.BytesIO(pdf), as_attachment=True, download_name=fn,
-                             mimetype="application/pdf")
-        except Exception as e:
-            app.logger.exception("Multi-site presentation PDF generation failed: %s", e)
-            return jsonify({"error": "Failed to generate the presentation PDF."}), 500
 
     return app
 

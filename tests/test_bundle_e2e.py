@@ -142,7 +142,7 @@ def test_a_real_bundle_builds_and_downloads(app, engine_output, fmt):
 
     with app.app_context():
         export_worker.run_job(export_worker.claim_next_job(), app)
-        job = ExportJob.query.get(job_id)
+        job = db.session.get(ExportJob, job_id)
         assert job.status == "done", f"export failed: {job.error}"
         assert job.artifact_path and os.path.exists(job.artifact_path)
         assert os.path.getsize(job.artifact_path) > 20000, "suspiciously small document"

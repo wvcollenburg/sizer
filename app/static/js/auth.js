@@ -105,6 +105,7 @@ function renderAccountBar() {
     const actions = [
         `<button class="btn btn-sm btn-account" data-click='["saveCurrentSizing"]'>${esc(t('auth.btn.save_sizing'))}</button>`,
         `<button class="btn btn-sm" data-click='["openSizingsModal"]'>${esc(t('auth.btn.my_sizings'))}</button>`,
+        `<button class="btn btn-sm" data-click='["openPrivacyModal"]'>${esc(t('auth.privacy.btn'))}</button>`,
     ];
     if (u.role === 'tenant_admin') {
         actions.push(`<button class="btn btn-sm" data-click='["openOrgModal"]'>${esc(t('auth.btn.organization'))}</button>`);
@@ -236,10 +237,14 @@ function setAuthTab(tab) {
     document.getElementById('auth-confirm-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-pw-rules').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-consent-row').style.display = signup ? 'block' : 'none';
+    // Optional marketing opt-in — only shown at sign-up, and never pre-ticked
+    // (consent must be an affirmative action, not a default).
+    document.getElementById('auth-marketing-row').style.display = signup ? 'block' : 'none';
     // Name is asked once, at sign-up; it fills "Prepared by" on new projects.
     document.getElementById('auth-name-group').style.display = signup ? 'block' : 'none';
     document.getElementById('auth-confirm').value = '';
     document.getElementById('auth-accept-privacy').checked = false;
+    document.getElementById('auth-marketing-consent').checked = false;
     if (signup) updatePwRules('auth-password', 'auth-confirm', 'auth-pw-rules');
     hideAuthError();
 }
@@ -282,6 +287,9 @@ async function submitAuth(event) {
     const body = { email, password };
     if (authTab === 'signup') {
         body.accept_privacy = true;
+        // Optional marketing consent — sent only when the user affirmatively ticks
+        // it, so the server records a genuine opt-in timestamp (GDPR consent proof).
+        body.marketing_consent = document.getElementById('auth-marketing-consent').checked;
         const nameEl = document.getElementById('auth-full-name');
         const fullName = (nameEl && nameEl.value || '').trim();
         if (fullName) body.full_name = fullName;
@@ -451,6 +459,72 @@ async function doLogout() {
     updateGate();  // re-lock the UI
 }
 
+// ── My data & privacy (GDPR self-service) ─────────────────────────────────────
+
+function openPrivacyModal() {
+    if (!currentAccount) { openAuthModal(); return; }
+    document.getElementById('privacy-marketing').checked = !!currentAccount.marketing_opted_in;
+    privacyStatus('');
+    document.getElementById('privacy-modal').style.display = 'flex';
+}
+
+function closePrivacyModal() {
+    document.getElementById('privacy-modal').style.display = 'none';
+}
+
+function privacyStatus(msg, isError) {
+    const el = document.getElementById('privacy-status');
+    if (!msg) { el.style.display = 'none'; return; }
+    el.textContent = msg;
+    el.className = 'sizings-status ' + (isError ? 'upload-error' : 'upload-ok');
+    el.style.display = 'block';
+}
+
+// Opt in / out of product-update emails. The presence of a consent timestamp on
+// the server is the record; this just flips it.
+async function toggleMarketing(checked) {
+    const { ok, data } = await apiJson('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marketing_consent: !!checked }),
+    });
+    if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
+    currentAccount = data.user;
+    privacyStatus(t('auth.privacy.saved'), false);
+}
+
+// Right of access / portability: download a JSON copy of the caller's own data.
+async function downloadMyData() {
+    try {
+        const resp = await fetch('/api/auth/me/export');
+        if (!resp.ok) { privacyStatus(t('auth.generic_error'), true); return; }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sizer-my-data.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        privacyStatus(t('auth.generic_error'), true);
+    }
+}
+
+// Right to erasure: close the account (soft-delete; admin-recoverable during the
+// retention window, then permanently purged) and re-lock the UI.
+async function deleteMyAccount() {
+    if (!confirm(t('auth.privacy.delete_confirm'))) return;
+    const { ok, data } = await apiJson('/api/auth/me', { method: 'DELETE' });
+    if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
+    closePrivacyModal();
+    currentAccount = null;
+    renderAccountBar();
+    updateGate();  // re-lock the UI behind the login modal
+    showInfoModal(t('auth.privacy.deleted_title'), t('auth.privacy.deleted'));
+}
+
 // ── My Sizings ───────────────────────────────────────────────────────────────
 
 let sizingsCache = [];
@@ -571,6 +645,12 @@ function fmtDate(iso) {
 // a "save then continue" flow); false if it was cancelled or failed.
 async function saveCurrentSizing() {
     if (!currentAccount) { openAuthModal(); return false; }
+    // A DR target is a distinct, workload-less flow with its own in-place Save —
+    // never route it through the new/update-config path (that made "Save" on the
+    // top bar create a duplicate sizing).
+    if (window.isDrTarget && window.isDrTarget()) {
+        return window.saveDrTarget ? await window.saveDrTarget() : false;
+    }
     const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
 
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
@@ -602,6 +682,7 @@ async function saveCurrentSizing() {
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
         if (window.setSizerSizingName) window.setSizerSizingName(data.name);
         await storeResultSnapshot(data.id);
+        if (window.markSizingClean) window.markSizingClean();
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
         return true;
@@ -631,6 +712,7 @@ async function saveCurrentSizing() {
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
     if (window.setSizerSizingName) window.setSizerSizingName(data.name);
     await storeResultSnapshot(data.id);
+    if (window.markSizingClean) window.markSizingClean();
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
     return true;
@@ -696,6 +778,7 @@ async function loadSizing(id) {
     if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+    if (window.markSizingClean) window.markSizingClean();
 }
 
 async function retrieveByCode() {
@@ -712,6 +795,7 @@ async function retrieveByCode() {
     if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+    if (window.markSizingClean) window.markSizingClean();
 }
 
 async function deleteSizing(id, source) {

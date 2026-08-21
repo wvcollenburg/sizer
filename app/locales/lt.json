@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Darbo krūvio analizė",
   "export.pptx.workload_subtitle": "{active} aktyvūs VM iš {total} iš viso",
   "export.pptx.year_projected": "{years} metai prognozuojama",
-  "export.pptx.your_current_cpus": "Jūsų dabartiniai CPU"
+  "export.pptx.your_current_cpus": "Jūsų dabartiniai CPU",
+  "export.common.system_reserved": "Rezervuota sistemai",
+  "export.docx.reserved_val": "{cores} branduoliai · {ram}"
 }

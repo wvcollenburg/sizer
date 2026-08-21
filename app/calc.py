@@ -44,10 +44,16 @@ def _cluster_min_hci_error(node_count, so_count, layout):
     return None
 
 
-def _n_minus_1_block(node_count, num_clusters, cores, threads, ghz, ram, usable_tb):
+def _n_minus_1_block(node_count, num_clusters, cores, threads, ghz, ram, usable_tb,
+                     reserved_cores_per_node=0, reserved_ram_per_node=0):
     """Surviving capacity with one HCI node offline per cluster. For a single
     node there's no peer to fail over to, so the node's own full capacity is
-    reported (the GUI/PPTX label it as no-redundancy separately)."""
+    reported (the GUI/PPTX label it as no-redundancy separately).
+
+    ``cores``/``ram`` are the USABLE per-node figures; the reserved_* per-node
+    figures are the HyperCore OS deductions, reported alongside so the display
+    can show usable capacity plus an explicit "system reserved" line instead of
+    silently baking the deduction into the totals."""
     n1_hci = max(node_count - num_clusters, 0)
     mult = n1_hci if node_count > 1 else 1
     return {
@@ -56,6 +62,8 @@ def _n_minus_1_block(node_count, num_clusters, cores, threads, ghz, ram, usable_
         "total_ghz": round(ghz * mult, 2),
         "ram_gb": ram * mult,
         "usable_storage_tb": round(usable_tb, 2),
+        "reserved_cores": reserved_cores_per_node * mult,
+        "reserved_ram_gb": reserved_ram_per_node * mult,
     }
 
 
@@ -121,9 +129,11 @@ def calculate_appliance(data, node_count):
 
     # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
     # OS RAM overhead is tiered by this node's drive-bay count.
-    usable_cores = cpu["cores"] - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead_for(
+    reserved_cores = T.os_core_overhead
+    reserved_ram = T.usable_ram_overhead_for(
         compute_drive_count_appliance(data, storage))
+    usable_cores = cpu["cores"] - reserved_cores
+    usable_ram = ram_gb - reserved_ram
 
     total_cores = usable_cores * node_count
     total_threads = cpu["threads"] * node_count
@@ -132,7 +142,9 @@ def calculate_appliance(data, node_count):
 
     n_minus_1 = _n_minus_1_block(node_count, num_clusters, usable_cores,
                                  cpu["threads"], cpu["ghz"] * cpu["cores"],
-                                 usable_ram, usable)
+                                 usable_ram, usable,
+                                 reserved_cores_per_node=reserved_cores,
+                                 reserved_ram_per_node=reserved_ram)
 
     _nic_ports = max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2)
     network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
@@ -169,10 +181,17 @@ def calculate_appliance(data, node_count):
         "nic_ports": _nic_ports,
         "per_node": {
             "cpu": cpu["desc"],
+            # Usable (post-OS-deduction) figures — kept as the canonical fields
+            # because downstream consumers (DR reserve, compare) sum on them.
             "cores": usable_cores,
             "threads": cpu["threads"],
             "ghz": cpu["ghz"],
             "ram_gb": usable_ram,
+            # The PHYSICAL configuration as ordered, shown on the Per Node card;
+            # the OS deduction is reported as "system reserved" on the cluster
+            # and N-1 cards instead of being silently baked in here.
+            "physical_cores": cpu["cores"],
+            "physical_ram_gb": ram_gb,
             "raw_storage_tb": round(raw_per_node, 2),
         },
         "cluster_total": {
@@ -182,6 +201,10 @@ def calculate_appliance(data, node_count):
             "ram_gb": total_ram,
             "raw_storage_tb": round(total_raw, 2),
             "usable_storage_tb": round(usable, 2),
+            # HyperCore OS reservations across the compute (HCI) nodes — what
+            # separates the physical configuration from the usable totals above.
+            "reserved_cores": reserved_cores * node_count,
+            "reserved_ram_gb": reserved_ram * node_count,
         },
         "n_minus_1": n_minus_1,
         "single_node": total_nodes == 1,
@@ -368,17 +391,21 @@ def calculate_validated(data, node_count):
     if hci_err:
         return hci_err
 
-    # 100-disk hard limit binds on the LARGEST cluster, not the total node
-    # count. Storage-only nodes carry the same disks, so they count too.
+    # Per-cluster disk hard limit binds on the LARGEST cluster, not the total
+    # node count. Storage-only nodes carry the same disks, so they count too.
+    # The cap is admin-tunable (T.max_cluster_disks) — read it live so the manual
+    # calculator and the recommendation engine enforce the same limit.
+    disk_cap = T.max_cluster_disks
     largest_cluster = max(layout)
     max_cluster_disks = disk_count * largest_cluster
-    if max_cluster_disks > 100:
+    if max_cluster_disks > disk_cap:
         return {
             "error": (
                 f"Cluster disk limit exceeded: {max_cluster_disks} disks "
                 f"({disk_count} per node × {largest_cluster} nodes in the largest "
-                f"cluster). The maximum is 100 disks per cluster. When more storage "
-                f"capacity is required, deploy more clusters or use bigger disks."
+                f"cluster). The maximum is {disk_cap} disks per cluster. When more "
+                f"storage capacity is required, deploy more clusters or use bigger "
+                f"disks."
             )
         }
 
@@ -387,13 +414,18 @@ def calculate_validated(data, node_count):
     is_hybrid = has_spinning and has_flash
 
     if is_hybrid:
+        # Flash-capacity band is admin-tunable (T.hybrid_flash_min_pct/max_pct);
+        # read it live so this matches what the recommendation engine enforces.
+        flash_min = T.hybrid_flash_min_pct
+        flash_max = T.hybrid_flash_max_pct
         total_cap = sum(d["size_tb"] for d in disks)
         flash_cap = sum(d["size_tb"] for d in disks if d["type"] in ("SSD", "NVMe"))
         if total_cap > 0:
             flash_pct = (flash_cap / total_cap) * 100
-            if flash_pct < 7 or flash_pct > 25:
+            if flash_pct < flash_min or flash_pct > flash_max:
                 return {
-                    "error": f"Hybrid fast tier must be 7-25% of total capacity. Currently {flash_pct:.1f}%",
+                    "error": (f"Hybrid fast tier must be {flash_min:g}-{flash_max:g}% "
+                              f"of total capacity. Currently {flash_pct:.1f}%"),
                     "flash_percentage": round(flash_pct, 1),
                 }
         # HEAT best practice: enough HDD spindles per flash disk so the slow tier
@@ -410,8 +442,10 @@ def calculate_validated(data, node_count):
             }
 
     # Apply HyperCore OS overhead; OS RAM is tiered by the node's drive count.
-    usable_cores = cores - T.os_core_overhead
-    usable_ram = ram_gb - T.usable_ram_overhead_for(disk_count)
+    reserved_cores = T.os_core_overhead
+    reserved_ram = T.usable_ram_overhead_for(disk_count)
+    usable_cores = cores - reserved_cores
+    usable_ram = ram_gb - reserved_ram
 
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
@@ -433,7 +467,9 @@ def calculate_validated(data, node_count):
     total_ram = usable_ram * node_count
 
     n_minus_1 = _n_minus_1_block(node_count, num_clusters, usable_cores,
-                                 threads, ghz * cores, usable_ram, usable)
+                                 threads, ghz * cores, usable_ram, usable,
+                                 reserved_cores_per_node=reserved_cores,
+                                 reserved_ram_per_node=reserved_ram)
 
     storage_type = "All-Flash"
     if is_hybrid:
@@ -465,10 +501,15 @@ def calculate_validated(data, node_count):
         # (_rec_network_svg) matches the on-screen SVG instead of defaulting to 2.
         "nic_ports": _nic_ports,
         "per_node": {
+            # Usable (post-OS-deduction) figures — canonical for downstream sums.
             "cores": usable_cores,
             "threads": threads,
             "ghz": ghz,
             "ram_gb": usable_ram,
+            # Physical configuration as specified; the deduction is surfaced as
+            # "system reserved" on the cluster/N-1 cards.
+            "physical_cores": cores,
+            "physical_ram_gb": ram_gb,
             "disk_count": disk_count,
             "raw_storage_tb": round(raw_per_node, 2),
             "disks": disks,
@@ -480,6 +521,8 @@ def calculate_validated(data, node_count):
             "ram_gb": total_ram,
             "raw_storage_tb": round(total_raw, 2),
             "usable_storage_tb": round(usable, 2),
+            "reserved_cores": reserved_cores * node_count,
+            "reserved_ram_gb": reserved_ram * node_count,
         },
         "n_minus_1": n_minus_1,
         "single_node": total_nodes == 1,

@@ -6,7 +6,7 @@
 // and orchestrates the existing global functions in app.js:
 //   uploadFile / displayImportResults / renderEnvWorkloadCards /
 //   recalcRecommendations / toggleSeparateClusters / _selectClusterKey /
-//   addDedicatedCluster / renderSelectedClustersTab / exportProposal ...
+//   addDedicatedCluster / renderSelectedClustersTab / saveAndReturnToProject ...
 //
 // The wizard is the DEFAULT import experience; the untouched all-at-once page is
 // kept as a "classic / advanced view" the user can switch to (and back) at any
@@ -307,25 +307,14 @@
         if (multi) {
             chrome.innerHTML = '<p class="wiz-intro">' + esc(t('wizard.export.multi_intro')) + '</p>';
             // Enter the existing "Selected clusters" review, which populates
-            // #cluster-review (portaled into this pane) with per-cluster cards and
-            // the combined multi-site export buttons.
+            // #cluster-review (portaled into this pane) with per-cluster cards.
+            // Exports now live at the project level, so the review carries no
+            // export buttons — Save & close returns to the project to export.
             if (typeof _selectClusterKey === 'function') _selectClusterKey(s.selectedKey);
             var rev = $('cluster-review');
             if (rev) rev.style.display = 'block';
         } else {
-            // Editable formats (PowerPoint/Word) are Scale-users-only, exactly as
-            // the classic recommendation cards gate them; PDF is always offered.
-            var editable = (typeof canExportEditable === 'function') ? canExportEditable() : false;
-            var buttons = '';
-            if (editable) {
-                buttons += '<button class="btn btn-export" data-click=\'["wizExport","pptx"]\'>PowerPoint</button>' +
-                           '<button class="btn btn-export" data-click=\'["wizExport","docx"]\'>Word</button>';
-            }
-            buttons += '<button class="btn btn-export" data-click=\'["wizExport","pdf"]\'>PDF</button>';
-            chrome.innerHTML =
-                '<p class="wiz-intro">' + esc(t('wizard.export.single_intro')) + '</p>' +
-                '<div class="wiz-export-actions">' + buttons + '</div>' +
-                '<p class="wiz-export-note">' + esc(t('wizard.export.per_card_note')) + '</p>';
+            chrome.innerHTML = '<p class="wiz-intro">' + esc(t('wizard.export.single_intro')) + '</p>';
         }
         renderSaveClose(chrome.parentNode);
     }
@@ -354,10 +343,6 @@
         if (typeof window.saveAndReturnToProject === 'function') {
             window.saveAndReturnToProject();
         }
-    };
-
-    window.wizExport = function (fmt) {
-        if (typeof exportProposal === 'function') exportProposal('import', 0, fmt);
     };
 
     // ---- Navigation ---------------------------------------------------------

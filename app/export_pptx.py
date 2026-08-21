@@ -204,12 +204,21 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
         header.append(t("export.pptx.multisite_col_replicates"))
     rows = [header]
     for cl in clusters:
-        r = cl["recommendation"]
-        tot = r.get("totals", {})
+        r = cl.get("recommendation")
+        if r:
+            tot = r.get("totals", {})
+            model = r.get("model", "")
+            nodes = r.get("node_count", "")
+        else:
+            # Config section (appliance/validated) — summarise its usable capacity.
+            cfg = cl.get("config", {})
+            tot = cfg.get("cluster_total", {})
+            model = cfg.get("model") or t("export.pptx.configuration_software_only")
+            nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
         row = [
             cl.get("name", ""),
-            r.get("model", ""),
-            str(r.get("node_count", "")),
+            model,
+            str(nodes),
             str(tot.get("cores", "")),
             f"{round(tot.get('ram_gb', 0))} GB",
             f"{tot.get('usable_storage_tb', 0)} TB",
@@ -236,13 +245,22 @@ def generate_bundle_proposal(clusters, lang="en"):
     prs = _new_deck()
 
     _slide_bundle_overview(prs, clusters, t, lang)
-    _slide_replication_topology(prs, clusters, t, lang)
+    # Only proposal sections take part in replication; config sizings are
+    # standalone hardware, so they never appear in the topology.
+    _slide_replication_topology(
+        prs, [c for c in clusters if c.get("recommendation")], t, lang)
     for cl in clusters:
+        _slide_section_divider(prs, cl.get("name", ""), t, lang)
+        # A config section (appliance/validated hardware) carries no proposal —
+        # render its configuration slides instead of the current-env → proposal
+        # → projection sequence.
+        if cl.get("config") and not cl.get("recommendation"):
+            _slides_config(prs, cl["config"], t, lang)
+            continue
         s = cl["summary"]
         r = cl["recommendation"]
         p = cl["projection"]
         sp = cl.get("source_perf")
-        _slide_section_divider(prs, cl.get("name", ""), t, lang)
         _slide_current_env(prs, s, t, lang)
         _slide_workload(prs, s, t, lang)
         _slide_proposal(prs, r, p, t, lang)
@@ -260,7 +278,17 @@ def generate_bundle_proposal(clusters, lang="en"):
 def generate_config_slide(result, lang="en"):
     t = translator(lang)
     prs = _new_deck()
+    _slides_config(prs, result, t, lang)
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf
 
+
+def _slides_config(prs, result, t, lang="en"):
+    """Configuration slides for one appliance/validated hardware result: the
+    per-node / cluster-total / N-1 tables plus the network diagram. Shared by the
+    single-config export and the project bundle (config sizings)."""
     slide = _add_slide(prs)
     mode = result.get("mode", "appliance")
     node_count = result["node_count"]
@@ -279,6 +307,17 @@ def generate_config_slide(result, lang="en"):
     pn = result["per_node"]
     cl = result["cluster_total"]
     n1 = result["n_minus_1"]
+    # Per Node shows the PHYSICAL configuration; the OS deduction appears as
+    # "system reserved" rows in the cluster/N-1 tables (older snapshots carry
+    # only the usable figures, so fall back to those).
+    pn_cores = pn.get("physical_cores", pn["cores"])
+    pn_ram = pn.get("physical_ram_gb", pn["ram_gb"])
+
+    def _reserved_row(val, as_ram=False):
+        if not val:
+            return []
+        return [[t("export.common.system_reserved"),
+                 _fmt_ram(val) if as_ram else str(val)]]
 
     if mode == "appliance":
         title = t("export.pptx.configuration_model", model=result.get('model', ''))
@@ -292,10 +331,10 @@ def generate_config_slide(result, lang="en"):
         node_rows = [
             [t("export.common.per_node"), ""],
             ["CPU", pn.get("cpu", "")],
-            [t("export.common.cores"), str(pn["cores"])],
+            [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn["ram_gb"])],
+            [t("export.common.ram"), _fmt_ram(pn_ram)],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
     else:
@@ -309,25 +348,27 @@ def generate_config_slide(result, lang="en"):
 
         node_rows = [
             [t("export.common.per_node"), ""],
-            [t("export.common.cores"), str(pn["cores"])],
+            [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn["ram_gb"])],
+            [t("export.common.ram"), _fmt_ram(pn_ram)],
             [t("export.pptx.drives"), str(pn.get("disk_count", 0))],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
 
     _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
 
-    total_rows = [
+    total_rows = ([
         [t("export.common.cluster_total"), ""],
-        [t("export.common.cores"), str(cl["cores"])],
-        [t("export.common.threads"), str(cl["threads"])],
+        [t("export.common.cores"), str(cl["cores"])]]
+        + _reserved_row(cl.get("reserved_cores"))
+        + [[t("export.common.threads"), str(cl["threads"])],
         ["GHz", str(cl["total_ghz"])],
-        [t("export.common.ram"), _fmt_ram(cl["ram_gb"])],
-        [t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
+        [t("export.common.ram"), _fmt_ram(cl["ram_gb"])]]
+        + _reserved_row(cl.get("reserved_ram_gb"), as_ram=True)
+        + [[t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
         [t("export.common.usable_storage"), f"{cl['usable_storage_tb']} TB"],
-    ]
+    ])
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
     if result.get("single_node"):
@@ -336,14 +377,16 @@ def generate_config_slide(result, lang="en"):
         _add_no_redundancy_box(slide, 9.0, 1.6, 4.0,
                                t("export.common.no_redundancy"), t)
     else:
-        n1_rows = [
+        n1_rows = ([
             [t("export.common.n1_available"), ""],
-            [t("export.common.cores"), str(n1["cores"])],
-            [t("export.common.threads"), str(n1["threads"])],
+            [t("export.common.cores"), str(n1["cores"])]]
+            + _reserved_row(n1.get("reserved_cores"))
+            + [[t("export.common.threads"), str(n1["threads"])],
             ["GHz", str(n1["total_ghz"])],
-            [t("export.common.ram"), _fmt_ram(n1["ram_gb"])],
-            [t("export.common.usable_storage"), f"{n1['usable_storage_tb']} TB"],
-        ]
+            [t("export.common.ram"), _fmt_ram(n1["ram_gb"])]]
+            + _reserved_row(n1.get("reserved_ram_gb"), as_ram=True)
+            + [[t("export.common.usable_storage"), f"{n1['usable_storage_tb']} TB"],
+        ])
         _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     if so:
@@ -351,11 +394,6 @@ def generate_config_slide(result, lang="en"):
 
     # Append the cluster network diagram as its own slide (manual builder).
     _slide_network(prs, result, t, lang)
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
 
 
 def _add_slide(prs):

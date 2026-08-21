@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Analyse de la charge de travail",
   "export.pptx.workload_subtitle": "{active} VM actives sur {total} au total",
   "export.pptx.year_projected": "Année {years} projetée",
-  "export.pptx.your_current_cpus": "Vos CPU actuels"
+  "export.pptx.your_current_cpus": "Vos CPU actuels",
+  "export.common.system_reserved": "Réservé au système",
+  "export.docx.reserved_val": "{cores} cœurs · {ram}"
 }

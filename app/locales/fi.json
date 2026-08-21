@@ -265,5 +265,7 @@
   "export.pptx.workload_analysis": "Työkuorman analyysi",
   "export.pptx.workload_subtitle": "{active} aktiivista VM:ää / {total} yhteensä",
   "export.pptx.year_projected": "Vuosi {years} ennustettu",
-  "export.pptx.your_current_cpus": "Nykyiset CPU:si"
+  "export.pptx.your_current_cpus": "Nykyiset CPU:si",
+  "export.common.system_reserved": "Järjestelmälle varattu",
+  "export.docx.reserved_val": "{cores} ydintä · {ram}"
 }

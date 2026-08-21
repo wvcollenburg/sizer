@@ -210,7 +210,7 @@ def test_shared_project_is_read_only_for_a_colleague(app):
                                 "sizing_ids": []}).status_code == 403
 
     with app.app_context():
-        assert Project.query.get(project["id"]).name == "Acme HQ"
+        assert db.session.get(Project, project["id"]).name == "Acme HQ"
 
 
 def test_viewer_edit_produces_a_copy_in_their_own_project(app):
@@ -228,7 +228,7 @@ def test_viewer_edit_produces_a_copy_in_their_own_project(app):
     assert copy["project_id"] != project["id"], \
         "the copy must land in the viewer's own project, not the original"
     with app.app_context():
-        assert Configuration.query.get(sizing["id"]).name == "Option 1"
+        assert db.session.get(Configuration, sizing["id"]).name == "Option 1"
 
 
 # ── Salesforce link: scale-only (decision 27) ────────────────────────────────
@@ -265,7 +265,7 @@ def test_non_scale_user_cannot_set_salesforce_link(app):
     assert resp.status_code == 200          # dropped silently, not an error
     assert "salesforce_url" not in _raw(resp)
     with app.app_context():
-        assert Project.query.get(project["id"]).salesforce_url is None
+        assert db.session.get(Project, project["id"]).salesforce_url is None
 
 
 def test_salesforce_link_hidden_from_tenant_colleague_and_by_code(app):
@@ -301,7 +301,7 @@ def test_scale_user_copy_does_not_carry_salesforce_link(app):
     if resp.status_code == 201:      # only reachable if the sizing is visible
         copy_project_id = resp.get_json()["project_id"]
         with app.app_context():
-            assert Project.query.get(copy_project_id).salesforce_url is None
+            assert db.session.get(Project, copy_project_id).salesforce_url is None
 
 
 # ── deletion cascades ────────────────────────────────────────────────────────
@@ -317,7 +317,7 @@ def test_deleting_a_project_soft_deletes_its_sizings(app):
     assert resp.get_json()["sizings_deleted"] == 2
 
     with app.app_context():
-        assert Project.query.get(project["id"]).is_deleted is True
+        assert db.session.get(Project, project["id"]).is_deleted is True
         rows = Configuration.query.filter_by(project_id=project["id"]).all()
         assert rows and all(r.is_deleted for r in rows), \
             "sizings must be recoverable with the project, not orphaned"
@@ -439,7 +439,7 @@ def test_provenance_is_stored_with_the_sizing(app):
     assert resp.get_json()["source_meta"]["file_name"] == "LiveOptics_Acme.xlsx"
 
     with app.app_context():
-        row = Configuration.query.get(resp.get_json()["id"])
+        row = db.session.get(Configuration, resp.get_json()["id"])
         assert row.parser_version == "abc123", \
             "the parser version must be its own column so a parser fix can flag re-import"
 

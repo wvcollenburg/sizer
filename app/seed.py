@@ -3,7 +3,6 @@ import os
 # Seeding imports the app factory; don't spin up the background scheduler in this
 # one-off process (the web server, a separate process, runs it).
 os.environ["ENABLE_SCHEDULER"] = "0"
-import re
 import sys
 from sqlalchemy import text
 from app import create_app
@@ -43,18 +42,11 @@ from models import (
     MODEL_COSTS, DEFAULT_MODEL_COST,
 )
 
+from xlsx_utils import parse_quantity as _parse_quantity
+
 _cpu_cache = {}
 _nic_cache = {}
 _drive_cache = {}
-
-_QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
-
-
-def _parse_quantity(desc):
-    m = _QTY_RE.match(desc)
-    if m:
-        return int(m.group(1)), desc[m.end():]
-    return 1, desc
 
 
 def _get_or_create_cpu(desc, cores, threads, ghz):
@@ -115,13 +107,17 @@ def _migrate_schema():
         "verification_sent_at TIMESTAMP WITH TIME ZONE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "failed_login_count INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
-        "locked_until TIMESTAMP WITH TIME ZONE",
+        # Per-account lockout was removed (a DoS vector; the per-IP rate limit is
+        # the brake). Drop the now-unused column from databases that had it.
+        "ALTER TABLE users DROP COLUMN IF EXISTS locked_until",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "reset_sent_at TIMESTAMP WITH TIME ZONE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
         "privacy_accepted_at TIMESTAMP WITH TIME ZONE",
+        # GDPR marketing-email consent (opt-in timestamp; NULL = not opted in).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+        "marketing_consent_at TIMESTAMP WITH TIME ZONE",
         # Authoritative CPU spec columns (feature/add-real-cpu-details). Additive,
         # nullable; back-filled from cpu_specs.py by _backfill_cpu_specs().
         "ALTER TABLE cpu_catalog ADD COLUMN IF NOT EXISTS make VARCHAR(20)",
