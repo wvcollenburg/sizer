@@ -177,9 +177,29 @@ function chooseLeave(choice) {
 }
 function closeLeavePage() { chooseLeave('cancel'); }
 
+// Snapshot of the last saved (or freshly loaded) state, so "unsaved work" means
+// CHANGED work: switching pages straight after a save must not warn. Set by
+// markSizingClean() from the save/load paths; any later edit makes the current
+// capture differ and the guard bites again.
+let _cleanSnapshotJSON = null;
+window.markSizingClean = function () {
+    try {
+        const snap = captureSizingState();
+        _cleanSnapshotJSON = snap ? JSON.stringify(snap) : null;
+    } catch (e) {
+        _cleanSnapshotJSON = null;
+    }
+};
+
 // Is there entered or loaded work that a page switch would throw away?
 function hasUnsavedWork() {
     if (currentMode === 'dr_target') return false;  // DR view has its own Save
+    if (_cleanSnapshotJSON) {
+        try {
+            const snap = captureSizingState();
+            if (snap && JSON.stringify(snap) === _cleanSnapshotJSON) return false;
+        } catch (e) { /* fall through to the conservative checks */ }
+    }
     if (window.hasSizingToSave && window.hasSizingToSave()) return true;
     if (currentMode === 'manual') {           // figures typed but not yet sized
         const v = document.getElementById('man-vcpus');
@@ -803,6 +823,21 @@ const VALIDATED_LIMITS = {
     minHddPerFlash: parseInt(document.body.dataset.hybridMinHddPerFlash, 10) || 3,
 };
 
+// The static rule-list label and the sizing-mode tooltip carry {min}/{max}/
+// {disks} placeholders; translateDOM applies them verbatim (it passes no vars),
+// so fill in the live admin-tuned values here. Runs after i18n's own
+// DOMContentLoaded pass (this script loads later, so its listener fires later).
+document.addEventListener('DOMContentLoaded', () => {
+    const vars = { min: VALIDATED_LIMITS.flashMinPct, max: VALIDATED_LIMITS.flashMaxPct,
+                   disks: VALIDATED_LIMITS.maxClusterDisks };
+    document.querySelectorAll('[data-i18n="validated.rule_band"]').forEach(el => {
+        el.textContent = window.t('validated.rule_band', vars);
+    });
+    document.querySelectorAll('[data-i18n-title="results.sizing_mode_info"]').forEach(el => {
+        el.title = window.t('results.sizing_mode_info', vars);
+    });
+});
+
 function witnessBarHtml() {
     return '<div class="info-bar">' +
         '<span class="info-bar-icon">i</span>' +
@@ -916,6 +951,7 @@ function displayResults(result) {
             <tr><td class="no-redundancy-msg" colspan="2">
                 <strong>${window.t('results.no_redundancy_label')}</strong> ${result.redundancy_note
                     ? result.redundancy_note.replace(/^No redundancy[^a-zA-Z]*/, '')
+                          .replace(/^[a-z]/, c => c.toUpperCase())
                     : window.t('results.no_redundancy_default')}
             </td></tr>`;
     } else {

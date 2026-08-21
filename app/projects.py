@@ -607,6 +607,7 @@ def _metrics_from_snapshot(snapshot):
         "clusters": 0,
     }
     models, layout = [], []
+    software_only = False
     for cluster in clusters:
         rec = cluster.get("recommendation") or cluster.get("config") or {}
         # Two shapes reach here: a recommendation from /api/recommend calls its
@@ -627,6 +628,11 @@ def _metrics_from_snapshot(snapshot):
         }
         if rec.get("model"):
             models.append(rec["model"])
+        elif rec.get("mode") == "validated" or rec.get("validated"):
+            # A software-only cluster has no appliance model by definition —
+            # flag it so the comparison can label it instead of showing "—".
+            # The label itself is translated client-side.
+            software_only = True
         layout.extend(rec.get("cluster_layout") or [])
         for key in ("nodes", "clusters", "cores", "ram_gb", "n1_cores", "n1_ram_gb"):
             total[key] += row[key] or 0
@@ -635,6 +641,7 @@ def _metrics_from_snapshot(snapshot):
 
     total["usable_tb"] = round(total["usable_tb"], 2)
     total["model"] = ", ".join(sorted(set(models))) if models else None
+    total["software_only"] = software_only
     # e.g. "8 + 5" — how those nodes actually divide, so a cluster count of 2
     # can be read as the split it represents.
     total["layout"] = layout

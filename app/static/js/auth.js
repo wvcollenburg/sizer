@@ -682,6 +682,7 @@ async function saveCurrentSizing() {
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
         if (window.setSizerSizingName) window.setSizerSizingName(data.name);
         await storeResultSnapshot(data.id);
+        if (window.markSizingClean) window.markSizingClean();
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
         if (modalOpen) loadSizingsList();
         return true;
@@ -711,6 +712,7 @@ async function saveCurrentSizing() {
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
     if (window.setSizerSizingName) window.setSizerSizingName(data.name);
     await storeResultSnapshot(data.id);
+    if (window.markSizingClean) window.markSizingClean();
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
     if (modalOpen) loadSizingsList();
     return true;
@@ -776,6 +778,7 @@ async function loadSizing(id) {
     if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+    if (window.markSizingClean) window.markSizingClean();
 }
 
 async function retrieveByCode() {
@@ -792,6 +795,7 @@ async function retrieveByCode() {
     if (window.enterSizer) window.enterSizer(data.name);
     await window.restoreSizingState(data.payload);
     loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+    if (window.markSizingClean) window.markSizingClean();
 }
 
 async function deleteSizing(id, source) {

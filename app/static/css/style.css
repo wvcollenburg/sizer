@@ -2377,7 +2377,13 @@ body.auth-required footer { display: none; }
 }
 #name-sizing-modal .modal-body,
 #leave-page-modal .modal-body,
-#source-cpu-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+#source-cpu-modal .modal-body,
+#privacy-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+
+/* My data & privacy modal: stacked self-service actions. */
+#privacy-modal .modal-sep { border: 0; border-top: 1px solid var(--border); margin: 1.1rem 0; }
+#privacy-modal .privacy-action { margin-top: 0.9rem; }
+#privacy-modal .privacy-action .rec-desc { margin: 0.35rem 0 0; }
 #name-sizing-form .form-group { margin-bottom: 0; }
 
 /* Info / confirmation modal */
@@ -2590,6 +2596,42 @@ body.auth-required footer { display: none; }
     border-radius: var(--radius-sm);
 }
 .rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
+
+/* ── DR-target view (workload-less sizing) ─────────────────────────────────
+   Controls follow the house .form-row pattern: side-by-side groups that wrap,
+   not full-width stacked rows. */
+.dr-target-head { margin-bottom: 1rem; }
+.dr-target-head .rec-desc { margin: 0.3rem 0 0; }
+.dr-controls {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1rem 0 0.5rem;
+}
+.dr-controls .form-group { flex: 1; min-width: 180px; }
+.dr-toggles {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 1rem;
+}
+.dr-reserve {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+}
+.dr-reserve-head { display: flex; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; }
+.dr-reserve-figs { color: var(--text-muted); }
+.dr-src-list { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.dr-src-list li { margin: 0.2rem 0; }
+.dr-src-figs { color: var(--text-muted); font-size: 0.9em; }
+.dr-src-warn { color: var(--orange); font-size: 0.85em; }
+.dr-mode-note { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.9em; }
+.dr-reserve-empty { margin: 0.4rem 0 0; color: var(--text-muted); }
+.dr-rec-list { margin-top: 0.75rem; }
+.dr-save-row { margin-top: 1rem; display: flex; justify-content: flex-end; }
 .cluster-tab-dedicated { font-style: italic; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;

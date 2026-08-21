@@ -471,9 +471,12 @@ function refreshStaleSizings(force) {
     // calculating, and requiring it left every freshly saved sizing stuck on
     // "Not sized" forever.
     //
-    // "Needs re-import" is the one exclusion: recalculating cannot repair a
-    // parser fix, so pumping it through the loop would just churn.
-    const targets = rows.filter(s => !s.needs_reimport && (force || s.stale));
+    // Two exclusions: "needs re-import" (recalculating cannot repair a parser
+    // fix) and DR targets (their sizing runs through the DR view's own
+    // dr-recommend flow — the refresh iframe cannot restore a dr_target payload,
+    // so queueing one only produces a false "could not be recalculated" banner).
+    const targets = rows.filter(s => !s.needs_reimport && !s.is_dr_target
+                                     && (force || s.stale));
     if (!targets.length) return Promise.resolve();
 
     // Supersede any run still in flight: its remaining frames are abandoned and
@@ -623,7 +626,13 @@ async function compareSelected() {
     const round = (n) => (Math.round(n * 100) / 100);
 
     const cols = [
-        ['project.compare.model', r => escHtml(r.totals.model || '—')],
+        // A software-only sizing has no appliance model by definition — label it
+        // rather than showing a dash (a mixed sizing lists both).
+        ['project.compare.model', r => {
+            const so = r.totals.software_only ? tt('project.compare.software_only') : '';
+            const m = r.totals.model;
+            return escHtml(m && so ? `${m}, ${so}` : (m || so || '—'));
+        }],
         // Physical HyperCore clusters, with the node split behind a tooltip —
         // "2" reads better than "8 + 5" in the table, but the split is the
         // thing you argue about in the meeting.
@@ -793,6 +802,7 @@ async function openSizing(id, push) {
     }
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
+    if (window.markSizingClean) window.markSizingClean();
 }
 
 async function duplicateSizing(id) {
