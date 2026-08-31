@@ -82,6 +82,13 @@
     --sc-700: #194f90;
     --navy: #28293d;            /* the nav bar — their --color-sc-navy      */
 
+    /* Snapshot reserve hatch on the utilization bars. Not a plain ramp step:
+       it has to sit visibly between the solid day-one fill (--sc-700) and the
+       growth hatch (--sc-300) in BOTH themes, and the ramp's dark inversion
+       collapses --sc-500/--sc-600 onto the neighbours it needs to sit between.
+       Pinned here so that ordering is explicit rather than incidental. */
+    --util-snapshot: var(--sc-500);
+
     /* Accent aliases. Pre-existing names, repointed at the SC ramp so the
        ~80 rules already using them move without being touched. */
     --accent: var(--sc-600);
@@ -161,6 +168,10 @@
     --sc-600: #6a96cb;
     --sc-700: #a1bddf;
     --navy: #0f172b;
+
+    /* Midway between the day-one fill (#a1bddf) and the growth hatch (#3d72ad),
+       so the bar still reads day-one → snapshot → growth as one ramp. */
+    --util-snapshot: #85a9d5;
 
     --accent: var(--sc-400);
     --accent-dark: var(--sc-500);

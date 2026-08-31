@@ -6,7 +6,7 @@ as a single PNG block that drops identically into every export format
 of the PPTX). The full bar = 100% of the full cluster:
 
   now            solid, coloured by current load (SC blue / amber / red)
-  snapshot       45deg mid-blue hatch (storage only — CPU/RAM have no snapshot
+  snapshot      -45deg mid-blue hatch (storage only — CPU/RAM have no snapshot
                  reserve, so the band is simply absent on those bars)
   growth         45deg light hatch, fills up to the sized %
   free           track gap in the middle
@@ -32,7 +32,7 @@ NOW_LOW = _p.css(_p.UTIL_NOW_LOW)      # < 70% load
 NOW_MID = _p.css(_p.UTIL_NOW_MID)      # 70-90%
 NOW_HIGH = _p.css(_p.UTIL_NOW_HIGH)    # > 90%
 RESERVE_HATCH = tuple(_p.css(c) for c in _p.UTIL_RESERVE_HATCH)          # growth reserve, +45deg
-SNAPSHOT_HATCH = tuple(_p.css(c) for c in _p.UTIL_SNAPSHOT_HATCH)        # snapshot reserve, +45deg
+SNAPSHOT_HATCH = tuple(_p.css(c) for c in _p.UTIL_SNAPSHOT_HATCH)        # snapshot reserve, -45deg
 REPLICATION_HATCH = tuple(_p.css(c) for c in _p.UTIL_REPLICATION_HATCH)  # replication (DR) reserve, +45deg
 HA_HATCH = tuple(_p.css(c) for c in _p.UTIL_HA_HATCH)                    # HA failover reserve, -45deg
 TRACK = _p.css(_p.UTIL_TRACK)          # free / unused
@@ -117,18 +117,24 @@ def compute_floor_sentence(r, lang="en"):
 
 
 def _hatch(size, sign, c1, c2, period, lw):
-    """A diagonal-stripe tile (c1 lines on a c2 ground). sign +1 = '/', -1 = '\\'."""
+    """A diagonal-stripe tile (c1 lines on a c2 ground), matching the CSS
+    repeating-linear-gradient the on-screen bars use so the two pictures agree:
+    sign +1 = CSS 45deg = backslash, sign -1 = CSS -45deg = forward slash.
+
+    Both branches used to sweep the same way — (off, 0)->(off - h, h) is the
+    same slope as (off, h)->(off + h, 0), just walked from the other end — so
+    the HA band came out parallel to the growth band instead of counter to it.
+    """
     w, h = size
     if w <= 0 or h <= 0:
         return Image.new("RGB", (max(w, 1), max(h, 1)), c2)
     layer = Image.new("RGB", size, c2)
     d = ImageDraw.Draw(layer)
-    if sign >= 0:
-        for off in range(-h, w + h, period):
+    for off in range(-h, w + h, period):
+        if sign >= 0:
+            d.line([(off, 0), (off + h, h)], fill=c1, width=lw)
+        else:
             d.line([(off, h), (off + h, 0)], fill=c1, width=lw)
-    else:
-        for off in range(0, w + 2 * h, period):
-            d.line([(off, 0), (off - h, h)], fill=c1, width=lw)
     return layer
 
 
@@ -150,7 +156,8 @@ def _bar(img, x, y, w, h, now, sized, ha, color, rep=0, snap=0):
         x0 = px(now)
         snap_end = max(x0, min(own_end, px(now + snap)))            # snapshot band first
         if snap > 0 and snap_end > x0:
-            layer.paste(_hatch((snap_end - x0, h), +1, *SNAPSHOT_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
+            # -45deg, counter to the growth hatch it sits against.
+            layer.paste(_hatch((snap_end - x0, h), -1, *SNAPSHOT_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
         if own_end > snap_end:
             layer.paste(_hatch((own_end - snap_end, h), +1, *RESERVE_HATCH, 7 * _SS, 3 * _SS), (snap_end, 0))
         if rep > 0:                                                 # replication reserve band
@@ -181,7 +188,7 @@ def _swatch(img, d, x, y, kind, label, font):
         if kind == "growth":
             sign, cols = +1, RESERVE_HATCH
         elif kind == "snapshot":
-            sign, cols = +1, SNAPSHOT_HATCH
+            sign, cols = -1, SNAPSHOT_HATCH
         elif kind == "replication":
             sign, cols = +1, REPLICATION_HATCH
         else:
