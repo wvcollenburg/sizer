@@ -1901,32 +1901,40 @@ function buildUtilizationBars(r) {
     const bars = rows.map(([key, val]) => {
         if (!val) return '';
         // Bar = full (all-nodes) capacity. `current` is today's load; up to
-        // `total` is growth + snapshot reserve (which now includes any inbound
-        // replication reserve, carved out as its own dark-yellow band);
+        // `total` is the reserve the workload is sized to (which now includes any
+        // inbound replication reserve, carved out as its own dark-yellow band);
         // `ha_reserve` is capacity held for failover (the N-1→full gap, CPU/RAM
         // only). Colour by CURRENT load (the real risk now). Failover sits at the
         // right edge; replication reserve sits just before free space.
+        //
+        // The reserve is split into its own two bands: snapshot (mid blue, sits
+        // against today's load) and growth (light hatch). Only storage carries a
+        // snapshot reserve — CPU/RAM report snapshot 0 — so on those bars the
+        // snapshot band is absent and the wording says "growth" alone.
         const cur = Math.max(0, Math.round(val.current || 0));
         const tot = Math.max(cur, Math.round(val.total || 0));
         const rep = Math.max(0, Math.round(val.replication || 0));
-        const reserve = Math.max(0, tot - cur - rep);   // own growth + snapshot
+        // Clamp so the bands can never sum past `total` after rounding.
+        const snap = Math.min(Math.max(0, Math.round(val.snapshot || 0)),
+                              Math.max(0, tot - cur - rep));
+        const reserve = Math.max(0, tot - cur - rep - snap);   // own growth only
         if (rep > 0) anyRep = true;
         const ha = Math.max(0, Math.round(val.ha_reserve || 0));
         if (ha > 0) anyHa = true;
         const curW = Math.min(cur, 100);
-        const resW = Math.min(reserve, 100 - curW);
-        const repW = Math.min(rep, 100 - curW - resW);
-        const haW = Math.min(ha, 100 - curW - resW - repW);
-        const freeW = Math.max(0, 100 - curW - resW - repW - haW);
+        const snapW = Math.min(snap, 100 - curW);
+        const resW = Math.min(reserve, 100 - curW - snapW);
+        const repW = Math.min(rep, 100 - curW - snapW - resW);
+        const haW = Math.min(ha, 100 - curW - snapW - resW - repW);
+        const freeW = Math.max(0, 100 - curW - snapW - resW - repW - haW);
         const cls = cur > 90 ? 'util-high' : (cur >= 70 ? 'util-mid' : 'util-low');
         const label = labelFor(key);
         const bind = key === binding
             ? ` <span class="util-bind" title="${window.t('results.util.limiting_tooltip')}">${window.t('results.util.limiting')}</span>`
             : '';
-        const tipParts = [
-            window.t('results.util.tip_now', {pct: cur}),
-            window.t('results.util.tip_reserve', {pct: reserve}),
-        ];
+        const tipParts = [window.t('results.util.tip_now', {pct: cur})];
+        if (snap > 0) tipParts.push(window.t('results.util.tip_snapshot', {pct: snap}));
+        tipParts.push(window.t('results.util.tip_reserve', {pct: reserve}));
         if (rep > 0) tipParts.push(window.t('results.util.tip_replication', {pct: rep}));
         if (ha > 0) tipParts.push(window.t('results.util.tip_ha', {pct: ha}));
         tipParts.push(window.t('results.util.tip_free', {pct: freeW}));
@@ -1942,9 +1950,11 @@ function buildUtilizationBars(r) {
             const dp = a.unit === 'cores' ? 0 : 2;
             const fmt = v => (typeof v === 'number'
                 ? v.toLocaleString(undefined, {maximumFractionDigits: dp}) : v);
-            const growth = Math.max(0, (a.total || 0) - (a.current || 0));
+            const snapAbs = Math.max(0, a.snapshot || 0);
+            const growth = Math.max(0, (a.total || 0) - (a.current || 0) - snapAbs);
             keys.push(`<span class="util-key"><i class="util-sw util-sw-now"></i>${window.t('results.util.now')}: ${fmt(a.current)} ${a.unit}</span>`);
-            if (growth > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth_snapshot')}: ${fmt(growth)} ${a.unit}</span>`);
+            if (snapAbs > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-snapshot"></i>${window.t('results.util.snapshot')}: ${fmt(snapAbs)} ${a.unit}</span>`);
+            if (growth > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-reserve"></i>${window.t('results.util.growth')}: ${fmt(growth)} ${a.unit}</span>`);
             if (ha > 0) keys.push(`<span class="util-key"><i class="util-sw util-sw-ha"></i>${window.t('results.util.ha_reserve')}: ${fmt((a.capacity || 0) * ha / 100)} ${a.unit}</span>`);
             keys.push(`<span class="util-key"><i class="util-sw util-sw-cap"></i>${window.t('results.util.capacity')}: ${fmt(a.capacity)} ${a.unit}</span>`);
         }
@@ -1955,12 +1965,13 @@ function buildUtilizationBars(r) {
                 <span class="util-label">${label}${bind}</span>
                 <span class="util-track">
                     <span class="util-fill ${cls}" style="width:${curW}%"></span>
+                    <span class="util-fill util-snapshot" style="width:${snapW}%"></span>
                     <span class="util-fill util-reserve" style="width:${resW}%"></span>
                     <span class="util-fill util-replication" style="width:${repW}%"></span>
                     <span class="util-fill util-free" style="width:${freeW}%"></span>
                     <span class="util-fill util-ha" style="width:${haW}%"></span>
                 </span>
-                <span class="util-pct" title="${window.t('results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+                <span class="util-pct" title="${window.t(snap > 0 ? 'results.util.pct_tooltip_snapshot' : 'results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
             </div>
             ${legend}
             ${buildUtilAdvice(key, cur, tot, ha, r)}

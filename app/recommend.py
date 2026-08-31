@@ -179,6 +179,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     projected_vcpus = math.ceil(base_vcpus * growth_factor)
     projected_ram = base_ram * growth_factor
     projected_storage = base_storage * growth_factor * (1 + snap_at_target)
+    # The snapshot slice of that, on its own. Only storage carries a snapshot
+    # reserve (a snapshot is stored data — CPU and RAM get growth only), and the
+    # utilization bar draws it as its own band, so keep the split explicit here
+    # rather than making the UI re-derive it from the two factors.
+    snapshot_storage = base_storage * growth_factor * snap_at_target
 
     # Day-one capacity floors: the workload must occupy <= cap% of capacity today.
     # Equivalent to requiring capacity >= base_demand / (cap/100). Sizing then
@@ -196,10 +201,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "min_capacity_storage_tb": max(projected_storage, storage_floor_tb),
         "min_capacity_ram_gb": max(projected_ram, ram_floor_gb),
         # Current (pre-growth) demand, so the UI can show how much of each
-        # utilization bar is today's load vs reserved growth/snapshot headroom.
+        # utilization bar is today's load vs the reserved growth (and, for
+        # storage, snapshot) headroom.
         "base_vcpus": base_vcpus,
         "base_ram_gb": base_ram,
         "base_storage_tb": base_storage,
+        # Own (non-replica) snapshot reserve, carved out of usable_storage_tb.
+        "snapshot_storage_tb": snapshot_storage,
         "nic_speed_mbps": summary["nic_speed_mbps"],
         "vcpu_ratio": vcpu_ratio,
         "current_total_ghz": summary.get("total_host_ghz", 0),
@@ -950,7 +958,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             # capacity so the bars reflect day-to-day load, not the tighter N-1
             # basis the fit is gated on. Each resource reports:
             #   current     today's demand,
-            #   total       demand after growth + snapshot reserve (workload sized to),
+            #   total       demand after the growth (and, for storage, snapshot)
+            #               reserve — what the workload is sized to,
+            #   snapshot    the snapshot slice of that total; storage only, since
+            #               CPU/RAM never carry a snapshot reserve,
             #   ha_reserve  capacity held for HA failover = the (full - N-1) gap.
             # For CPU/RAM the failover node(s) make ha_reserve > 0; storage usable
             # is the same at N-1 and full, so its ha_reserve is 0. When sizing for
@@ -977,25 +988,31 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "cpu": {"current": _u(base_required_cores, full_cores),
                         "total": _u(required_cores + rep_cores, full_cores),
                         "replication": _u(rep_cores, full_cores),
+                        "snapshot": 0,
                         "ha_reserve": _ha(full_cores, n1_usable_cores),
                         "abs": {"current": base_required_cores,
                                 "total": required_cores + rep_cores,
+                                "snapshot": 0,
                                 "capacity": full_cores,
                                 "unit": "cores"}},
                 "ram": {"current": _u(needs["base_ram_gb"], full_ram),
                         "total": _u(needs["ram_gb"] + rep_ram, full_ram),
                         "replication": _u(rep_ram, full_ram),
+                        "snapshot": 0,
                         "ha_reserve": _ha(full_ram, n1_ram),
                         "abs": {"current": round(needs["base_ram_gb"], 1),
                                 "total": round(needs["ram_gb"] + rep_ram, 1),
+                                "snapshot": 0,
                                 "capacity": round(full_ram, 1),
                                 "unit": "GB"}},
                 "storage": {"current": _u(needs["base_storage_tb"], usable),
                             "total": _u(needs["usable_storage_tb"], usable),
                             "replication": _u(needs["rep_storage_tb"], usable),
+                            "snapshot": _u(needs["snapshot_storage_tb"], usable),
                             "ha_reserve": 0,
                             "abs": {"current": round(needs["base_storage_tb"], 2),
                                     "total": round(needs["usable_storage_tb"], 2),
+                                    "snapshot": round(needs["snapshot_storage_tb"], 2),
                                     "capacity": round(usable, 2),
                                     "unit": "TB"}},
             }

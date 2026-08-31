@@ -1547,6 +1547,9 @@ body { padding-bottom: 64px; }
     width: 8px; height: 8px; border-radius: 2px; display: inline-block;
 }
 .util-sw-now { background: var(--sc-700); }
+.util-sw-snapshot {
+    background: repeating-linear-gradient(45deg, var(--sc-600), var(--sc-600) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
+}
 .util-sw-reserve {
     background: repeating-linear-gradient(45deg, var(--sc-300), var(--sc-300) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }
@@ -1724,6 +1727,14 @@ body { padding-bottom: 64px; }
 .util-fill.util-low { background: var(--sc-700); }
 .util-fill.util-mid { background: #c2410c; }
 .util-fill.util-high { background: #b91c1c; }
+/* Snapshot reserve (storage only) — same +45deg hatch as growth, one step
+   darker on the SC ramp so the bar reads day-one (solid sc-700) → snapshot →
+   growth (light sc-300) as one gradient. The ramp stays monotone in dark mode
+   too, where the whole scale inverts. It can never collide with the HA hatch
+   (sc-400): storage has no HA band, and CPU/RAM have no snapshot band. */
+.util-fill.util-snapshot {
+    background: repeating-linear-gradient(45deg, var(--sc-600), var(--sc-600) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
+}
 .util-fill.util-reserve {
     background: repeating-linear-gradient(45deg, var(--sc-300), var(--sc-300) 3px, var(--sc-100) 3px, var(--sc-100) 6px);
 }

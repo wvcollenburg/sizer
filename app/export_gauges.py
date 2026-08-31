@@ -6,7 +6,9 @@ as a single PNG block that drops identically into every export format
 of the PPTX). The full bar = 100% of the full cluster:
 
   now            solid, coloured by current load (SC blue / amber / red)
-  growth+snap    45deg light hatch, fills up to the sized %
+  snapshot       45deg mid-blue hatch (storage only — CPU/RAM have no snapshot
+                 reserve, so the band is simply absent on those bars)
+  growth         45deg light hatch, fills up to the sized %
   free           track gap in the middle
   HA reserve    -45deg hatch, anchored at the right edge
 
@@ -29,7 +31,8 @@ import palette as _p
 NOW_LOW = _p.css(_p.UTIL_NOW_LOW)      # < 70% load
 NOW_MID = _p.css(_p.UTIL_NOW_MID)      # 70-90%
 NOW_HIGH = _p.css(_p.UTIL_NOW_HIGH)    # > 90%
-RESERVE_HATCH = tuple(_p.css(c) for c in _p.UTIL_RESERVE_HATCH)          # growth + snapshot, +45deg
+RESERVE_HATCH = tuple(_p.css(c) for c in _p.UTIL_RESERVE_HATCH)          # growth reserve, +45deg
+SNAPSHOT_HATCH = tuple(_p.css(c) for c in _p.UTIL_SNAPSHOT_HATCH)        # snapshot reserve, +45deg
 REPLICATION_HATCH = tuple(_p.css(c) for c in _p.UTIL_REPLICATION_HATCH)  # replication (DR) reserve, +45deg
 HA_HATCH = tuple(_p.css(c) for c in _p.UTIL_HA_HATCH)                    # HA failover reserve, -45deg
 TRACK = _p.css(_p.UTIL_TRACK)          # free / unused
@@ -70,9 +73,10 @@ def now_color(now_pct):
 
 def util_rows(utilization):
     """Build render_util_bars() rows + an any_ha flag from a recommendation's
-    utilization dict: {cpu/ram/storage: {current, total, replication, ha_reserve}}.
-    `sized` (total) already includes any replication reserve; `rep` carries the
-    replication portion so the bar can draw it as its own dark-yellow band."""
+    utilization dict: {cpu/ram/storage: {current, total, replication, snapshot,
+    ha_reserve}}. `sized` (total) already includes the replication and snapshot
+    reserves; `rep` and `snap` carry those portions so the bar can draw each as
+    its own band. `snap` is non-zero on storage only."""
     rows, any_ha = [], False
     for label, key in (("CPU", "cpu"), ("RAM", "ram"), ("Storage", "storage")):
         v = (utilization or {}).get(key)
@@ -83,8 +87,11 @@ def util_rows(utilization):
         ha = max(0, round(v.get("ha_reserve", 0)))
         rep = max(0, round(v.get("replication", 0)))
         rep = min(rep, tot - now)   # the rep band lives within [now, sized]
+        snap = max(0, round(v.get("snapshot", 0)))
+        snap = min(snap, tot - now - rep)   # ... and so does the snapshot band
         any_ha = any_ha or ha > 0
-        rows.append({"label": label, "now": now, "sized": tot, "ha": ha, "rep": rep})
+        rows.append({"label": label, "now": now, "sized": tot, "ha": ha,
+                     "rep": rep, "snap": snap})
     return rows, any_ha
 
 
@@ -125,11 +132,12 @@ def _hatch(size, sign, c1, c2, period, lw):
     return layer
 
 
-def _bar(img, x, y, w, h, now, sized, ha, color, rep=0):
+def _bar(img, x, y, w, h, now, sized, ha, color, rep=0, snap=0):
     """Paint one stacked bar (rounded) onto img at (x, y). Segments, left→right:
-    now (solid) · growth+snapshot (light hatch) · replication reserve (dark-yellow
-    hatch) · free (track) · HA reserve (dark hatch, right edge). `sized` includes
-    the replication reserve; `rep` is the replication portion carved out of it."""
+    now (solid) · snapshot reserve (mid-blue hatch) · growth reserve (light hatch)
+    · replication reserve (dark-yellow hatch) · free (track) · HA reserve (dark
+    hatch, right edge). `sized` includes the replication and snapshot reserves;
+    `rep` and `snap` are those portions carved out of it."""
     def px(p):
         return int(round(max(0, min(100, p)) / 100 * w))
 
@@ -138,10 +146,13 @@ def _bar(img, x, y, w, h, now, sized, ha, color, rep=0):
     if now > 0:
         d.rectangle([0, 0, px(now), h], fill=color)                 # now (solid)
     if sized > now:
-        own_end = px(sized - rep)                                   # own growth+snap ends here
+        own_end = px(sized - rep)                                   # own reserve ends here
         x0 = px(now)
-        if own_end > x0:
-            layer.paste(_hatch((own_end - x0, h), +1, *RESERVE_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
+        snap_end = max(x0, min(own_end, px(now + snap)))            # snapshot band first
+        if snap > 0 and snap_end > x0:
+            layer.paste(_hatch((snap_end - x0, h), +1, *SNAPSHOT_HATCH, 7 * _SS, 3 * _SS), (x0, 0))
+        if own_end > snap_end:
+            layer.paste(_hatch((own_end - snap_end, h), +1, *RESERVE_HATCH, 7 * _SS, 3 * _SS), (snap_end, 0))
         if rep > 0:                                                 # replication reserve band
             x1 = px(sized)
             if x1 > own_end:
@@ -169,6 +180,8 @@ def _swatch(img, d, x, y, kind, label, font):
     else:
         if kind == "growth":
             sign, cols = +1, RESERVE_HATCH
+        elif kind == "snapshot":
+            sign, cols = +1, SNAPSHOT_HATCH
         elif kind == "replication":
             sign, cols = +1, REPLICATION_HATCH
         else:
@@ -215,8 +228,11 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
     _text(d, (pad, title_h // 2), t("export.gauge.title"),
           f_title, TEXT, anchor="lm")
     any_rep = any(r.get("rep", 0) > 0 for r in rows)
+    any_snap = any(r.get("snap", 0) > 0 for r in rows)
     lx = W - pad
     legend = [("now", t("export.gauge.legend_now"))]
+    if any_snap:
+        legend.append(("snapshot", t("export.gauge.legend_snapshot")))
     legend.append(("growth", t("export.gauge.legend_growth")))
     if any_rep:
         legend.append(("replication", t("export.gauge.legend_replication")))
@@ -243,6 +259,7 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
     y = top
     for r in rows:
         now, sized, ha, rep = r["now"], r["sized"], r.get("ha", 0), r.get("rep", 0)
+        snap = r.get("snap", 0)
         # label + optional LIMITING badge
         disp = res_label(r["label"])
         _text(d, (pad, y + bar_h // 2), disp, f_label, TEXT, anchor="lm")
@@ -251,7 +268,7 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
             bx = pad + (rr - l) + 10 * _SS
             _badge(img, d, bx, y + bar_h // 2, t("export.gauge.limiting"), f_badge)
         # bar
-        _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now), rep)
+        _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now), rep, snap)
         d = ImageDraw.Draw(img)
         # pct: "35% / 57%"
         px = bar_x + bar_w + 16 * _SS
@@ -279,7 +296,7 @@ def _badge(img, d, x, cy, text, font):
 if __name__ == "__main__":  # quick visual check
     rows = [{"label": "CPU", "now": 35, "sized": 57, "ha": 43},
             {"label": "RAM", "now": 38, "sized": 61, "ha": 39},
-            {"label": "Storage", "now": 29, "sized": 63, "ha": 0}]
+            {"label": "Storage", "now": 29, "sized": 63, "ha": 0, "snap": 11}]
     png = render_util_bars(rows, limiting_key="CPU", any_ha=True)
     g = Image.open(io.BytesIO(png))
     bg = Image.new("RGB", g.size, (224, 230, 238))   # mock the slide's light gradient
