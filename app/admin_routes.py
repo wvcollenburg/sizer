@@ -552,8 +552,51 @@ def delete_model(model_id):
 
 # ── Export to Excel ──────────────────────────────────────────────────────────
 
+# Full CPU catalog columns, in sheet order. The key is the ORM attribute; the
+# value is the Excel header. Shared by the export and the importer so a column
+# can only be added in one place — the old export carried just the first four
+# and silently dropped every spec/benchmark field on a round-trip.
+CPU_SHEET_COLUMNS = [
+    ("description", "Description"),
+    ("cores", "Cores"),
+    ("threads", "Threads"),
+    ("ghz", "GHz"),
+    ("make", "Make"),
+    ("family", "Family"),
+    ("generation", "Generation"),
+    ("model", "Model"),
+    ("p_cores", "P-Cores"),
+    ("e_cores", "E-Cores"),
+    ("base_ghz", "Base GHz"),
+    ("all_core_turbo_ghz", "All-Core Turbo GHz"),
+    ("max_turbo_ghz", "Max Turbo GHz"),
+    ("ecore_base_ghz", "E-Core Base GHz"),
+    ("ecore_turbo_ghz", "E-Core Turbo GHz"),
+    ("specrate_int", "SPECrate2017 int"),
+    ("passmark_cpu_mark", "PassMark CPU Mark"),
+    ("passmark_single", "PassMark Single"),
+]
+# Columns that must stay whole numbers when read back out of a spreadsheet.
+_CPU_INT_COLUMNS = {"cores", "threads", "p_cores", "e_cores",
+                    "passmark_cpu_mark", "passmark_single"}
+_CPU_STR_COLUMNS = {"description", "make", "family", "generation", "model"}
+
+
 @admin_bp.route("/api/export-models")
 def export_models():
+    """Download the whole admin-editable catalog as one .xlsx.
+
+    This is the backup half of a backup/restore pair, so the sheet names and
+    headers are exactly the ones _import_catalog_from_excel reads — re-importing
+    this file has to reproduce the catalog it came from. It previously wrote its
+    own sheet names ("CPU Options" where the importer looks for "Model CPU
+    Options"), so only the Models sheet was ever read back and every model came
+    in stripped of its CPU/RAM/storage/NIC options.
+
+    Not covered here, by design: the switches and validated_* tables are seeded
+    from models.py on every boot rather than admin-edited, so seed.py rebuilds
+    them on any host.
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
@@ -562,39 +605,42 @@ def export_models():
     header_fill = PatternFill("solid", fgColor="003A70")
     header_align = Alignment(horizontal="center", wrap_text=True)
 
-    def style_headers(ws):
+    def sheet(name, headers, first=False):
+        ws = wb.active if first else wb.create_sheet(name)
+        ws.title = name
+        ws.append(headers)
         for c in ws[1]:
             c.font = header_font
             c.fill = header_fill
             c.alignment = header_align
+        return ws
 
-    ws = wb.active
-    ws.title = "Models"
-    ws.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-               "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
-               "Validated Only", "Notes"])
-    style_headers(ws)
+    ws = sheet("Models", ["Name", "Status", "Category", "Form Factor", "Chassis",
+                          "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
+                          "Validated Only", "Notes"], first=True)
+    ws_cpu_cat = sheet("CPUs", [h for _, h in CPU_SHEET_COLUMNS])
+    ws_nic_cat = sheet("NICs", ["Description", "Ports", "Speed"])
+    ws_drv_cat = sheet("Drives", ["Type", "Size TB"])
+    ws_cpu = sheet("Model CPU Options",
+                   ["Model Name", "Qty", "Description", "Cores", "Threads", "GHz"])
+    ws_ram = sheet("Model RAM Options", ["Model Name", "Size GB"])
+    ws_stor = sheet("Model Storage", ["Model Name", "Type", "HDD Count", "SSD Count",
+                                      "NVMe Count", "Drives Per Node"])
+    ws_drv = sheet("Model Drive Options", ["Model Name", "Drive Type", "Size TB"])
+    ws_nic = sheet("Model NIC Options",
+                   ["Model Name", "Qty", "Description", "Ports", "Speed"])
+    ws_iops = sheet("Drive IOPS", ["Drive Type", "IOPS"])
+    ws_set = sheet("Sizing Settings", ["Key", "Value"])
 
-    ws_cpu = wb.create_sheet("CPU Options")
-    ws_cpu.append(["Model Name", "Qty", "Description", "Cores", "Threads", "GHz"])
-    style_headers(ws_cpu)
-
-    ws_ram = wb.create_sheet("RAM Options")
-    ws_ram.append(["Model Name", "Size GB"])
-    style_headers(ws_ram)
-
-    ws_stor = wb.create_sheet("Storage")
-    ws_stor.append(["Model Name", "Type", "HDD Count", "SSD Count",
-                    "NVMe Count", "Drives Per Node"])
-    style_headers(ws_stor)
-
-    ws_drv = wb.create_sheet("Drive Options")
-    ws_drv.append(["Model Name", "Drive Type", "Size TB"])
-    style_headers(ws_drv)
-
-    ws_nic = wb.create_sheet("NIC Options")
-    ws_nic.append(["Model Name", "Qty", "Description", "Ports", "Speed"])
-    style_headers(ws_nic)
+    # Full catalog tables first — these carry the entries that no model
+    # references yet, which a model-driven walk would never reach.
+    for c in CpuCatalog.query.order_by(CpuCatalog.description).all():
+        ws_cpu_cat.append([getattr(c, attr) for attr, _ in CPU_SHEET_COLUMNS])
+    for n in NicCatalog.query.order_by(NicCatalog.description).all():
+        ws_nic_cat.append([n.description, n.ports, n.speed])
+    for d in DriveCatalog.query.order_by(DriveCatalog.drive_type,
+                                         DriveCatalog.size_tb).all():
+        ws_drv_cat.append([d.drive_type, d.size_tb])
 
     models = _model_query().order_by(Model.category, Model.name).all()
     for m in models:
@@ -620,16 +666,24 @@ def export_models():
             ws_nic.append([m.name, link.quantity, link.nic.description,
                            link.nic.ports, link.nic.speed])
 
-    for sheet in wb.worksheets:
-        for col in sheet.columns:
+    # Admin-tuned sizing config travels with the catalog it applies to.
+    for row in DriveTypeIops.query.order_by(DriveTypeIops.drive_type).all():
+        ws_iops.append([row.drive_type, row.iops])
+    for row in SizingSetting.query.order_by(SizingSetting.key).all():
+        ws_set.append([row.key, row.value])
+
+    for sh in wb.worksheets:
+        for col in sh.columns:
             max_len = max(len(str(c.value or "")) for c in col)
-            sheet.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+            sh.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="SC_Models_Export.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    return send_file(buf, as_attachment=True, download_name="SC_Catalog_Backup.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument."
+                              "spreadsheetml.sheet")
+
 
 
 # ── Import from Excel ────────────────────────────────────────────────────────
@@ -670,11 +724,15 @@ def import_catalog():
     if not f.filename or not f.filename.endswith(".xlsx"):
         return jsonify({"error": "File must be .xlsx"}), 400
 
+    # "add" (default) never changes an existing row; "replace" makes the file
+    # authoritative, which is what restoring a backup has to mean.
+    mode = request.form.get("mode", "add")
+
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     try:
         f.save(tmp.name)
         tmp.close()
-        result = _import_catalog_from_excel(tmp.name)
+        result = _import_catalog_from_excel(tmp.name, mode)
         return jsonify(result)
     except Exception as e:
         db.session.rollback()
@@ -741,63 +799,136 @@ def _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows):
     return cpus, ram, stor, drives, nics
 
 
-def _import_catalog_from_excel(file_path):
+def _cpu_fields_from_row(r):
+    """Pull the CPU catalog columns out of one spreadsheet row, coercing each to
+    its column type. Absent headers come back as None so the caller can tell
+    "not in the file" from "explicitly blank"."""
+    out = {}
+    for attr, header in CPU_SHEET_COLUMNS:
+        if header not in r:
+            continue
+        v = r[header]
+        if attr in _CPU_STR_COLUMNS:
+            v = str(v).strip() if v not in (None, "") else None
+        elif attr in _CPU_INT_COLUMNS:
+            v = _cpu_int(v)
+        else:
+            v = _cpu_num(v)
+        out[attr] = v
+    return out
+
+
+def _apply_cpu_row(cpu, fields, overwrite):
+    """Copy spreadsheet CPU fields onto a catalog row. Returns True if anything
+    changed. With overwrite=False only currently-empty columns are filled, so an
+    "add" import can enrich a sparse catalog without reverting later edits."""
+    changed = False
+    for attr, value in fields.items():
+        if value is None or attr == "description":
+            continue        # description is the identity key, never rewritten
+        # cores/threads/ghz are non-nullable, so this skips them in "add" mode
+        # and lets a restore correct them in "replace" mode.
+        if not overwrite and getattr(cpu, attr) is not None:
+            continue
+        if getattr(cpu, attr) != value:
+            setattr(cpu, attr, value)
+            changed = True
+    return changed
+
+
+def _import_catalog_from_excel(file_path, mode="add"):
+    """Restore a catalog workbook produced by export_models() (or hand-built
+    from the template).
+
+    mode="add"      — existing models are skipped; existing catalog rows keep
+                      their values but have empty spec columns filled in.
+    mode="replace"  — the file wins: models are rebuilt and catalog rows updated.
+    """
     from openpyxl import load_workbook
     wb = load_workbook(file_path, read_only=True, data_only=True)
 
-    cpu_rows = _sheet_rows(wb, "CPUs")
-    nic_rows = _sheet_rows(wb, "NICs")
-    drive_rows = _sheet_rows(wb, "Drives")
-    model_rows = _sheet_rows(wb, "Models")
-    model_cpu_rows = _sheet_rows(wb, "Model CPU Options")
-    model_ram_rows = _sheet_rows(wb, "Model RAM Options")
-    model_stor_rows = _sheet_rows(wb, "Model Storage")
-    model_drv_rows = _sheet_rows(wb, "Model Drive Options")
-    model_nic_rows = _sheet_rows(wb, "Model NIC Options")
+    def rows(*names):
+        """First sheet that exists, by preference order. The second name is the
+        pre-backup export's sheet name, kept so files exported by older builds
+        still import — those wrote "CPU Options" where the template says
+        "Model CPU Options"."""
+        for n in names:
+            r = _sheet_rows(wb, n)
+            if r:
+                return r
+        return []
+
+    overwrite = (mode == "replace")
+
+    cpu_rows = rows("CPUs")
+    nic_rows = rows("NICs")
+    drive_rows = rows("Drives")
+    model_rows = rows("Models")
+    model_cpu_rows = rows("Model CPU Options", "CPU Options")
+    model_ram_rows = rows("Model RAM Options", "RAM Options")
+    model_stor_rows = rows("Model Storage", "Storage")
+    model_drv_rows = rows("Model Drive Options", "Drive Options")
+    model_nic_rows = rows("Model NIC Options", "NIC Options")
+    iops_rows = rows("Drive IOPS")
+    setting_rows = rows("Sizing Settings")
     wb.close()
 
     has_catalog = cpu_rows or nic_rows or drive_rows
     has_models = bool(model_rows)
+    has_config = iops_rows or setting_rows
 
-    if not has_catalog and not has_models:
-        return {"error": "No recognized sheets found. Expected: CPUs, NICs, Drives, Models"}
+    if not has_catalog and not has_models and not has_config:
+        return {"error": "No recognized sheets found. Expected: CPUs, NICs, "
+                         "Drives, Models"}
 
     parts = []
 
-    cpus_added = cpus_skipped = 0
+    cpus_added = cpus_skipped = cpus_updated = 0
     for r in cpu_rows:
-        desc = str(r.get("Description", "")).strip()
+        fields = _cpu_fields_from_row(r)
+        desc = fields.get("description")
         if not desc:
             continue
-        if CpuCatalog.query.filter_by(description=desc).first():
-            cpus_skipped += 1
+        existing = CpuCatalog.query.filter_by(description=desc).first()
+        if existing:
+            if _apply_cpu_row(existing, fields, overwrite):
+                cpus_updated += 1
+            else:
+                cpus_skipped += 1
             continue
-        db.session.add(CpuCatalog(
+        cpu = CpuCatalog(
             description=desc,
-            cores=int(r.get("Cores", 0) or 0),
-            threads=int(r.get("Threads", 0) or 0),
-            ghz=float(r.get("GHz", 0) or 0),
-        ))
+            cores=fields.get("cores") or 0,
+            threads=fields.get("threads") or 0,
+            ghz=fields.get("ghz") or 0,
+        )
+        _apply_cpu_row(cpu, fields, True)
+        db.session.add(cpu)
         cpus_added += 1
     if cpu_rows:
-        parts.append(f"CPUs: {cpus_added} added, {cpus_skipped} skipped")
+        parts.append(f"CPUs: {cpus_added} added, {cpus_updated} updated, "
+                     f"{cpus_skipped} unchanged")
 
-    nics_added = nics_skipped = 0
+    nics_added = nics_skipped = nics_updated = 0
     for r in nic_rows:
         desc = str(r.get("Description", "")).strip()
         if not desc:
             continue
-        if NicCatalog.query.filter_by(description=desc).first():
-            nics_skipped += 1
+        ports = int(r.get("Ports", 0) or 0)
+        speed = str(r.get("Speed", "")).strip()
+        existing = NicCatalog.query.filter_by(description=desc).first()
+        if existing:
+            if overwrite and (existing.ports != ports or existing.speed != speed):
+                existing.ports, existing.speed = ports, speed
+                nics_updated += 1
+            else:
+                nics_skipped += 1
             continue
-        db.session.add(NicCatalog(
-            description=desc,
-            ports=int(r.get("Ports", 0) or 0),
-            speed=str(r.get("Speed", "")).strip(),
-        ))
+        db.session.add(NicCatalog(description=desc, ports=ports, speed=speed))
         nics_added += 1
     if nic_rows:
-        parts.append(f"NICs: {nics_added} added, {nics_skipped} skipped")
+        parts.append(f"NICs: {nics_added} added, {nics_updated} updated, "
+                     f"{nics_skipped} unchanged")
 
     drives_added = drives_skipped = 0
     for r in drive_rows:
@@ -811,11 +942,11 @@ def _import_catalog_from_excel(file_path):
         db.session.add(DriveCatalog(drive_type=dtype, size_tb=size))
         drives_added += 1
     if drive_rows:
-        parts.append(f"Drives: {drives_added} added, {drives_skipped} skipped")
+        parts.append(f"Drives: {drives_added} added, {drives_skipped} unchanged")
 
     db.session.flush()
 
-    models_created = models_skipped = 0
+    models_created = models_replaced = models_skipped = 0
     if model_rows:
         cpus_by_model, ram_by_model, stor_by_model, mdrives_by_model, nics_by_model = \
             _model_option_maps(model_cpu_rows, model_ram_rows, model_stor_rows,
@@ -825,7 +956,8 @@ def _import_catalog_from_excel(file_path):
             name = str(r.get("Name", "")).strip()
             if not name:
                 continue
-            if Model.query.filter_by(name=name).first():
+            existing = Model.query.filter_by(name=name).first()
+            if existing and not overwrite:
                 models_skipped += 1
                 continue
 
@@ -853,14 +985,56 @@ def _import_catalog_from_excel(file_path):
                 "storage": storage_data,
                 "nic_options": nics_by_model.get(name, []),
             }
-            _build_model(model_data)
-            models_created += 1
+            if existing:
+                db.session.delete(existing)
+                db.session.flush()
+                _build_model(model_data)
+                models_replaced += 1
+            else:
+                _build_model(model_data)
+                models_created += 1
 
-        parts.append(f"Models: {models_created} created, {models_skipped} skipped (existing)")
+        parts.append(f"Models: {models_created} created, {models_replaced} replaced, "
+                     f"{models_skipped} skipped (existing)")
+
+    # Admin-tuned sizing config. Both tables are pure key/value, so a restore is
+    # an upsert; in "add" mode an existing key is left as the host has it.
+    iops_set = 0
+    for r in iops_rows:
+        dtype = str(r.get("Drive Type", "")).strip()
+        val = _cpu_int(r.get("IOPS"))
+        if not dtype or val is None:
+            continue
+        row = DriveTypeIops.query.filter_by(drive_type=dtype).first()
+        if row is None:
+            db.session.add(DriveTypeIops(drive_type=dtype, iops=val))
+            iops_set += 1
+        elif overwrite and row.iops != val:
+            row.iops = val
+            iops_set += 1
+    if iops_rows:
+        parts.append(f"Drive IOPS: {iops_set} set")
+
+    settings_set = 0
+    for r in setting_rows:
+        key = str(r.get("Key", "")).strip()
+        val = _cpu_num(r.get("Value"))
+        if not key or val is None:
+            continue
+        row = SizingSetting.query.filter_by(key=key).first()
+        if row is None:
+            db.session.add(SizingSetting(key=key, value=val))
+            settings_set += 1
+        elif overwrite and row.value != val:
+            row.value = val
+            settings_set += 1
+    if setting_rows:
+        parts.append(f"Sizing settings: {settings_set} set")
 
     db.session.commit()
 
     return {"message": ". ".join(parts)}
+
 
 
 # ── Catalog template download ──────────────────────────────────────────────
@@ -893,11 +1067,18 @@ def catalog_template():
 
     ws_cpu = wb.active
     ws_cpu.title = "CPUs"
-    ws_cpu.append(["Description", "Cores", "Threads", "GHz"])
+    # Same column set the export writes, so a template-authored file and a
+    # backup are the same format. Everything past GHz is optional — but
+    # SPECrate2017 int (or PassMark CPU Mark) is what perf-based sizing reads.
+    ws_cpu.append([h for _, h in CPU_SHEET_COLUMNS])
     style_headers(ws_cpu)
     example_rows(ws_cpu, [
-        ["Xeon Gold 6526Y 16C/32T 3.5GHz", 16, 32, 3.5],
-        ["Silver 4516Y+ 24C/48T 2.9GHz", 24, 48, 2.9],
+        ["Xeon Gold 6526Y 16C/32T 3.5GHz", 16, 32, 3.5, "Intel", "Xeon Gold",
+         "Emerald Rapids", "6526Y", 16, 0, 2.8, 3.5, 4.0, None, None,
+         143.0, None, None],
+        ["Silver 4516Y+ 24C/48T 2.9GHz", 24, 48, 2.9, "Intel", "Xeon Silver",
+         "Emerald Rapids", "4516Y+", 24, 0, 2.2, 2.9, 3.4, None, None,
+         120.0, None, None],
     ])
 
     ws_nic = wb.create_sheet("NICs")
@@ -918,11 +1099,12 @@ def catalog_template():
 
     ws_mod = wb.create_sheet("Models")
     ws_mod.append(["Name", "Status", "Category", "Form Factor", "Chassis",
-                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost", "Notes"])
+                   "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
+                   "Validated Only", "Notes"])
     style_headers(ws_mod)
     example_rows(ws_mod, [
         [ex, "Active", "1U All-Flash", "1U Rack", "Dell PowerEdge R660",
-         "single", "2x 800W", 16, 3, 28, None],
+         "single", "2x 800W", 16, 3, 28, "No", None],
     ])
 
     ws_mcpu = wb.create_sheet("Model CPU Options")
@@ -963,6 +1145,17 @@ def catalog_template():
         [ex, 1, "10GbE SFP+ 4-port Network Card (Intel X710)", 4, "10GbE"],
         [ex, 1, "25GbE SFP28 2-port OCP Network Card (Intel E810)", 2, "25GbE"],
     ])
+
+    ws_iops = wb.create_sheet("Drive IOPS")
+    ws_iops.append(["Drive Type", "IOPS"])
+    style_headers(ws_iops)
+    example_rows(ws_iops, [["NVMe", 75000], ["SSD", 20000], ["HDD", 150]])
+
+    ws_set = wb.create_sheet("Sizing Settings")
+    ws_set.append(["Key", "Value"])
+    style_headers(ws_set)
+    example_rows(ws_set, [["iops_read_fraction", 0.70],
+                          ["iops_replication_factor", 2]])
 
     for sheet in wb.worksheets:
         for col in sheet.columns:
@@ -1127,6 +1320,12 @@ def _import_from_excel(file_path, mode):
             "psu": str(r.get("PSU", "") or "").strip() or None,
             "ram_slots": int(r.get("RAM Slots", 0) or 0),
             "min_nodes": int(r.get("Min Nodes", 1) or 1),
+            # Both are written by export_models(); reading them back was missed,
+            # so every imported model silently fell back to cost_tier 5.0 and
+            # validated_only False — and cost_tier feeds the ranker.
+            "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
+            "validated_only": str(r.get("Validated Only", "")).strip().lower()
+                              in ("yes", "true", "1"),
             "notes": str(r.get("Notes", "") or "").strip() or None,
             "cpu_options": cpus_by_model.get(name, []),
             "ram_options_gb": ram_by_model.get(name, []),

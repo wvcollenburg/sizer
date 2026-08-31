@@ -642,6 +642,7 @@ function exportModels() {
 function openCatalogImport() {
     document.getElementById('catalog-import-modal').style.display = 'flex';
     document.getElementById('catalog-import-file').value = '';
+    document.getElementById('catalog-import-replace').checked = false;
     document.getElementById('catalog-import-status').style.display = 'none';
 }
 
@@ -655,6 +656,10 @@ async function doCatalogImport() {
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
+    // "replace" makes the uploaded file authoritative for rows that already
+    // exist — what restoring a backup has to mean. Default stays additive.
+    formData.append('mode',
+        document.getElementById('catalog-import-replace').checked ? 'replace' : 'add');
     showCatalogImportStatus(t('admin.import.importing'), false);
 
     try {

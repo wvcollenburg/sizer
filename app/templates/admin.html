@@ -498,11 +498,19 @@
                     <p class="import-info" data-i18n="admin.modal.import.upload_hint">Upload an Excel file with any combination of these sheets:</p>
                     <p class="import-info" data-i18n-html="admin.modal.import.sheets_catalog"><strong>Catalog:</strong> CPUs, NICs, Drives</p>
                     <p class="import-info" data-i18n-html="admin.modal.import.sheets_models"><strong>Models:</strong> Models, Model CPU Options, Model RAM Options, Model Storage, Model Drive Options, Model NIC Options</p>
-                    <p class="import-info" data-i18n="admin.modal.import.order_note">Only include the sheets you need. Catalog items are imported first, then models. Existing entries are skipped.</p>
-                    <p class="import-info" data-i18n-html="admin.modal.import.template_note">Use <strong>Template</strong> to download a file with all sheets and example rows.</p>
+                    <p class="import-info" data-i18n-html="admin.modal.import.sheets_config"><strong>Sizing config:</strong> Drive IOPS, Sizing Settings</p>
+                    <p class="import-info" data-i18n="admin.modal.import.order_note">Only include the sheets you need. Catalog items are imported first, then models.</p>
+                    <p class="import-info" data-i18n-html="admin.modal.import.template_note">Use <strong>Template</strong> to download a file with all sheets and example rows, or <strong>Export</strong> for a full backup of this catalog.</p>
                     <div class="form-group" style="margin-top:1rem">
                         <label data-i18n="admin.modal.import.file_label">Excel file (.xlsx)</label>
                         <input type="file" id="catalog-import-file" accept=".xlsx">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="catalog-import-replace">
+                            <span data-i18n="admin.modal.import.replace_label">Restore mode — overwrite entries that already exist</span>
+                        </label>
+                        <p class="import-info" style="margin:0.35rem 0 0 1.55rem" data-i18n="admin.modal.import.replace_desc">Off: existing models and catalog entries are left as they are, and only missing ones are added (empty CPU spec fields are still filled in). On: the file wins — matching models are rebuilt from it. Match is by model name, CPU/NIC description and drive type+size, so neither setting can create duplicates.</p>
                     </div>
                     <div id="catalog-import-status" style="display:none"></div>
                 </div>
