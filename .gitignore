@@ -16,3 +16,6 @@ app/data/exports/
 # Downloaded dev-only browser binary for UI screenshots (tools/shots.sh).
 .tools/
 docs/shots/
+
+# Internal planning/design docs (not published)
+docs/
