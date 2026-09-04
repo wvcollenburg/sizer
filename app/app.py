@@ -413,6 +413,13 @@ def create_app():
         replication_reserve = data.get("replication_reserve")
         replication_compute_mode = data.get("replication_compute_mode", "reserved")
         allow_single_node = data.get("allow_single_node", False)
+        # Licence term is its OWN input, not the growth horizon — customers buy
+        # 3 years of licence while sizing 5 years of growth (§5.3). Guest
+        # licensing exposure defaults to what the import detected and is
+        # overridable here, because a core-billed database is invisible in the
+        # guest OS string and can only be declared (§5.6).
+        license_term_years = data.get("license_term_years")
+        guest_licensing = data.get("guest_licensing")
         try:
             result = generate_recommendations(summary, vcpu_ratio,
                                               growth_pct, snapshot_pct, years,
@@ -429,7 +436,9 @@ def create_app():
                                               source_perf_type=source_perf_type,
                                               replication_reserve=replication_reserve,
                                               replication_compute_mode=replication_compute_mode,
-                                              allow_single_node=allow_single_node)
+                                              allow_single_node=allow_single_node,
+                                              license_term_years=license_term_years,
+                                              guest_licensing=guest_licensing)
         except (TypeError, ValueError, KeyError):
             # Malformed numeric fields in the client-supplied summary/params
             # (e.g. a non-numeric vCPU count). A bad request, not a server fault.

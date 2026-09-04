@@ -1,8 +1,24 @@
+"""Seed catalog for the appliance models.
+
+NOTE ON `cpu_options` ORDER — it is NOT sorted by core count, and must not be
+assumed to be. 8 of 43 models list a larger CPU before a smaller one (e.g.
+HC1450D: 24C, 16C, 32C, 48C, 64C). Nothing depends on the order: the engine
+re-sorts by effective cores in `recommend._fit_model`, and the live catalog
+orders by `ModelCpuOption.sort_order` in the database rather than by this list.
+
+Do not "tidy" these lists into ascending order. This list only seeds a FRESH
+database, so re-sorting here would make new deployments disagree with existing
+ones, and re-sorting `sort_order` in an existing database would renumber
+`cpu_index` — which saved sizings and /api/calculate both pass by position.
+Any weighting that needs CPU size must read `cores`, never the index; see
+docs/pricebook-plan.md §7.4.
+"""
+
 APPLIANCE_MODELS = {
     # ==================== EDGE / SFF MODELS ====================
     "HE150": {
         "status": "EOS",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF",
         "chassis": "Intel NUC",
         "socket": "single",
@@ -25,7 +41,7 @@ APPLIANCE_MODELS = {
     },
     "HE151": {
         "status": "EOS",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF",
         "chassis": "Intel NUC",
         "socket": "single",
@@ -47,7 +63,7 @@ APPLIANCE_MODELS = {
     },
     "HE153": {
         "status": "EOS",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF NUC",
         "chassis": "Asus NUC13L3Hv5 or NUC13L3Hv7",
         "socket": "single",
@@ -68,7 +84,7 @@ APPLIANCE_MODELS = {
     },
     "HE153s": {
         "status": "EOS",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF NUC",
         "chassis": "Asus NUC13L3Kv5 or NUC13L3Kv7",
         "socket": "single",
@@ -89,7 +105,7 @@ APPLIANCE_MODELS = {
     },
     "HE153p": {
         "status": "Active",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF Rack Mountable",
         "chassis": "SimplyNUC Onyx i9",
         "socket": "single",
@@ -111,7 +127,7 @@ APPLIANCE_MODELS = {
     },
     "HE155-1": {
         "status": "Active",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF",
         "chassis": "TBD",
         "socket": "single",
@@ -135,7 +151,7 @@ APPLIANCE_MODELS = {
     },
     "HE155-2": {
         "status": "Active",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF",
         "chassis": "TBD",
         "socket": "single",
@@ -158,7 +174,7 @@ APPLIANCE_MODELS = {
     },
     "HE250": {
         "status": "Active",
-        "category": "Edge",
+        "category": "2XX SFF",
         "form_factor": "SFF Rack Mountable",
         "chassis": "SimplyNUC Onyx Pro (MS-01)",
         "socket": "single",
@@ -179,7 +195,7 @@ APPLIANCE_MODELS = {
     },
     "SE100": {
         "status": "Active",
-        "category": "Edge",
+        "category": "1XX SFF",
         "form_factor": "SFF",
         "chassis": "Lenovo SE100",
         "socket": "single",
@@ -203,7 +219,7 @@ APPLIANCE_MODELS = {
     # ==================== 1U SINGLE SOCKET ====================
     "HE500": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -228,7 +244,7 @@ APPLIANCE_MODELS = {
     },
     "HE501": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -253,7 +269,7 @@ APPLIANCE_MODELS = {
     },
     "HE502": {
         "status": "Active",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack (1.7in)",
         "chassis": "Supermicro SYS-511R-M",
         "socket": "single",
@@ -278,7 +294,7 @@ APPLIANCE_MODELS = {
     },
     "HE550": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -305,7 +321,7 @@ APPLIANCE_MODELS = {
     },
     "HE551": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -332,7 +348,7 @@ APPLIANCE_MODELS = {
     },
     "HE552": {
         "status": "Active",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack (1.7in)",
         "chassis": "Supermicro SYS-511R-M",
         "socket": "single",
@@ -359,7 +375,7 @@ APPLIANCE_MODELS = {
     },
     "HE550F": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -384,7 +400,7 @@ APPLIANCE_MODELS = {
     },
     "HE551F": {
         "status": "EOS",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -409,7 +425,7 @@ APPLIANCE_MODELS = {
     },
     "HE552F": {
         "status": "Active",
-        "category": "1U Rack",
+        "category": "5XX Edge",
         "form_factor": "1U Rack (1.7in)",
         "chassis": "Supermicro SYS-511R-M",
         "socket": "single",
@@ -436,7 +452,7 @@ APPLIANCE_MODELS = {
     # ==================== 1U DATACENTER SINGLE SOCKET ====================
     "HC1200": {
         "status": "EOS",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -459,7 +475,7 @@ APPLIANCE_MODELS = {
     },
     "HC1300": {
         "status": "EOL",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro SYS-510P-WTR",
         "socket": "single",
@@ -481,7 +497,7 @@ APPLIANCE_MODELS = {
     },
     "HC1400": {
         "status": "EOL",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro SYS-511E-WR",
         "socket": "single",
@@ -506,7 +522,7 @@ APPLIANCE_MODELS = {
     },
     "HC1600": {
         "status": "Active",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -530,7 +546,7 @@ APPLIANCE_MODELS = {
     # ==================== 1U DATACENTER DUAL SOCKET ====================
     "HC1250": {
         "status": "EOS",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "dual",
@@ -558,7 +574,7 @@ APPLIANCE_MODELS = {
     },
     "HC1250D": {
         "status": "EOS",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "dual",
@@ -586,7 +602,7 @@ APPLIANCE_MODELS = {
     },
     "HC1350": {
         "status": "EOL",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro SYS-510P-WTR",
         "socket": "single",
@@ -610,7 +626,7 @@ APPLIANCE_MODELS = {
     },
     "HC1450": {
         "status": "EOL",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro SYS-511E-WR",
         "socket": "single",
@@ -637,7 +653,7 @@ APPLIANCE_MODELS = {
     },
     "HC1450D": {
         "status": "EOL",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630v3",
         "socket": "dual",
@@ -665,7 +681,7 @@ APPLIANCE_MODELS = {
     },
     "HC1650D": {
         "status": "Active",
-        "category": "Datacenter 1U",
+        "category": "1XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Supermicro",
         "socket": "dual",
@@ -691,7 +707,7 @@ APPLIANCE_MODELS = {
     # ==================== 1U ALL-FLASH (3xxx SERIES) ====================
     "HC3250DF": {
         "status": "EOS",
-        "category": "Datacenter 1U All-Flash",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Dell R650",
         "socket": "dual",
@@ -715,8 +731,8 @@ APPLIANCE_MODELS = {
         "psu": "2x 1100W",
     },
     "HC3350F": {
-        "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "status": "EOS",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Dell R650",
         "socket": "single",
@@ -741,8 +757,8 @@ APPLIANCE_MODELS = {
         "psu": "2x 1100W",
     },
     "HC3350DF": {
-        "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "status": "EOS",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Dell R650",
         "socket": "dual",
@@ -768,7 +784,7 @@ APPLIANCE_MODELS = {
     },
     "HC3450F": {
         "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630v3",
         "socket": "single",
@@ -794,7 +810,7 @@ APPLIANCE_MODELS = {
     },
     "HC3450DF": {
         "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630v3",
         "socket": "dual",
@@ -820,7 +836,7 @@ APPLIANCE_MODELS = {
     },
     "HC3450FG": {
         "status": "Active",
-        "category": "Datacenter 1U All-Flash GPU",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630v3",
         "socket": "single",
@@ -837,7 +853,7 @@ APPLIANCE_MODELS = {
             "nvme_options_tb": [1.92, 3.84, 7.68, 15.36],
             "drives_per_node": 4,
         },
-        "gpu": "1 x Nvidia L4 24GB",
+        "gpu": "2 x Nvidia L4 24GB",
         "nic_options": [
             {"desc": "1 x 10GBase-T 4-port OCP Network Card (Intel X710-T4L)", "ports": 4, "speed": "10GbE"},
             {"desc": "1 x 10/25GbE SFP28 4-port Network Card (Intel E810-XXVDA4)", "ports": 4, "speed": "25GbE"},
@@ -846,7 +862,7 @@ APPLIANCE_MODELS = {
     },
     "HC3650F": {
         "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630V4",
         "socket": "single",
@@ -871,7 +887,7 @@ APPLIANCE_MODELS = {
     },
     "HC3650DF": {
         "status": "Active",
-        "category": "Datacenter 1U All-Flash",
+        "category": "3XXX Core",
         "form_factor": "1U Rack",
         "chassis": "Lenovo SR630V4",
         "socket": "dual",
@@ -898,7 +914,7 @@ APPLIANCE_MODELS = {
     # ==================== 2U DATACENTER ====================
     "HC5200": {
         "status": "EOS",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Supermicro",
         "socket": "single",
@@ -923,7 +939,7 @@ APPLIANCE_MODELS = {
     },
     "HC5250D": {
         "status": "EOS",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Supermicro",
         "socket": "dual",
@@ -951,7 +967,7 @@ APPLIANCE_MODELS = {
     },
     "HC5400": {
         "status": "Active",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Lenovo SR650v3",
         "socket": "single",
@@ -977,7 +993,7 @@ APPLIANCE_MODELS = {
     },
     "HC5450D": {
         "status": "Active",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Lenovo SR650v3",
         "socket": "dual",
@@ -1005,7 +1021,7 @@ APPLIANCE_MODELS = {
     },
     "HC5600": {
         "status": "Active",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Lenovo SR650V4",
         "socket": "single",
@@ -1026,7 +1042,7 @@ APPLIANCE_MODELS = {
     },
     "HC5650D": {
         "status": "Active",
-        "category": "Datacenter 2U",
+        "category": "5XXX Core",
         "form_factor": "2U Rack",
         "chassis": "Lenovo SR650V4",
         "socket": "dual",
@@ -1078,47 +1094,84 @@ APPLIANCE_MODELS = {
     },
 }
 
-# ── Per-model relative cost weights ───────────────────────────────────────────
-# Seeded into models.cost_tier (admin-tunable thereafter). Used purely as a
-# *relative* ranking tiebreaker — lower wins among configs that fit equally well
-# — so absolute units don't matter, only the spacing between models.
+# ── Per-model platform tier (price-proportional) ─────────────────────────────
+# Seeded into models.cost_tier (admin-tunable thereafter).
 #
-# The scale is deliberately wide (≈2 → ≈40) so a single jump up a family
-# (edge → 1U → datacenter → all-flash → 2U-dual) carries real weight and the
-# recommender stops reaching for a big box when a small one fits. It stays a
-# *tiebreaker*, though: node count, then CPU/IOPS/storage/RAM closeness, all
-# rank ahead of cost (see recommend._rank_key). That is the "gentle" guardrail —
-# cheap edge nodes only win when they genuinely fit the same workload in the
-# same node band, so a large system won't collapse into 130 tiny appliances.
+# RE-BASED 2026-09-02. This used to be a hand-set *capability* weight whose
+# absolute units did not matter. It is now deliberately **proportional to what a
+# configured node costs**, because `eur_per_tier_point` bridges it to real
+# licence euro in the score — a bridge is meaningless if one side is not a price.
+# One tier point ~= EUR 838 (the reference basket median in app/platform_tier.py).
 #
-# Rough family bands (single vs. dual socket = "D", flash = "F"):
-#   edge SFF/NUC ......... 2–5      1U hybrid ........... 8–10
-#   1U flash ............ 11–12     DC 1U single ....... 14–18
-#   DC 1U dual ......... 19–24      all-flash 1U single  26–32
-#   all-flash 1U dual .. 30–40      2U single .......... 22–30
-#   2U dual ............ 28–40
+# **Anti-sprawl now lives in `node_overhead`, not here.** The old wide spacing
+# was doing double duty: price proxy AND a guardrail stopping the ranker
+# collapsing a large estate into many tiny appliances. Those roles disagreed by
+# up to 3x, so they are now separated. `node_overhead` (a flat, model-independent
+# per-node charge) is the knob that penalises node count; raise it if sprawl
+# appears. The hard guards — largest-VM RAM fit, min_nodes, the per-cluster disk
+# cap, the IOPS gate — still bound the answer regardless.
+#
+# Derived by scaling each family band by its basket correction factor:
+#   1XX / 2XX SFF x0.95   5XX Edge hybrid x0.30   5XX Edge flash x0.40
+#   1XXX Core    x1.05    3XXX Core       x1.58   5XXX Core      x1.05
+# Spacing WITHIN a band is inherited from the old ladder, so a band whose
+# internal spread was wrong stays wrong until corrected explicitly. One such
+# correction has been made:
+#
+#   **Socket deltas are the family's ENTRY CPU price, and they differ by band.**
+#   Going from one socket to two adds one more of the cheapest CPU the family
+#   offers, so the gap is that CPU's price — not a fixed percentage:
+#       1XXX Core  EUR 1,000  (entry is a Xeon 6505P, a P-series volume part)
+#       3XXX/5XXX  EUR 1,750  (entry is a Gold 5515+/5415+ — fewer cores, but a
+#                              Gold, and Gold costs more)
+#   The old ladder had these gaps 3.5x to 8.3x too wide.
+#
+#   **CAUTION — perf_index is NOT a reliable price proxy at the low end.** The
+#   3XXX entry CPU has LOWER SPECrate than the 1XXX entry (88 vs 142) yet costs
+#   MORE, because SPECrate measures throughput while Intel's Gold/Silver tier
+#   premium is clock and segment. So `w_cpu_perf` systematically underprices
+#   low-core high-tier parts. Do not derive socket deltas from perf; ask.
+#
+#   **HC3450FG carries a DELIBERATE 2x surcharge** (2026-09-02). Its hardware
+#   delta over the non-GPU HC3450F is ~EUR 9,700, which is right — that is TWO
+#   Nvidia L4 cards, not one. On top of that the tier is doubled to stand in for
+#   per-user vGPU licensing, which is steep and which nothing in the engine can
+#   see. It deliberately does not look proportionate to the hardware. It is close
+#   to the real total cost, and it has a useful side effect: the engine has NO
+#   GPU demand signal (nothing reads the `gpu` field), so a GPU node must never
+#   win an UNPROMPTED recommendation. An SA who wants one still names it
+#   explicitly, which bypasses ranking.
+#
+#   **1XX / 2XX SFF compressed to 1.9-2.4** (~EUR 1,590-2,010). The old ladder
+#   spread this band 2 -> 5, which after re-basing implied EUR 3,934 for an SE100
+#   or HE250 — more than a 5XX Edge 1U rack node at EUR 2,500, which is backwards.
+#   The whole SFF range is ~EUR 1.5-2k. HE153 stays at 1.9 because that is its
+#   real quoted price (EUR 1,588); the rest are scaled onto that range in their
+#   original order.
+#
+# Do not hand-edit a single value to nudge a recommendation. Change it because a
+# real configured-node price says so, and re-run tools/license_sweep.py.
 MODEL_COSTS = {
     # Edge (SFF / NUC)
-    "HE150": 2, "HE151": 2, "HE153": 2, "HE153s": 2, "HE153p": 3,
-    "HE155-1": 3, "HE155-2": 4, "HE250": 5, "SE100": 5,
-    # 1U Rack (hybrid)
-    "HE500": 8, "HE501": 8, "HE502": 9,
-    "HE550": 9, "HE551": 9, "HE552": 10,
-    # 1U Rack (all-flash)
-    "HE550F": 11, "HE551F": 11, "HE552F": 12,
-    # Datacenter 1U single socket (hybrid)
-    "HC1200": 14, "HC1300": 15, "HC1400": 16, "HC1600": 18,
-    "HC1250": 15, "HC1350": 17, "HC1450": 18,
-    # Datacenter 1U dual socket (hybrid)
-    "HC1250D": 19, "HC1450D": 22, "HC1650D": 24,
-    # Datacenter 1U all-flash
-    "HC3250DF": 24, "HC3350F": 26, "HC3350DF": 30,
-    "HC3450F": 28, "HC3450DF": 34, "HC3450FG": 40,
-    "HC3650F": 32, "HC3650DF": 38,
-    # Datacenter 2U
-    "HC5200": 22, "HC5250D": 28, "HC5400": 26,
-    "HC5450D": 34, "HC5600": 30, "HC5650D": 40,
-    # Cloud (virtual)
+    "HE150": 1.9, "HE151": 1.9, "HE153": 1.9, "HE153s": 1.9, "HE153p": 2.07,
+    "HE155-1": 2.07, "HE155-2": 2.23, "HE250": 2.4, "SE100": 2.4,
+# 1U Rack (hybrid)
+    "HE500": 2.4, "HE501": 2.4, "HE502": 2.7, "HE550": 2.7, "HE551": 2.7,
+    "HE552": 3,
+# 1U Rack (all-flash)
+    "HE550F": 4.4, "HE551F": 4.4, "HE552F": 4.8,
+# Datacenter 1U single socket (hybrid)
+    "HC1200": 17.7, "HC1300": 18.8, "HC1400": 19.8, "HC1600": 24,
+    "HC1250": 18.8, "HC1350": 20.9, "HC1450": 21.9,
+# Datacenter 1U dual socket (hybrid)
+    "HC1250D": 20, "HC1450D": 23.1, "HC1650D": 25.2,
+# Datacenter 1U all-flash
+    "HC3250DF": 37.9, "HC3350F": 45.3, "HC3350DF": 47.4, "HC3450F": 51.6,
+    "HC3450DF": 53.7, "HC3450FG": 126.4, "HC3650F": 57.9, "HC3650DF": 60,
+# Datacenter 2U
+    "HC5200": 27.4, "HC5250D": 29.5, "HC5400": 33.7, "HC5450D": 35.8,
+    "HC5600": 40, "HC5650D": 42.1,
+# Cloud (virtual)
     "Cloud Unity": 12,
 }
 

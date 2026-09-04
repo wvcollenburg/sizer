@@ -1293,6 +1293,8 @@ async function recalcRecommendations() {
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
     const maxDayOneStorage = parseFloat(document.getElementById('max-day-one-storage').value);
     const maxDayOneRam = parseFloat(document.getElementById('max-day-one-ram').value);
+    const licenseTermYears = parseInt(document.getElementById('license-term-years').value, 10) || 5;
+    const guestLicensing = document.getElementById('guest-licensing').value || 'windows';
     // Source-environment CPU benchmark (from the detected-CPU inputs in the
     // Source CPU modal), summed socket-weighted and normalised to SPECrate.
     const sourcePerfIndex = computeSourcePerf();
@@ -1334,6 +1336,12 @@ async function recalcRecommendations() {
                 replication_reserve: replicationReserve,
                 replication_compute_mode: replicationMode,
                 allow_single_node: allowSingleNode,
+                // Licence term is its own control, NOT `years` above — a
+                // customer can buy 3 years of licence while sizing 5 years of
+                // growth. Guest licensing starts from what the import detected
+                // and the SA can correct it.
+                license_term_years: licenseTermYears,
+                guest_licensing: guestLicensing,
             }),
         });
         const data = await resp.json();
@@ -1435,6 +1443,24 @@ function iopsDemandNote(d) {
 // The current-environment ratio marker + label under the slider. resetSlider
 // starts a fresh sizing at the default ratio (used on first display); tab
 // switches leave the slider on the cluster's own saved value.
+// Seed the Guest Licensing control from the imported guest OS. Detection only
+// sets what the control STARTS on — the SA's choice always wins, so we never
+// overwrite a value they have already changed. A core-billed database (SQL
+// Server, Oracle) is invisible in the guest OS string and can only ever be
+// declared, so detection never selects that option.
+function markGuestLicensingUserSet() {
+    const el = document.getElementById('guest-licensing');
+    if (el) el.dataset.userSet = '1';
+}
+
+function applyDetectedGuestLicensing(summary) {
+    const el = document.getElementById('guest-licensing');
+    if (!el || !summary || !summary.guest_licensing) return;
+    if (el.dataset.userSet === '1') return;
+    el.value = summary.guest_licensing;
+    el.title = summary.guest_licensing_detail || '';
+}
+
 function renderRatioContext(s, resetSlider) {
     const currentRatio = s.vcpu_per_core_ratio || 3.0;
     if (resetSlider) {
@@ -1570,6 +1596,7 @@ function displayImportResults(data) {
     lastRecommendations['import'] = data.recommendations;
     lastSummary['import'] = data.summary;
     lastProjection['import'] = data.projection;
+    applyDetectedGuestLicensing(data.summary);
     lastPerfSource = data.perf_comparison || null;
     // Show the detected source CPUs + benchmark inputs (auto-filled where known),
     // then re-run sizing so the comparison reflects any auto-filled scores.
@@ -2402,6 +2429,8 @@ function _recommendBodyFromOpts(summary, opts) {
         include_eol_eos: !!_optVal(opts, 'sizing-include-eol', false),
         max_day_one_storage_pct: parseFloat(_optVal(opts, 'max-day-one-storage', 100)),
         max_day_one_ram_pct: parseFloat(_optVal(opts, 'max-day-one-ram', 100)),
+        license_term_years: parseInt(_optVal(opts, 'license-term-years', 5), 10),
+        guest_licensing: _optVal(opts, 'guest-licensing', 'windows'),
         source_perf_index: null,
         source_perf_type: 'specrate',
     };

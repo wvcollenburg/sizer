@@ -5,6 +5,8 @@ from orm_models import (
     DriveTypeIops, SizingSetting,
 )
 from storage_only import single_cpu_options
+import licensing
+import parser_common
 from cluster_diagram import network_svg_for
 
 
@@ -108,7 +110,9 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              max_day_one_storage_pct=None, max_day_one_ram_pct=None,
                              source_perf_index=None, source_perf_type=None,
                              replication_reserve=None, replication_compute_mode="reserved",
-                             allow_single_node=False):
+                             allow_single_node=False,
+                             license_term_years=None, guest_licensing=None,
+                             region=None):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -118,6 +122,14 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         vcpu_ratio = T.default_vcpu_ratio
     vcpu_ratio = max(1.0, min(vcpu_ratio, 10.0))
     years = max(1, min(years, 5))
+
+    # Licence context for this sizing. Deliberately NOT derived from `years`:
+    # customers routinely buy 3 years of licence while sizing 5 years of growth,
+    # so tying them together makes one impossible to express without corrupting
+    # the other (§5.3). None when licence-aware scoring is off, in which case the
+    # legacy per-core term governs and nothing below changes.
+    license_ctx = _license_context(license_term_years, guest_licensing,
+                                   summary, region)
 
     # Optional hard cap on node count. Blank/0/invalid means "no limit".
     try:
@@ -321,7 +333,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     catalog_max_usable_ram = 0
 
     for m in models:
-        md = m.to_dict()
+        md = m.to_dict(include_internal=True)
         md["name"] = m.name
         stype = md["storage"]["type"]
         if stype == "cloud":
@@ -344,7 +356,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         fits = _fit_model(md, needs, required_cores, validated=validated,
                           validated_only=md.get("validated_only", False),
                           iops_cfg=iops_cfg,
-                          allow_storage_only=allow_storage_only)
+                          allow_storage_only=allow_storage_only,
+                          license_ctx=license_ctx)
         candidates.extend(fits)
 
     # Ranking: a single right-sizing score (lower = better) that trades total
@@ -553,6 +566,80 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             "warnings": warnings, "perf_comparison": perf_comparison}
 
 
+def _license_context(term_years, guest_licensing, summary, region=None):
+    """Per-sizing licence state, or None when licence-aware scoring is off.
+
+    Returns {book, term_years, exposure, exposure_mult, exposure_detail}.
+
+    Returns None — meaning "fall back to the legacy per-core term" — when the
+    master switch is off, or when the region has no current price feed. A
+    missing feed must never fail a sizing: the engine still has to produce a
+    recommendation, it just cannot price the licence.
+    """
+    if not int(getattr(T, "license_scoring", 0) or 0):
+        return None
+
+    from orm_models import load_license_book
+    book = load_license_book(region or licensing_default_region())
+    if not book:
+        return None
+
+    # SA override wins over what the import detected; detection only sets what
+    # the control starts on (§5.6).
+    exposure = guest_licensing or (summary or {}).get("guest_licensing") \
+        or parser_common.EXPOSURE_WINDOWS
+    if exposure not in parser_common.VALID_EXPOSURES:
+        exposure = parser_common.EXPOSURE_WINDOWS
+
+    mult = {
+        parser_common.EXPOSURE_NONE: getattr(T, "guest_exposure_none", 0.0),
+        parser_common.EXPOSURE_WINDOWS: getattr(T, "guest_exposure_windows", 1.0),
+        parser_common.EXPOSURE_WINDOWS_DB: getattr(T, "guest_exposure_windows_db", 1.6),
+    }[exposure]
+
+    term = licensing.clamp_term(
+        term_years if term_years is not None
+        else getattr(T, "default_license_term_years", 5))
+
+    return {
+        "book": book,
+        "term_years": term,
+        "exposure": exposure,
+        "exposure_mult": mult,
+        "exposure_detail": (summary or {}).get("guest_licensing_detail"),
+    }
+
+
+def _license_annotations(license_block, license_ctx):
+    """The licensing facts allowed to reach a browser.
+
+    Strings and booleans only. This function is the boundary: if a euro figure
+    ever appears in a response, it came through here, and tests assert on the
+    serialized body precisely so that stays true (§3, §5.8).
+    """
+    if license_ctx is None:
+        return None
+    out = dict((license_block or {}).get("annotations") or {})
+    out["term_years"] = license_ctx["term_years"]
+    out["guest_licensing"] = license_ctx["exposure"]
+    if license_ctx.get("exposure_detail"):
+        out["guest_licensing_basis"] = license_ctx["exposure_detail"]
+    if license_block and license_block.get("basis"):
+        out["basis"] = license_block["basis"]
+    if license_block and license_block.get("eur") is None:
+        out["not_priced"] = ("no current licence price feed for this region; "
+                             "licence cost excluded from ranking")
+    return out
+
+
+def licensing_default_region():
+    """Region for licence lookup. The user -> tenant -> global resolution chain
+    is deferred (§10.1); today every sizing resolves to the one region that has
+    a price list."""
+    from pricebook_import import DEFAULT_REGION
+    return DEFAULT_REGION
+
+
 # ── Right-sizing score ───────────────────────────────────────────────────────
 # Candidates are ranked by a single scalar score (lower = better) computed per
 # candidate in _fit_model, instead of a lexicographic tuple. A scalar lets a
@@ -707,7 +794,7 @@ def _effective_cores(cpu):
 
 
 def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
-               iops_cfg=None, allow_storage_only=False):
+               iops_cfg=None, allow_storage_only=False, license_ctx=None):
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     # Active compute floor (perf-based sizing) state, read once per model.
@@ -1026,14 +1113,55 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                      + T.w_ram * min(max(0.0, ram_headroom), T.waste_cap)
                      + T.w_stor * min(max(0.0, stor_headroom), T.waste_cap))
             fleet_cost = node_count * (cost_tier + T.node_overhead)
-            # Per-core licensing cost: linear in the total PHYSICAL cores of the
-            # HCI (VM-running) nodes — total_cores = cores_per_node × hci_nodes,
-            # the physical (not usable) count, which is what core-based licences
-            # bill on. Storage-only nodes run no VMs and are excluded. This makes
-            # a config with fewer total cores rank ahead of a fewer-node config
-            # that packs in more cores.
-            core_cost = T.w_core_license * total_cores
-            score = T.w_cost * fleet_cost + core_cost + T.w_waste * waste
+
+            # Licence-aware cost side (§5.4). Every term is in platform-tier
+            # points, bridged by the single declared rate `eur_per_tier_point`,
+            # so licence and hardware are directly comparable:
+            #
+            #   fleet_tier  hand-set capability weight, unitless
+            #   lic_tier    REAL euro, banded and capped, ÷ the policy rate
+            #   burden      uncapped per-core: guest OS / DB licensing
+            #   silicon     CPU capability, proxied by benchmark not by price
+            #
+            # The burden and silicon terms are not optional garnish. The Scale
+            # licence goes FLAT above its cap and the waste term saturates at
+            # waste_cap, so without them a bigger CPU above the cap would cost
+            # the ranker nothing at all — and the sizer does not minimise CPU
+            # the way it minimises RAM and storage. Every CPU option becomes a
+            # candidate and the score is the only thing choosing between them.
+            license_block = None
+            if license_ctx is not None:
+                license_block = licensing.cluster_license(
+                    license_ctx["book"], layout, cores_per_node, ram_gb,
+                    license_ctx["term_years"])
+
+            if license_block is not None and license_block["eur"] is not None:
+                rate = getattr(T, "eur_per_tier_point", 850.0) or 850.0
+                lic_tier = license_block["eur"] / rate
+                core_burden = (T.w_core_burden * license_ctx["exposure_mult"]
+                               * total_cores)
+                # Benchmark index across the VM-running nodes. Storage-only nodes
+                # carry one lowest-tier CPU and are excluded, matching total_cores.
+                if node_perf:
+                    per_node_perf = node_perf
+                else:
+                    # Never contribute zero — an unscored CPU would look free and
+                    # win on price. Annotated so it is visible rather than silent.
+                    per_node_perf = cores_per_node * getattr(
+                        T, "cpu_perf_per_core_fallback", 9.0)
+                    license_block["annotations"]["cpu_perf_estimated"] = (
+                        "no published benchmark for this CPU; silicon cost "
+                        "estimated from core count")
+                silicon = T.w_cpu_perf * (per_node_perf * hci_nodes) / 1000.0
+                cost = fleet_cost + lic_tier + core_burden + silicon
+                score = T.w_cost * cost + T.w_waste * waste
+            else:
+                # Legacy path — the single invented per-core term. Governs until
+                # `license_scoring` is turned on, so the switch is reversible.
+                # Linear in the total PHYSICAL cores of the HCI (VM-running)
+                # nodes; storage-only nodes run no VMs and are excluded.
+                core_cost = T.w_core_license * total_cores
+                score = T.w_cost * fleet_cost + core_cost + T.w_waste * waste
 
             # Don't let a high vCPU:core ratio quietly under-power the cluster:
             # penalise raw GHz that falls below the source cluster's total. This
@@ -1158,7 +1286,15 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                 "form_factor": model["form_factor"],
                 "chassis": model["chassis"],
                 "nic_ports": max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2),
-                "cost_tier": cost_tier,
+                # Licensing facts that MAY cross the wire: booleans and strings
+                # only, never a number with a currency behind it. "cores 49–64
+                # carry no licence cost" is exactly the kind of thing an SA
+                # needs; the euro figure that produced it is not (§5.8).
+                "licensing": _license_annotations(license_block, license_ctx),
+                # cost_tier is deliberately NOT serialized onto the candidate:
+                # it is a ranking weight, it reaches the browser from here, and
+                # nothing in the front end or the exports reads it. See
+                # docs/pricebook-plan.md §3.
                 "node_count": node_count,
                 "hci_node_count": hci_nodes,
                 "storage_only": storage_only_block,

@@ -428,7 +428,7 @@ def list_models():
     models = _model_query().order_by(Model.category, Model.name).all()
     result = []
     for m in models:
-        d = m.to_dict()
+        d = m.to_dict(include_internal=True)
         d["id"] = m.id
         d["name"] = m.name
         result.append(d)
@@ -440,7 +440,7 @@ def list_models():
 @admin_bp.route("/api/models/<int:model_id>")
 def get_model(model_id):
     m = _model_query().get_or_404(model_id)
-    d = m.to_dict()
+    d = m.to_dict(include_internal=True)
     d["id"] = m.id
     d["name"] = m.name
     d["cpu_options"] = [
