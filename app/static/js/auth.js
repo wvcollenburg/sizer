@@ -643,7 +643,16 @@ function fmtDate(iso) {
 // through the in-app info modal (no native alerts).
 // Returns true only when a sizing was actually persisted (so callers can chain
 // a "save then continue" flow); false if it was cancelled or failed.
+// Split-migration needs the open sizing's id (app.js has no view of loadedConfig).
+window.loadedConfigId = function () { return loadedConfig ? loadedConfig.id : null; };
+
 async function saveCurrentSizing() {
+    // Legacy multi-cluster sizings are a read-only record: the way forward is
+    // the split migration, not another save of the retired format.
+    if (window.isLegacyMultiSizing && window.isLegacyMultiSizing()) {
+        showInfoModal(t('legacy.readonly_title'), t('legacy.readonly_body'));
+        return false;
+    }
     if (!currentAccount) { openAuthModal(); return false; }
     // A DR target is a distinct, workload-less flow with its own in-place Save —
     // never route it through the new/update-config path (that made "Save" on the

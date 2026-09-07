@@ -375,7 +375,12 @@ function sizingRow(s, canEdit) {
     // Three distinct states, deliberately not merged: a re-import cannot be
     // fixed by recalculating (§3.3), so it must not read as ordinary staleness.
     let state;
-    if (s.needs_reimport) {
+    if (s.untouched) {
+        // Machine-created from a multi-cluster import; no human has reviewed
+        // it. Takes precedence: an unreviewed sizing must not read as merely
+        // "no result yet".
+        state = `<span class="state-badge state-untouched" title="${escHtml(tt('project.state.untouched_hint'))}">${escHtml(tt('project.state.untouched'))}</span>`;
+    } else if (s.needs_reimport) {
         state = `<span class="state-badge state-reimport" title="${escHtml(tt('project.state.reimport_hint'))}">${escHtml(tt('project.state.reimport'))}</span>`;
     } else if (!s.has_result) {
         state = `<span class="state-badge state-none">${escHtml(tt('project.state.none'))}</span>`;

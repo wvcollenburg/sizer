@@ -78,6 +78,7 @@ let dedicatedClusters = [];                  // names of workload-less DR target
 // separately): one replication target for the whole workload.
 let drCluster = { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
 let drTab = 'primary';                       // active tab in single-workload mode: 'primary' | 'dr'
+let legacyMultiSizing = false;               // opened sizing predates the per-cluster split: read-only
 let lastDrResult = null;                      // {summary, recommendations, projection} for the single-mode DR
 let vmModalCluster = COMBINED_KEY;           // active tab inside the Configure-VMs modal
 
@@ -1067,6 +1068,32 @@ async function uploadFile(file) {
             return;
         }
 
+        // A multi-cluster source: the user chooses between one sizing per
+        // cluster (the normal case — a sizing answers one question about one
+        // cluster) and a single combined consolidation sizing.
+        if ((data.clusters || []).length > 1) {
+            pendingImportData = data;
+            pendingImportFileName = file.name;
+            showUploadStatus(window.t('upload.analyzed', {
+                source: data.source === 'rvtools' ? 'RVTools' : 'Live Optics',
+                file: file.name, note: ''}), false);
+            openClusterFanout(data);
+            return;
+        }
+
+        finishImport(data, file.name);
+    } catch (e) {
+        showUploadStatus(window.t('upload.failed', {error: e.message}), true);
+    }
+}
+
+// Apply an import response to the sizing screen (single-cluster path, or the
+// explicit "size as one combined cluster" choice for multi-cluster sources).
+function finishImport(data, fileName) {
+    try {
+        legacyMultiSizing = false;
+        const legacyBanner = document.getElementById('legacy-multi-banner');
+        if (legacyBanner) legacyBanner.style.display = 'none';
         importSummary = data.summary;
         originalImportSummary = JSON.parse(JSON.stringify(data.summary));
         // Provenance for the project view and the export appendix: which file
@@ -1093,10 +1120,159 @@ async function uploadFile(file) {
         const scanNote = data.summary && data.summary.scan_type === 'general'
             ? window.t('upload.scan_note_general')
             : '';
-        showUploadStatus(window.t('upload.analyzed', {source: sourceLabel, file: file.name, note: scanNote}), false);
+        showUploadStatus(window.t('upload.analyzed', {source: sourceLabel, file: fileName, note: scanNote}), false);
         displayImportResults(data);
     } catch (e) {
         showUploadStatus(window.t('upload.failed', {error: e.message}), true);
+    }
+}
+
+// Read-only guard for legacy multi-cluster sizings (auth.js consults it
+// before saving) and the one-time split migration.
+window.isLegacyMultiSizing = function () { return legacyMultiSizing; };
+
+async function splitLegacySizing() {
+    // Prefer the loaded config; fall back to the URL (pushed before restore),
+    // so the migration works even when a legacy payload breaks restore midway.
+    let id = window.loadedConfigId ? window.loadedConfigId() : null;
+    if (!id) {
+        id = parseInt(new URLSearchParams(location.search).get('sizing'), 10) || null;
+    }
+    if (!id) return;
+    if (!confirm(window.t('legacy.split_confirm'))) return;
+    try {
+        const resp = await fetch(`/api/sizings/${id}/split`, {method: 'POST'});
+        const d = await resp.json();
+        if (!resp.ok) throw new Error(d.error || 'split failed');
+        legacyMultiSizing = false;
+        if (window.openProject && d.project_id != null) {
+            await window.openProject(d.project_id);
+        }
+    } catch (e) {
+        alert(window.t('legacy.split_failed', {error: e.message}));
+    }
+}
+
+// ── Multi-cluster fan-out ───────────────────────────────────────────────────
+// A multi-cluster import becomes N separate sizings in the project (a sizing
+// answers one question about one cluster; composition is the project's job).
+// The full import response is parked here while the user chooses.
+let pendingImportData = null;
+let pendingImportFileName = '';
+
+function openClusterFanout(data) {
+    const modal = document.getElementById('cluster-fanout-modal');
+    const list = document.getElementById('fanout-cluster-list');
+    list.innerHTML = data.clusters.map((cl, i) => `
+        <label class="fanout-row">
+            <input type="checkbox" checked data-fanout-idx="${i}" data-change='["updateFanoutCount"]'>
+            <span class="fanout-name">${esc(cl.name)}</span>
+            <span class="fanout-meta">${window.t('fanout.cluster_meta',
+                {hosts: cl.host_count, vms: cl.vm_count})}</span>
+        </label>`).join('');
+    updateFanoutCount();
+    modal.style.display = 'flex';
+}
+
+function closeClusterFanout() {
+    document.getElementById('cluster-fanout-modal').style.display = 'none';
+}
+
+function _fanoutChosen() {
+    return [...document.querySelectorAll('#fanout-cluster-list input[data-fanout-idx]')]
+        .filter(cb => cb.checked)
+        .map(cb => pendingImportData.clusters[parseInt(cb.dataset.fanoutIdx, 10)]);
+}
+
+function updateFanoutCount() {
+    const n = _fanoutChosen().length;
+    const btn = document.getElementById('fanout-create-btn');
+    btn.textContent = window.t('fanout.create_btn', {count: n});
+    btn.disabled = n === 0;
+}
+
+// "Size as one combined cluster" — the consolidation case: the whole dataset
+// continues into the normal single-sizing flow.
+function fanoutCombined() {
+    closeClusterFanout();
+    finishImport(pendingImportData, pendingImportFileName);
+}
+
+// Build one saved-sizing payload for a single source cluster. Shaped exactly
+// like captureSizingState() would produce for a fresh single-cluster import:
+// the per-cluster summary already carries the server-side shared-datastore
+// attribution (cluster_split), and the VM list is a plain field filter.
+function _fanoutSnap(cl, fields) {
+    const name = cl.name;
+    const vms = (pendingImportData.vms || []).filter(vm =>
+        (((vm.cluster || '').trim()) || UNCLUSTERED_KEY) === name);
+    return {
+        version: SNAPSHOT_VERSION,
+        mode: 'import',
+        fields,
+        drCluster: null,
+        import: {
+            originalImportSummary: JSON.parse(JSON.stringify(cl.summary)),
+            importSummary: cl.summary,
+            importVms: vms,
+            vmConfig: {},
+            exclCompute: [],
+            exclStorage: [],
+            includeLocalStorage: false,
+            lastProjection: null,
+            sourceClusters: [],
+            clusterBase: {},
+            separateClusters: false,
+            clusterOptions: {},
+            clusterSelectedRec: {},
+            selectedRec: null,
+            clusterReplication: {},
+            dedicatedClusters: [],
+            activeCluster: COMBINED_KEY,
+            wizardStep: null,
+        },
+    };
+}
+
+async function createPerClusterSizings() {
+    const chosen = _fanoutChosen();
+    if (!chosen.length) return;
+    const btn = document.getElementById('fanout-create-btn');
+    btn.disabled = true;
+    const fields = _captureFields('import');   // fresh-import defaults
+    const projectId = window.activeProjectId ? window.activeProjectId() : null;
+    let landingProject = projectId;
+    try {
+        for (const cl of chosen) {
+            const resp = await fetch('/api/configs/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: cl.name,
+                    payload: _fanoutSnap(cl, fields),
+                    project_id: projectId || undefined,
+                    source_meta: Object.assign({}, lastSourceMeta || {},
+                                               {cluster: cl.name}),
+                    // Marks the sizing "to be sized" until a person opens and
+                    // saves it; also asks the server for option-N name dedup.
+                    untouched: true,
+                }),
+            });
+            const d = await resp.json();
+            if (!resp.ok) throw new Error(d.error || 'save failed');
+            landingProject = d.project_id;   // quick path resolves to scratch
+        }
+        closeClusterFanout();
+        pendingImportData = null;
+        // Land on the project so the new rows (badged "to be sized") are the
+        // next thing the user sees; opening each one is the review.
+        if (window.openProject && landingProject != null) {
+            await window.openProject(landingProject);
+        }
+    } catch (e) {
+        btn.disabled = false;
+        showUploadStatus(window.t('fanout.failed', {error: e.message}), true);
+        closeClusterFanout();
     }
 }
 
@@ -2493,6 +2669,11 @@ const CVM_PATTERNS = [
     /^hpe\s*simplivity/i, /witness/i,
 ];
 
+// VMware's own infrastructure VMs, which never move to the target platform:
+// vCLS-<uuid> agent VMs (vSphere Cluster Services, one or more per cluster
+// since vSphere 7.0u1) and vCenter Server appliances (vcenter/VCSA naming).
+const VMWARE_ARTIFACT_PATTERNS = [/^vcls-/i, /vcenter/i, /^vcsa/i];
+
 function openVmExclusionModal() {
     if (!importVms.length) return;
     // Open the modal on the tab matching the cluster being sized; on the review
@@ -2732,6 +2913,23 @@ function selectPoweredOffVms() {
 function selectLikelyCVMs() {
     importVms.forEach((vm, i) => {
         if (CVM_PATTERNS.some(rx => rx.test(vm.name))) {
+            vmExclusions.compute.add(i);
+            vmExclusions.storage.add(i);
+        }
+    });
+    renderVmTable();
+    filterVmTable();
+    updateVmExclusionSummary();
+}
+
+// Remove (not merely exclude) VMware's own infrastructure VMs — vCLS agents
+// and vCenter appliances. The REMOVE flow takes them out of compute AND
+// storage and leaves each row struck through with its own restore button, so
+// a false positive is one click to undo.
+function removeVmwareArtifacts() {
+    importVms.forEach((vm, i) => {
+        if (VMWARE_ARTIFACT_PATTERNS.some(rx => rx.test(vm.name))) {
+            vmRemoved.add(i);
             vmExclusions.compute.add(i);
             vmExclusions.storage.add(i);
         }
@@ -3621,6 +3819,9 @@ function hasSizingToSave() {
 
 async function restoreSizingState(snap) {
     if (!snap || !snap.mode) return;
+    legacyMultiSizing = false;
+    const legacyBanner = document.getElementById('legacy-multi-banner');
+    if (legacyBanner) legacyBanner.style.display = 'none';
     switchMode(snap.mode);
     drCluster = snap.drCluster || { enabled: false, computePct: 100, storagePct: 100, mode: 'reserved', allowSingleNode: false };
     const f = snap.fields || {};
@@ -3661,6 +3862,13 @@ async function restoreSizingState(snap) {
 
     if (snap.mode === 'import') {
         const im = snap.import || {};
+        // Legacy multi-cluster sizing (several clusters in one document):
+        // opens read-only with the one-time split migration on offer.
+        legacyMultiSizing = ((im.sourceClusters || []).length > 1)
+            || (im.dedicatedClusters || []).length > 0
+            || !!(snap.drCluster && snap.drCluster.enabled);
+        const banner = document.getElementById('legacy-multi-banner');
+        if (banner) banner.style.display = legacyMultiSizing ? 'flex' : 'none';
         originalImportSummary = im.originalImportSummary;
         importVms = im.importVms || [];
         vmConfig = im.vmConfig || {};

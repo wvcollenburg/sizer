@@ -21,7 +21,8 @@ from database import db
 from extensions import limiter
 from project_models import (
     Project, ProjectTag, ConfigurationTag, ReplicationLink, ScaleProjectLink,
-    SIZING_ROLES, ensure_scratch_project, new_code, valid_salesforce_url,
+    SIZING_ROLES, dedupe_sizing_name, ensure_scratch_project, new_code,
+    valid_salesforce_url,
 )
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
@@ -830,6 +831,196 @@ def create_dr_target(project_id):
         return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
 
     return jsonify(sizing.to_summary(user, "owned")), 201
+
+
+# ── Legacy multi-cluster split ────────────────────────────────────────────────
+
+UNCLUSTERED_NAME = "(unclustered)"   # mirrors cluster_split.UNCLUSTERED
+
+
+def _add_config_with_code(**kw):
+    """Create a Configuration under a fresh share code, retrying code
+    collisions inside a savepoint so earlier creations in the same split
+    survive the retry."""
+    for _ in range(6):
+        try:
+            with db.session.begin_nested():
+                cfg = Configuration(code=new_code(), **kw)
+                db.session.add(cfg)
+            return cfg
+        except IntegrityError:
+            continue
+    raise RuntimeError("could not allocate a unique code")
+
+
+@sizings_bp.route("/<int:config_id>/split", methods=["POST"])
+@login_required
+def split_legacy_sizing(config_id):
+    """Split a legacy multi-cluster sizing into one sizing per source cluster.
+
+    The one-time migration off the old model (one sizing, cluster tabs): each
+    workload cluster becomes its own single-cluster sizing carrying that
+    cluster's pristine summary, its VM list (edits/exclusions re-indexed), its
+    per-cluster options and chosen recommendation; in-sizing dedicated DR
+    clusters become project DR-target sizings; in-sizing replication becomes
+    ReplicationLink rows. The original sizing is soft-deleted — its content
+    lives on in the pieces.
+    """
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    project, err = _owned_project_or_error(sizing.project_id, user)
+    if err:
+        return err
+
+    payload = sizing.payload or {}
+    imp = payload.get("import") if payload.get("mode") == "import" else None
+    if not isinstance(imp, dict):
+        return jsonify({"error": "Only imported sizings can be split"}), 400
+    source_clusters = imp.get("sourceClusters") or []
+    dedicated = [n for n in (imp.get("dedicatedClusters") or [])]
+    dr = payload.get("drCluster") or {}
+    workload = [c for c in source_clusters
+                if (c.get("name") or "") not in set(dedicated)]
+    if len(workload) < 2 and not dedicated and not dr.get("enabled"):
+        return jsonify({"error": "This sizing has a single cluster and "
+                                 "nothing to split"}), 400
+
+    cluster_base = imp.get("clusterBase") or {}
+    vms = imp.get("importVms") or []
+    vm_cfg = imp.get("vmConfig") or {}
+    excl_c = set(imp.get("exclCompute") or [])
+    excl_s = set(imp.get("exclStorage") or [])
+    cluster_opts = imp.get("clusterOptions") or {}
+    sel_rec = imp.get("clusterSelectedRec") or {}
+
+    position = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).count()
+    created = {}
+    try:
+        for c in workload:
+            name = (c.get("name") or "").strip()
+            summary = cluster_base.get(name) or c.get("summary")
+            if not name or not isinstance(summary, dict):
+                return jsonify({"error": f"Cluster '{name}' carries no "
+                                         "summary; re-import the file "
+                                         "instead of splitting"}), 400
+            kept, cfg_map, ec, es = [], {}, [], []
+            for old_idx, vm in enumerate(vms):
+                vm_cl = ((vm.get("cluster") or "").strip()) or UNCLUSTERED_NAME
+                if vm_cl != name:
+                    continue
+                new_idx = len(kept)
+                kept.append(vm)
+                # vmConfig keys arrive as strings after the JSON round-trip.
+                ov = vm_cfg.get(str(old_idx), vm_cfg.get(old_idx))
+                if ov:
+                    cfg_map[str(new_idx)] = ov
+                if old_idx in excl_c:
+                    ec.append(new_idx)
+                if old_idx in excl_s:
+                    es.append(new_idx)
+            fields = dict(payload.get("fields") or {})
+            fields.update(cluster_opts.get(name) or {})
+            new_payload = {
+                "version": payload.get("version", 2),
+                "mode": "import",
+                "fields": fields,
+                "drCluster": None,
+                "import": {
+                    "originalImportSummary": summary,
+                    "importSummary": summary,
+                    "importVms": kept,
+                    "vmConfig": cfg_map,
+                    "exclCompute": ec,
+                    "exclStorage": es,
+                    "includeLocalStorage": imp.get("includeLocalStorage", False),
+                    "lastProjection": None,
+                    "sourceClusters": [],
+                    "clusterBase": {},
+                    "separateClusters": False,
+                    "clusterOptions": {},
+                    "clusterSelectedRec": {},
+                    "selectedRec": sel_rec.get(name),
+                    "clusterReplication": {},
+                    "dedicatedClusters": [],
+                    "activeCluster": "__combined__",
+                    "wizardStep": None,
+                },
+            }
+            from auth import _payload_digest
+            created[name] = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, name),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload=new_payload,
+                project_id=project.id, position=position,
+                role=sizing.role or project.default_role,
+                source_meta=dict(sizing.source_meta or {}, cluster=name) or None,
+                parser_version=sizing.parser_version,
+                payload_digest=_payload_digest(new_payload),
+            )
+            position += 1
+
+        # In-sizing dedicated DR clusters -> project DR-target sizings.
+        for name in dedicated:
+            created[name] = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, name),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload={"mode": "dr_target"},
+                project_id=project.id, position=position,
+                role=sizing.role or project.default_role, is_dr_target=True,
+            )
+            position += 1
+
+        # Whole-workload DR (the non-separate path's single target).
+        if dr.get("enabled"):
+            dr_cfg = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, "DR target"),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload={"mode": "dr_target"},
+                project_id=project.id, position=position,
+                role=sizing.role or project.default_role, is_dr_target=True,
+            )
+            created[dr_cfg.name] = dr_cfg
+            for c in workload:
+                name = (c.get("name") or "").strip()
+                if name in created:
+                    db.session.add(ReplicationLink(
+                        project_id=project.id,
+                        source_configuration_id=created[name].id,
+                        target_configuration_id=dr_cfg.id,
+                        compute_pct=int(dr.get("computePct") or 100),
+                        storage_pct=int(dr.get("storagePct") or 100),
+                        mode=(dr.get("mode") or "reserved"),
+                    ))
+
+        # In-sizing replication -> project links (whole-sizing endpoints).
+        for src_name, r in (imp.get("clusterReplication") or {}).items():
+            tgt = (r or {}).get("target")
+            if src_name in created and tgt in created:
+                db.session.add(ReplicationLink(
+                    project_id=project.id,
+                    source_configuration_id=created[src_name].id,
+                    target_configuration_id=created[tgt].id,
+                    compute_pct=int(r.get("computePct") or 0),
+                    storage_pct=int(r.get("storagePct") or 0),
+                    mode=(r.get("mode") or "reserved"),
+                ))
+
+        sizing.is_deleted = True
+        sizing.deleted_at = _utcnow()
+        sizing.deleted_by_user_id = user.id
+        db.session.commit()
+    except RuntimeError:
+        db.session.rollback()
+        return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    return jsonify({
+        "created": [cfg.to_summary(user, "owned") for cfg in created.values()],
+        "deleted_id": sizing.id,
+        "project_id": project.id,
+    }), 201
 
 
 # ── DR-target sizing (workload-less, sized from inbound replication) ──────────

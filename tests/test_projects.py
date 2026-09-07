@@ -510,3 +510,174 @@ def test_moving_a_sizing_drops_its_project_scoped_tags(app):
     detail = c.get(f"/api/projects/{second['id']}").get_json()
     assert detail["sizings"][0]["tags"] == [], \
         "tags belong to the old project's vocabulary and must not follow"
+
+
+# ── multi-cluster fan-out: untouched flag + option naming ────────────────────
+
+def _fanout_save(c, name, project_id):
+    resp = c.post("/api/configs/", json={
+        "name": name, "payload": {"mode": "import", "fields": {}},
+        "project_id": project_id, "untouched": True,
+    })
+    assert resp.status_code == 201, resp.get_data(as_text=True)
+    return resp.get_json()
+
+
+def test_fanout_untouched_flag_set_and_cleared_by_human_save(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Multi")["id"]
+
+    row = _fanout_save(c, "PROD", pid)
+    assert row["untouched"] is True
+
+    # Ordinary saves are never flagged.
+    plain = save_sizing(c, "Manual one", project_id=pid)
+    assert plain["untouched"] is False
+
+    # Any payload save is the human-review signal: the flag comes off.
+    upd = c.put(f"/api/configs/{row['id']}",
+                json={"payload": {"mode": "import", "fields": {"a": 1}}})
+    assert upd.status_code == 200
+    assert upd.get_json()["untouched"] is False
+
+
+def test_fanout_option_naming_on_collision(app):
+    """First import keeps plain cluster names; a re-import of the same file
+    reads as alternative options, not mystery duplicates."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Multi")["id"]
+
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD"
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD - option 2"
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD - option 3"
+
+    # Scoped to fan-out saves: ordinary saves keep duplicate names untouched.
+    assert save_sizing(c, "PROD", project_id=pid)["name"] == "PROD"
+
+
+# ── legacy multi-cluster split migration ─────────────────────────────────────
+
+def _legacy_multi_payload():
+    """A saved-sizing payload in the retired shape: two workload clusters, one
+    in-sizing dedicated DR cluster, per-cluster options, VM edits/exclusions
+    (indexed into the FULL VM list), and in-sizing replication."""
+    vms = [
+        {"name": "prod-vm1", "cluster": "PROD", "vcpus": 4},
+        {"name": "db-vm1", "cluster": "DB", "vcpus": 8},
+        {"name": "prod-vm2", "cluster": "PROD", "vcpus": 2},
+        {"name": "db-vm2", "cluster": "DB", "vcpus": 2},
+    ]
+    return {
+        "version": 2, "mode": "import",
+        "fields": {"growth-pct": "10", "snapshot-pct": "20"},
+        "drCluster": {"enabled": False},
+        "import": {
+            "originalImportSummary": {"total_vms": 4},
+            "importSummary": {"total_vms": 4},
+            "importVms": vms,
+            # Keys are strings after a JSON round-trip; index into the FULL list.
+            "vmConfig": {"2": {"vcpus": 6}, "1": {"model": "db box"}},
+            "exclCompute": [3], "exclStorage": [3],
+            "includeLocalStorage": True,
+            "sourceClusters": [
+                {"name": "PROD", "host_count": 2, "vm_count": 2},
+                {"name": "DB", "host_count": 1, "vm_count": 2},
+                {"name": "DR-Site", "host_count": 0, "vm_count": 0},
+            ],
+            "clusterBase": {"PROD": {"total_vms": 2, "total_vcpus": 6},
+                            "DB": {"total_vms": 2, "total_vcpus": 10},
+                            "DR-Site": {"total_vms": 0}},
+            "separateClusters": True,
+            "clusterOptions": {"DB": {"growth-pct": "25"}},
+            "clusterSelectedRec": {"PROD": 1},
+            "clusterReplication": {
+                "PROD": {"target": "DR-Site", "computePct": 50,
+                         "storagePct": 100, "mode": "failover"},
+            },
+            "dedicatedClusters": ["DR-Site"],
+            "activeCluster": "PROD",
+        },
+    }
+
+
+def test_split_legacy_multicluster_sizing(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Legacy")["id"]
+    row = save_sizing(c, "Old combined", project_id=pid,
+                      payload=_legacy_multi_payload())
+
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 201, resp.get_data(as_text=True)
+    out = resp.get_json()
+    by_name = {r["name"]: r for r in out["created"]}
+    assert set(by_name) == {"PROD", "DB", "DR-Site"}
+    assert by_name["DR-Site"]["is_dr_target"] is True
+    assert by_name["PROD"]["untouched"] is False   # content was human-reviewed
+
+    with app.app_context():
+        from project_models import ReplicationLink
+        prod = db.session.get(Configuration, by_name["PROD"]["id"])
+        dbc = db.session.get(Configuration, by_name["DB"]["id"])
+
+        # PROD: its 2 VMs, the edit on full-list idx 2 remapped to local idx 1.
+        pimp = prod.payload["import"]
+        assert [v["name"] for v in pimp["importVms"]] == ["prod-vm1", "prod-vm2"]
+        assert pimp["vmConfig"] == {"1": {"vcpus": 6}}
+        assert pimp["exclCompute"] == [] and pimp["selectedRec"] == 1
+        assert pimp["originalImportSummary"]["total_vcpus"] == 6
+        assert prod.payload["fields"]["growth-pct"] == "10"
+
+        # DB: exclusion on full-list idx 3 remapped to local idx 1; options
+        # overlay applied.
+        dimp = dbc.payload["import"]
+        assert [v["name"] for v in dimp["importVms"]] == ["db-vm1", "db-vm2"]
+        assert dimp["vmConfig"] == {"0": {"model": "db box"}}
+        assert dimp["exclCompute"] == [1] and dimp["exclStorage"] == [1]
+        assert dbc.payload["fields"]["growth-pct"] == "25"
+
+        # Replication became a project link with whole-sizing endpoints.
+        (link,) = ReplicationLink.query.all()
+        assert link.source_configuration_id == prod.id
+        assert link.target_configuration_id == by_name["DR-Site"]["id"]
+        assert (link.compute_pct, link.storage_pct, link.mode) == (50, 100, "failover")
+        assert link.source_cluster == "" and link.target_cluster == ""
+
+        # The original is gone from the project (soft-deleted).
+        original = db.session.get(Configuration, row["id"])
+        assert original.is_deleted is True
+
+
+def test_split_refuses_single_cluster_sizing(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Single")["id"]
+    row = save_sizing(c, "Plain", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importVms": [], "sourceClusters": []},
+    })
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 400
+
+
+def test_split_converts_whole_workload_dr(app):
+    """The non-separate path's single DR target becomes a project DR-target
+    sizing with one inbound link per workload sizing."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "DRLegacy")["id"]
+    payload = _legacy_multi_payload()
+    payload["drCluster"] = {"enabled": True, "computePct": 40,
+                            "storagePct": 80, "mode": "reserved"}
+    payload["import"]["clusterReplication"] = {}
+    row = save_sizing(c, "Old with DR", project_id=pid, payload=payload)
+
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 201
+    by_name = {r["name"]: r for r in resp.get_json()["created"]}
+    assert "DR target" in by_name and by_name["DR target"]["is_dr_target"] is True
+
+    with app.app_context():
+        from project_models import ReplicationLink
+        links = ReplicationLink.query.filter_by(
+            target_configuration_id=by_name["DR target"]["id"]).all()
+        assert len(links) == 2      # PROD and DB both replicate in
+        assert {(l.compute_pct, l.storage_pct, l.mode) for l in links} \
+            == {(40, 80, "reserved")}

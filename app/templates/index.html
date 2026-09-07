@@ -167,6 +167,16 @@
                 <span data-i18n="project.bar.sizing">Sizing</span>:
                 <strong id="sizer-sizing-name"></strong></span>
         </div>
+        <!-- Legacy multi-cluster sizing: read-only, with the one-time split
+             migration into per-cluster sizings. -->
+        <div id="legacy-multi-banner" class="info-bar legacy-multi-banner" style="display:none">
+            <span class="info-bar-icon">i</span>
+            <span>
+                <strong data-i18n="legacy.banner_title">Legacy multi-cluster sizing.</strong>
+                <span data-i18n="legacy.banner_body">This sizing holds several clusters in one document, which this version no longer edits. Split it into one sizing per cluster (replication and DR targets move to the project) — or keep it as a read-only record.</span>
+            </span>
+            <button class="btn btn-sm btn-primary" data-click='["splitLegacySizing"]' data-i18n="legacy.split_btn">Split into separate sizings</button>
+        </div>
         <section class="mode-selector">
             <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="7" cy="6" r="1" fill="currentColor"/><circle cx="7" cy="18" r="1" fill="currentColor"/><line x1="12" y1="6" x2="18" y2="6"/><line x1="12" y1="18" x2="18" y2="18"/></svg></span>
@@ -924,6 +934,28 @@
         decisions taken based on its output. Always validate results before relying on them.</span>
     </div>
 
+    <!-- Multi-cluster fan-out chooser: one sizing per source cluster (default)
+         or a single combined consolidation sizing. -->
+    <div class="modal-overlay" id="cluster-fanout-modal" style="display:none">
+        <div class="modal-content" style="max-width:640px">
+            <div class="modal-header">
+                <h2 data-i18n="fanout.title">Multiple clusters detected</h2>
+                <button class="modal-close" data-click='["closeClusterFanout"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <p class="import-info" data-i18n="fanout.intro">This file contains several source clusters. The recommended path creates one sizing per cluster in your project, so each cluster gets its own options, recommendation and licence. Replication between them is configured on the project page.</p>
+                <div id="fanout-cluster-list" class="fanout-list"></div>
+                <p class="import-info muted" data-i18n="fanout.combined_hint">Choose the combined option only when these clusters are meant to consolidate into a single new cluster.</p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["fanoutCombined"]' data-i18n="fanout.combined_btn">Size as one combined cluster</button>
+                    <button class="btn btn-primary" id="fanout-create-btn" data-click='["createPerClusterSizings"]'>Create sizings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">
@@ -950,6 +982,7 @@
                     <button class="btn btn-sm" data-click='["addVm"]' data-i18n="modal.vmexcl.add_vm">+ Add VM</button>
                     <button class="btn btn-sm" data-click='["selectPoweredOffVms"]' data-i18n="modal.vmexcl.select_powered_off">Select powered off</button>
                     <button class="btn btn-sm" data-click='["selectLikelyCVMs"]' data-i18n="modal.vmexcl.select_cvms">Select likely CVMs</button>
+                    <button class="btn btn-sm" data-click='["removeVmwareArtifacts"]' data-i18n-title="modal.vmexcl.remove_vmware_title" title="Remove vCenter and vCLS helper VMs — VMware infrastructure that does not move to the new platform" data-i18n="modal.vmexcl.remove_vmware">Remove VMware artifacts</button>
                     <button class="btn btn-sm btn-muted" data-click='["clearAllVmExclusions"]' data-i18n="modal.vmexcl.clear_all">Clear all</button>
                 </div>
             </div>

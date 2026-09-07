@@ -1260,6 +1260,12 @@ def create_config():
     if not isinstance(source_meta, dict):
         source_meta = None
 
+    # Fan-out naming (multi-cluster imports): " - option N" on collision.
+    # Scoped to machine-created sizings; ordinary saves keep today's behaviour.
+    if data.get("untouched"):
+        from project_models import dedupe_sizing_name
+        name = dedupe_sizing_name(project.id, name)
+
     from project_models import new_code
     for _ in range(6):
         config = Configuration(
@@ -1270,6 +1276,9 @@ def create_config():
             source_meta=source_meta,
             parser_version=(source_meta or {}).get("parser_version"),
             payload_digest=_payload_digest(payload),
+            # Machine-created fan-out sizings arrive unreviewed; any later
+            # human save (PUT with a payload) clears the flag.
+            untouched=bool(data.get("untouched")),
         )
         db.session.add(config)
         try:
@@ -1350,6 +1359,8 @@ def update_config(config_id):
         # Keep the digest in step: anything replicating into this sizing folds
         # it into its own fingerprint and must go stale when the workload moves.
         config.payload_digest = _payload_digest(data["payload"])
+        # A payload save is a human review: the "to be sized" badge comes off.
+        config.untouched = False
     db.session.commit()
     return jsonify(config.to_summary(user, "owned"))
 

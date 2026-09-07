@@ -198,6 +198,22 @@ class ScaleProjectLink(db.Model):
     )
 
 
+def dedupe_sizing_name(project_id, name):
+    """Fan-out naming: the first sizing keeps the plain (cluster) name, later
+    collisions in the same project become "<name> - option N" — a re-import
+    reads as an alternative option, not a mystery duplicate."""
+    from auth_models import Configuration
+    existing = {c.name for c in Configuration.query.filter_by(
+        project_id=project_id, is_deleted=False).all()}
+    base = (name or "").strip()[:180] or "Sizing"
+    if base not in existing:
+        return base
+    n = 2
+    while f"{base} - option {n}" in existing:
+        n += 1
+    return f"{base} - option {n}"
+
+
 class ReplicationLink(db.Model):
     """One cluster replicating to a cluster in another sizing (§8.5).
 

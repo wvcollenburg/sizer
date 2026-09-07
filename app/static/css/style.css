@@ -1442,6 +1442,25 @@ body { padding-bottom: 64px; }
 
 .rec-determinant strong { color: var(--accent); }
 
+/* Legacy multi-cluster banner (read-only sizing + split migration) */
+.legacy-multi-banner { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0; }
+.legacy-multi-banner .btn { margin-left: auto; flex: 0 0 auto; }
+
+/* Multi-cluster fan-out chooser */
+.fanout-list { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.8rem 0; }
+.fanout-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); cursor: pointer;
+}
+.fanout-row input[type="checkbox"] { width: auto; height: auto; box-shadow: none; }
+.fanout-name { font-weight: 600; }
+.fanout-meta { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
+
+/* "To be sized" badge on machine-created fan-out sizings (project page). */
+.state-badge.state-untouched { background: var(--orange-bg, #fff3e0); color: var(--orange, #b26a00); }
+
 /* Required-licence line on a recommendation card — same quiet strip as the
    determinant line above it. */
 .rec-license {
