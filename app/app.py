@@ -22,9 +22,9 @@ from rvtools import parse_rvtools
 from import_checks import build_import_warnings
 from recommend import generate_recommendations
 from tunables import T, refresh_from_db
-# NOTE: the synchronous single-sizing/inline export routes and their document
-# generators moved to unused_exports.py when exports became project-level only.
-# Re-enable them by calling register_unused_exports(app, pick_lang) in create_app.
+# NOTE: exports are project-level only (export_worker + the project export
+# queue); the old synchronous in-sizer export routes were removed with the
+# per-cluster-sizing restructure.
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
 from calc import (calculate_appliance, calculate_validated, MAX_STORAGE_ONLY_COUNT,

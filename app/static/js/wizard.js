@@ -2,11 +2,14 @@
 //
 // This file adds NO sizing/exclusion logic. It relocates the existing import
 // panels (upload, environment cards, VM-triage panel, sizing options, growth,
-// recommendation lists, multi-site review) into a stepped, one-at-a-time wizard
-// and orchestrates the existing global functions in app.js:
+// recommendation list) into a stepped, one-at-a-time wizard and orchestrates
+// the existing global functions in app.js:
 //   uploadFile / displayImportResults / renderEnvWorkloadCards /
-//   recalcRecommendations / toggleSeparateClusters / _selectClusterKey /
-//   addDedicatedCluster / renderSelectedClustersTab / saveAndReturnToProject ...
+//   recalcRecommendations / saveAndReturnToProject ...
+//
+// A sizing holds ONE cluster (multi-cluster imports fan out into separate
+// sizings at upload time via the fan-out chooser in app.js), so the wizard is
+// five steps: Upload -> Environment -> VMs -> Options -> Recommendations.
 //
 // The wizard is the DEFAULT import experience; the untouched all-at-once page is
 // kept as a "classic / advanced view" the user can switch to (and back) at any
@@ -14,10 +17,8 @@
 //
 // Scope note on globals: app.js declares its FUNCTIONS with `function` (so they
 // are properties of window and callable as window.foo / foo), but its STATE is
-// declared with let/const (sourceClusters, separateClusters, activeCluster,
-// dedicatedClusters, SELECTED_KEY, ...). Those live in the shared global lexical
-// environment, NOT on window, so we read them by BARE name. wizard.js loads
-// after app.js, so the bindings already exist.
+// declared with let/const and lives in the shared global lexical environment,
+// NOT on window. wizard.js loads after app.js, so the bindings already exist.
 //
 // Mechanism: each existing panel is "portaled" (moved in the DOM) into a wizard
 // step pane on activation and moved back to its original home on classic/exit.
@@ -29,18 +30,10 @@
     'use strict';
 
     var VIEW_KEY = 'sizerImportView';           // 'guided' (default) | 'classic'
-    var PANES = 7;                              // panes built; step 7 (combined
-                                                // export) only applies to multi-site
+    var PANES = 5;
     var state = { active: false, step: 1, reached: 1, imported: false, advOpen: false };
 
-    // Step 7 (combined multi-site export/review) only exists when sizing clusters
-    // separately. For a single cluster, export lives on each recommendation card
-    // in step 6, so the wizard ends there.
-    function isMulti() {
-        var s = S();
-        return !!(s.separate && s.clusters && s.clusters.length > 1);
-    }
-    function lastStep() { return isMulti() ? 7 : 6; }
+    function lastStep() { return PANES; }
 
     function t(k, vars) { return window.t ? window.t(k, vars) : k; }
     function esc(s) {
@@ -51,18 +44,6 @@
     }
     function $(id) { return document.getElementById(id); }
     function qs(sel) { return document.querySelector(sel); }
-
-    // Safe reads of app.js's lexical-global state (undefined if app.js not yet
-    // loaded, which never happens in practice since we load after it).
-    function S() {
-        return {
-            clusters: (typeof sourceClusters !== 'undefined') ? sourceClusters : [],
-            separate: (typeof separateClusters !== 'undefined') ? separateClusters : false,
-            active: (typeof activeCluster !== 'undefined') ? activeCluster : null,
-            dedicated: (typeof dedicatedClusters !== 'undefined') ? dedicatedClusters : [],
-            selectedKey: (typeof SELECTED_KEY !== 'undefined') ? SELECTED_KEY : '__selected__'
-        };
-    }
 
     // ---- Portal helpers -----------------------------------------------------
     function portal(node, dest) {
@@ -91,9 +72,8 @@
 
     // ---- Shell construction -------------------------------------------------
     var STEP_KEYS = [
-        'wizard.step.upload', 'wizard.step.environment', 'wizard.step.layout',
-        'wizard.step.vms', 'wizard.step.options', 'wizard.step.recommendations',
-        'wizard.step.export'
+        'wizard.step.upload', 'wizard.step.environment', 'wizard.step.vms',
+        'wizard.step.options', 'wizard.step.recommendations'
     ];
 
     function buildShell() {
@@ -162,9 +142,9 @@
         portalInto('.import-upload', 'wiz-body-1');
         portalInto('#env-summary', 'wiz-body-2');
         portalInto('.import-workload', 'wiz-body-2');
-        portalInto('#vm-triage-panel', 'wiz-body-4');
-        portalInto('.ratio-control', 'wiz-body-5');
-        portalInto('.growth-control', 'wiz-body-5');
+        portalInto('#vm-triage-panel', 'wiz-body-3');
+        portalInto('.ratio-control', 'wiz-body-4');
+        portalInto('.growth-control', 'wiz-body-4');
         // In the rail these panels start collapsed; as a wizard step they ARE
         // the content, so nothing should be hidden behind a chevron here.
         ['.ratio-control', '.growth-control'].forEach(function (sel) {
@@ -173,37 +153,8 @@
             var btn = el && el.querySelector('.panel-toggle');
             if (btn) btn.setAttribute('aria-expanded', 'true');
         });
-        portalInto('#dr-tabs', 'wiz-body-6');
-        portalInto('#primary-recommendations', 'wiz-body-6');
-        portalInto('#dr-recommendations', 'wiz-body-6');
-        portalInto('#cluster-review', 'wiz-body-7');
+        portalInto('#primary-recommendations', 'wiz-body-5');
     }
-
-    // A wizard-owned per-cluster tab bar (steps 5/6). Deliberately separate from
-    // the classic #cluster-tabs bar (which carries a "Selected clusters" review
-    // tab that would break mid-wizard); this one only switches the active editing
-    // cluster via the existing _selectClusterKey().
-    function clusterBarHtml() {
-        var s = S();
-        if (!s.separate || !s.clusters || s.clusters.length < 2) return '';
-        var tabs = s.clusters.map(function (c, i) {
-            var cls = 'cluster-tab' + (c.name === s.active ? ' active' : '') +
-                (s.dedicated && s.dedicated.indexOf(c.name) !== -1 ? ' cluster-tab-dedicated' : '');
-            var badge = '<span class="cluster-tab-badge">' +
-                t('cluster.tab_badge', { hosts: c.host_count, vms: c.vm_count }) + '</span>';
-            return '<button class="' + cls + '" data-click=\'["wizSelectCluster",' + i + ']\'>' +
-                esc(c.name) + badge + '</button>';
-        }).join('');
-        return '<div class="cluster-tabs wiz-clusterbar" style="display:flex"><div class="cluster-tab-row">' +
-            tabs + '</div></div>';
-    }
-
-    window.wizSelectCluster = function (i) {
-        var s = S();
-        if (!s.clusters || !s.clusters[i]) return;
-        if (typeof _selectClusterKey === 'function') _selectClusterKey(s.clusters[i].name);
-        renderStep(state.step);   // follow the highlight / per-cluster chrome
-    };
 
     // ---- Per-step chrome ----------------------------------------------------
     function stepChrome(n) {
@@ -212,10 +163,8 @@
         if (chrome) chrome.innerHTML = '';
         if (after) after.innerHTML = '';
         if (n === 2) return renderEnvCaveats();
-        if (n === 3) return renderLayoutStep();
-        if (n === 5) return renderOptionsChrome();
-        if (n === 6) { if (chrome) { chrome.innerHTML = clusterBarHtml(); window.translateDOM && window.translateDOM(chrome); } return; }
-        if (n === 7) return renderExportStep();
+        if (n === 4) return renderOptionsChrome();
+        if (n === 5) return renderSaveClose(chrome ? chrome.parentNode : null);
     }
 
     function renderEnvCaveats() {
@@ -232,58 +181,8 @@
             }).join('') + '</ul></div>';
     }
 
-    function renderLayoutStep() {
-        var chrome = $('wiz-chrome-3');
-        if (!chrome) return;
-        var s = S();
-        var multi = s.clusters && s.clusters.length > 1;
-        if (multi) {
-            var head = '<p class="wiz-layout-detected">' +
-                esc(t('wizard.layout.detected_multi', { count: s.clusters.length })) + '</p>';
-            var toggle = '<label class="checkbox-inline wiz-sep-toggle">' +
-                '<input type="checkbox"' + (s.separate ? ' checked' : '') +
-                ' data-change=\'["wizToggleSeparate","$checked"]\'>' +
-                '<span>' + esc(t('import.separate_clusters')) + '</span></label>';
-            var list = '';
-            if (s.separate) {
-                list = '<div class="wiz-cluster-list">' + s.clusters.map(function (c) {
-                    var ded = s.dedicated && s.dedicated.indexOf(c.name) !== -1;
-                    return '<div class="wiz-cluster-row' + (ded ? ' dedicated' : '') + '">' +
-                        '<span class="wiz-cluster-name">' + esc(c.name) + '</span>' +
-                        '<span class="wiz-cluster-meta">' + t('cluster.tab_badge', { hosts: c.host_count, vms: c.vm_count }) + '</span>' +
-                        (ded ? '<span class="wiz-cluster-tag">' + esc(t('cluster.dedicated_platform')) + '</span>' : '') +
-                        '</div>';
-                }).join('') + '</div>' +
-                '<div class="wiz-layout-actions">' +
-                '<button class="btn btn-sm btn-muted" data-click=\'["wizAddDedicated"]\'>' +
-                esc(t('cluster.add_dedicated')) + '</button></div>';
-            }
-            chrome.innerHTML = head + toggle + list;
-        } else {
-            chrome.innerHTML = '<p class="wiz-layout-single">' + esc(t('wizard.layout.single')) + '</p>';
-        }
-        window.translateDOM && window.translateDOM(chrome);
-    }
-
-    window.wizToggleSeparate = function (checked) {
-        if (typeof toggleSeparateClusters === 'function') toggleSeparateClusters(checked);
-        renderStep(3);
-    };
-    window.wizAddDedicated = function () {
-        if (typeof addDedicatedCluster === 'function') addDedicatedCluster();
-        renderStep(3);
-    };
-
     function renderOptionsChrome() {
-        var chrome = $('wiz-chrome-5');
-        if (!chrome) return;
-        var s = S();
-        var applyAll = (s.separate && s.clusters && s.clusters.length > 1)
-            ? '<button class="btn btn-sm btn-muted" data-click=\'["applyOptionsToAllClusters"]\'>' +
-              esc(t('cluster.apply_all')) + '</button>' : '';
-        chrome.innerHTML = clusterBarHtml() + '<div class="wiz-opts-actions">' + applyAll + '</div>';
-        window.translateDOM && window.translateDOM(chrome);
-        var after = $('wiz-after-5');
+        var after = $('wiz-after-4');
         if (after) {
             after.innerHTML = '<button class="btn btn-link wiz-adv-toggle" data-click=\'["wizardToggleAdvanced"]\'>' +
                 esc(state.advOpen ? t('wizard.options.hide_advanced') : t('wizard.options.show_advanced')) + '</button>';
@@ -299,33 +198,9 @@
         renderOptionsChrome();
     };
 
-    function renderExportStep() {
-        var chrome = $('wiz-chrome-7');
-        if (!chrome) return;
-        var s = S();
-        var multi = s.separate && s.clusters && s.clusters.length > 1;
-        if (multi) {
-            chrome.innerHTML = '<p class="wiz-intro">' + esc(t('wizard.export.multi_intro')) + '</p>';
-            // Enter the existing "Selected clusters" review, which populates
-            // #cluster-review (portaled into this pane) with per-cluster cards.
-            // Exports now live at the project level, so the review carries no
-            // export buttons — Save & close returns to the project to export.
-            if (typeof _selectClusterKey === 'function') _selectClusterKey(s.selectedKey);
-            var rev = $('cluster-review');
-            if (rev) rev.style.display = 'block';
-        } else {
-            chrome.innerHTML = '<p class="wiz-intro">' + esc(t('wizard.export.single_intro')) + '</p>';
-        }
-        renderSaveClose(chrome.parentNode);
-    }
-
-    // The multi-cluster path picks an option per cluster across step 6, so the
-    // per-card "use in export and save" that single sizings get would drop you
-    // out half-way through. The wizard's last step is where that flow actually
-    // ends, so the save lives here instead.
-    //
-    // Appended after the review rather than into the chrome above it, so it
-    // reads as the end of the page — and kept last on every re-render.
+    // The flow ends on the recommendations step: picking an option on a card
+    // already saves-and-returns, and this button is the explicit way out for a
+    // user who is done without changing the pick.
     function renderSaveClose(pane) {
         if (!pane || typeof window.saveAndReturnToProject !== 'function') return;
         var host = $('wiz-save-close');
@@ -354,32 +229,24 @@
     }
 
     function onLeave(n) {
-        if (n === 4 && typeof applyVmExclusions === 'function') {
+        if (n === 3 && typeof applyVmExclusions === 'function') {
             applyVmExclusions();       // commit exclusions/edits for later steps
-        }
-        if (n === 7) {
-            var s = S();
-            if (s.separate && typeof _selectClusterKey === 'function' && s.clusters && s.clusters.length) {
-                _selectClusterKey(s.clusters[0].name);   // leave review mode
-            }
         }
     }
 
     function onEnter(n) {
-        if (n === 4) {
+        if (n === 3) {
             if (typeof renderVmTable === 'function') renderVmTable();
             if (typeof filterVmTable === 'function') filterVmTable();
             if (typeof updateVmExclusionSummary === 'function') updateVmExclusionSummary();
         }
-        if (n === 5) {
-            if (typeof renderReplicationOptions === 'function') renderReplicationOptions();
-            if (typeof renderDrClusterOption === 'function') renderDrClusterOption();
+        if (n === 4) {
             if (typeof recalcRecommendations === 'function') recalcRecommendations();
             applyAdvState();
         } else {
             document.body.classList.remove('wiz-adv-collapsed');
         }
-        if (n === 6 && typeof recalcRecommendations === 'function') recalcRecommendations();
+        if (n === 5 && typeof recalcRecommendations === 'function') recalcRecommendations();
     }
 
     function renderStep(n) {
@@ -441,17 +308,6 @@
 
     function deactivate() {
         if (!state.active) return;
-        // If leaving from the multi-site review/export step, exit review mode
-        // FIRST. Otherwise setClusterReviewMode(true)'s inline display:none on the
-        // shared options/growth/recommendation/env panels persists when we hand
-        // them back to classic (or Manual) view — leaving only the review panel
-        // visible and everything else blank.
-        var s = S();
-        if (typeof _selectClusterKey === 'function' && s.active === s.selectedKey && s.clusters && s.clusters.length) {
-            _selectClusterKey(s.clusters[0].name);
-        } else if (typeof setClusterReviewMode === 'function') {
-            setClusterReviewMode(false);
-        }
         state.active = false;
         document.body.classList.remove('wiz-active', 'wiz-adv-collapsed');
         restoreAll();
@@ -494,7 +350,7 @@
             // Only auto-advance on a genuine new upload (user is on the upload
             // step). displayImportResults is ALSO called for internal re-renders
             // (applyVmExclusions, toggleLocalStorage) — those must not navigate,
-            // or leaving step 4 would bounce the wizard back to step 2.
+            // or leaving the VM step would bounce the wizard back to step 2.
             if (state.active && state.step === 1) {
                 window._wizImportWarnings = (data && data.import_warnings) || [];
                 state.reached = Math.max(state.reached, 2);
@@ -504,14 +360,12 @@
     };
 
     // Reveal the classic import panels. #import-results (environment summary +
-    // cluster tabs + workload) and #sizing-results are both hidden in guided mode
-    // (their children are portaled into wizard panes), so classic must un-hide
-    // them. Also sync the classic separate-clusters checkbox to the live state.
+    // workload) and #sizing-results are both hidden in guided mode (their
+    // children are portaled into wizard panes), so classic must un-hide them.
     function showClassicPanels() {
         if (!state.imported) return;
         var ir = $('import-results'); if (ir) ir.style.display = 'block';
         var sizing = $('sizing-results'); if (sizing) sizing.style.display = 'block';
-        var cb = $('separate-clusters-cb'); if (cb) cb.checked = !!S().separate;
     }
 
     // Switch guided <-> classic within import mode (no reload; shared state).
