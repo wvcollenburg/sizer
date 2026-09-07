@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replicē uz",
   "export.pptx.multisite_col_storage": "Izmantojamā krātuve",
+  "export.pptx.multisite_col_license": "Licence",
   "export.pptx.multisite_subtitle": "{count} klasteri izmēroti neatkarīgi",
   "export.pptx.multisite_title": "Vairāku vietņu aprēķina pārskats",
   "export.pptx.n1_spares": "N-1 ({count} rezerves)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "{years}. gads prognozēts",
   "export.pptx.your_current_cpus": "Jūsu pašreizējie CPU",
   "export.common.system_reserved": "Rezervēts sistēmai",
+  "export.common.license_per_node": "Šim klasterim nepieciešami {cores} licencēti kodoli katrā mezglā ({nodes} mezgli, {term} gadu termiņš).",
+  "export.common.license_essentials": "Šim klasterim nepieciešama viena {kind} licence visam klasterim ({term} gadu termiņš).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/mezgls",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} kodoli · {ram}"
 }

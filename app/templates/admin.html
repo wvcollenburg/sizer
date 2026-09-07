@@ -55,6 +55,7 @@
             <button class="tab" data-tab="nics" data-click='["switchTab","nics"]' data-i18n="admin.tab.nics">NICs</button>
             <button class="tab" data-tab="drives" data-click='["switchTab","drives"]' data-i18n="admin.tab.drives">Drives</button>
             <button class="tab" data-tab="tuning" data-click='["switchTab","tuning"]' data-i18n="admin.tab.tuning">Tuning</button>
+            <button class="tab" data-tab="pricebook" data-click='["switchTab","pricebook"]' data-i18n="admin.tab.pricebook">Pricebook</button>
             <span class="tab-spacer"></span>
             <button class="tab" data-tab="users" data-click='["switchTab","users"]' data-i18n="admin.tab.users">Users</button>
             <button class="tab" data-tab="stale" data-click='["switchTab","stale"]' data-i18n="admin.tab.stale">Inactive 1yr+</button>
@@ -290,6 +291,67 @@
                     <button class="btn btn-secondary" data-click='["resetTunables"]' data-i18n="admin.tuning.reset_defaults">Reset to defaults</button>
                     <span id="tunables-status" class="iops-status"></span>
                 </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ PRICEBOOK TAB ═══════════════════ -->
+        <div class="tab-content" id="tab-pricebook">
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.pricebook.current_title">Current Licence Price Feed</h3>
+                    <p class="muted" style="margin:4px 0 0" data-i18n="admin.pricebook.current_desc">
+                        Licence prices drive which configuration the sizer recommends.
+                        Without a current feed, sizing falls back to the legacy per-core
+                        cost term and no licence guidance is shown.
+                    </p>
+                </div>
+                <div class="catalog-table-wrap">
+                    <table class="model-table">
+                        <thead><tr>
+                            <th data-i18n="admin.pricebook.col_region">Region</th>
+                            <th data-i18n="admin.pricebook.col_label">Label</th>
+                            <th data-i18n="admin.pricebook.col_currency">Currency</th>
+                            <th data-i18n="admin.pricebook.col_bands">Bands</th>
+                            <th data-i18n="admin.pricebook.col_flats">Flat SKUs</th>
+                            <th data-i18n="admin.pricebook.col_uploaded">Uploaded</th>
+                            <th data-i18n="admin.pricebook.col_source">Source file</th>
+                        </tr></thead>
+                        <tbody id="pricebook-feed-rows"></tbody>
+                    </table>
+                </div>
+                <p class="muted" id="pricebook-no-feed" style="display:none" data-i18n="admin.pricebook.no_feed">
+                    No price feed installed — licence-aware scoring is inactive.
+                </p>
+            </div>
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.pricebook.install_title">Install a New Price List</h3>
+                    <p class="muted" style="margin:4px 0 0" data-i18n="admin.pricebook.install_desc">
+                        Upload the quarterly master price list (.xlsx). Nothing is written
+                        until you review the diff and press Apply. The replaced feed is
+                        kept, so saved sizings still reproduce.
+                    </p>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group">
+                        <label data-i18n="admin.pricebook.file_label">Price list (.xlsx)</label>
+                        <input type="file" id="pricebook-file" accept=".xlsx" data-change='["resetPricebookPreview"]'>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="admin.pricebook.region_label">Region</label>
+                        <input type="text" id="pricebook-region" value="EMEA" maxlength="16" style="width:90px">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="admin.pricebook.label_label">Label</label>
+                        <input type="text" id="pricebook-label" maxlength="200"
+                               placeholder="Q1 2026 EUR" data-i18n-ph="admin.pricebook.label_ph">
+                    </div>
+                    <button class="btn btn-primary" data-click='["previewPricebook"]' data-i18n="admin.pricebook.preview_btn">Preview</button>
+                    <button class="btn btn-primary" id="pricebook-apply-btn" style="display:none"
+                            data-click='["applyPricebook"]' data-i18n="admin.pricebook.apply_btn">Apply</button>
+                    <span id="pricebook-status" class="iops-status"></span>
+                </div>
+                <div id="pricebook-preview" style="display:none"></div>
             </div>
         </div>
 

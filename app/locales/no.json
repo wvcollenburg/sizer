@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replikerer til",
   "export.pptx.multisite_col_storage": "Brukbar lagring",
+  "export.pptx.multisite_col_license": "Lisens",
   "export.pptx.multisite_subtitle": "{count} klynger dimensjonert uavhengig",
   "export.pptx.multisite_title": "Oversikt over flerlokasjonsdimensjonering",
   "export.pptx.n1_spares": "N-1 ({count} reserver)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "År {years} prognostisert",
   "export.pptx.your_current_cpus": "Dine nåværende CPU-er",
   "export.common.system_reserved": "Systemreservert",
+  "export.common.license_per_node": "Denne klyngen krever {cores} lisensierte kjerner per node ({nodes} noder, {term}-års løpetid).",
+  "export.common.license_essentials": "Denne klyngen krever én {kind}-lisens for hele klyngen ({term}-års løpetid).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/node",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} kjerner · {ram}"
 }

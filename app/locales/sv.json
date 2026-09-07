@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replikerar till",
   "export.pptx.multisite_col_storage": "Användbar lagring",
+  "export.pptx.multisite_col_license": "Licens",
   "export.pptx.multisite_subtitle": "{count} kluster dimensionerade oberoende",
   "export.pptx.multisite_title": "Dimensioneringsöversikt för flera platser",
   "export.pptx.n1_spares": "N-1 ({count} reserver)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "År {years} prognostiserat",
   "export.pptx.your_current_cpus": "Dina nuvarande CPU:er",
   "export.common.system_reserved": "Systemreserverat",
+  "export.common.license_per_node": "Detta kluster kräver {cores} licensierade kärnor per nod ({nodes} noder, {term}-års löptid).",
+  "export.common.license_essentials": "Detta kluster kräver en {kind}-licens för hela klustret ({term}-års löptid).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/nod",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} kärnor · {ram}"
 }

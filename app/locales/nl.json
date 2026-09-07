@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Repliceert naar",
   "export.pptx.multisite_col_storage": "Bruikbare opslag",
+  "export.pptx.multisite_col_license": "Licentie",
   "export.pptx.multisite_subtitle": "{count} clusters onafhankelijk bemeten",
   "export.pptx.multisite_title": "Multi-site-sizing-overzicht",
   "export.pptx.n1_spares": "N-1 ({count} reserves)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "Jaar {years} geprojecteerd",
   "export.pptx.your_current_cpus": "Uw huidige CPU's",
   "export.common.system_reserved": "Systeemreservering",
+  "export.common.license_per_node": "Dit cluster vereist {cores} gelicentieerde cores per node ({nodes} nodes, looptijd {term} jaar).",
+  "export.common.license_essentials": "Dit cluster vereist één {kind}-licentie voor het hele cluster (looptijd {term} jaar).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/node",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} cores · {ram}"
 }

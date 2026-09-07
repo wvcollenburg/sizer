@@ -191,9 +191,157 @@ def _migrate_schema():
     db.session.commit()
 
     _backfill_cpu_specs()
+    _backfill_categories()
+    _rebase_platform_tiers()
+    _retire_confirmed_eos()
     _backfill_projects()
+    _seed_license_pricebook()
     _bootstrap_super_admin()
     _purge_on_boot()
+
+
+# Old free-text categories -> the numbering-based scheme. The model number
+# already carries the family AND the generation (14XX -> 16XX is an update of the
+# same line), so naming the category after it makes the ladder legible in a way
+# "Datacenter 1U All-Flash" never did.
+LEGACY_CATEGORIES = {
+    "Edge": None,                      # split by model number, see below
+    "1U Rack": "5XX Edge",
+    "Datacenter 1U": "1XXX Core",
+    "Datacenter 1U All-Flash": "3XXX Core",
+    "Datacenter 1U All-Flash GPU": "3XXX Core",
+    "Datacenter 2U": "5XXX Core",
+}
+
+
+def _category_for(name):
+    """Category from the model number. None when the name is not ours."""
+    import re
+    m = re.match(r"^HE(\d)", name or "")
+    if m:
+        return {"1": "1XX SFF", "2": "2XX SFF", "5": "5XX Edge"}.get(m.group(1))
+    m = re.match(r"^HC(\d)", name or "")
+    if m:
+        return {"1": "1XXX Core", "3": "3XXX Core", "5": "5XXX Core"}.get(m.group(1))
+    if name == "SE100":
+        return "1XX SFF"
+    return None
+
+
+def _backfill_categories():
+    """Move existing rows onto the numbering-based category scheme.
+
+    Only rewrites rows still holding a KNOWN legacy string. A category an admin
+    has already customised is left alone — this is an editable field, and
+    clobbering a deliberate edit on every boot would be worse than a stale name.
+    """
+    changed = 0
+    for model in Model.query.all():
+        if model.category not in LEGACY_CATEGORIES:
+            continue                      # already migrated, or admin-edited
+        target = _category_for(model.name)
+        if target and target != model.category:
+            model.category = target
+            changed += 1
+    if changed:
+        db.session.commit()
+        print(f"  categories migrated to the numbering scheme: {changed} models")
+
+
+# One-time marker so the tier re-base runs exactly once per database. Without
+# it, a re-base on every boot would clobber genuine admin edits forever.
+TIER_REBASE_KEY = "platform_tier_rebased_2026_09"
+
+
+# Models confirmed end-of-SALE after the catalog-truth review (§4.2). Kept as an
+# explicit list rather than a blanket re-sync from APPLIANCE_MODELS, because
+# `status` is admin-editable and a wholesale overwrite would undo deliberate
+# local decisions on every boot.
+#
+# EOS, not EOL: the evidence is absence from a price list, which says a model can
+# no longer be SOLD. It says nothing about support ending. The recommender
+# excludes both, but they mean different things to a customer.
+CONFIRMED_EOS = ("HC3350F", "HC3350DF")
+
+
+def _retire_confirmed_eos():
+    """Move confirmed end-of-sale models off Active, once."""
+    changed = 0
+    for model in Model.query.filter(Model.name.in_(CONFIRMED_EOS)).all():
+        if model.status == "Active":
+            model.status = "EOS"
+            changed += 1
+    if changed:
+        db.session.commit()
+        print(f"  end-of-sale models retired: {changed}")
+
+
+def _rebase_platform_tiers():
+    """Move existing rows onto the price-proportional tier ladder.
+
+    `cost_tier` changed MEANING on 2026-09-02: it was a hand-set capability
+    weight whose absolute units did not matter, and it is now proportional to
+    what a configured node costs, because `eur_per_tier_point` bridges it to real
+    licence euro. Old values are not merely stale, they are in different units —
+    a database left on the old ladder would trade licence euro against a scale
+    that means something else.
+
+    So this is a FORCED overwrite, unlike `_backfill_categories()` which respects
+    admin edits. It cannot respect them: there is no way to tell an old
+    capability value from a deliberately-tuned one, and keeping a capability
+    value would be the more wrong of the two outcomes. It runs once, guarded by a
+    marker row, and the admin UI remains authoritative afterwards.
+    """
+    if SizingSetting.query.filter_by(key=TIER_REBASE_KEY).first():
+        return
+    changed = 0
+    for model in Model.query.all():
+        target = MODEL_COSTS.get(model.name)
+        if target is not None and model.cost_tier != target:
+            model.cost_tier = target
+            changed += 1
+    db.session.add(SizingSetting(key=TIER_REBASE_KEY, value=1))
+    db.session.commit()
+    if changed:
+        print(f"  platform_tier re-based to the price ladder: {changed} models "
+              f"(one-time; admin edits are authoritative from here)")
+
+
+def _seed_license_pricebook():
+    """Bootstrap a licence feed from any price list sitting in `_archive/`.
+
+    A convenience for fresh dev and test databases only. **The supported way to
+    install a new quarterly price list is `tools/import_pricebook.py`** — it
+    shows a diff before it commits anything, which matters when the numbers being
+    replaced drive what the sizer recommends.
+
+    Picks the most recently modified `*Price List*.xlsx`, so dropping a newer file
+    into `_archive/` is enough to bootstrap with it. Idempotent by file hash.
+    Absent file is not an error: a deployment with no feed simply falls back to
+    the legacy per-core term.
+    """
+    import glob
+    import os
+
+    pattern = os.path.join(os.path.dirname(__file__), "..", "_archive",
+                           "*Price List*.xlsx")
+    candidates = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    if not candidates:
+        return
+    path = candidates[0]
+    try:
+        from pricebook_import import seed_feed_from_file, PricebookFormatError
+        feed, parsed = seed_feed_from_file(
+            path, label=os.path.splitext(os.path.basename(path))[0])
+    except PricebookFormatError as exc:
+        # Loud, but never fatal: a malformed price list must not stop the app
+        # booting and sizing.
+        print(f"  licence pricebook NOT loaded: {exc}")
+        return
+    if parsed is not None:
+        c = parsed["counts"]
+        print(f"  licence pricebook: {c['banded']} bands, {c['flat']} flat, "
+              f"{c['unmatched']} unmatched -> feed #{feed.id} ({feed.region})")
 
 
 def _backfill_projects():

@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replikuoja į",
   "export.pptx.multisite_col_storage": "Naudojama saugykla",
+  "export.pptx.multisite_col_license": "Licencija",
   "export.pptx.multisite_subtitle": "{count} klasteriai, kurių dydis parinktas nepriklausomai",
   "export.pptx.multisite_title": "Kelių aikštelių dydžio parinkimo apžvalga",
   "export.pptx.n1_spares": "N-1 ({count} atsarginiai)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "{years} metai prognozuojama",
   "export.pptx.your_current_cpus": "Jūsų dabartiniai CPU",
   "export.common.system_reserved": "Rezervuota sistemai",
+  "export.common.license_per_node": "Šiam klasteriui reikia {cores} licencijuotų branduolių viename mazge ({nodes} mazgai, {term} metų laikotarpis).",
+  "export.common.license_essentials": "Šiam klasteriui reikia vienos {kind} licencijos visam klasteriui ({term} metų laikotarpis).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/mazgas",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} branduoliai · {ram}"
 }

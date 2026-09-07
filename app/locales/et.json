@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replikeerib sihtmärki",
   "export.pptx.multisite_col_storage": "Kasutatav salvestusruum",
+  "export.pptx.multisite_col_license": "Litsents",
   "export.pptx.multisite_subtitle": "{count} klastrit mõõdetud iseseisvalt",
   "export.pptx.multisite_title": "Mitme asukoha sizingu ülevaade",
   "export.pptx.n1_spares": "N-1 ({count} varusõlme)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "Aasta {years} prognoositud",
   "export.pptx.your_current_cpus": "Teie praegused CPU-d",
   "export.common.system_reserved": "Süsteemile reserveeritud",
+  "export.common.license_per_node": "See klaster vajab {cores} litsentsitud tuuma sõlme kohta ({nodes} sõlme, {term}-aastane tähtaeg).",
+  "export.common.license_essentials": "See klaster vajab kogu klastri jaoks ühte {kind} litsentsi ({term}-aastane tähtaeg).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/sõlm",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} tuuma · {ram}"
 }

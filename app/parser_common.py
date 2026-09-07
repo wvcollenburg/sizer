@@ -18,6 +18,62 @@ either parser would.
 """
 from xlsx_utils import source_cpus as _source_cpus
 
+# ── Guest licensing exposure (docs/pricebook-plan.md §5.6) ───────────────────
+# Windows, SQL Server and Oracle bill per PHYSICAL core with no cap, and on a
+# database estate that line routinely exceeds hardware and the HyperCore licence
+# combined. We never quote it — but dropping the pressure entirely would leave
+# nothing arguing against high core counts once the Scale licence goes flat
+# above its cap.
+#
+# Two facts shape this:
+#
+#   * **Exposure is near-binary, not proportional.** Windows Datacenter licenses
+#     EVERY physical core of any host that might run a Windows VM, and with HA
+#     free to move VMs anywhere, one Windows VM makes the whole cluster
+#     billable. An 83%-Windows estate and a 100%-Windows estate have the same
+#     per-core exposure. So the measured share is a good DETECTOR and a bad
+#     multiplier — we report it for the annotation and gate on presence.
+#   * **Databases cannot be detected.** Oracle or SQL Server is a VM with a
+#     database on it, invisible in the guest OS string. VM-name heuristics would
+#     be guessing. That dimension is always declared by the SA.
+
+EXPOSURE_NONE = "none"
+EXPOSURE_WINDOWS = "windows"
+EXPOSURE_WINDOWS_DB = "windows_db"
+
+VALID_EXPOSURES = (EXPOSURE_NONE, EXPOSURE_WINDOWS, EXPOSURE_WINDOWS_DB)
+
+
+def detect_guest_licensing(vms):
+    """Infer core-licensed guest OS exposure from parsed VMs.
+
+    Returns (exposure, detail) where exposure is one of VALID_EXPOSURES and
+    detail is a short human string for the candidate annotation, or None when
+    the source carries no OS information at all.
+
+    Never returns EXPOSURE_WINDOWS_DB — a database is not detectable. The SA
+    declares that.
+    """
+    known = [v for v in vms if str(v.get("os") or "").strip()]
+    if not known:
+        return None, None
+
+    def _is_windows(v):
+        return "windows" in str(v.get("os") or "").lower()
+
+    win = [v for v in known if _is_windows(v)]
+    if not win:
+        return EXPOSURE_NONE, (
+            f"no Windows guests among {len(known)} VMs with a known OS"
+        )
+
+    # Share is reported, not used as a multiplier — see the note above.
+    total_vcpu = sum(v.get("vcpus") or 0 for v in known)
+    win_vcpu = sum(v.get("vcpus") or 0 for v in win)
+    pct = round(100 * win_vcpu / total_vcpu) if total_vcpu else 0
+    return EXPOSURE_WINDOWS, f"Windows detected in source ({pct}% of vCPU)"
+
+
 
 def build_summary(data, source=None):
     """Aggregate a parsed workload (hosts / vms / perf / datastores) into the
@@ -111,6 +167,14 @@ def build_summary(data, source=None):
         "max_vm_ram_gb": max((v["provisioned_memory_gb"] for v in active_vms), default=0),
         "max_vm_cores": max((v["vcpus"] for v in active_vms), default=0),
     }
+
+    # Detected default for the guest-licensing exposure. The SA can override it
+    # in advanced options; detection only sets what the control starts on.
+    exposure, detail = detect_guest_licensing(active_vms or vms)
+    if exposure:
+        summary["guest_licensing"] = exposure
+        summary["guest_licensing_detail"] = detail
+
     if source:
         summary["source"] = source
     return summary

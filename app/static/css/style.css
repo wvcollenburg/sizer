@@ -1442,6 +1442,16 @@ body { padding-bottom: 64px; }
 
 .rec-determinant strong { color: var(--accent); }
 
+/* Required-licence line on a recommendation card — same quiet strip as the
+   determinant line above it. */
+.rec-license {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+}
+
 .rec-compute-floor {
     padding: 0.5rem 1.2rem;
     font-size: 0.8rem;
@@ -2160,8 +2170,14 @@ body { padding-bottom: 64px; }
     color: var(--text);
 }
 
-.vm-edit {
+/* Element+class selectors on purpose: the global control restyle
+   (`input[type="number"] { height: 2.25rem; padding: 0 0.75rem }`, ~line 288)
+   has 0,1,1 specificity and out-ranked the old bare `.vm-edit`, inflating
+   these compact in-table editors — in the 90px Cores column the 13.5px side
+   padding left no room and the value was clipped invisible. */
+input.vm-edit, select.vm-edit {
     width: 100%;
+    height: auto;
     box-sizing: border-box;
     padding: 0.2rem 0.35rem;
     border: 1px solid var(--border);
@@ -2169,8 +2185,9 @@ body { padding-bottom: 64px; }
     font: inherit;
     background: var(--surface);
     color: var(--text);
+    box-shadow: none;
 }
-.vm-edit:focus { outline: none; border-color: var(--accent); }
+input.vm-edit:focus, select.vm-edit:focus { outline: none; border-color: var(--accent); }
 .vm-edit-num { text-align: right; }
 .vm-edited .vm-edit { border-color: var(--accent); font-weight: 600; }
 

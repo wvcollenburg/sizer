@@ -428,7 +428,7 @@ def list_models():
     models = _model_query().order_by(Model.category, Model.name).all()
     result = []
     for m in models:
-        d = m.to_dict()
+        d = m.to_dict(include_internal=True)
         d["id"] = m.id
         d["name"] = m.name
         result.append(d)
@@ -440,7 +440,7 @@ def list_models():
 @admin_bp.route("/api/models/<int:model_id>")
 def get_model(model_id):
     m = _model_query().get_or_404(model_id)
-    d = m.to_dict()
+    d = m.to_dict(include_internal=True)
     d["id"] = m.id
     d["name"] = m.name
     d["cpu_options"] = [
@@ -1350,3 +1350,103 @@ def _import_from_excel(file_path, mode):
         "skipped": skipped,
         "total_in_file": len(model_rows),
     }
+
+
+# ── Licence pricebook (§4.4: upload -> diff -> apply, all over HTTP) ─────────
+# The quarterly price list installs from the admin page — the CLI tool
+# (tools/import_pricebook.py) is a convenience over the same calls, never the
+# only path. Prices appear in these responses by design: this area is
+# super-admin-only, and the diff is the point of the flow. The no-euro boundary
+# (licensing._license_annotations) applies to sizing responses, not here.
+
+@admin_bp.route("/api/pricebook")
+def pricebook_status():
+    """The current feed per region, so the page can show what a new upload
+    would replace."""
+    from orm_models import CatalogFeed
+    feeds = (CatalogFeed.query.filter_by(is_current=True)
+             .order_by(CatalogFeed.region).all())
+    return jsonify({"feeds": [{
+        "id": fd.id,
+        "region": fd.region,
+        "label": fd.label,
+        "currency": fd.currency,
+        "effective_date": fd.effective_date.isoformat() if fd.effective_date else None,
+        "uploaded_at": fd.uploaded_at.isoformat() if fd.uploaded_at else None,
+        "source_filename": fd.source_filename,
+        "bands": len(fd.bands),
+        "flats": len(fd.flats),
+        "unmatched": fd.unmatched_count,
+    } for fd in feeds]})
+
+
+@admin_bp.route("/api/import-pricebook", methods=["POST"])
+def import_pricebook():
+    """Dry run by default, exactly like the CLI tool: parse, diff against the
+    region's current feed, and write NOTHING until the same file is re-posted
+    with apply=1. A silent install of a mis-parsed list would move real
+    proposals with nobody noticing."""
+    import licensing
+    import pricebook_import
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    f = request.files["file"]
+    if not f.filename or not f.filename.endswith(".xlsx"):
+        return jsonify({"error": "File must be .xlsx"}), 400
+    head = f.stream.read(4)
+    f.stream.seek(0)
+    if head != b"PK\x03\x04":
+        return jsonify({"error": "File must be .xlsx"}), 400
+
+    region = (request.form.get("region") or pricebook_import.DEFAULT_REGION).strip().upper()[:16]
+    label = (request.form.get("label") or "").strip()[:200]
+    apply_it = request.form.get("apply") == "1"
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    try:
+        f.save(tmp.name)
+        tmp.close()
+        try:
+            parsed = pricebook_import.parse_pricebook(tmp.name)
+        except pricebook_import.PricebookFormatError as exc:
+            # The early warning that the export format moved. Refuse loudly.
+            return jsonify({"error": str(exc)}), 400
+
+        editions = sorted({b["edition"] for b in parsed["bands"]})
+        summary = {
+            "counts": parsed["counts"],
+            "currency": parsed["currency"],
+            "unmatched": parsed["unmatched"][:20],
+            "new_editions": [e for e in editions
+                             if e not in licensing.EDITION_NAMES],
+            "region": region,
+        }
+
+        if not apply_it:
+            summary["applied"] = False
+            summary["diff"] = pricebook_import.diff_feed(parsed, region)
+            return jsonify(summary)
+
+        from auth import audit
+        user = current_user()
+        feed, installed = pricebook_import.seed_feed_from_file(
+            tmp.name, region=region,
+            label=label or os.path.splitext(f.filename)[0],
+            uploaded_by=user.id if user else None,
+            source_filename=f.filename)
+        already_current = installed is None
+        if not already_current:
+            audit("pricebook_import",
+                  f"feed #{feed.id} {feed.region} '{feed.label}' from "
+                  f"{f.filename}: {summary['counts']['banded']} bands, "
+                  f"{summary['counts']['flat']} flat, "
+                  f"{summary['counts']['unmatched']} unmatched")
+            db.session.commit()
+        summary["applied"] = not already_current
+        summary["already_current"] = already_current
+        summary["feed"] = {"id": feed.id, "region": feed.region,
+                           "label": feed.label, "currency": feed.currency}
+        return jsonify(summary)
+    finally:
+        os.unlink(tmp.name)

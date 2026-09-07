@@ -249,7 +249,7 @@ class Model(db.Model):
         order_by="ModelNicOption.sort_order",
     )
 
-    def to_dict(self):
+    def to_dict(self, include_internal=False):
         sc = self.storage_config
         storage = {}
         if sc:
@@ -290,7 +290,7 @@ class Model(db.Model):
                     sibling_cpus = _cpu_options_from_links(sib.cpu_links)
         storage_only_cpus = certified_single_cpu_options(cpu_options, sibling_cpus)
 
-        return {
+        d = {
             "status": self.status,
             "category": self.category,
             "form_factor": self.form_factor,
@@ -299,7 +299,6 @@ class Model(db.Model):
             "psu": self.psu,
             "ram_slots": self.ram_slots,
             "min_nodes": self.min_nodes,
-            "cost_tier": self.cost_tier if self.cost_tier is not None else 5.0,
             "validated_only": self.validated_only,
             "notes": self.notes,
             "cpu_options": cpu_options,
@@ -312,6 +311,14 @@ class Model(db.Model):
                 for link in self.nic_links
             ],
         }
+        # cost_tier (a ranking weight, and soon a euro-adjacent one — see
+        # docs/pricebook-plan.md §3) is INTERNAL. The engine and the admin UI ask
+        # for it explicitly; the logged-in-user endpoint /api/models must never
+        # carry it, and registration is a blocklist so "logged in" is a weak
+        # boundary. Default-deny: a new caller gets the safe shape.
+        if include_internal:
+            d["cost_tier"] = self.cost_tier if self.cost_tier is not None else 5.0
+        return d
 
 
 class RamOption(db.Model):
@@ -539,3 +546,154 @@ class Switch(db.Model):
             "rj45": self.rj45_ports,
             "sfp": self.sfp_ports,
         }
+
+
+# ── Licence pricing (docs/pricebook-plan.md §10.2) ───────────────────────────
+#
+# These are the ONLY tables in the schema that hold money. Deliberately separate
+# from Model / CpuCatalog / DriveCatalog: those are serialized to browsers, and
+# putting a price on one of them is exactly how cost_tier leaked (§3). Licence
+# prices join in at scoring time and never appear in a response.
+#
+# Every table is region-scoped through its feed. Only EMEA has a price list
+# today; the lookup is region-aware from the start so adding NA/APAC/LATAM is a
+# seed, not a migration. Regions are free-text rather than an enum because EMEA
+# is expected to split (§10.1).
+
+class CatalogFeed(db.Model):
+    """One imported price list, for one region, at one effective date.
+
+    The raw upload is discarded after parsing — we keep the hash, the label and
+    who loaded it, which is enough for audit without retaining a commercial
+    document.
+    """
+    __tablename__ = "catalog_feed"
+
+    id = db.Column(db.Integer, primary_key=True)
+    region = db.Column(db.String(16), nullable=False, index=True)
+    effective_date = db.Column(db.Date)
+    label = db.Column(db.String(200), nullable=False)
+    currency = db.Column(db.String(8), nullable=False, default="EUR")
+    source_sha256 = db.Column(db.String(64))
+    source_filename = db.Column(db.String(255))
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+    uploaded_at = db.Column(db.DateTime(timezone=True))
+    # Exactly one current feed per region; older ones are kept so a saved sizing
+    # stamped with a feed id still reproduces.
+    is_current = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    unmatched_count = db.Column(db.Integer, nullable=False, default=0)
+
+    bands = db.relationship("PriceLicenseBand", back_populates="feed",
+                            cascade="all, delete-orphan")
+    flats = db.relationship("PriceLicenseFlat", back_populates="feed",
+                            cascade="all, delete-orphan")
+    rules = db.relationship("PriceLicenseRule", back_populates="feed",
+                            cascade="all, delete-orphan")
+
+
+class PriceLicenseBand(db.Model):
+    """One (edition, term, support, core band) price point.
+
+    The cap is not stored: 48C/52C/56C/64C simply carry the same price, so it
+    emerges from the data and moves when Scale moves it. Nothing in the code
+    knows the number 48.
+    """
+    __tablename__ = "price_license_band"
+
+    id = db.Column(db.Integer, primary_key=True)
+    catalog_feed_id = db.Column(db.Integer, db.ForeignKey("catalog_feed.id"),
+                                nullable=False, index=True)
+    sku = db.Column(db.String(60))
+    edition = db.Column(db.String(8), nullable=False)
+    term_years = db.Column(db.Integer, nullable=False)
+    support_tier = db.Column(db.String(4), nullable=False)
+    core_band = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+
+    feed = db.relationship("CatalogFeed", back_populates="bands")
+
+    __table_args__ = (
+        db.UniqueConstraint("catalog_feed_id", "edition", "term_years",
+                            "support_tier", "core_band", name="uq_license_band"),
+    )
+
+
+class PriceLicenseFlat(db.Model):
+    """A non-banded licence: Essentials Kit, Professional Essentials, or a
+    single-site workload-count SKU."""
+    __tablename__ = "price_license_flat"
+
+    id = db.Column(db.Integer, primary_key=True)
+    catalog_feed_id = db.Column(db.Integer, db.ForeignKey("catalog_feed.id"),
+                                nullable=False, index=True)
+    sku = db.Column(db.String(60), nullable=False)
+    kind = db.Column(db.String(8), nullable=False)
+    term_years = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    max_nodes = db.Column(db.Integer)
+    max_ram_gb = db.Column(db.Integer)
+    workloads = db.Column(db.Integer)
+
+    feed = db.relationship("CatalogFeed", back_populates="flats")
+
+    __table_args__ = (
+        db.UniqueConstraint("catalog_feed_id", "sku", name="uq_license_flat_sku"),
+    )
+
+
+class PriceLicenseRule(db.Model):
+    """Eligibility for one edition, expressed in the closed vocabulary.
+
+    Columns mirror `licensing.ELIGIBILITY_FIELDS` one-for-one. No expression
+    strings and no eval: a constraint the vocabulary cannot express is a visible
+    import error, not a silent misprice (§11). Adding a band, term, edition or
+    region is zero code; a new KIND of constraint is a reviewed code change.
+    """
+    __tablename__ = "price_license_rule"
+
+    id = db.Column(db.Integer, primary_key=True)
+    catalog_feed_id = db.Column(db.Integer, db.ForeignKey("catalog_feed.id"),
+                                nullable=False, index=True)
+    edition = db.Column(db.String(8), nullable=False)
+    selectable = db.Column(db.Boolean, nullable=False, default=False)
+
+    exact_nodes = db.Column(db.Integer)
+    max_nodes = db.Column(db.Integer)
+    min_hci_nodes = db.Column(db.Integer)
+    max_ram_gb_per_node = db.Column(db.Integer)
+    max_cores_per_node = db.Column(db.Integer)
+    requires_single_node = db.Column(db.Boolean)
+    bundleable = db.Column(db.Boolean)
+    role_gated = db.Column(db.Boolean)
+    workload_class = db.Column(db.String(32))
+
+    feed = db.relationship("CatalogFeed", back_populates="rules")
+
+    __table_args__ = (
+        db.UniqueConstraint("catalog_feed_id", "edition", name="uq_license_rule"),
+    )
+
+
+def load_license_book(region="EMEA"):
+    """Build a `licensing.LicenseBook` from the current feed for `region`.
+
+    Returns an empty book when the region has no feed — the scorer treats that
+    as "not priceable" and falls back rather than failing the sizing. The
+    fallback-region chain and its user-visible notice are deferred (§10.1).
+    """
+    import licensing
+
+    feed = (CatalogFeed.query
+            .filter_by(region=region, is_current=True)
+            .order_by(CatalogFeed.id.desc())
+            .first())
+    if feed is None:
+        return licensing.LicenseBook(region=region)
+
+    bands = {}
+    for b in feed.bands:
+        bands.setdefault((b.edition, b.term_years, b.support_tier), {})[b.core_band] = b.price
+    flats = {(f.kind, f.term_years): f.price for f in feed.flats}
+
+    return licensing.LicenseBook(bands=bands, flats=flats, region=region,
+                                 feed_label=feed.label, currency=feed.currency)

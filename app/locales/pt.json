@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replica para",
   "export.pptx.multisite_col_storage": "Armazenamento Utilizável",
+  "export.pptx.multisite_col_license": "Licença",
   "export.pptx.multisite_subtitle": "{count} clusters dimensionados de forma independente",
   "export.pptx.multisite_title": "Visão Geral do Sizing Multi-Site",
   "export.pptx.n1_spares": "N-1 ({count} reservas)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "Ano {years} Projetado",
   "export.pptx.your_current_cpus": "Suas CPUs atuais",
   "export.common.system_reserved": "Reservado para o sistema",
+  "export.common.license_per_node": "Este cluster requer {cores} núcleos licenciados por nó ({nodes} nós, prazo de {term} anos).",
+  "export.common.license_essentials": "Este cluster requer uma licença {kind} para todo o cluster (prazo de {term} anos).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/nó",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} núcleos · {ram}"
 }

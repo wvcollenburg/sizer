@@ -160,3 +160,93 @@ def test_import_rejects_non_zip(client):
                     data={"file": (io.BytesIO(b"totally not a zip"), "evil.xlsx")},
                     content_type="multipart/form-data")
     assert r.status_code == 400
+
+
+# ── No price-shaped data on the wire (docs/pricebook-plan.md §3) ─────────────
+#
+# cost_tier is a ranking weight, and the licensing work is about to put real
+# euro next to it in the score. Nothing price-shaped may reach a browser: /api/
+# is gated by login, but registration is a blocklist (any unblocked domain can
+# self-register), so "logged in" is a weak boundary for commercial data.
+#
+# These assert on the SERIALIZED RESPONSE, not on the model definition — a field
+# can reappear through a nested dict, a **spread, or a new serializer without the
+# definition changing.
+
+PRICE_SHAPED = ("cost", "price", "tier", "eur", "usd", "msrp", "discount", "margin")
+
+
+def _offending_keys(node, path="$"):
+    """Every key anywhere in a JSON structure whose name looks commercial."""
+    found = []
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if any(word in str(k).lower() for word in PRICE_SHAPED):
+                found.append(f"{path}.{k}")
+            found += _offending_keys(v, f"{path}.{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            found += _offending_keys(v, f"{path}[{i}]")
+    return found
+
+
+def _seed_one_model():
+    """Minimal Active model so /api/models returns a populated payload."""
+    from orm_models import (Model, CpuCatalog, ModelCpuOption, RamOption,
+                            DriveCatalog, StorageConfig, StorageConfigDrive)
+    nvme = DriveCatalog(drive_type="NVMe", size_tb=7.68)
+    cpu = CpuCatalog(description="Xeon 6338", cores=32, threads=64, ghz=2.4)
+    model = Model(name="HE500", status="Active", category="compute",
+                  form_factor="1U", chassis="single", min_nodes=1, cost_tier=17.5)
+    db.session.add_all([nvme, cpu, model])
+    db.session.flush()
+    storage = StorageConfig(model_id=model.id, storage_type="nvme_only",
+                            drives_per_node=4)
+    db.session.add(storage)
+    db.session.flush()
+    db.session.add_all([
+        StorageConfigDrive(storage_config_id=storage.id, drive_id=nvme.id),
+        ModelCpuOption(model_id=model.id, cpu_id=cpu.id, quantity=2),
+        RamOption(model_id=model.id, size_gb=512),
+    ])
+    db.session.commit()
+    return model
+
+
+def test_to_dict_hides_cost_tier_by_default():
+    """Default-deny: a new caller of to_dict() gets the safe shape."""
+    with appmod.app.app_context():
+        db.drop_all(); db.create_all()
+        model = _seed_one_model()
+        assert "cost_tier" not in model.to_dict()
+        # The engine and the admin UI opt in explicitly and still get it.
+        assert model.to_dict(include_internal=True)["cost_tier"] == 17.5
+
+
+def test_api_models_carries_no_price_shaped_key(client):
+    _signup(client)
+    with appmod.app.app_context():
+        _seed_one_model()
+    r = client.get("/api/models")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body, "expected a populated catalog, or this test proves nothing"
+    assert _offending_keys(body) == []
+
+
+def test_api_recommend_carries_no_price_shaped_key(client):
+    _signup(client)
+    with appmod.app.app_context():
+        _seed_one_model()
+    r = client.post("/api/recommend", json={"summary": {
+        "active_vms": 40, "total_vms": 44, "total_vcpus": 180, "total_ram_gb": 900,
+        "used_storage_tb": 22.5, "total_storage_tb": 60.0, "hosts": 4,
+        "total_host_ghz": 400.0, "peak_cpu_ghz": 120.0, "total_host_cores": 96,
+        "total_host_ram_gb": 1024, "vm_iops": 0, "peak_ram_gb": 700,
+        "total_vm_provisioned_memory_gb": 900, "datastore_used_tb": 22.5,
+        "nic_speed_mbps": 10000,
+    }})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body.get("recommendations"), "no candidates — the scan would pass vacuously"
+    assert _offending_keys(body) == []

@@ -826,6 +826,36 @@
                             <input type="number" id="max-day-one-ram" value="{{ max_day_one_ram_pct }}"
                                    min="1" max="100" step="1" data-change='["recalcRecommendations"]'>
                         </div>
+                        <!-- Licence term is deliberately SEPARATE from Projection
+                             Years above: customers routinely buy 3 years of
+                             licence while sizing 5 years of growth. -->
+                        <div class="form-group wiz-adv">
+                            <label><span data-i18n="results.license_term">Licence Term</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.license_term_info"
+                                      title="How many years of SC//HyperCore licence and support to price. Independent of Projection Years, which sizes capacity — a customer can buy 3 years of licence while sizing for 5 years of growth. Scale renews to 7 years but does not sell 7 up front.">i</span>
+                            </label>
+                            <select id="license-term-years" data-change='["recalcRecommendations"]'>
+                                <option value="1" data-i18n="results.year_1">1 year</option>
+                                <option value="2" data-i18n="results.years_2">2 years</option>
+                                <option value="3" data-i18n="results.years_3">3 years</option>
+                                <option value="4" data-i18n="results.years_4">4 years</option>
+                                <option value="5" selected data-i18n="results.years_5">5 years</option>
+                            </select>
+                        </div>
+                        <div class="form-group wiz-adv">
+                            <label><span data-i18n="results.guest_licensing">Guest Licensing</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.guest_licensing_info"
+                                      title="Core-licensed guest software in this workload. Windows Datacenter, SQL Server and Oracle bill per physical core with no cap, which is a real argument against high-core nodes even though we never quote it. Detected from the imported guest OS where possible; a core-billed database cannot be detected and must be declared.">i</span>
+                            </label>
+                            <select id="guest-licensing"
+                                    data-change='["markGuestLicensingUserSet","recalcRecommendations"]'>
+                                <option value="none" data-i18n="results.guest_none">None (Linux/BSD)</option>
+                                <option value="windows" selected data-i18n="results.guest_windows">Windows</option>
+                                <option value="windows_db" data-i18n="results.guest_windows_db">Windows + core-billed DB</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="projection-summary" class="projection-summary"></div>
                 </div>
