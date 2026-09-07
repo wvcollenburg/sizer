@@ -1433,7 +1433,8 @@ def import_pricebook():
         feed, installed = pricebook_import.seed_feed_from_file(
             tmp.name, region=region,
             label=label or os.path.splitext(f.filename)[0],
-            uploaded_by=user.id if user else None)
+            uploaded_by=user.id if user else None,
+            source_filename=f.filename)
         already_current = installed is None
         if not already_current:
             audit("pricebook_import",

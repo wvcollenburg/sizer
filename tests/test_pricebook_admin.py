@@ -151,3 +151,5 @@ def test_status_endpoint_lists_current_feed(client):
     (feed,) = client.get("/admin/api/pricebook").get_json()["feeds"]
     assert feed["region"] == "EMEA" and feed["label"] == "Q4 2025 EUR"
     assert feed["bands"] == 360 and feed["flats"] == 9 and feed["unmatched"] == 1
+    # Provenance keeps the UPLOADED name, not the server's anonymous temp file.
+    assert feed["source_filename"] == os.path.basename(PRICELIST)

@@ -309,7 +309,8 @@ def _sha256(path):
 
 
 def seed_feed_from_file(file_path, region=DEFAULT_REGION, label=None,
-                        effective_date=None, uploaded_by=None, sheet=None):
+                        effective_date=None, uploaded_by=None, sheet=None,
+                        source_filename=None):
     """Parse a price list and store it as the current feed for `region`.
 
     Idempotent by content: re-seeding the same file for the same region is a
@@ -342,12 +343,15 @@ def seed_feed_from_file(file_path, region=DEFAULT_REGION, label=None,
     CatalogFeed.query.filter_by(region=region, is_current=True) \
         .update({"is_current": False})
 
+    # `file_path` may be an upload's anonymous temp file; the caller passes the
+    # real name for provenance in that case.
+    source_filename = source_filename or os.path.basename(file_path)
     feed = CatalogFeed(
         region=region,
-        label=label or os.path.basename(file_path),
+        label=label or source_filename,
         currency=parsed.get("currency") or "EUR",
         source_sha256=digest,
-        source_filename=os.path.basename(file_path),
+        source_filename=source_filename,
         effective_date=effective_date,
         uploaded_by=uploaded_by,
         uploaded_at=datetime.now(timezone.utc),
