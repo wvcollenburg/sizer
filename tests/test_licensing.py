@@ -217,10 +217,15 @@ def test_essentials_ram_ceiling_and_near_miss(book):
 
 
 def test_essentials_node_count_boundary():
-    assert licensing.essentials_eligibility([2], 128)[0] is False
+    # Shape-eligible at 1-3 nodes (SNS included); cheaper-wins decides whether
+    # it is actually applied.
+    assert licensing.essentials_eligibility([1], 128)[0] is True
+    assert licensing.essentials_eligibility([2], 128)[0] is True
     assert licensing.essentials_eligibility([3], 128)[0] is True
     assert licensing.essentials_eligibility([4], 128)[0] is False
-    assert "Essentials requires exactly 3" in licensing.essentials_eligibility([4], 128)[1]
+    assert "Essentials allows at most 3" in licensing.essentials_eligibility([4], 128)[1]
+    # Five nodes is not a near-miss worth reporting.
+    assert licensing.essentials_eligibility([5], 128) == (False, None)
 
 
 def test_essentials_loses_when_per_node_is_cheaper(book):
@@ -230,6 +235,20 @@ def test_essentials_loses_when_per_node_is_cheaper(book):
     assert out["annotations"]["essentials_eligible"] is True
     assert out["annotations"]["essentials_applied"] is False
     assert out["basis"] == "per_node"
+
+
+def test_essentials_on_single_node_when_cheaper(book):
+    """An SNS is shape-eligible too; cheaper-wins decides. At 48C the band
+    (EUR 41,094 SS) dwarfs the Essentials Kit (EUR 15,796), so Essentials
+    applies; at 16C the band (EUR 13,698) undercuts it, so per-node stays."""
+    big = licensing.cluster_license(book, [1], 48, 128, 5)
+    assert big["basis"] == "essentials"
+    assert big["eur"] == book.essentials(5, "SS")[0]
+
+    small = licensing.cluster_license(book, [1], 16, 128, 5)
+    assert small["annotations"]["essentials_eligible"] is True
+    assert small["annotations"]["essentials_applied"] is False
+    assert small["basis"] == "per_node"
 
 
 # ── Eligibility vocabulary ───────────────────────────────────────────────────

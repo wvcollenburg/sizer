@@ -107,7 +107,7 @@ def parse_license_rows(rows):
                 "term_years": int(term),
                 "price": price,
                 # Ceilings are product policy, not carried in the feed.
-                "max_nodes": licensing.ESSENTIALS_EXACT_NODES,
+                "max_nodes": licensing.ESSENTIALS_MAX_NODES,
                 "max_ram_gb": licensing.ESSENTIALS_MAX_RAM_GB_PER_NODE,
                 "workloads": None,
             })
@@ -233,13 +233,13 @@ SEEDED_RULES = {
     },
     licensing.FLAT_ESSENTIALS: {
         "selectable": True,
-        "rule": {"exact_nodes": licensing.ESSENTIALS_EXACT_NODES,
+        "rule": {"max_nodes": licensing.ESSENTIALS_MAX_NODES,
                  "max_ram_gb_per_node": licensing.ESSENTIALS_MAX_RAM_GB_PER_NODE,
                  "bundleable": False, "role_gated": False},
     },
     licensing.FLAT_PRO_ESSENTIALS: {
         "selectable": True,
-        "rule": {"exact_nodes": licensing.ESSENTIALS_EXACT_NODES,
+        "rule": {"max_nodes": licensing.ESSENTIALS_MAX_NODES,
                  "max_ram_gb_per_node": licensing.ESSENTIALS_MAX_RAM_GB_PER_NODE,
                  "bundleable": False, "role_gated": False},
     },

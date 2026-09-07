@@ -65,7 +65,7 @@ ESSENTIALS_BY_SUPPORT = {
 # Essentials ceilings. Product policy, not derived from the feed — the feed
 # carries the price, these carry the shape. Overridable per-feed via
 # PriceLicenseRule so a policy change is one admin edit (§11).
-ESSENTIALS_EXACT_NODES = 3
+ESSENTIALS_MAX_NODES = 3
 ESSENTIALS_MAX_RAM_GB_PER_NODE = 256
 
 MIN_TERM_YEARS = 1
@@ -171,13 +171,18 @@ def cap_annotation(bands, cores):
 # ── Essentials ───────────────────────────────────────────────────────────────
 
 def essentials_eligibility(cluster_layout, ram_gb_per_node,
-                           exact_nodes=ESSENTIALS_EXACT_NODES,
+                           max_nodes=ESSENTIALS_MAX_NODES,
                            max_ram_gb=ESSENTIALS_MAX_RAM_GB_PER_NODE):
     """Is this sizing an Essentials candidate? Returns (eligible, near_miss).
 
     Essentials is aimed at SMB and is a genuine design attractor — roughly 2.6x
     cheaper than per-core at 16C/node — so when it fits it should win. It wins
     on price through the score; no thumb on the scale is needed (§5.5).
+    Eligibility is a SHAPE test only: any single cluster up to `max_nodes`
+    (single-node systems included) qualifies, and `cluster_license`'s
+    cheaper-wins check decides whether Essentials actually beats per-node
+    banded pricing — which it can lose on small core counts, where a low band
+    undercuts the flat kit price.
 
     It is a per-CLUSTER licence and **cannot be stacked across clusters**. A
     6-node result that `recommend._cluster_layout` splits into [3, 3] is a
@@ -187,21 +192,21 @@ def essentials_eligibility(cluster_layout, ram_gb_per_node,
     """
     layout = list(cluster_layout or [])
     if len(layout) != 1:
-        if layout.count(exact_nodes) == len(layout) and len(layout) > 1:
+        if len(layout) > 1 and all(n <= max_nodes for n in layout):
             return False, (
-                f"{len(layout)} clusters of {exact_nodes} nodes — Essentials is "
-                f"per-cluster and cannot be stacked across clusters"
+                f"{len(layout)} clusters of ≤{max_nodes} nodes — Essentials "
+                f"is per-cluster and cannot be stacked across clusters"
             )
         return False, None
 
     nodes = layout[0]
     ram = ram_gb_per_node or 0
 
-    if nodes != exact_nodes:
+    if nodes > max_nodes:
         # Only worth reporting when it is close enough to be actionable.
-        if abs(nodes - exact_nodes) == 1:
-            return False, (f"{nodes} nodes — Essentials requires exactly "
-                           f"{exact_nodes}")
+        if nodes == max_nodes + 1:
+            return False, (f"{nodes} nodes — Essentials allows at most "
+                           f"{max_nodes}")
         return False, None
 
     if ram > max_ram_gb:
