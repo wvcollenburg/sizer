@@ -1614,6 +1614,26 @@ function displayImportResults(data) {
 
 // "Determined by" line: which resource drove this config's node count, with the
 // required-vs-achieved figures.
+// The licence this cluster requires — shape only (cores band / Essentials
+// kit), never a price. Present only when licence-aware scoring priced the
+// candidate (a current pricebook feed is installed).
+function formatLicenseLine(r) {
+    const req = r.licensing && r.licensing.required;
+    if (!req) return '';
+    const term = req.term_years || r.licensing.term_years;
+    let text;
+    if (req.basis === 'essentials') {
+        const kind = req.kind === 'PE'
+            ? window.t('results.license_kind_pe') : window.t('results.license_kind_se');
+        text = window.t('results.license_essentials', {kind, term});
+    } else {
+        const cores = req.band_cores || req.cores_per_node;
+        text = window.t('results.license_per_node',
+                        {cores, nodes: req.node_count, term});
+    }
+    return `<div class="rec-license">${text}</div>`;
+}
+
 function formatDeterminant(det) {
     if (!det) return '';
     if (det.resource === 'minimum') {
@@ -1827,6 +1847,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
             ${formatComputeFloorLine(r)}
+            ${formatLicenseLine(r)}
             <div class="rec-details">
                 <div class="rec-col">
                     <h4>${window.t('results.per_node')}</h4>

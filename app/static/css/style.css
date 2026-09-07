@@ -1442,6 +1442,16 @@ body { padding-bottom: 64px; }
 
 .rec-determinant strong { color: var(--accent); }
 
+/* Required-licence line on a recommendation card — same quiet strip as the
+   determinant line above it. */
+.rec-license {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+}
+
 .rec-compute-floor {
     padding: 0.5rem 1.2rem;
     font-size: 0.8rem;

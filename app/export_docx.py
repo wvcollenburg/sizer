@@ -26,7 +26,9 @@ from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
-from export_gauges import render_util_bars, util_rows, compute_floor_sentence
+from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
+                           license_required_sentence, license_required_short,
+                           overview_actual_totals)
 from recommend import _rec_network_svg
 from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for, is_cjk
@@ -674,7 +676,8 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     show_rep = any(cl.get("replicates_to") for cl in clusters)
     header = [t9n("export.pptx.multisite_col_cluster"), t9n("export.pptx.multisite_col_model"),
               t9n("export.pptx.multisite_col_nodes"), t9n("export.pptx.multisite_col_cores"),
-              t9n("export.pptx.multisite_col_ram"), t9n("export.pptx.multisite_col_storage")]
+              t9n("export.pptx.multisite_col_ram"), t9n("export.pptx.multisite_col_storage"),
+              t9n("export.pptx.multisite_col_license")]
     if show_rep:
         header.append(t9n("export.pptx.multisite_col_replicates"))
     rows = []
@@ -684,18 +687,24 @@ def build_bundle_proposal_docx(clusters, lang="en"):
             tot = r.get("totals", {})
             model = r.get("model", "")
             nodes = r.get("node_count", "")
+            # ACTUAL installed cores/RAM, not usable: installed cores are the
+            # licensing basis; the usable story comes later in the document.
+            cores, ram_gb = overview_actual_totals(r)
         else:
             cfg = cl.get("config", {})
             tot = cfg.get("cluster_total", {})
             model = cfg.get("model") or t9n("export.pptx.configuration_software_only")
             nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
+            cores, ram_gb = tot.get("cores", ""), tot.get("ram_gb", 0)
         row = [cl.get("name", ""), model, str(nodes),
-               str(tot.get("cores", "")), _fmt_ram(tot.get("ram_gb", 0)),
-               f"{tot.get('usable_storage_tb', 0)} TB"]
+               str(cores), _fmt_ram(ram_gb),
+               f"{tot.get('usable_storage_tb', 0)} TB",
+               (license_required_short(r, lang) if r else None) or "—"]
         if show_rep:
             row.append(cl.get("replicates_to") or "—")
         rows.append(row)
-    weights = [1.5, 2.0, 0.8, 0.9, 1.1, 1.2, 1.3] if show_rep else [1.6, 2.2, 0.9, 1.0, 1.2, 1.3]
+    weights = ([1.4, 1.8, 0.7, 0.8, 1.0, 1.1, 1.0, 1.2] if show_rep
+               else [1.5, 2.0, 0.8, 0.9, 1.1, 1.2, 1.1])
     _grid_table(doc, header, rows, total_w=cw, weights=weights, lang=lang)
     _spacer(doc)
     _spec_table(doc, [
@@ -825,6 +834,10 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
                    model=r["model"], nodes=nodes_label, clusters=cl_label,
                    form_factor=r["form_factor"], chassis=r["chassis"]),
           lang=lang)
+    # Required licence — between the heading/intro and the resources table.
+    lic_sentence = license_required_sentence(r, lang)
+    if lic_sentence:
+        _para(doc, lic_sentence, lang=lang).runs[0].bold = True
     spec_rows = [
         (t9n("export.docx.per_node_cpu"), r["cpu"]),
         (t9n("export.docx.per_node_cores_threads"),

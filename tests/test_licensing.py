@@ -237,6 +237,47 @@ def test_essentials_loses_when_per_node_is_cheaper(book):
     assert out["basis"] == "per_node"
 
 
+def test_required_license_shape(book):
+    """The `required` block carries the licence SHAPE the customer buys —
+    band/cores per node or the Essentials kit — and never a price. It feeds
+    the recommendation card and the proposal exports."""
+    per = licensing.cluster_license(book, [3], 42, 512, 5)   # RAM > Essentials cap
+    assert per["required"] == {"basis": "per_node", "cores_per_node": 42,
+                               "band_cores": 44, "edition": "S",
+                               "node_count": 3, "term_years": 5}
+
+    ess = licensing.cluster_license(book, [1], 48, 128, 5)
+    assert ess["required"] == {"basis": "essentials", "kind": "SE",
+                               "node_count": 1, "term_years": 5}
+
+    # Above the ladder the top band is what is actually bought.
+    high = licensing.cluster_license(book, [4], 192, 512, 5)
+    assert high["required"]["band_cores"] == 64
+
+
+def test_required_license_sentence():
+    from export_gauges import license_required_sentence
+    per = {"licensing": {"required": {"basis": "per_node", "cores_per_node": 42,
+                                      "band_cores": 44, "node_count": 3,
+                                      "term_years": 5}}}
+    s = license_required_sentence(per)
+    assert "44" in s and "3" in s and "5" in s
+
+    ess = {"licensing": {"required": {"basis": "essentials", "kind": "PE",
+                                      "node_count": 3, "term_years": 5}}}
+    assert "Professional Essentials" in license_required_sentence(ess)
+
+    # No feed -> no claim (and no crash).
+    assert license_required_sentence({"licensing": {}}) is None
+    assert license_required_sentence({}) is None
+
+    # Compact form for the multi-site overview tables.
+    from export_gauges import license_required_short
+    assert license_required_short(per) == "44C/node"
+    assert license_required_short(ess) == "Essentials"
+    assert license_required_short({}) is None
+
+
 def test_essentials_on_single_node_when_cheaper(book):
     """An SNS is shape-eligible too; cheaper-wins decides. At 48C the band
     (EUR 41,094 SS) dwarfs the Essentials Kit (EUR 15,796), so Essentials

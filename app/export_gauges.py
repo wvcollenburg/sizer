@@ -95,6 +95,56 @@ def util_rows(utilization):
     return rows, any_ha
 
 
+def license_required_sentence(r, lang="en"):
+    """One-line statement of the licence this cluster requires — the SHAPE
+    only (cores band per node, or the Essentials kit), never a price. Shared
+    by the PPTX and DOCX exporters and mirrored by the UI card line. None when
+    the sizing ran without a licence feed (nothing priced, nothing to claim)."""
+    lic = r.get("licensing") or {}
+    req = lic.get("required")
+    if not req:
+        return None
+    t = translator(lang)
+    term = req.get("term_years") or lic.get("term_years")
+    if req.get("basis") == "essentials":
+        kind = (t("export.common.license_kind_pe") if req.get("kind") == "PE"
+                else t("export.common.license_kind_se"))
+        return t("export.common.license_essentials", kind=kind, term=term)
+    cores = req.get("band_cores") or req.get("cores_per_node")
+    return t("export.common.license_per_node", cores=cores,
+             nodes=req.get("node_count"), term=term)
+
+
+def overview_actual_totals(r):
+    """(cores, ram_gb) actually INSTALLED across the cluster — per-node figures
+    × node count, storage-only nodes included. The multi-site overview tables
+    show these rather than the usable totals (which deduct OS/platform
+    overhead): the installed core count is what licensing is based on, and the
+    usable story is told later in the document. Storage stays usable there —
+    raw storage is not a number anyone plans with."""
+    hci = r.get("hci_node_count") or r.get("node_count") or 0
+    cores = (r.get("cores_per_node") or 0) * hci
+    ram = (r.get("ram_per_node_gb") or 0) * hci
+    so = r.get("storage_only")
+    if so:
+        cores += (so.get("cores") or 0) * (so.get("count") or 0)
+        ram += (so.get("ram_gb") or 0) * (so.get("count") or 0)
+    return cores, ram
+
+
+def license_required_short(r, lang="en"):
+    """Compact form of the required licence for overview tables: "48C/node"
+    or "Essentials". None without a feed (the column then shows a dash)."""
+    req = (r.get("licensing") or {}).get("required")
+    if not req:
+        return None
+    t = translator(lang)
+    if req.get("basis") == "essentials":
+        return t("export.common.license_short_essentials")
+    cores = req.get("band_cores") or req.get("cores_per_node")
+    return t("export.common.license_short_per_node", cores=cores)
+
+
 def compute_floor_sentence(r, lang="en"):
     """One-line plain-language summary of a recommendation's active compute-floor
     coverage (perf-based sizing), or None when the floor is off / absent. Shared

@@ -18,7 +18,9 @@ from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
 
-from export_gauges import render_util_bars, util_rows, compute_floor_sentence
+from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
+                           license_required_sentence, license_required_short,
+                           overview_actual_totals)
 from recommend import _rec_network_svg
 from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for
@@ -199,6 +201,7 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
         t("export.pptx.multisite_col_cluster"), t("export.pptx.multisite_col_model"),
         t("export.pptx.multisite_col_nodes"), t("export.pptx.multisite_col_cores"),
         t("export.pptx.multisite_col_ram"), t("export.pptx.multisite_col_storage"),
+        t("export.pptx.multisite_col_license"),
     ]
     if show_rep:
         header.append(t("export.pptx.multisite_col_replicates"))
@@ -209,25 +212,30 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
             tot = r.get("totals", {})
             model = r.get("model", "")
             nodes = r.get("node_count", "")
+            # ACTUAL installed cores/RAM, not usable: installed cores are the
+            # licensing basis, and the usable story comes later in the deck.
+            cores, ram_gb = overview_actual_totals(r)
         else:
             # Config section (appliance/validated) — summarise its usable capacity.
             cfg = cl.get("config", {})
             tot = cfg.get("cluster_total", {})
             model = cfg.get("model") or t("export.pptx.configuration_software_only")
             nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
+            cores, ram_gb = tot.get("cores", ""), tot.get("ram_gb", 0)
         row = [
             cl.get("name", ""),
             model,
             str(nodes),
-            str(tot.get("cores", "")),
-            f"{round(tot.get('ram_gb', 0))} GB",
+            str(cores),
+            f"{round(ram_gb)} GB",
             f"{tot.get('usable_storage_tb', 0)} TB",
+            (license_required_short(r, lang) if r else None) or "—",
         ]
         if show_rep:
             row.append(cl.get("replicates_to") or "—")
         rows.append(row)
-    widths = ([2.2, 2.9, 1.2, 1.3, 1.5, 1.6, 1.4] if show_rep
-              else [2.4, 3.3, 1.4, 1.5, 1.7, 1.8])
+    widths = ([2.0, 2.5, 1.0, 1.1, 1.4, 1.5, 1.3, 1.3] if show_rep
+              else [2.1, 2.8, 1.2, 1.3, 1.5, 1.7, 1.5])
     _add_table(slide, 0.6, 1.7, 12.1, rows, widths)
 
 
@@ -770,6 +778,20 @@ def _slide_proposal(prs, r, projection=None, t=None, lang="en"):
     _add_title(slide, t("export.pptx.proposed_model", model=model_label),
                f"{nodes_label}  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}",
                lang=lang)
+
+    # Required licence — between the heading and the resource tables.
+    lic_sentence = license_required_sentence(r, lang)
+    if lic_sentence:
+        box = slide.shapes.add_textbox(Inches(0.6), Inches(1.9),
+                                       Inches(12.2), Inches(0.35))
+        tf = box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = lic_sentence
+        run.font.size = Pt(13)
+        run.font.bold = True
+        run.font.color.rgb = SC_BLUE
 
     iops = r.get("iops") or {}
 

@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "レプリケーション先",
   "export.pptx.multisite_col_storage": "使用可能ストレージ",
+  "export.pptx.multisite_col_license": "ライセンス",
   "export.pptx.multisite_subtitle": "{count} クラスターを個別にサイジング",
   "export.pptx.multisite_title": "マルチサイトサイジング概要",
   "export.pptx.n1_spares": "N-1 ({count} 台の予備)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "{years} 年目予測",
   "export.pptx.your_current_cpus": "現在のCPU",
   "export.common.system_reserved": "システム予約",
+  "export.common.license_per_node": "このクラスタにはノードあたり {cores} ライセンスコアが必要です（{nodes} ノード、{term} 年契約）。",
+  "export.common.license_essentials": "このクラスタ全体で {kind} ライセンスが 1 つ必要です（{term} 年契約）。",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/ノード",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores}コア · {ram}"
 }

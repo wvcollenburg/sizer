@@ -626,6 +626,11 @@ def _license_annotations(license_block, license_ctx):
         out["guest_licensing_basis"] = license_ctx["exposure_detail"]
     if license_block and license_block.get("basis"):
         out["basis"] = license_block["basis"]
+    # The licence the customer must buy — shape only (basis, cores/band per
+    # node, kind, node count), never a price. Rendered on the recommendation
+    # card and on the proposal exports.
+    if license_block and license_block.get("required"):
+        out["required"] = license_block["required"]
     if license_block and license_block.get("eur") is None:
         out["not_priced"] = ("no current licence price feed for this region; "
                              "licence cost excluded from ranking")

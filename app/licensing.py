@@ -281,6 +281,10 @@ def cluster_license(book, cluster_layout, cores_per_node, ram_gb_per_node,
         eur           float | None   total licence cost (None = not priceable)
         basis         "per_node" | "essentials"
         annotations   dict of booleans/strings — NEVER numbers with a currency
+        required      what the customer must buy — the licence SHAPE, no price:
+                      {basis, node_count, term_years, and per basis:
+                       cores_per_node + band_cores + edition | kind}. This is
+                      what the UI cards and proposal exports print.
 
     `cores_per_node` is the licensable core count — the P-weighted figure from
     `recommend._effective_cores`, matching how sizing counts cores. E-cores carry
@@ -320,10 +324,24 @@ def cluster_license(book, cluster_layout, cores_per_node, ram_gb_per_node,
                 ann["essentials_applied"] = True
                 ann["essentials_kind"] = kind
                 return {"eur": float(flat), "basis": "essentials",
-                        "annotations": ann}
+                        "annotations": ann,
+                        "required": {"basis": "essentials", "kind": kind,
+                                     "node_count": node_count,
+                                     "term_years": term}}
             ann["essentials_applied"] = False
 
     if per_node_total is None:
         return {"eur": None, "basis": None, "annotations": ann}
 
-    return {"eur": float(per_node_total), "basis": "per_node", "annotations": ann}
+    # The band the customer actually buys: the smallest published band that
+    # covers this node's licensable cores (None only above the ladder, where
+    # the top band applies and `license_above_ladder` already says so).
+    band = next((b for b in sorted(bands) if cores_per_node <= b), None)
+    return {"eur": float(per_node_total), "basis": "per_node",
+            "annotations": ann,
+            "required": {"basis": "per_node",
+                         "cores_per_node": cores_per_node,
+                         "band_cores": band or (sorted(bands)[-1] if bands else None),
+                         "edition": edition,
+                         "node_count": node_count,
+                         "term_years": term}}

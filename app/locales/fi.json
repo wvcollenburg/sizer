@@ -206,6 +206,7 @@
   "export.pptx.multisite_col_ram": "RAM",
   "export.pptx.multisite_col_replicates": "Replikoi kohteeseen",
   "export.pptx.multisite_col_storage": "Käytettävissä oleva tallennustila",
+  "export.pptx.multisite_col_license": "Lisenssi",
   "export.pptx.multisite_subtitle": "{count} klusteria mitoitettu itsenäisesti",
   "export.pptx.multisite_title": "Monisivustomitoituksen yleiskatsaus",
   "export.pptx.n1_spares": "N-1 ({count} varaosaa)",
@@ -268,5 +269,11 @@
   "export.pptx.year_projected": "Vuosi {years} ennustettu",
   "export.pptx.your_current_cpus": "Nykyiset CPU:si",
   "export.common.system_reserved": "Järjestelmälle varattu",
+  "export.common.license_per_node": "Tämä klusteri vaatii {cores} lisensoitua ydintä per solmu ({nodes} solmua, {term} vuoden kausi).",
+  "export.common.license_essentials": "Tämä klusteri vaatii yhden {kind}-lisenssin koko klusterille ({term} vuoden kausi).",
+  "export.common.license_kind_se": "Essentials Kit",
+  "export.common.license_kind_pe": "Professional Essentials",
+  "export.common.license_short_per_node": "{cores}C/solmu",
+  "export.common.license_short_essentials": "Essentials",
   "export.docx.reserved_val": "{cores} ydintä · {ram}"
 }
