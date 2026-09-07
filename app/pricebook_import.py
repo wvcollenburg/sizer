@@ -203,12 +203,65 @@ def build_book(parsed, region=None, feed_label=None):
     )
 
 
+def diff_feed(parsed, region=None):
+    """Diff a parsed price list against the region's current feed.
+
+    Shared by the admin upload flow and `tools/import_pricebook.py` — the diff
+    is the point of both: these numbers decide which configuration the sizer
+    recommends, so nothing installs without a human seeing what moved first.
+
+    Returns a JSON-ready dict:
+        current   {label, region} of the feed being replaced, or None
+        added     [{kind, key, new}]           entries the current feed lacks
+        removed   [{kind, key, old}]           entries the new list drops
+        moved     [{kind, key, old, new, pct}] price changes over half a cent
+
+    `key` is a display string — "S 5y PS 16C" for a band, "PE 5y" for a flat.
+    """
+    from orm_models import load_license_book
+
+    region = region or DEFAULT_REGION
+    current = load_license_book(region)
+    incoming = build_book(parsed, region=region)
+
+    def _band_key(e, t, s, c):
+        return f"{e} {t}y {s} {c}C"
+
+    def _flat_key(kind, t):
+        return f"{kind} {t}y"
+
+    cur = {("band", _band_key(e, t, s, c)): p
+           for (e, t, s), m in current.bands.items() for c, p in m.items()}
+    cur.update({("flat", _flat_key(k, t)): p
+                for (k, t), p in current.flats.items()})
+    new = {("band", _band_key(e, t, s, c)): p
+           for (e, t, s), m in incoming.bands.items() for c, p in m.items()}
+    new.update({("flat", _flat_key(k, t)): p
+                for (k, t), p in incoming.flats.items()})
+
+    added = [{"kind": k, "key": key, "new": new[(k, key)]}
+             for k, key in sorted(set(new) - set(cur))]
+    removed = [{"kind": k, "key": key, "old": cur[(k, key)]}
+               for k, key in sorted(set(cur) - set(new))]
+    moved = []
+    for k, key in sorted(set(cur) & set(new)):
+        old, cost = cur[(k, key)], new[(k, key)]
+        if abs(old - cost) > 0.005:
+            moved.append({"kind": k, "key": key, "old": old, "new": cost,
+                          "pct": round((cost - old) / old * 100, 1) if old else None})
+
+    return {
+        "current": ({"label": current.feed_label, "region": region}
+                    if current else None),
+        "added": added, "removed": removed, "moved": moved,
+    }
+
+
 # ── Seeding ──────────────────────────────────────────────────────────────────
 # Slice 1 seeds the tables by running this parser over the archived price list.
-# The admin upload -> diff -> apply flow (§4.4) is deferred: feed B does not
-# exist from Salesforce yet, so building an importer for a guessed file shape
-# would be work we would throw away. The tables and the lookup are the eventual
-# home either way, so nothing here is temporary.
+# The admin upload -> diff -> apply flow (§4.4) lives in
+# admin_routes.import_pricebook; `tools/import_pricebook.py` is the CLI
+# convenience over the same parse/diff/seed calls.
 
 DEFAULT_REGION = "EMEA"
 

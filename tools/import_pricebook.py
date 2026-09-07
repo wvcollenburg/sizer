@@ -49,39 +49,6 @@ def _fmt(v):
     return f"{v:,.2f}" if v is not None else "—"
 
 
-def diff_against_current(parsed, region):
-    """Compare a parsed price list with the region's current feed."""
-    from orm_models import load_license_book
-    import pricebook_import
-
-    current = load_license_book(region)
-    incoming = pricebook_import.build_book(parsed, region=region)
-
-    added, removed, moved = [], [], []
-
-    cur_bands = {(e, t, s, c): p
-                 for (e, t, s), m in current.bands.items() for c, p in m.items()}
-    new_bands = {(e, t, s, c): p
-                 for (e, t, s), m in incoming.bands.items() for c, p in m.items()}
-    for key in sorted(set(new_bands) - set(cur_bands)):
-        added.append(("band", key, None, new_bands[key]))
-    for key in sorted(set(cur_bands) - set(new_bands)):
-        removed.append(("band", key, cur_bands[key], None))
-    for key in sorted(set(cur_bands) & set(new_bands)):
-        if abs(cur_bands[key] - new_bands[key]) > 0.005:
-            moved.append(("band", key, cur_bands[key], new_bands[key]))
-
-    for key in sorted(set(incoming.flats) - set(current.flats)):
-        added.append(("flat", key, None, incoming.flats[key]))
-    for key in sorted(set(current.flats) - set(incoming.flats)):
-        removed.append(("flat", key, current.flats[key], None))
-    for key in sorted(set(current.flats) & set(incoming.flats)):
-        if abs(current.flats[key] - incoming.flats[key]) > 0.005:
-            moved.append(("flat", key, current.flats[key], incoming.flats[key]))
-
-    return current, added, removed, moved
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Install a quarterly licence price list (dry run by default).")
@@ -135,24 +102,24 @@ def main(argv=None):
             print(f"   NEW edition letter(s) {', '.join(unknown)} — stored and "
                   "priced, but not selectable until a rule is added.")
 
-        current, added, removed, moved = diff_against_current(parsed, args.region)
-        if not current:
+        diff = pricebook_import.diff_feed(parsed, args.region)
+        added, removed, moved = diff["added"], diff["removed"], diff["moved"]
+        if not diff["current"]:
             print(f"\nNo current feed for {args.region} — this would be the first.")
         else:
-            print(f"\ndiff vs current feed ({current.feed_label}):")
+            print(f"\ndiff vs current feed ({diff['current']['label']}):")
             print(f"   {len(added)} added, {len(removed)} removed, {len(moved)} changed")
-            for kind, key, old, new in moved[:40]:
-                pct = ((new - old) / old * 100) if old else 0
-                print(f"   ~ {kind} {str(key):<28} {_fmt(old):>12} -> "
-                      f"{_fmt(new):>12}  ({pct:+.1f}%)")
+            for m in moved[:40]:
+                print(f"   ~ {m['kind']} {m['key']:<28} {_fmt(m['old']):>12} -> "
+                      f"{_fmt(m['new']):>12}  ({m['pct']:+.1f}%)")
             if len(moved) > 40:
                 print(f"   ... and {len(moved) - 40} more price changes")
-            for kind, key, _o, new in added[:15]:
-                print(f"   + {kind} {str(key):<28} {_fmt(new):>12}")
+            for a in added[:15]:
+                print(f"   + {a['kind']} {a['key']:<28} {_fmt(a['new']):>12}")
             if len(added) > 15:
                 print(f"   ... and {len(added) - 15} more additions")
-            for kind, key, old, _n in removed[:15]:
-                print(f"   - {kind} {str(key):<28} {_fmt(old):>12}")
+            for r in removed[:15]:
+                print(f"   - {r['kind']} {r['key']:<28} {_fmt(r['old']):>12}")
             if len(removed) > 15:
                 print(f"   ... and {len(removed) - 15} more removals")
 

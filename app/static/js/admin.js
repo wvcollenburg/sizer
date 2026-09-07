@@ -41,6 +41,7 @@ function switchTab(tab) {
     document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.add('active');
     if (tab === 'tuning') loadTunables();
+    else if (tab === 'pricebook') loadPricebook();
     else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
@@ -683,6 +684,148 @@ function showCatalogImportStatus(msg, isError) {
 
 function downloadCatalogTemplate() {
     window.location.href = '/admin/api/catalog-template';
+}
+
+// ── Licence Pricebook ──────────────────────────────────────────────────────
+// Upload -> diff -> apply, mirroring tools/import_pricebook.py: nothing is
+// written until the reviewed file is re-posted with apply=1.
+
+async function loadPricebook() {
+    const rows = document.getElementById('pricebook-feed-rows');
+    const empty = document.getElementById('pricebook-no-feed');
+    try {
+        const resp = await fetch('/admin/api/pricebook');
+        const data = await resp.json();
+        const feeds = data.feeds || [];
+        rows.innerHTML = feeds.map(f => `<tr>
+            <td>${esc(f.region)}</td>
+            <td>${esc(f.label)}</td>
+            <td>${esc(f.currency)}</td>
+            <td>${f.bands}</td>
+            <td>${f.flats}</td>
+            <td>${f.uploaded_at ? esc(f.uploaded_at.slice(0, 10)) : ''}</td>
+            <td>${esc(f.source_filename || '')}</td>
+        </tr>`).join('');
+        empty.style.display = feeds.length ? 'none' : 'block';
+    } catch (e) {
+        rows.innerHTML = '';
+        empty.style.display = 'block';
+    }
+}
+
+function resetPricebookPreview() {
+    // A new file invalidates the reviewed diff: force a fresh preview before
+    // Apply becomes available again.
+    document.getElementById('pricebook-apply-btn').style.display = 'none';
+    document.getElementById('pricebook-preview').style.display = 'none';
+    setPricebookStatus('', false);
+}
+
+function setPricebookStatus(msg, isError) {
+    const el = document.getElementById('pricebook-status');
+    el.className = 'iops-status ' + (isError ? 'error' : 'success');
+    el.textContent = msg;
+}
+
+function pricebookFormData(apply) {
+    const fileInput = document.getElementById('pricebook-file');
+    if (!fileInput.files.length) return null;
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    fd.append('region', document.getElementById('pricebook-region').value.trim() || 'EMEA');
+    fd.append('label', document.getElementById('pricebook-label').value.trim());
+    if (apply) fd.append('apply', '1');
+    return fd;
+}
+
+function renderPricebookPreview(d) {
+    const eur = v => v == null ? '—' : v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const c = d.counts || {};
+    let html = `<p class="import-info">${esc(t('admin.pricebook.parsed_summary', {
+        rows: c.license_rows, bands: c.banded, flats: c.flat,
+        unmatched: c.unmatched, currency: d.currency || '?'}))}</p>`;
+    if ((d.unmatched || []).length) {
+        html += `<p class="import-info">${esc(t('admin.pricebook.unmatched_title'))}</p>`
+            + '<ul class="import-info">'
+            + d.unmatched.map(u => `<li><code>${esc(u.sku)}</code> ${esc(u.description || '')}</li>`).join('')
+            + '</ul>';
+    }
+    if ((d.new_editions || []).length) {
+        html += `<p class="import-info">${esc(t('admin.pricebook.new_editions', {letters: d.new_editions.join(', ')}))}</p>`;
+    }
+    const diff = d.diff || {};
+    if (!diff.current) {
+        html += `<p class="import-info">${esc(t('admin.pricebook.first_feed', {region: d.region}))}</p>`;
+    } else {
+        html += `<p class="import-info">${esc(t('admin.pricebook.diff_title', {label: diff.current.label}))} `
+            + `${esc(t('admin.pricebook.diff_counts', {
+                added: (diff.added || []).length,
+                removed: (diff.removed || []).length,
+                changed: (diff.moved || []).length}))}</p>`;
+        const rows = []
+            .concat((diff.moved || []).map(m => ['~', m.kind, m.key, eur(m.old), eur(m.new),
+                m.pct == null ? '' : (m.pct > 0 ? '+' : '') + m.pct + '%']))
+            .concat((diff.added || []).map(a => ['+', a.kind, a.key, '—', eur(a.new), '']))
+            .concat((diff.removed || []).map(r => ['−', r.kind, r.key, eur(r.old), '—', '']));
+        if (rows.length) {
+            html += `<div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                <th></th>
+                <th>${esc(t('admin.pricebook.col_kind'))}</th>
+                <th>${esc(t('admin.pricebook.col_item'))}</th>
+                <th>${esc(t('admin.pricebook.col_old'))}</th>
+                <th>${esc(t('admin.pricebook.col_new'))}</th>
+                <th>${esc(t('admin.pricebook.col_change'))}</th>
+            </tr></thead><tbody>`
+                + rows.map(r => `<tr>${r.map(cell => `<td>${esc(String(cell))}</td>`).join('')}</tr>`).join('')
+                + '</tbody></table></div>';
+        } else {
+            html += `<p class="import-info">${esc(t('admin.pricebook.no_changes'))}</p>`;
+        }
+    }
+    const el = document.getElementById('pricebook-preview');
+    el.innerHTML = html;
+    el.style.display = 'block';
+}
+
+async function previewPricebook() {
+    const fd = pricebookFormData(false);
+    if (!fd) { setPricebookStatus(t('admin.pricebook.select_file'), true); return; }
+    setPricebookStatus(t('admin.pricebook.previewing'), false);
+    try {
+        const resp = await fetch('/admin/api/import-pricebook', {method: 'POST', body: fd});
+        const data = await resp.json();
+        if (data.error) {
+            resetPricebookPreview();
+            setPricebookStatus(data.error, true);
+            return;
+        }
+        renderPricebookPreview(data);
+        document.getElementById('pricebook-apply-btn').style.display = '';
+        setPricebookStatus('', false);
+    } catch (e) {
+        setPricebookStatus(t('admin.pricebook.failed', {error: e.message}), true);
+    }
+}
+
+async function applyPricebook() {
+    const fd = pricebookFormData(true);
+    if (!fd) { setPricebookStatus(t('admin.pricebook.select_file'), true); return; }
+    setPricebookStatus(t('admin.pricebook.applying'), false);
+    try {
+        const resp = await fetch('/admin/api/import-pricebook', {method: 'POST', body: fd});
+        const data = await resp.json();
+        if (data.error) { setPricebookStatus(data.error, true); return; }
+        document.getElementById('pricebook-apply-btn').style.display = 'none';
+        if (data.already_current) {
+            setPricebookStatus(t('admin.pricebook.already_current'), false);
+        } else {
+            setPricebookStatus(t('admin.pricebook.applied', {
+                label: data.feed.label, region: data.feed.region}), false);
+        }
+        loadPricebook();
+    } catch (e) {
+        setPricebookStatus(t('admin.pricebook.failed', {error: e.message}), true);
+    }
 }
 
 // ── Model Edit Modal ───────────────────────────────────────────────────────
