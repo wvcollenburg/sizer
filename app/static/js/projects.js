@@ -833,37 +833,147 @@ function _downloadBlob(blob, filename) {
 
 let exportPollTimer = null;
 
-async function exportSelected() {
-    if (!currentProject || !selectedSizings.size) return;
-    const fmt = document.getElementById('project-export-format').value;
-    const notify = document.getElementById('project-export-notify').checked;
+// ── Exports wizard (modal) ──────────────────────────────────────────────────
+// Mirrors the Comparisons wizard: pick WHAT (individual sizings or a tag
+// group's members), choose format + notification, queue — and collect the
+// finished downloads, all in one modal. The header button carries a badge
+// while ready downloads exist.
 
+let expState = { mode: null };
+let lastExportJobs = [];
+
+function openExports() {
+    if (!currentProject) return;
+    expState = { mode: null };
+    _expShowStep('mode');
+    document.getElementById('exports-modal').style.display = 'flex';
+    loadExports();
+}
+
+function closeExports() {
+    expState = { mode: null };
+    const list = document.getElementById('exp-pick-list');
+    if (list) list.innerHTML = '';
+    document.getElementById('exports-modal').style.display = 'none';
+}
+
+function _expShowStep(step) {
+    const modeEl = document.getElementById('exp-step-mode');
+    const pickEl = document.getElementById('exp-step-pick');
+    if (modeEl) modeEl.style.display = step === 'mode' ? '' : 'none';
+    if (pickEl) pickEl.style.display = step === 'pick' ? '' : 'none';
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+    show('exp-back-btn', step === 'pick');
+    show('exp-run-btn', step === 'pick');
+    if (step === 'pick') updateExpPickCount();
+}
+
+function expChooseMode(mode) {
+    expState.mode = mode === 'tags' ? 'tags' : 'sizings';
+    const list = document.getElementById('exp-pick-list');
+    const hint = document.getElementById('exp-pick-hint');
+    if (expState.mode === 'tags') {
+        const seen = new Map();
+        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
+            const e = seen.get(t.id) || { name: t.name, count: 0 };
+            e.count++;
+            seen.set(t.id, e);
+        }));
+        hint.textContent = tt('exp.pick_tags');
+        const tags = [...seen.entries()].sort((a, b) =>
+            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+        list.innerHTML = tags.map(([id, t]) => `
+            <label class="fanout-row">
+                <input type="checkbox" data-exp-id="${id}" data-change='["updateExpPickCount"]'>
+                <span class="fanout-name">${escHtml(t.name)}</span>
+                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+            </label>`).join('');
+    } else {
+        hint.textContent = tt('exp.pick_sizings');
+        list.innerHTML = (currentProject.sizings || []).map(s => `
+            <label class="fanout-row">
+                <input type="checkbox" data-exp-id="${s.id}" data-change='["updateExpPickCount"]'>
+                <span class="fanout-name">${escHtml(s.name)}</span>
+                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
+            </label>`).join('');
+    }
+    _expShowStep('pick');
+}
+
+function expBack() { _expShowStep('mode'); }
+
+function _expChosenIds() {
+    return [...document.querySelectorAll('#exp-pick-list input[data-exp-id]')]
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.dataset.expId, 10));
+}
+
+function updateExpPickCount() {
+    const btn = document.getElementById('exp-run-btn');
+    if (btn) btn.disabled = _expChosenIds().length < 1;
+}
+
+async function runExport() {
+    const ids = _expChosenIds();
+    if (!ids.length) return;
+    // Tag mode exports the UNION of the chosen tags' member sizings, in
+    // project order (position) — the server takes sizing ids either way.
+    let sizingIds;
+    if (expState.mode === 'tags') {
+        const chosen = new Set(ids);
+        sizingIds = (currentProject.sizings || [])
+            .filter(s => (s.tags || []).some(t => chosen.has(t.id)))
+            .map(s => s.id);
+        if (!sizingIds.length) return;
+    } else {
+        sizingIds = ids;
+    }
+    const fmt = document.getElementById('exp-format').value;
+    const notify = document.getElementById('exp-notify').checked;
     const { ok, data } = await api(`/api/projects/${currentProject.id}/export`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            format: fmt, sizing_ids: [...selectedSizings],
+            format: fmt, sizing_ids: sizingIds,
             notify_email: notify, lang: currentProject.lang || window.I18N_ACTIVE,
         }),
     });
     if (!ok) return info(tt('project.export.failed'), (data && data.error) || '');
+    // Land on the downloads view so the new job is the next thing seen.
+    _expShowStep('mode');
     loadExports();
 }
 
+// Downloads list (inside the modal) + the header button's ready-count badge.
+// Polling runs while jobs are queued/running, whether or not the modal is
+// open, so the badge appears the moment a download is ready.
 async function loadExports() {
     if (!currentProject) return;
-    const host = document.getElementById('project-exports');
-    if (!host) return;
     const { ok, data } = await api(`/api/projects/${currentProject.id}/exports`);
     if (!ok) return;
-    const jobs = data || [];
-    if (!jobs.length) { host.innerHTML = ''; stopExportPolling(); return; }
-
-    host.innerHTML = `<h3 class="rep-heading">${escHtml(tt('project.export.title'))}</h3>
-        <ul class="export-list">${jobs.map(exportRow).join('')}</ul>`;
-
-    // Keep polling only while something is actually running.
-    if (jobs.some(j => j.status === 'queued' || j.status === 'running')) startExportPolling();
+    lastExportJobs = data || [];
+    renderExportsList();
+    updateExportsBadge();
+    if (lastExportJobs.some(j => j.status === 'queued' || j.status === 'running')) startExportPolling();
     else stopExportPolling();
+}
+
+function renderExportsList() {
+    const host = document.getElementById('exp-downloads-list');
+    const empty = document.getElementById('exp-downloads-empty');
+    if (!host) return;
+    host.innerHTML = lastExportJobs.map(exportRow).join('');
+    if (empty) empty.hidden = lastExportJobs.length > 0;
+}
+
+function updateExportsBadge() {
+    const badge = document.getElementById('exports-badge');
+    if (!badge) return;
+    const ready = lastExportJobs.filter(j => j.status === 'done' && !j.expired).length;
+    badge.hidden = ready === 0;
+    badge.textContent = ready;
 }
 
 function exportRow(j) {
@@ -892,6 +1002,127 @@ function stopExportPolling() {
     if (!exportPollTimer) return;
     clearInterval(exportPollTimer);
     exportPollTimer = null;
+}
+
+// ── batch edit (selected sizings) ───────────────────────────────────────────
+// Apply detail changes to every selected sizing at once, reusing the
+// per-sizing endpoints (role / tags / replication). Empty controls mean
+// "leave unchanged".
+
+function openBatchEdit() {
+    if (!currentProject || !selectedSizings.size) return;
+    hideError('batch-error');
+    document.getElementById('batch-summary').textContent =
+        tt('batch.summary', { count: selectedSizings.size });
+    document.getElementById('batch-role').value = '';
+    document.getElementById('batch-new-tag').value = '';
+
+    // Existing project tags as add-chips (click to toggle), and the tags on
+    // any selected sizing as remove-chips.
+    const all = (currentProject.tags || []);
+    const addHost = document.getElementById('batch-add-tags');
+    addHost.innerHTML = all.map(t =>
+        `<button class="tag-chip tag-chip-add" data-batch-add="${t.id}"
+                 data-click='["toggleBatchTag","add",${t.id}]'>${escHtml(t.name)}</button>`).join('');
+    const onSelected = new Map();
+    (currentProject.sizings || []).forEach(s => {
+        if (!selectedSizings.has(s.id)) return;
+        (s.tags || []).forEach(t => onSelected.set(t.id, t.name));
+    });
+    const remHost = document.getElementById('batch-remove-tags');
+    remHost.innerHTML = [...onSelected.entries()].map(([id, name]) =>
+        `<button class="tag-chip tag-chip-add" data-batch-remove="${id}"
+                 data-click='["toggleBatchTag","remove",${id}]'>${escHtml(name)}</button>`).join('')
+        || `<span class="tag-empty">${escHtml(tt('project.sizing.tag_none_on_sizing'))}</span>`;
+
+    // Replication targets: any sizing NOT in the selection (a link to a
+    // selected source would be fine, but to itself is not — filtered on apply).
+    const target = document.getElementById('batch-rep-target');
+    target.innerHTML = `<option value="">${escHtml(tt('batch.keep'))}</option>`
+        + `<option value="none">${escHtml(tt('batch.rep_none'))}</option>`
+        + (currentProject.sizings || [])
+            .filter(s => !selectedSizings.has(s.id))
+            .map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+    updateBatchRepFields();
+    document.getElementById('batch-edit-modal').style.display = 'flex';
+}
+
+function closeBatchEdit() {
+    document.getElementById('batch-edit-modal').style.display = 'none';
+}
+
+function toggleBatchTag(kind, id) {
+    const sel = kind === 'add' ? `[data-batch-add="${id}"]` : `[data-batch-remove="${id}"]`;
+    const chip = document.querySelector(sel);
+    if (chip) chip.classList.toggle('tag-chip-assigned');
+}
+
+function updateBatchRepFields() {
+    const v = document.getElementById('batch-rep-target').value;
+    document.getElementById('batch-rep-fields').style.display =
+        (v && v !== 'none') ? '' : 'none';
+}
+
+async function applyBatchEdit() {
+    const ids = [...selectedSizings];
+    if (!ids.length) return;
+    const role = document.getElementById('batch-role').value;
+    const addIds = [...document.querySelectorAll('#batch-add-tags .tag-chip-assigned')]
+        .map(el => parseInt(el.dataset.batchAdd, 10));
+    const removeIds = new Set([...document.querySelectorAll('#batch-remove-tags .tag-chip-assigned')]
+        .map(el => parseInt(el.dataset.batchRemove, 10)));
+    const newTag = document.getElementById('batch-new-tag').value.trim();
+    const repTarget = document.getElementById('batch-rep-target').value;
+
+    // A typed tag is created once at project level, then added like a chip.
+    if (newTag) {
+        const { ok, data } = await api(`/api/projects/${currentProject.id}/tags`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newTag }),
+        });
+        if (ok && data && data.id) addIds.push(data.id);
+    }
+
+    const rows = (currentProject.sizings || []).filter(s => selectedSizings.has(s.id));
+    let failed = null;
+    for (const s of rows) {
+        const calls = [];
+        if (role) {
+            calls.push(api(`/api/sizings/${s.id}/role`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role }),
+            }));
+        }
+        if (addIds.length || removeIds.size) {
+            const tagIds = new Set((s.tags || []).map(t => t.id));
+            addIds.forEach(id => tagIds.add(id));
+            removeIds.forEach(id => tagIds.delete(id));
+            calls.push(api(`/api/sizings/${s.id}/tags`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_ids: [...tagIds] }),
+            }));
+        }
+        if (repTarget === 'none') {
+            calls.push(api(`/api/sizings/${s.id}/replication?source_cluster=`, { method: 'DELETE' }));
+        } else if (repTarget) {
+            calls.push(api(`/api/sizings/${s.id}/replication`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_configuration_id: parseInt(repTarget, 10),
+                    source_cluster: '', target_cluster: '',
+                    compute_pct: parseInt(document.getElementById('batch-rep-compute').value, 10) || 100,
+                    storage_pct: parseInt(document.getElementById('batch-rep-storage').value, 10) || 100,
+                    mode: document.getElementById('batch-rep-mode').value,
+                }),
+            }));
+        }
+        const results = await Promise.all(calls);
+        results.forEach(r => { if (!r.ok && !failed) failed = `${s.name}: ${(r.data && r.data.error) || ''}`; });
+    }
+    if (failed) return showError('batch-error', failed);
+    closeBatchEdit();
+    clearSizingSelection();
+    openProject(currentProject.id);
 }
 
 // ── sizing actions ──────────────────────────────────────────────────────────
@@ -1300,5 +1531,7 @@ Object.assign(window, {
     bootFromUrl,
     openComparisons, closeComparisons, cmpChooseMode, cmpBack, runComparison,
     updateCmpPickCount, exportComparisonCsv, exportComparisonXlsx,
-    exportSelected, refreshProjectNow,
+    openExports, closeExports, expChooseMode, expBack, updateExpPickCount,
+    runExport, openBatchEdit, closeBatchEdit, toggleBatchTag,
+    updateBatchRepFields, applyBatchEdit, refreshProjectNow,
 });

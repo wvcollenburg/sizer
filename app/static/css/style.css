@@ -1471,7 +1471,24 @@ body { padding-bottom: 64px; }
 
 /* Footer: navigation (Back/Close) left, actions (exports / Compare) right. */
 .cmp-modal .modal-footer-actions { width: 100%; }
-.cmp-modal #cmp-csv-btn, .cmp-modal #cmp-run-btn { margin-left: auto; }
+.cmp-modal #cmp-csv-btn, .cmp-modal #cmp-run-btn, .cmp-modal #exp-run-btn { margin-left: auto; }
+
+/* Header-button notification badge (ready downloads on Exports). */
+.btn-badged { display: inline-flex; align-items: center; gap: 0.4rem; }
+.notif-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 1.2rem; height: 1.2rem; padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--accent); color: var(--on-accent);
+    font-size: 0.72rem; font-weight: 700; line-height: 1;
+}
+
+/* Downloads section inside the Exports modal. */
+#exp-downloads { margin-top: 1.2rem; }
+#exp-downloads .export-list { margin: 0.4rem 0 0; }
+
+/* Modals that want the standard breathing room (shared .modal-body is 0). */
+.cmp-body-padded { padding: 1.1rem 1.5rem 1.35rem; }
 
 /* Legacy multi-cluster banner (read-only sizing + split migration) */
 .legacy-multi-banner { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0; }

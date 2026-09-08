@@ -115,6 +115,10 @@
                             data-i18n="project.view.new_dr">Add DR target</button>
                     <button class="btn btn-soft" data-click='["openComparisons"]'
                             data-i18n="project.view.comparisons">Comparisons</button>
+                    <button class="btn btn-soft btn-badged" data-click='["openExports"]'>
+                        <span data-i18n="project.view.exports">Exports</span>
+                        <span id="exports-badge" class="notif-badge" hidden></span>
+                    </button>
                     <button class="btn btn-soft" data-click='["openProjectSettings"]'
                             data-i18n="project.view.settings">Details</button>
                 </div>
@@ -126,29 +130,16 @@
                  selection: compare it, or export it. The export controls are
                  grouped so the format and the notify option read as belonging
                  to the Export button rather than floating between them. -->
-            <!-- Selection means ONE thing: what goes into the export. Comparing
-                 lives in the Comparisons modal (header button). -->
+            <!-- Selection drives BATCH EDIT of the selected sizings' details.
+                 Exports and comparisons live in their header-button modals. -->
             <div id="project-selection-bar" class="project-selection-bar" hidden>
                 <span id="project-selection-count" class="selection-count"></span>
-                <div class="export-controls">
-                    <select id="project-export-format" class="text-input inline-select">
-                        <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
-                        <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
-                        <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
-                        <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
-                    </select>
-                    <label class="notify-check">
-                        <input type="checkbox" id="project-export-notify">
-                        <span data-i18n="project.export.notify">Email me when ready</span>
-                    </label>
-                    <button class="btn btn-cta" data-click='["exportSelected"]'
-                            data-i18n="project.view.export">Export</button>
-                </div>
+                <button class="btn btn-soft" data-click='["openBatchEdit"]'
+                        data-i18n="batch.btn">Batch edit</button>
                 <button class="btn btn-ghost" data-click='["clearSizingSelection"]'
                         data-i18n="project.view.clear_selection">Clear</button>
             </div>
 
-            <div id="project-exports" class="project-exports"></div>
 
             <div id="project-tag-filter" class="project-tag-filter"></div>
             <div id="project-sizings" class="project-sizings"></div>
@@ -984,6 +975,122 @@
                     <button class="btn btn-soft" id="cmp-csv-btn" style="display:none" data-click='["exportComparisonCsv"]' data-i18n="cmp.export_csv">Export CSV</button>
                     <button class="btn btn-soft" id="cmp-xlsx-btn" style="display:none" data-click='["exportComparisonXlsx"]' data-i18n="cmp.export_xlsx">Export Excel</button>
                     <button class="btn btn-primary" id="cmp-run-btn" style="display:none" data-click='["runComparison"]' data-i18n="cmp.run">Compare</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exports wizard: pick WHAT to export (sizings or a tag group's members),
+         choose the format, queue it — and collect finished downloads. The
+         header button carries a badge while downloads are ready. -->
+    <div class="modal-overlay" id="exports-modal" style="display:none">
+        <div class="modal-content cmp-modal" style="max-width:720px">
+            <div class="modal-header">
+                <h2 data-i18n="exp.title">Exports</h2>
+                <button class="modal-close" data-click='["closeExports"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div id="exp-step-mode">
+                    <p class="import-info" data-i18n="exp.step_what">What do you want to export?</p>
+                    <div class="fanout-list">
+                        <button class="fanout-row cmp-mode-btn" data-click='["expChooseMode","sizings"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_sizings">Individual sizings</span>
+                            <span class="fanout-meta" data-i18n="exp.mode_sizings_desc">Pick exactly which sizings go into the document</span>
+                        </button>
+                        <button class="fanout-row cmp-mode-btn" data-click='["expChooseMode","tags"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_tags">Tag groups</span>
+                            <span class="fanout-meta" data-i18n="exp.mode_tags_desc">Export a whole solution set — every sizing carrying the tag</span>
+                        </button>
+                    </div>
+                    <div id="exp-downloads">
+                        <h3 class="rep-heading" data-i18n="exp.downloads">Downloads</h3>
+                        <ul class="export-list" id="exp-downloads-list"></ul>
+                        <p class="import-info muted" id="exp-downloads-empty" data-i18n="exp.none">Nothing exported yet.</p>
+                    </div>
+                </div>
+                <div id="exp-step-pick" style="display:none">
+                    <p class="import-info" id="exp-pick-hint"></p>
+                    <div id="exp-pick-list" class="fanout-list"></div>
+                    <div class="export-controls" style="margin-top:0.8rem">
+                        <select id="exp-format" class="text-input inline-select">
+                            <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
+                            <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
+                            <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
+                            <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                        </select>
+                        <label class="notify-check">
+                            <input type="checkbox" id="exp-notify">
+                            <span data-i18n="project.export.notify">Email me when ready</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" id="exp-back-btn" style="display:none" data-click='["expBack"]' data-i18n="wizard.back">Back</button>
+                    <button class="btn btn-secondary" data-click='["closeExports"]' data-i18n="common.close">Close</button>
+                    <button class="btn btn-primary" id="exp-run-btn" style="display:none" data-click='["runExport"]' data-i18n="project.view.export">Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch edit: apply detail changes to every selected sizing at once. -->
+    <div class="modal-overlay" id="batch-edit-modal" style="display:none">
+        <div class="modal-content" style="max-width:560px">
+            <div class="modal-header">
+                <h2 data-i18n="batch.title">Batch edit</h2>
+                <button class="modal-close" data-click='["closeBatchEdit"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body cmp-body-padded">
+                <p class="import-info" id="batch-summary"></p>
+                <div class="form-group">
+                    <label data-i18n="project.sizing.role">Counts towards the total?</label>
+                    <select id="batch-role">
+                        <option value="" data-i18n="batch.keep">Leave unchanged</option>
+                        <option value="alternative" data-i18n="project.sizing.role_alternative">Alternative — one of several options</option>
+                        <option value="additive" data-i18n="project.sizing.role_additive">Part of the total — a site or phase</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="batch.add_tag">Add tag</label>
+                    <div id="batch-add-tags" class="tag-picker"></div>
+                    <input type="text" id="batch-new-tag" maxlength="60"
+                           placeholder="Add a tag…" data-i18n-ph="project.sizing.add_tag">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="batch.remove_tag">Remove tag</label>
+                    <div id="batch-remove-tags" class="tag-picker"></div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="project.sizing.replication">Replicates to</label>
+                    <select id="batch-rep-target" data-change='["updateBatchRepFields"]'>
+                        <option value="" data-i18n="batch.keep">Leave unchanged</option>
+                        <option value="none" data-i18n="batch.rep_none">Nothing — remove replication</option>
+                    </select>
+                    <div id="batch-rep-fields" style="display:none">
+                        <div class="rep-grid">
+                            <div class="form-group">
+                                <label data-i18n="project.sizing.rep_compute">Compute %</label>
+                                <input type="number" id="batch-rep-compute" min="0" max="100" step="1" value="100">
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="project.sizing.rep_storage">Storage %</label>
+                                <input type="number" id="batch-rep-storage" min="0" max="100" step="1" value="100">
+                            </div>
+                        </div>
+                        <select id="batch-rep-mode">
+                            <option value="reserved" data-i18n="project.sizing.rep_reserved">Reserved — hold capacity at N-1</option>
+                            <option value="failover" data-i18n="project.sizing.rep_failover">Failover-only — replicas run after failover</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="rec-warning" id="batch-error" hidden></p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["closeBatchEdit"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyBatchEdit"]' data-i18n="batch.apply">Apply to selection</button>
                 </div>
             </div>
         </div>
