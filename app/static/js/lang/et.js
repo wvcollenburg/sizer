@@ -911,6 +911,7 @@
   "results.guest_none": "Puudub (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + tuumapõhine andmebaas",
+  "results.inbound_reserve_note": "See mõõtmine võõrustab sissetulevat replikatsiooni allikatest {sources}: lisaks oma koormusele broneeritakse {vcpus} vCPU, {ram} RAM ja {tb} TB salvestusruumi.",
   "results.include_eol": "Kaasa EOL / EOS süsteemid",
   "results.include_eol_info": "Vaikimisi arvestatakse ainult aktiivseid mudeleid. Lubage, et mõõta ka eluea lõpu ja toe lõpu süsteemide alusel.",
   "results.iops_avg": "Keskm {value}",

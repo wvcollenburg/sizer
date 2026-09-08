@@ -911,6 +911,7 @@
   "results.guest_none": "なし (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + コア課金 DB",
+  "results.inbound_reserve_note": "このサイジングは {sources} からのレプリケーションを受け入れます。自身のワークロードに加えて {vcpus} vCPU、RAM {ram}、ストレージ {tb} TB を予約します。",
   "results.include_eol": "EOL / EOSシステムを含める",
   "results.include_eol_info": "デフォルトでは有効なモデルのみが考慮されます。有効にすると、サポート終了 (EOL) およびサポート終了 (EOS) のシステムに対してもサイジングを行います。",
   "results.iops_avg": "平均 {value}",

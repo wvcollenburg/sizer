@@ -911,6 +911,7 @@
   "results.guest_none": "Keine (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + kernbasierte DB",
+  "results.inbound_reserve_note": "Dieses Sizing beherbergt eingehende Replikation von {sources}: zusätzlich zur eigenen Last werden {vcpus} vCPU, {ram} RAM und {tb} TB Storage reserviert.",
   "results.include_eol": "EOL-/EOS-Systeme einbeziehen",
   "results.include_eol_info": "Standardmäßig werden nur aktive Modelle berücksichtigt. Aktivieren Sie dies, um auch gegen End-of-Life- und End-of-Support-Systeme zu dimensionieren.",
   "results.iops_avg": "Ø {value}",

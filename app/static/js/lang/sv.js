@@ -911,6 +911,7 @@
   "results.guest_none": "Ingen (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + kärndebiterad databas",
+  "results.inbound_reserve_note": "Denna sizing tar emot inkommande replikering från {sources}: utöver sin egen last reserveras {vcpus} vCPU, {ram} RAM och {tb} TB lagring.",
   "results.include_eol": "Inkludera EOL-/EOS-system",
   "results.include_eol_info": "Som standard beaktas endast aktiva modeller. Aktivera för att även dimensionera mot system som nått slutet av sin livslängd och sitt supportstöd.",
   "results.iops_avg": "Snitt {value}",

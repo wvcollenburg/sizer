@@ -911,6 +911,7 @@
   "results.guest_none": "Geen (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + per-core DB",
+  "results.inbound_reserve_note": "Deze sizing ontvangt inkomende replicatie van {sources}: bovenop de eigen werklast wordt {vcpus} vCPU, {ram} RAM en {tb} TB opslag gereserveerd.",
   "results.include_eol": "EOL-/EOS-systemen opnemen",
   "results.include_eol_info": "Standaard worden alleen actieve modellen overwogen. Schakel in om ook te bemeten tegen end-of-life- en end-of-support-systemen.",
   "results.iops_avg": "Gem. {value}",

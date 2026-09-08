@@ -911,6 +911,7 @@
   "results.guest_none": "Ei mitään (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + ydinlaskutettava tietokanta",
+  "results.inbound_reserve_note": "Tämä mitoitus vastaanottaa replikointia kohteista {sources}: oman kuorman lisäksi varataan {vcpus} vCPU, {ram} RAM ja {tb} TB tallennustilaa.",
   "results.include_eol": "Sisällytä EOL / EOS -järjestelmät",
   "results.include_eol_info": "Oletuksena vain aktiiviset mallit huomioidaan. Ota käyttöön mitoittaaksesi myös elinkaaren päättyneitä ja tuen päättyneitä järjestelmiä vasten.",
   "results.iops_avg": "Keskiarvo {value}",

@@ -681,3 +681,69 @@ def test_split_converts_whole_workload_dr(app):
         assert len(links) == 2      # PROD and DB both replicate in
         assert {(l.compute_pct, l.storage_pct, l.mode) for l in links} \
             == {(40, 80, "reserved")}
+
+
+# ── inbound replication reserve + role plumbing ──────────────────────────────
+
+def test_create_config_accepts_explicit_role(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Roles")["id"]
+    resp = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import", "fields": {}},
+        "project_id": pid, "untouched": True, "role": "additive",
+    })
+    assert resp.status_code == 201
+    assert resp.get_json()["role"] == "additive"
+
+    bad = c.post("/api/configs/", json={
+        "name": "X", "payload": {}, "project_id": pid, "role": "nonsense"})
+    assert bad.status_code == 400
+
+
+def test_split_pieces_are_additive(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "SplitRoles")["id"]
+    row = save_sizing(c, "Old", project_id=pid, payload=_legacy_multi_payload())
+    out = c.post(f"/api/sizings/{row['id']}/split").get_json()
+    assert {r["role"] for r in out["created"]} == {"additive"}
+
+
+def test_inbound_reserve_endpoint(app):
+    """A workload sizing that is a replication target reports the aggregated
+    inbound reserve — the figures the sizer folds into its recommendation."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Reserve")["id"]
+    src = save_sizing(c, "Source", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importSummary": {"total_vcpus": 100,
+                                     "total_vm_provisioned_memory_gb": 400,
+                                     "datastore_used_tb": 10.0}},
+    })
+    tgt = save_sizing(c, "Target", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importSummary": {"total_vcpus": 8}},
+    })
+
+    # No links yet.
+    empty = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert empty["has_inbound"] is False
+
+    resp = c.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": tgt["id"],
+        "compute_pct": 50, "storage_pct": 80, "mode": "reserved",
+    })
+    assert resp.status_code in (200, 201), resp.get_data(as_text=True)
+
+    d = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert d["has_inbound"] is True
+    assert d["reserve"] == {"vcpus": 50.0, "ram_gb": 200.0, "storage_tb": 8.0}
+    assert d["mode"] == "reserved"
+    assert d["sources"][0]["sizing_name"] == "Source"
+
+    # All-failover links flip the compute basis to full-cluster.
+    c.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": tgt["id"],
+        "compute_pct": 50, "storage_pct": 80, "mode": "failover",
+    })
+    d2 = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert d2["mode"] == "failover"

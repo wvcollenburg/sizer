@@ -911,6 +911,7 @@
   "results.guest_none": "Nėra (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + pagal branduolius apmokestinama DB",
+  "results.inbound_reserve_note": "Šis dydis priima gaunamą replikaciją iš {sources}: be savo apkrovos rezervuojama {vcpus} vCPU, {ram} RAM ir {tb} TB saugyklos.",
   "results.include_eol": "Įtraukti EOL / EOS sistemas",
   "results.include_eol_info": "Pagal numatytuosius nustatymus svarstomi tik aktyvūs modeliai. Įjunkite, kad dydis būtų parenkamas ir gyvavimo ciklo bei palaikymo pabaigos sistemoms.",
   "results.iops_avg": "Vidurkis {value}",

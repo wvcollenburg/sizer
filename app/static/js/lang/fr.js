@@ -911,6 +911,7 @@
   "results.guest_none": "Aucune (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + BD facturée au cœur",
+  "results.inbound_reserve_note": "Ce dimensionnement héberge la réplication entrante de {sources} : {vcpus} vCPU, {ram} de RAM et {tb} To de stockage sont réservés en plus de sa propre charge.",
   "results.include_eol": "Inclure les systèmes EOL / EOS",
   "results.include_eol_info": "Par défaut, seuls les modèles Actifs sont considérés. Activez pour dimensionner aussi contre les systèmes en fin de vie et en fin de support.",
   "results.iops_avg": "Moy. {value}",

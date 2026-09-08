@@ -912,6 +912,7 @@
   "results.guest_none": "None (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + core-billed DB",
+  "results.inbound_reserve_note": "This sizing hosts inbound replication from {sources}: reserving {vcpus} vCPU, {ram} RAM and {tb} TB storage on top of its own workload.",
   "results.include_eol": "Include EOL / EOS systems",
   "results.include_eol_info": "By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.",
   "results.iops_avg": "Avg {value}",

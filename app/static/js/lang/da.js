@@ -911,6 +911,7 @@
   "results.guest_none": "Ingen (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + kerneafregnet database",
+  "results.inbound_reserve_note": "Denne sizing huser indgående replikering fra {sources}: ud over sin egen arbejdsbyrde reserveres {vcpus} vCPU, {ram} RAM og {tb} TB lager.",
   "results.include_eol": "Medtag EOL-/EOS-systemer",
   "results.include_eol_info": "Som standard tages kun aktive modeller i betragtning. Aktiver for også at dimensionere mod systemer, der er end-of-life og end-of-support.",
   "results.iops_avg": "Gns. {value}",

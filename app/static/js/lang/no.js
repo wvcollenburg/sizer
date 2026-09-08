@@ -911,6 +911,7 @@
   "results.guest_none": "Ingen (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + kjernefakturert database",
+  "results.inbound_reserve_note": "Denne sizingen huser innkommende replikering fra {sources}: i tillegg til egen last reserveres {vcpus} vCPU, {ram} RAM og {tb} TB lagring.",
   "results.include_eol": "Inkluder EOL-/EOS-systemer",
   "results.include_eol_info": "Som standard vurderes kun aktive modeller. Aktiver for også å dimensjonere mot systemer som er utgått eller uten støtte.",
   "results.iops_avg": "Gj.snitt {value}",

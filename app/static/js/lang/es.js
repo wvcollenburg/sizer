@@ -911,6 +911,7 @@
   "results.guest_none": "Ninguna (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + BD por núcleo",
+  "results.inbound_reserve_note": "Este dimensionamiento aloja replicación entrante de {sources}: se reservan {vcpus} vCPU, {ram} de RAM y {tb} TB de almacenamiento además de su propia carga.",
   "results.include_eol": "Incluir sistemas EOL / EOS",
   "results.include_eol_info": "De forma predeterminada, solo se consideran los modelos Activos. Habilite esto para dimensionar también con sistemas de fin de vida útil y fin de soporte.",
   "results.iops_avg": "Prom. {value}",

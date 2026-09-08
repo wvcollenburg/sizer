@@ -20,9 +20,9 @@ from auth_models import Configuration, ScaleConfigLink, _utcnow
 from database import db
 from extensions import limiter
 from project_models import (
-    Project, ProjectTag, ConfigurationTag, ReplicationLink, ScaleProjectLink,
-    SIZING_ROLES, dedupe_sizing_name, ensure_scratch_project, new_code,
-    valid_salesforce_url,
+    Project, ProjectTag, ConfigurationTag, ReplicationLink, ROLE_ADDITIVE,
+    ScaleProjectLink, SIZING_ROLES, dedupe_sizing_name, ensure_scratch_project,
+    new_code, valid_salesforce_url,
 )
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
@@ -853,6 +853,36 @@ def _add_config_with_code(**kw):
     raise RuntimeError("could not allocate a unique code")
 
 
+@sizings_bp.route("/<int:config_id>/inbound-reserve")
+@login_required
+def inbound_reserve(config_id):
+    """The replication reserve this sizing must host: every link that targets
+    it, scaled by the link percentages (same math the DR-target flow uses).
+
+    The sizer fetches this when a WORKLOAD sizing is opened or refreshed, so a
+    replication target's own recommendation accounts for — and displays — the
+    inbound reserve, rather than only its own workload."""
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted:
+        return jsonify({"error": "Sizing not found"}), 404
+    from auth import _config_source_for
+    if _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
+    return jsonify({
+        "has_inbound": bool(sources),
+        "reserve": {"vcpus": round(reserve["vcpus"], 1),
+                    "ram_gb": round(reserve["ram_gb"], 1),
+                    "storage_tb": round(reserve["storage_tb"], 2)},
+        # Maps the link modes onto the engine's compute basis, matching
+        # _dr_inbound_reserve: full-cluster only when every link is failover.
+        "mode": "failover" if size_full_cluster else "reserved",
+        "sources": sources,
+    })
+
+
 @sizings_bp.route("/<int:config_id>/split", methods=["POST"])
 @login_required
 def split_legacy_sizing(config_id):
@@ -955,7 +985,7 @@ def split_legacy_sizing(config_id):
                 owner_id=user.id, tenant_id=user.tenant_id,
                 payload=new_payload,
                 project_id=project.id, position=position,
-                role=sizing.role or project.default_role,
+                role=ROLE_ADDITIVE,
                 source_meta=dict(sizing.source_meta or {}, cluster=name) or None,
                 parser_version=sizing.parser_version,
                 payload_digest=_payload_digest(new_payload),
@@ -969,7 +999,7 @@ def split_legacy_sizing(config_id):
                 owner_id=user.id, tenant_id=user.tenant_id,
                 payload={"mode": "dr_target"},
                 project_id=project.id, position=position,
-                role=sizing.role or project.default_role, is_dr_target=True,
+                role=ROLE_ADDITIVE, is_dr_target=True,
             )
             position += 1
 
@@ -980,7 +1010,7 @@ def split_legacy_sizing(config_id):
                 owner_id=user.id, tenant_id=user.tenant_id,
                 payload={"mode": "dr_target"},
                 project_id=project.id, position=position,
-                role=sizing.role or project.default_role, is_dr_target=True,
+                role=ROLE_ADDITIVE, is_dr_target=True,
             )
             created[dr_cfg.name] = dr_cfg
             for c in workload:

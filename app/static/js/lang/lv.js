@@ -911,6 +911,7 @@
   "results.guest_none": "Nav (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + pēc kodoliem rēķināta DB",
+  "results.inbound_reserve_note": "Šis izmērs uzņem ienākošo replikāciju no {sources}: papildus savai slodzei tiek rezervēti {vcpus} vCPU, {ram} RAM un {tb} TB krātuves.",
   "results.include_eol": "Iekļaut EOL / EOS sistēmas",
   "results.include_eol_info": "Pēc noklusējuma tiek ņemti vērā tikai aktīvie modeļi. Iespējojiet, lai izmērotu arī pret aprites cikla beigu un atbalsta beigu sistēmām.",
   "results.iops_avg": "Vid. {value}",

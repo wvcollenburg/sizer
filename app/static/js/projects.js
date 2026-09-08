@@ -805,6 +805,12 @@ async function openSizing(id, push) {
         await window.enterDrTarget(data);
         return;
     }
+    // Inbound replication reserve (links targeting this sizing) must be set
+    // BEFORE restore: restore's recalc is what folds it into the sizing.
+    if (window.setInboundReserve) {
+        const inb = await api(`/api/sizings/${id}/inbound-reserve`);
+        window.setInboundReserve(inb.ok ? inb.data : null);
+    }
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
     if (window.markSizingClean) window.markSizingClean();

@@ -911,6 +911,7 @@
   "results.guest_none": "Nessuna (Linux/BSD)",
   "results.guest_windows": "Windows",
   "results.guest_windows_db": "Windows + DB fatturato per core",
+  "results.inbound_reserve_note": "Questo dimensionamento ospita la replica in ingresso da {sources}: oltre al proprio carico riserva {vcpus} vCPU, {ram} di RAM e {tb} TB di storage.",
   "results.include_eol": "Includi sistemi EOL / EOS",
   "results.include_eol_info": "Per impostazione predefinita vengono considerati solo i modelli Attivi. Abiliti per dimensionare anche rispetto a sistemi a fine vita e a fine supporto.",
   "results.iops_avg": "Media {value}",

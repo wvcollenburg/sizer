@@ -60,6 +60,14 @@ const UNCLUSTERED_KEY = '(unclustered)';     // mirrors cluster_split.UNCLUSTERE
 // Without it a bundle silently ships recommendation #1 whatever you picked.
 let selectedRec = {};
 let legacyMultiSizing = false;               // opened sizing predates the per-cluster split: read-only
+// Inbound replication reserve this sizing must host, from project-level
+// ReplicationLinks targeting it ({reserve, mode, sources} or null). Fetched by
+// projects.openSizing / runRefreshMode; folded into every recommend call so a
+// replication target's sizing accounts for — and shows — its inbound reserve.
+let inboundReserve = null;
+window.setInboundReserve = function (d) {
+    inboundReserve = (d && d.has_inbound) ? d : null;
+};
 
 // Turn the rail's ⓘ tooltips into inline descriptions under each control.
 //
@@ -1060,6 +1068,7 @@ async function uploadFile(file) {
 function finishImport(data, fileName) {
     try {
         legacyMultiSizing = false;
+        inboundReserve = null;   // a fresh (unsaved) import has no project links
         const legacyBanner = document.getElementById('legacy-multi-banner');
         if (legacyBanner) legacyBanner.style.display = 'none';
         importSummary = data.summary;
@@ -1215,6 +1224,9 @@ async function createPerClusterSizings() {
                     // Marks the sizing "to be sized" until a person opens and
                     // saves it; also asks the server for option-N name dedup.
                     untouched: true,
+                    // Split clusters are complementary parts of one
+                    // environment: they count towards the project total.
+                    role: 'additive',
                 }),
             });
             const d = await resp.json();
@@ -1457,6 +1469,11 @@ async function recalcRecommendations() {
                 max_day_one_ram_pct: maxDayOneRam,
                 source_perf_index: sourcePerfIndex,
                 source_perf_type: sourcePerfType,
+                // Project-level inbound replication (links targeting this
+                // sizing): reserve capacity for the replicas on top of the
+                // sizing's own workload.
+                replication_reserve: inboundReserve ? inboundReserve.reserve : null,
+                replication_compute_mode: inboundReserve ? inboundReserve.mode : 'reserved',
                 // Licence term is its own control, NOT `years` above — a
                 // customer can buy 3 years of licence while sizing 5 years of
                 // growth. Guest licensing starts from what the import detected
@@ -1479,9 +1496,28 @@ async function recalcRecommendations() {
         if (data.projection) {
             renderProjectionTo(data.projection, 'projection-summary');
         }
+        renderInboundReserveNote();
     } catch (e) {
         console.error('Recalc failed:', e);
     }
+}
+
+// A visible line above the recommendations when this sizing hosts inbound
+// replication (project links targeting it) — the reserve is otherwise easy to
+// miss even though it is shaping the numbers below.
+function renderInboundReserveNote() {
+    const el = document.getElementById('inbound-reserve-note');
+    if (!el) return;
+    if (!inboundReserve) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const r = inboundReserve.reserve || {};
+    const names = (inboundReserve.sources || []).map(s => s.sizing_name).join(', ');
+    el.style.display = 'flex';
+    el.innerHTML = `<span class="info-bar-icon">i</span><span>${window.t('results.inbound_reserve_note', {
+        vcpus: Math.round(r.vcpus || 0).toLocaleString(),
+        ram: formatRam(Math.round(r.ram_gb || 0)),
+        tb: (Math.round((r.storage_tb || 0) * 100) / 100),
+        sources: esc(names),
+    })}</span>`;
 }
 
 // Append the worst-case degraded ratio across the current recommendations to the
@@ -3494,6 +3530,14 @@ async function runRefreshMode(configId) {
         const resp = await fetch('/api/configs/' + configId, { credentials: 'same-origin' });
         if (!resp.ok) return report({ ok: false, error: 'load-failed' });
         const data = await resp.json();
+
+        // Inbound replication reserve must be in place BEFORE the restore's
+        // recalc, or a refreshed target caches a result without its reserve.
+        try {
+            const inb = await fetch(`/api/sizings/${configId}/inbound-reserve`,
+                                    { credentials: 'same-origin' });
+            window.setInboundReserve(inb.ok ? await inb.json() : null);
+        } catch (e) { window.setInboundReserve(null); }
 
         await restoreSizingState(data.payload);
 

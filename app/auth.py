@@ -1266,13 +1266,20 @@ def create_config():
         from project_models import dedupe_sizing_name
         name = dedupe_sizing_name(project.id, name)
 
+    # Optional explicit role. The fan-out sends 'additive': split clusters are
+    # complementary parts of one environment, so they count towards the total.
+    from project_models import SIZING_ROLES
+    role = data.get("role")
+    if role is not None and role not in SIZING_ROLES:
+        return jsonify({"error": "Unknown sizing role"}), 400
+
     from project_models import new_code
     for _ in range(6):
         config = Configuration(
             code=new_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id, payload=payload,
             project_id=project.id, position=position,
-            role=project.default_role,
+            role=role or project.default_role,
             source_meta=source_meta,
             parser_version=(source_meta or {}).get("parser_version"),
             payload_digest=_payload_digest(payload),
