@@ -606,67 +606,102 @@ function renderSelectionBar() {
 
 // ── comparison (§6) ─────────────────────────────────────────────────────────
 
-async function compareSelected() {
-    if (!currentProject || !selectedSizings.size) return;
-    await _runCompare({ sizing_ids: [...selectedSizings] });
-}
+// ── Comparisons wizard (modal) ──────────────────────────────────────────────
+// One entry point for every comparison: pick WHAT (individual sizings or tag
+// groups), pick the items, see the table — all inside the modal. Closing the
+// modal clears everything; row checkboxes on the project page mean "export"
+// and nothing else.
 
-// Compare whole TAG groups: one column per tag, each the summed solution set
-// of its members. This is the comparison that stays meaningful after a
-// multi-cluster import fans out into per-cluster sizings. Opens a picker so
-// the columns are an explicit choice, not "everything tagged".
-function compareTags() {
+let cmpState = { mode: null, lastBody: null, lastData: null };
+
+function openComparisons() {
     if (!currentProject) return;
-    // Tags that actually have members, with counts, in name order.
-    const seen = new Map();   // id -> {name, count}
-    (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
-        const e = seen.get(t.id) || { name: t.name, count: 0 };
-        e.count++;
-        seen.set(t.id, e);
-    }));
-    if (seen.size < 2) {
-        info(tt('project.compare.title'), tt('project.compare.need_two_tags'));
-        return;
+    cmpState = { mode: null, lastBody: null, lastData: null };
+    _cmpShowStep('mode');
+    document.getElementById('comparisons-modal').style.display = 'flex';
+}
+
+function closeComparisons() {
+    cmpState = { mode: null, lastBody: null, lastData: null };
+    const list = document.getElementById('cmp-pick-list');
+    if (list) list.innerHTML = '';
+    const res = document.getElementById('cmp-step-result');
+    if (res) res.innerHTML = '';
+    document.getElementById('comparisons-modal').style.display = 'none';
+}
+
+function _cmpShowStep(step) {
+    const steps = { mode: 'cmp-step-mode', pick: 'cmp-step-pick', result: 'cmp-step-result' };
+    Object.entries(steps).forEach(([name, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = name === step ? '' : 'none';
+    });
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+    show('cmp-back-btn', step !== 'mode');
+    show('cmp-run-btn', step === 'pick');
+    show('cmp-csv-btn', step === 'result');
+    show('cmp-xlsx-btn', step === 'result');
+    if (step === 'pick') updateCmpPickCount();
+}
+
+function cmpChooseMode(mode) {
+    cmpState.mode = mode === 'tags' ? 'tags' : 'sizings';
+    const list = document.getElementById('cmp-pick-list');
+    const hint = document.getElementById('cmp-pick-hint');
+    if (cmpState.mode === 'tags') {
+        const seen = new Map();   // id -> {name, count}
+        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
+            const e = seen.get(t.id) || { name: t.name, count: 0 };
+            e.count++;
+            seen.set(t.id, e);
+        }));
+        hint.textContent = tt(seen.size < 2 ? 'project.compare.need_two_tags'
+                                            : 'cmp.pick_tags');
+        const tags = [...seen.entries()].sort((a, b) =>
+            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+        list.innerHTML = tags.map(([id, t]) => `
+            <label class="fanout-row">
+                <input type="checkbox" checked data-cmp-id="${id}" data-change='["updateCmpPickCount"]'>
+                <span class="fanout-name">${escHtml(t.name)}</span>
+                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+            </label>`).join('');
+    } else {
+        hint.textContent = tt('cmp.pick_sizings');
+        list.innerHTML = (currentProject.sizings || []).map(s => `
+            <label class="fanout-row">
+                <input type="checkbox" data-cmp-id="${s.id}" data-change='["updateCmpPickCount"]'>
+                <span class="fanout-name">${escHtml(s.name)}</span>
+                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
+            </label>`).join('');
     }
-    const tags = [...seen.entries()].sort((a, b) =>
-        a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
-    const list = document.getElementById('tag-compare-list');
-    list.innerHTML = tags.map(([id, t]) => `
-        <label class="fanout-row">
-            <input type="checkbox" checked data-tagcmp-id="${id}" data-change='["updateTagCompareCount"]'>
-            <span class="fanout-name">${escHtml(t.name)}</span>
-            <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
-        </label>`).join('');
-    updateTagCompareCount();
-    document.getElementById('tag-compare-modal').style.display = 'flex';
+    _cmpShowStep('pick');
 }
 
-function closeTagCompare() {
-    document.getElementById('tag-compare-modal').style.display = 'none';
+function cmpBack() {
+    const onResult = document.getElementById('cmp-step-result').style.display !== 'none';
+    _cmpShowStep(onResult ? 'pick' : 'mode');
 }
 
-function _chosenTagIds() {
-    return [...document.querySelectorAll('#tag-compare-list input[data-tagcmp-id]')]
+function _cmpChosenIds() {
+    return [...document.querySelectorAll('#cmp-pick-list input[data-cmp-id]')]
         .filter(cb => cb.checked)
-        .map(cb => parseInt(cb.dataset.tagcmpId, 10));
+        .map(cb => parseInt(cb.dataset.cmpId, 10));
 }
 
-function updateTagCompareCount() {
-    const btn = document.getElementById('tagcmp-go-btn');
-    if (btn) btn.disabled = _chosenTagIds().length < 2;
+function updateCmpPickCount() {
+    const btn = document.getElementById('cmp-run-btn');
+    if (btn) btn.disabled = _cmpChosenIds().length < 2;
 }
 
-async function goCompareTags() {
-    const ids = _chosenTagIds();
+async function runComparison() {
+    const ids = _cmpChosenIds();
     if (ids.length < 2) return;
-    closeTagCompare();
-    await _runCompare({ tag_ids: ids });
-}
-
-async function _runCompare(body) {
-    const host = document.getElementById('project-compare');
-    if (!host) return;
-    host.hidden = false;
+    const body = cmpState.mode === 'tags' ? { tag_ids: ids } : { sizing_ids: ids };
+    const host = document.getElementById('cmp-step-result');
+    _cmpShowStep('result');
     host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.loading'))}</p>`;
 
     const { ok, data } = await api(`/api/projects/${currentProject.id}/compare`, {
@@ -674,51 +709,47 @@ async function _runCompare(body) {
         body: JSON.stringify(body),
     });
     if (!ok) { host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.failed'))}</p>`; return; }
+    cmpState.lastBody = body;
+    cmpState.lastData = data;
+    host.innerHTML = _compareTableHtml(data);
+}
 
+// The metric rows shared by the on-screen table and the CSV export. Each entry
+// is [i18n key, value renderer, numeric accessor (null = text-only)].
+function _compareMetricRows() {
+    const round = (n) => (Math.round(n * 100) / 100);
+    return [
+        ['project.compare.model', (r) => {
+            const so = r.totals.software_only ? tt('project.compare.software_only') : '';
+            const m = r.totals.model;
+            return (m && so ? `${m}, ${so}` : (m || so || '—'));
+        }, null],
+        ['project.compare.clusters', (r) => String(r.totals.clusters || 0), (r) => r.totals.clusters || 0],
+        ['project.compare.nodes', (r) => String(r.totals.nodes || 0), (r) => r.totals.nodes || 0],
+        ['project.compare.cores', (r) => String(r.totals.cores || 0), (r) => r.totals.cores || 0],
+        ['project.compare.ram', (r) => `${r.totals.ram_gb || 0} GB`, (r) => r.totals.ram_gb || 0],
+        ['project.compare.storage', (r) => `${round(r.totals.usable_tb || 0)} TB`, (r) => round(r.totals.usable_tb || 0)],
+        ['project.compare.n1_cores', (r) => String(r.totals.n1_cores || 0), (r) => r.totals.n1_cores || 0],
+        ['project.compare.n1_ram', (r) => `${r.totals.n1_ram_gb || 0} GB`, (r) => r.totals.n1_ram_gb || 0],
+    ];
+}
+
+function _compareTableHtml(data) {
     const rows = data.rows || [];
     const baseline = rows[0];
-    const metric = (key, row) => (row.totals && row.totals[key]) || 0;
-    const delta = (key, row) => {
-        if (!baseline || row.id === baseline.id) return '';
-        const d = metric(key, row) - metric(key, baseline);
+    const round = (n) => (Math.round(n * 100) / 100);
+    const delta = (num, row) => {
+        if (!num || !baseline || row.id === baseline.id) return '';
+        const d = num(row) - num(baseline);
         if (!d) return '';
         return `<span class="delta ${d > 0 ? 'delta-up' : 'delta-down'}">${d > 0 ? '+' : ''}${round(d)}</span>`;
     };
-    const round = (n) => (Math.round(n * 100) / 100);
 
-    const cols = [
-        // A software-only sizing has no appliance model by definition — label it
-        // rather than showing a dash (a mixed sizing lists both).
-        ['project.compare.model', r => {
-            const so = r.totals.software_only ? tt('project.compare.software_only') : '';
-            const m = r.totals.model;
-            return escHtml(m && so ? `${m}, ${so}` : (m || so || '—'));
-        }],
-        // Physical HyperCore clusters, with the node split behind a tooltip —
-        // "2" reads better than "8 + 5" in the table, but the split is the
-        // thing you argue about in the meeting.
-        ['project.compare.clusters', r => {
-            const layout = (r.totals.layout || []).join(' + ');
-            const title = layout ? ` title="${escHtml(layout)}"` : '';
-            return `<span${title}>${metric('clusters', r)}</span> ${delta('clusters', r)}`;
-        }],
-        ['project.compare.nodes', r => `${metric('nodes', r)} ${delta('nodes', r)}`],
-        ['project.compare.cores', r => `${metric('cores', r)} ${delta('cores', r)}`],
-        ['project.compare.ram', r => `${metric('ram_gb', r)} GB ${delta('ram_gb', r)}`],
-        ['project.compare.storage', r => `${round(metric('usable_tb', r))} TB ${delta('usable_tb', r)}`],
-        ['project.compare.n1_cores', r => `${metric('n1_cores', r)}`],
-        ['project.compare.n1_ram', r => `${metric('n1_ram_gb', r)} GB`],
-    ];
-
-    // Warnings first: a comparison of options sized under different assumptions
-    // is invalid, and saying so is the whole point of decision 16.
     const warn = (data.warnings || []).map(w => {
         const key = 'project.compare.warn_' + w.code;
         return `<li>${escHtml(tt(key, { name: w.name || '' }))}</li>`;
     }).join('');
 
-    // Tag mode compares rival solution sets — a combined rollup (or a "no
-    // additive sizings" note) would both be wrong, so neither is shown.
     const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         clusters: data.rollup.clusters,
@@ -726,12 +757,7 @@ async function _runCompare(body) {
         storage: round(data.rollup.usable_tb),
     }))}</p>` : `<p class="compare-rollup compare-rollup-none">${escHtml(tt('project.compare.no_rollup'))}</p>`;
 
-    host.innerHTML = `
-        <div class="compare-head">
-            <h3>${escHtml(tt('project.compare.title'))}</h3>
-            <button class="btn btn-xs" data-click='["closeCompare"]'
-                    data-i18n="common.close">Close</button>
-        </div>
+    return `
         ${warn ? `<ul class="compare-warnings">${warn}</ul>` : ''}
         <div class="compare-scroll"><table class="sizing-table compare-table">
             <thead><tr><th>${escHtml(tt('project.compare.metric'))}</th>
@@ -742,21 +768,65 @@ async function _runCompare(body) {
                     return `<th>${escHtml(r.name)}${chip}</th>`;
                 }).join('')}
             </tr></thead>
-            <tbody>${cols.map(([label, render]) => `<tr>
+            <tbody>${_compareMetricRows().map(([label, render, num]) => `<tr>
                 <td class="compare-metric">${escHtml(tt(label))}</td>
-                ${rows.map(r => `<td>${render(r)}</td>`).join('')}
+                ${rows.map(r => `<td>${escHtml(render(r))} ${delta(num, r)}</td>`).join('')}
             </tr>`).join('')}
             <tr><td class="compare-metric">${escHtml(tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why'))}</td>
                 ${rows.map(r => `<td class="compare-note">${escHtml(r.notes || '—')}</td>`).join('')}</tr>
             </tbody>
         </table></div>
         ${rollup}`;
-    host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function closeCompare() {
-    const host = document.getElementById('project-compare');
-    if (host) { host.hidden = true; host.innerHTML = ''; }
+// CSV of the comparison on screen: metrics as rows, one column per option,
+// plus a delta column against the first option for numeric metrics. UTF-8 BOM
+// so Excel opens it with correct encoding.
+function exportComparisonCsv() {
+    const data = cmpState.lastData;
+    if (!data) return;
+    const rows = data.rows || [];
+    const baseline = rows[0];
+    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lines = [];
+    const header = [tt('project.compare.metric')];
+    rows.forEach((r, i) => {
+        header.push(r.name);
+        if (i > 0) header.push('Δ');
+    });
+    lines.push(header.map(q).join(','));
+    _compareMetricRows().forEach(([label, render, num]) => {
+        const line = [tt(label)];
+        rows.forEach((r, i) => {
+            line.push(render(r));
+            if (i > 0) line.push(num ? (Math.round((num(r) - num(baseline)) * 100) / 100) : '');
+        });
+        lines.push(line.map(q).join(','));
+    });
+    const noteLabel = tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why');
+    lines.push([noteLabel, ...rows.flatMap((r, i) => i > 0 ? [r.notes || '', ''] : [r.notes || ''])].map(q).join(','));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    _downloadBlob(blob, `${currentProject.name} - comparison.csv`);
+}
+
+async function exportComparisonXlsx() {
+    if (!cmpState.lastBody || !currentProject) return;
+    const resp = await fetch(`/api/projects/${currentProject.id}/compare.xlsx`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(cmpState.lastBody),
+    });
+    if (!resp.ok) return;
+    _downloadBlob(await resp.blob(), `${currentProject.name} - comparison.xlsx`);
+}
+
+function _downloadBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
 // ── bundle exports (§7.2) ───────────────────────────────────────────────────
@@ -1228,6 +1298,7 @@ Object.assign(window, {
     activeProjectId, currentProjectSizings, enterSizer, setSizerSizingName,
     saveAndReturnToProject,
     bootFromUrl,
-    compareSelected, compareTags, closeTagCompare, goCompareTags,
-    updateTagCompareCount, closeCompare, exportSelected, refreshProjectNow,
+    openComparisons, closeComparisons, cmpChooseMode, cmpBack, runComparison,
+    updateCmpPickCount, exportComparisonCsv, exportComparisonXlsx,
+    exportSelected, refreshProjectNow,
 });

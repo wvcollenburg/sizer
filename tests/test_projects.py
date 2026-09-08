@@ -843,3 +843,50 @@ def test_compare_by_tags_aggregates_solution_sets(app):
     d2 = c.post(f"/api/projects/{pid}/compare",
                 json={"tag_ids": [tags["set-a"], tags["set-b"]]}).get_json()
     assert {"code": "not_sized", "name": "Unsized"} in d2["warnings"]
+
+
+def test_compare_xlsx_export_matches_both_modes(app):
+    """The workbook uses the same payload builder as the JSON compare, for
+    both sizing and tag mode: header per option (+ delta columns), metric
+    rows, and the notes/sizings row."""
+    import io
+    from openpyxl import load_workbook
+
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "XlsxCompare")["id"]
+    a = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-a", "role": "additive"}).get_json()
+    b = c.post("/api/configs/", json={
+        "name": "PROD alt", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-b", "role": "additive"}).get_json()
+    c.put(f"/api/sizings/{a['id']}/result",
+          json=_snapshot("HC5450D", 3, 192, 3072, 24.0, 126, 2048))
+    c.put(f"/api/sizings/{b['id']}/result",
+          json=_snapshot("HC3650DF", 4, 200, 4096, 30.0, 150, 3072))
+
+    # Sizing mode.
+    resp = c.post(f"/api/projects/{pid}/compare.xlsx",
+                  json={"sizing_ids": [a["id"], b["id"]]})
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["Content-Type"]
+    ws = load_workbook(io.BytesIO(resp.data)).active
+    rows = list(ws.values)
+    assert rows[0] == ("Metric", "PROD", "PROD alt", "Δ vs first")
+    by_label = {r[0]: r for r in rows[1:]}
+    assert by_label["Nodes"] == ("Nodes", 3, 4, 1)
+    assert by_label["Memory (GB)"][3] == 1024
+    assert by_label["Model"][1] == "HC5450D"
+
+    # Tag mode: columns are the groups, with member counts in the header.
+    with app.app_context():
+        from project_models import ProjectTag
+        tags = {t.name: t.id for t in ProjectTag.query.filter_by(project_id=pid)}
+    resp = c.post(f"/api/projects/{pid}/compare.xlsx",
+                  json={"tag_ids": [tags["set-a"], tags["set-b"]]})
+    assert resp.status_code == 200
+    ws = load_workbook(io.BytesIO(resp.data)).active
+    rows = list(ws.values)
+    assert rows[0][1] == "set-a (1 sizings)"
+    by_label = {r[0]: r for r in rows[1:]}
+    assert by_label["Sizings in this set"][1] == "PROD"

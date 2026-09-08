@@ -649,6 +649,19 @@ def _metrics_from_snapshot(snapshot):
     return total, rows
 
 
+def _compare_payload(project, data):
+    """The comparison payload for either mode ({tag_ids} or {sizing_ids}) as a
+    plain dict — shared by the JSON route and the XLSX export so the file can
+    never disagree with the screen."""
+    tag_ids = data.get("tag_ids")
+    if tag_ids:
+        if not isinstance(tag_ids, list):
+            return None, (jsonify({"error": "tag_ids must be a list"}), 400)
+        return _compare_tag_groups(
+            project, [t for t in tag_ids if isinstance(t, int)]), None
+    return _compare_sizing_rows(project, data.get("sizing_ids") or []), None
+
+
 def _compare_tag_groups(project, tag_ids):
     """One comparison column per TAG: each column is the summed solution set
     of that tag's member sizings (DR targets included — they are hardware the
@@ -726,29 +739,10 @@ def _compare_tag_groups(project, tag_ids):
         warnings.append({"code": "mixed_roles"})
     # No cross-column rollup: summing rival solution sets would invent a
     # cluster nobody is buying.
-    return jsonify({"rows": rows, "warnings": warnings, "rollup": None,
-                    "mode": "tags"})
+    return {"rows": rows, "warnings": warnings, "rollup": None, "mode": "tags"}
 
 
-@projects_bp.route("/<int:project_id>/compare", methods=["POST"])
-@login_required
-def compare_sizings(project_id):
-    """Side-by-side figures for the selected sizings — or, with ``tag_ids``,
-    for whole tag groups — plus the caveats that make a comparison invalid if
-    ignored (§6)."""
-    user = current_user()
-    project, source = _visible_project(project_id, user)
-    if project is None:
-        return jsonify({"error": "Project not found"}), 404
-
-    tag_ids = (request.json or {}).get("tag_ids")
-    if tag_ids:
-        if not isinstance(tag_ids, list):
-            return jsonify({"error": "tag_ids must be a list"}), 400
-        return _compare_tag_groups(project, [t for t in tag_ids
-                                             if isinstance(t, int)])
-
-    wanted = (request.json or {}).get("sizing_ids") or []
+def _compare_sizing_rows(project, wanted):
     sizings = Configuration.query.filter(
         Configuration.project_id == project.id,
         Configuration.is_deleted.is_(False),
@@ -800,7 +794,116 @@ def compare_sizings(project_id):
             sum(float(r["totals"]["usable_tb"]) for r in additive), 2)
         rollup["count"] = len(additive)
 
-    return jsonify({"rows": rows, "warnings": warnings, "rollup": rollup})
+    return {"rows": rows, "warnings": warnings, "rollup": rollup,
+            "mode": "sizings"}
+
+
+@projects_bp.route("/<int:project_id>/compare", methods=["POST"])
+@login_required
+def compare_sizings(project_id):
+    """Side-by-side figures for the selected sizings — or, with ``tag_ids``,
+    for whole tag groups — plus the caveats that make a comparison invalid if
+    ignored (§6)."""
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    payload, err = _compare_payload(project, request.json or {})
+    if err:
+        return err
+    return jsonify(payload)
+
+
+# Column labels for the XLSX export. English on purpose: the workbook is a
+# working document, and the on-screen table is where translations live.
+_CMP_XLSX_ROWS = (
+    ("Model", lambda t: t.get("model") or
+        ("software-only" if t.get("software_only") else "—"), False),
+    ("Clusters", lambda t: t.get("clusters") or 0, True),
+    ("Nodes", lambda t: t.get("nodes") or 0, True),
+    ("Cores", lambda t: t.get("cores") or 0, True),
+    ("Memory (GB)", lambda t: t.get("ram_gb") or 0, True),
+    ("Usable storage (TB)", lambda t: round(float(t.get("usable_tb") or 0), 2), True),
+    ("Cores at N-1", lambda t: t.get("n1_cores") or 0, True),
+    ("Memory at N-1 (GB)", lambda t: t.get("n1_ram_gb") or 0, True),
+)
+
+
+@projects_bp.route("/<int:project_id>/compare.xlsx", methods=["POST"])
+@login_required
+def compare_sizings_xlsx(project_id):
+    """The comparison as a workbook — same body as /compare, same payload
+    builder, so the file cannot disagree with the screen. Metrics as rows, one
+    column per option, a delta column against the first option for numeric
+    metrics. No pricing data exists in these metrics."""
+    import io as _io
+    from flask import send_file
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    payload, err = _compare_payload(project, request.json or {})
+    if err:
+        return err
+    rows = payload["rows"]
+    if not rows:
+        return jsonify({"error": "Nothing to compare"}), 400
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Comparison"
+    bold = Font(bold=True)
+
+    header = ["Metric"]
+    for i, r in enumerate(rows):
+        name = r["name"]
+        if r.get("member_count") is not None:
+            name += f" ({r['member_count']} sizings)"
+        header.append(name)
+        if i > 0:
+            header.append("Δ vs first")
+    ws.append(header)
+    for cell in ws[1]:
+        cell.font = bold
+
+    baseline = rows[0]["totals"]
+    for label, getter, numeric in _CMP_XLSX_ROWS:
+        line = [label]
+        for i, r in enumerate(rows):
+            value = getter(r["totals"])
+            line.append(value)
+            if i > 0:
+                line.append(round(value - getter(baseline), 2) if numeric else None)
+        ws.append(line)
+
+    note_label = ("Sizings in this set" if payload.get("mode") == "tags"
+                  else "Why this option")
+    line = [note_label]
+    for i, r in enumerate(rows):
+        line.append(r.get("notes") or "")
+        if i > 0:
+            line.append(None)
+    ws.append(line)
+
+    for w in payload.get("warnings") or []:
+        ws.append([])
+        ws.append([f"Warning: {w.get('code')} {w.get('name') or ''}".strip()])
+
+    ws.column_dimensions["A"].width = 22
+    for col in list("BCDEFGHIJKLMNOP")[:len(header) - 1]:
+        ws.column_dimensions[col].width = 26
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf, as_attachment=True,
+        download_name=f"{project.name} - comparison.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument"
+                 ".spreadsheetml.sheet")
 
 
 # ── replication partners (§8.5) ──────────────────────────────────────────────

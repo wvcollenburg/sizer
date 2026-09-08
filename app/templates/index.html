@@ -113,10 +113,8 @@
                             data-i18n="project.view.new_sizing">New sizing</button>
                     <button class="btn btn-soft" data-click='["addDrTarget"]'
                             data-i18n="project.view.new_dr">Add DR target</button>
-                    <button class="btn btn-soft" data-click='["compareTags"]'
-                            data-i18n-title="project.view.compare_tags_title"
-                            title="Compare whole solution sets: one column per tag, summing the sizings that carry it."
-                            data-i18n="project.view.compare_tags">Compare tags</button>
+                    <button class="btn btn-soft" data-click='["openComparisons"]'
+                            data-i18n="project.view.comparisons">Comparisons</button>
                     <button class="btn btn-soft" data-click='["openProjectSettings"]'
                             data-i18n="project.view.settings">Details</button>
                 </div>
@@ -128,11 +126,10 @@
                  selection: compare it, or export it. The export controls are
                  grouped so the format and the notify option read as belonging
                  to the Export button rather than floating between them. -->
+            <!-- Selection means ONE thing: what goes into the export. Comparing
+                 lives in the Comparisons modal (header button). -->
             <div id="project-selection-bar" class="project-selection-bar" hidden>
                 <span id="project-selection-count" class="selection-count"></span>
-                <button class="btn btn-soft" data-click='["compareSelected"]'
-                        data-i18n="project.view.compare">Compare</button>
-                <span class="selection-divider" aria-hidden="true"></span>
                 <div class="export-controls">
                     <select id="project-export-format" class="text-input inline-select">
                         <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
@@ -151,7 +148,6 @@
                         data-i18n="project.view.clear_selection">Clear</button>
             </div>
 
-            <div id="project-compare" class="project-compare" hidden></div>
             <div id="project-exports" class="project-exports"></div>
 
             <div id="project-tag-filter" class="project-tag-filter"></div>
@@ -949,21 +945,45 @@
         </div>
     </div>
 
-    <!-- Tag-compare picker: choose which tag groups become comparison columns. -->
-    <div class="modal-overlay" id="tag-compare-modal" style="display:none">
-        <div class="modal-content" style="max-width:520px">
+    <!-- Comparisons wizard: pick WHAT to compare (sizings or tag groups),
+         pick the items, see the table — all in one modal. Closing clears
+         everything; nothing about a comparison lives on the project page. -->
+    <div class="modal-overlay" id="comparisons-modal" style="display:none">
+        <div class="modal-content cmp-modal">
             <div class="modal-header">
-                <h2 data-i18n="tagcmp.title">Compare tags</h2>
-                <button class="modal-close" data-click='["closeTagCompare"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                <h2 data-i18n="cmp.title">Comparisons</h2>
+                <button class="modal-close" data-click='["closeComparisons"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
-                <p class="import-info" data-i18n="tagcmp.intro">Each selected tag becomes one comparison column, summing the sizings that carry it.</p>
-                <div id="tag-compare-list" class="fanout-list"></div>
+                <!-- Step 1: what to compare -->
+                <div id="cmp-step-mode">
+                    <p class="import-info" data-i18n="cmp.step_what">What do you want to compare?</p>
+                    <div class="fanout-list">
+                        <button class="fanout-row cmp-mode-btn" data-click='["cmpChooseMode","sizings"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_sizings">Individual sizings</span>
+                            <span class="fanout-meta" data-i18n="cmp.mode_sizings_desc">Side-by-side options for the same cluster</span>
+                        </button>
+                        <button class="fanout-row cmp-mode-btn" data-click='["cmpChooseMode","tags"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_tags">Tag groups</span>
+                            <span class="fanout-meta" data-i18n="cmp.mode_tags_desc">Whole solution sets — each tag's sizings summed into one column</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Step 2: pick items -->
+                <div id="cmp-step-pick" style="display:none">
+                    <p class="import-info" id="cmp-pick-hint"></p>
+                    <div id="cmp-pick-list" class="fanout-list"></div>
+                </div>
+                <!-- Step 3: the comparison -->
+                <div id="cmp-step-result" style="display:none"></div>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-actions">
-                    <button class="btn btn-secondary" data-click='["closeTagCompare"]' data-i18n="common.cancel">Cancel</button>
-                    <button class="btn btn-primary" id="tagcmp-go-btn" data-click='["goCompareTags"]' data-i18n="tagcmp.go">Compare</button>
+                    <button class="btn btn-secondary" id="cmp-back-btn" style="display:none" data-click='["cmpBack"]' data-i18n="wizard.back">Back</button>
+                    <button class="btn btn-secondary" data-click='["closeComparisons"]' data-i18n="common.close">Close</button>
+                    <button class="btn btn-soft" id="cmp-csv-btn" style="display:none" data-click='["exportComparisonCsv"]' data-i18n="cmp.export_csv">Export CSV</button>
+                    <button class="btn btn-soft" id="cmp-xlsx-btn" style="display:none" data-click='["exportComparisonXlsx"]' data-i18n="cmp.export_xlsx">Export Excel</button>
+                    <button class="btn btn-primary" id="cmp-run-btn" style="display:none" data-click='["runComparison"]' data-i18n="cmp.run">Compare</button>
                 </div>
             </div>
         </div>
