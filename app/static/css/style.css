@@ -1487,8 +1487,12 @@ body { padding-bottom: 64px; }
 #exp-downloads { margin-top: 1.2rem; }
 #exp-downloads .export-list { margin: 0.4rem 0 0; }
 
-/* Modals that want the standard breathing room (shared .modal-body is 0). */
-.cmp-body-padded { padding: 1.1rem 1.5rem 1.35rem; }
+/* Modals that want the standard breathing room. Doubled selector so it
+   outranks the shared single-class .modal-body { padding: 0 } regardless of
+   source order. */
+.modal-body.cmp-body-padded { padding: 1.1rem 1.5rem 1.35rem; }
+.modal-body.cmp-body-padded .form-group { margin-top: 0.9rem; }
+.modal-body.cmp-body-padded .form-group .form-group { margin-top: 0; }
 
 /* Legacy multi-cluster banner (read-only sizing + split migration) */
 .legacy-multi-banner { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0; }
