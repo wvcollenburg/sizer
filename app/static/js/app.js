@@ -927,6 +927,10 @@ function displayResults(result) {
         ${reservedRow(cl.reserved_ram_gb, 'GB')}
         <tr><td>${window.t('results.row.total_raw_storage')}</td><td>${cl.raw_storage_tb} TB</td></tr>
         <tr><td>${window.t('results.row.usable_storage')}</td><td class="usable">${cl.usable_storage_tb} TB</td></tr>`;
+    // Required licence for direct builds — same line the recommendation cards
+    // carry; empty (and the div stays blank) without a licence feed.
+    const licSlot = document.getElementById('result-license');
+    if (licSlot) licSlot.innerHTML = formatLicenseLine(result);
 
     const n1 = result.n_minus_1;
     // n1Desc is declared and set above (with the multi-cluster wording).

@@ -611,6 +611,9 @@ def _append_config_sizing(doc, cfg, lang, cw):
                           t9n("export.docx.n1_resilient_val", cores=n1.get("cores", 0),
                               ram=_fmt_ram(n1.get("ram_gb", 0)),
                               usable_tb=n1.get("usable_storage_tb", 0))))
+    lic_short = license_required_short(cfg, lang)
+    if lic_short:
+        spec_rows.append((t9n("export.pptx.multisite_col_license"), lic_short))
     _spec_table(doc, spec_rows, total_w=cw, lang=lang)
     if cfg.get("single_node"):
         _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
@@ -699,7 +702,7 @@ def build_bundle_proposal_docx(clusters, lang="en"):
         row = [cl.get("name", ""), model, str(nodes),
                str(cores), _fmt_ram(ram_gb),
                f"{tot.get('usable_storage_tb', 0)} TB",
-               (license_required_short(r, lang) if r else None) or "—"]
+               license_required_short(r or cl.get("config") or {}, lang) or "—"]
         if show_rep:
             row.append(cl.get("replicates_to") or "—")
         rows.append(row)

@@ -229,7 +229,7 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
             str(cores),
             f"{round(ram_gb)} GB",
             f"{tot.get('usable_storage_tb', 0)} TB",
-            (license_required_short(r, lang) if r else None) or "—",
+            license_required_short(r or cl.get("config") or {}, lang) or "—",
         ]
         if show_rep:
             row.append(cl.get("replicates_to") or "—")
@@ -377,6 +377,11 @@ def _slides_config(prs, result, t, lang="en"):
         + [[t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
         [t("export.common.usable_storage"), f"{cl['usable_storage_tb']} TB"],
     ])
+    # Required licence, when scoring priced it — the config slide's tables
+    # start at the sentence's y-slot, so it goes into the totals table instead.
+    _lic_short = license_required_short(result, lang)
+    if _lic_short:
+        total_rows.append([t("export.pptx.multisite_col_license"), _lic_short])
     _add_table(slide, 4.8, 1.6, 4.0, total_rows, [1.5, 2.5])
 
     if result.get("single_node"):

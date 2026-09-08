@@ -642,6 +642,24 @@ def _license_annotations(license_block, license_ctx):
     return out
 
 
+def license_annotations_for(cluster_layout, cores_per_node, ram_gb_per_node,
+                            term_years=None, region=None):
+    """Shape-only licence annotation for a direct hardware build
+    (/api/calculate, appliance and validated modes), so those results carry
+    the same required-licence block a recommendation does. Strings and
+    booleans only — the price stays server-side, exactly as in
+    _license_annotations. None when licence-aware scoring is off or the
+    region has no current price feed; callers then omit the field and the
+    UI/exports show a dash."""
+    ctx = _license_context(term_years, None, None, region)
+    if ctx is None:
+        return None
+    block = licensing.cluster_license(ctx["book"], cluster_layout,
+                                      cores_per_node, ram_gb_per_node,
+                                      ctx["term_years"])
+    return _license_annotations(block, ctx)
+
+
 def licensing_default_region():
     """Region for licence lookup. The user -> tenant -> global resolution chain
     is deferred (§10.1); today every sizing resolves to the one region that has

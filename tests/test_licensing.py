@@ -503,6 +503,63 @@ def test_switch_on_annotates_without_leaking_price(seeded_app):
             assert not isinstance(value, float)
 
 
+def _calc_appliance():
+    from calc import calculate_appliance
+    # RAM/storage omitted where defaults exist; the seeded HC3450DF carries
+    # 4× 7.68 TB NVMe and 128–1024 GB RAM options.
+    return calculate_appliance({"model": "HC3450DF", "cpu_index": 0,
+                                "ram_gb": 512}, 3)
+
+
+def _calc_validated():
+    from calc import calculate_validated
+    return calculate_validated({"cores_per_node": 16, "threads_per_node": 32,
+                                "ghz": 2.5, "ram_gb": 256,
+                                "disks": [{"type": "NVMe", "size_tb": 3.84}] * 4},
+                               3)
+
+
+def test_direct_builds_carry_the_required_licence(seeded_app):
+    """Appliance and validated builds (/api/calculate) carry the same
+    shape-only required-licence block a recommendation does. This was the gap
+    that left the export overview's Licence column a dash for direct builds
+    while recommendation rows showed e.g. 16C/node."""
+    from test_security import _offending_keys
+    from export_gauges import license_required_short
+    with seeded_app.app_context():
+        _set_tunables(license_scoring=1)
+        # 48 = the seeded HC3450DF's dual-socket 24-core CPU: cpu_options
+        # carry per-NODE core totals, which is the licensable basis.
+        for result, cores in ((_calc_appliance(), 48), (_calc_validated(), 16)):
+            assert "error" not in result
+            lic = result["licensing"]
+            assert lic is not None
+            req = lic["required"]
+            assert req["basis"] in ("per_node", "essentials")
+            assert req["node_count"] == 3
+            if req["basis"] == "per_node":
+                # The licensable basis: the chosen CPU's (P-weighted) cores for
+                # appliance, the typed per-node figure for validated.
+                assert req["cores_per_node"] == cores
+            # Never a price — the same boundary the recommendations hold.
+            assert _offending_keys(result) == []
+            # And the exports' overview cell renders it rather than a dash.
+            assert license_required_short(result) is not None
+
+
+def test_direct_builds_stay_silent_with_scoring_off(seeded_app):
+    """With the master switch off the direct builds carry no licence block at
+    all, and the export helper renders the dash — identical to the engine's
+    behaviour."""
+    from export_gauges import license_required_short
+    with seeded_app.app_context():
+        _set_tunables(license_scoring=0)
+        for result in (_calc_appliance(), _calc_validated()):
+            assert "error" not in result
+            assert result["licensing"] is None
+            assert license_required_short(result) is None
+
+
 def test_licence_term_is_independent_of_the_growth_horizon(seeded_app):
     with seeded_app.app_context():
         _set_tunables(license_scoring=1)
