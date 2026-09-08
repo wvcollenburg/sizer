@@ -11,7 +11,8 @@ state, so they can be called from a route, a worker, or a test.
 """
 from orm_models import Model
 from tunables import T
-from recommend import _cluster_layout, _cluster_usable_storage
+from recommend import (_cluster_layout, _cluster_usable_storage,
+                       _effective_cores, license_annotations_for)
 from cluster_diagram import network_svg_for
 
 # Ceiling on user-supplied storage-only node counts (mirrors MAX_NODE_COUNT in
@@ -175,6 +176,13 @@ def calculate_appliance(data, node_count):
         "num_clusters": num_clusters,
         "cluster_layout": layout,
         "storage_only": so_block,
+        # Required-licence shape (never a price), same block a recommendation
+        # carries, so direct appliance builds licence-annotate the UI and the
+        # exports identically. Licensable cores are P-weighted; layout covers
+        # every node incl. storage-only, matching the engine. None (field
+        # rendered as a dash) when licence scoring is off or no price feed.
+        "licensing": license_annotations_for(layout, _effective_cores(cpu),
+                                             ram_gb),
         "network_svg": network_svg,
         # Carry the port count so the exporters' diagram regeneration
         # (_rec_network_svg) matches the on-screen SVG instead of defaulting to 2.
@@ -496,6 +504,10 @@ def calculate_validated(data, node_count):
         "cluster_layout": layout,
         "storage_only": so_block,
         "storage_type": storage_type,
+        # Required-licence shape for software-only builds. The user types the
+        # per-node core count directly (no P/E split is known), so that raw
+        # figure is the licensable basis.
+        "licensing": license_annotations_for(layout, cores, ram_gb),
         "network_svg": network_svg,
         # Carry the port count so the exporters' diagram regeneration
         # (_rec_network_svg) matches the on-screen SVG instead of defaulting to 2.

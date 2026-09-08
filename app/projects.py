@@ -20,8 +20,9 @@ from auth_models import Configuration, ScaleConfigLink, _utcnow
 from database import db
 from extensions import limiter
 from project_models import (
-    Project, ProjectTag, ConfigurationTag, ReplicationLink, ScaleProjectLink,
-    SIZING_ROLES, ensure_scratch_project, new_code, valid_salesforce_url,
+    Project, ProjectTag, ConfigurationTag, ReplicationLink, ROLE_ADDITIVE,
+    ScaleProjectLink, SIZING_ROLES, dedupe_sizing_name, ensure_scratch_project,
+    new_code, valid_salesforce_url,
 )
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
@@ -648,17 +649,100 @@ def _metrics_from_snapshot(snapshot):
     return total, rows
 
 
-@projects_bp.route("/<int:project_id>/compare", methods=["POST"])
-@login_required
-def compare_sizings(project_id):
-    """Side-by-side figures for the selected sizings, plus the caveats that make
-    a comparison invalid if ignored (§6)."""
-    user = current_user()
-    project, source = _visible_project(project_id, user)
-    if project is None:
-        return jsonify({"error": "Project not found"}), 404
+def _compare_payload(project, data):
+    """The comparison payload for either mode ({tag_ids} or {sizing_ids}) as a
+    plain dict — shared by the JSON route and the XLSX export so the file can
+    never disagree with the screen."""
+    tag_ids = data.get("tag_ids")
+    if tag_ids:
+        if not isinstance(tag_ids, list):
+            return None, (jsonify({"error": "tag_ids must be a list"}), 400)
+        return _compare_tag_groups(
+            project, [t for t in tag_ids if isinstance(t, int)]), None
+    return _compare_sizing_rows(project, data.get("sizing_ids") or []), None
 
-    wanted = (request.json or {}).get("sizing_ids") or []
+
+def _compare_tag_groups(project, tag_ids):
+    """One comparison column per TAG: each column is the summed solution set
+    of that tag's member sizings (DR targets included — they are hardware the
+    customer buys as part of that solution), with the members as sub-rows.
+
+    This is what makes comparison useful after the per-cluster split: the
+    interesting question is option-set vs option-set, not sibling cluster vs
+    sibling cluster."""
+    from fingerprint import result_state, tunables_digest
+    tags = {t.id: t for t in ProjectTag.query.filter(
+        ProjectTag.project_id == project.id,
+        ProjectTag.id.in_(tag_ids or [-1])).all()}
+    ordered = [tags[i] for i in tag_ids if i in tags]
+    tunables = tunables_digest()
+
+    rows, warnings, seen_tunables = [], [], set()
+    any_alternative = False
+    for tag in ordered:
+        links = ConfigurationTag.query.filter_by(tag_id=tag.id).all()
+        members = Configuration.query.filter(
+            Configuration.id.in_([l.configuration_id for l in links] or [-1]),
+            Configuration.is_deleted.is_(False)).order_by(
+                Configuration.position, Configuration.id).all()
+
+        agg = {"nodes": 0, "cores": 0, "ram_gb": 0, "usable_tb": 0.0,
+               "n1_cores": 0, "n1_ram_gb": 0, "clusters": 0}
+        models, layout, member_rows = [], [], []
+        software_only = group_stale = group_reimport = False
+        unsized = 0
+        for s in members:
+            state = result_state(s, tunables)
+            totals, _sub = _metrics_from_snapshot(s.result_snapshot)
+            member_rows.append(dict(totals, name=s.name))
+            for key in ("nodes", "clusters", "cores", "ram_gb",
+                        "n1_cores", "n1_ram_gb"):
+                agg[key] += totals[key] or 0
+            agg["usable_tb"] += float(totals["usable_tb"] or 0)
+            if totals.get("model"):
+                models.extend(totals["model"].split(", "))
+            layout.extend(totals.get("layout") or [])
+            software_only = software_only or totals.get("software_only", False)
+            if s.role == "alternative":
+                any_alternative = True
+            stamp = (s.result_snapshot or {}).get("tunables")
+            if stamp:
+                seen_tunables.add(stamp)
+            if state["cache"] == "none":
+                unsized += 1
+                warnings.append({"code": "not_sized", "name": s.name})
+            elif state["stale"]:
+                group_stale = True
+                warnings.append({"code": "stale", "name": s.name})
+            if state["needs_reimport"]:
+                group_reimport = True
+                warnings.append({"code": "reimport", "name": s.name})
+
+        agg["usable_tb"] = round(agg["usable_tb"], 2)
+        agg["model"] = ", ".join(sorted(set(models))) if models else None
+        agg["software_only"] = software_only
+        agg["layout"] = layout
+        rows.append({
+            "id": f"tag-{tag.id}", "name": tag.name, "role": None,
+            "notes": ", ".join(s.name for s in members),
+            "member_count": len(members),
+            "totals": agg, "clusters": member_rows,
+            "stale": group_stale,
+            "cache": "none" if unsized == len(members) else "full",
+            "needs_reimport": group_reimport,
+        })
+
+    if len(seen_tunables) > 1:
+        warnings.append({"code": "mixed_tunables"})
+    if any_alternative:
+        # An 'alternative' inside a summed solution set inflates its total.
+        warnings.append({"code": "mixed_roles"})
+    # No cross-column rollup: summing rival solution sets would invent a
+    # cluster nobody is buying.
+    return {"rows": rows, "warnings": warnings, "rollup": None, "mode": "tags"}
+
+
+def _compare_sizing_rows(project, wanted):
     sizings = Configuration.query.filter(
         Configuration.project_id == project.id,
         Configuration.is_deleted.is_(False),
@@ -710,7 +794,116 @@ def compare_sizings(project_id):
             sum(float(r["totals"]["usable_tb"]) for r in additive), 2)
         rollup["count"] = len(additive)
 
-    return jsonify({"rows": rows, "warnings": warnings, "rollup": rollup})
+    return {"rows": rows, "warnings": warnings, "rollup": rollup,
+            "mode": "sizings"}
+
+
+@projects_bp.route("/<int:project_id>/compare", methods=["POST"])
+@login_required
+def compare_sizings(project_id):
+    """Side-by-side figures for the selected sizings — or, with ``tag_ids``,
+    for whole tag groups — plus the caveats that make a comparison invalid if
+    ignored (§6)."""
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    payload, err = _compare_payload(project, request.json or {})
+    if err:
+        return err
+    return jsonify(payload)
+
+
+# Column labels for the XLSX export. English on purpose: the workbook is a
+# working document, and the on-screen table is where translations live.
+_CMP_XLSX_ROWS = (
+    ("Model", lambda t: t.get("model") or
+        ("software-only" if t.get("software_only") else "—"), False),
+    ("Clusters", lambda t: t.get("clusters") or 0, True),
+    ("Nodes", lambda t: t.get("nodes") or 0, True),
+    ("Cores", lambda t: t.get("cores") or 0, True),
+    ("Memory (GB)", lambda t: t.get("ram_gb") or 0, True),
+    ("Usable storage (TB)", lambda t: round(float(t.get("usable_tb") or 0), 2), True),
+    ("Cores at N-1", lambda t: t.get("n1_cores") or 0, True),
+    ("Memory at N-1 (GB)", lambda t: t.get("n1_ram_gb") or 0, True),
+)
+
+
+@projects_bp.route("/<int:project_id>/compare.xlsx", methods=["POST"])
+@login_required
+def compare_sizings_xlsx(project_id):
+    """The comparison as a workbook — same body as /compare, same payload
+    builder, so the file cannot disagree with the screen. Metrics as rows, one
+    column per option, a delta column against the first option for numeric
+    metrics. No pricing data exists in these metrics."""
+    import io as _io
+    from flask import send_file
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    payload, err = _compare_payload(project, request.json or {})
+    if err:
+        return err
+    rows = payload["rows"]
+    if not rows:
+        return jsonify({"error": "Nothing to compare"}), 400
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Comparison"
+    bold = Font(bold=True)
+
+    header = ["Metric"]
+    for i, r in enumerate(rows):
+        name = r["name"]
+        if r.get("member_count") is not None:
+            name += f" ({r['member_count']} sizings)"
+        header.append(name)
+        if i > 0:
+            header.append("Δ vs first")
+    ws.append(header)
+    for cell in ws[1]:
+        cell.font = bold
+
+    baseline = rows[0]["totals"]
+    for label, getter, numeric in _CMP_XLSX_ROWS:
+        line = [label]
+        for i, r in enumerate(rows):
+            value = getter(r["totals"])
+            line.append(value)
+            if i > 0:
+                line.append(round(value - getter(baseline), 2) if numeric else None)
+        ws.append(line)
+
+    note_label = ("Sizings in this set" if payload.get("mode") == "tags"
+                  else "Why this option")
+    line = [note_label]
+    for i, r in enumerate(rows):
+        line.append(r.get("notes") or "")
+        if i > 0:
+            line.append(None)
+    ws.append(line)
+
+    for w in payload.get("warnings") or []:
+        ws.append([])
+        ws.append([f"Warning: {w.get('code')} {w.get('name') or ''}".strip()])
+
+    ws.column_dimensions["A"].width = 22
+    for col in list("BCDEFGHIJKLMNOP")[:len(header) - 1]:
+        ws.column_dimensions[col].width = 26
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf, as_attachment=True,
+        download_name=f"{project.name} - comparison.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument"
+                 ".spreadsheetml.sheet")
 
 
 # ── replication partners (§8.5) ──────────────────────────────────────────────
@@ -830,6 +1023,232 @@ def create_dr_target(project_id):
         return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
 
     return jsonify(sizing.to_summary(user, "owned")), 201
+
+
+# ── Legacy multi-cluster split ────────────────────────────────────────────────
+
+UNCLUSTERED_NAME = "(unclustered)"   # mirrors cluster_split.UNCLUSTERED
+
+
+def _add_config_with_code(**kw):
+    """Create a Configuration under a fresh share code, retrying code
+    collisions inside a savepoint so earlier creations in the same split
+    survive the retry."""
+    for _ in range(6):
+        try:
+            with db.session.begin_nested():
+                cfg = Configuration(code=new_code(), **kw)
+                db.session.add(cfg)
+            return cfg
+        except IntegrityError:
+            continue
+    raise RuntimeError("could not allocate a unique code")
+
+
+@sizings_bp.route("/<int:config_id>/inbound-reserve")
+@login_required
+def inbound_reserve(config_id):
+    """The replication reserve this sizing must host: every link that targets
+    it, scaled by the link percentages (same math the DR-target flow uses).
+
+    The sizer fetches this when a WORKLOAD sizing is opened or refreshed, so a
+    replication target's own recommendation accounts for — and displays — the
+    inbound reserve, rather than only its own workload."""
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted:
+        return jsonify({"error": "Sizing not found"}), 404
+    from auth import _config_source_for
+    if _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
+    return jsonify({
+        "has_inbound": bool(sources),
+        "reserve": {"vcpus": round(reserve["vcpus"], 1),
+                    "ram_gb": round(reserve["ram_gb"], 1),
+                    "storage_tb": round(reserve["storage_tb"], 2)},
+        # Maps the link modes onto the engine's compute basis, matching
+        # _dr_inbound_reserve: full-cluster only when every link is failover.
+        "mode": "failover" if size_full_cluster else "reserved",
+        "sources": sources,
+    })
+
+
+@sizings_bp.route("/<int:config_id>/split", methods=["POST"])
+@login_required
+def split_legacy_sizing(config_id):
+    """Split a legacy multi-cluster sizing into one sizing per source cluster.
+
+    The one-time migration off the old model (one sizing, cluster tabs): each
+    workload cluster becomes its own single-cluster sizing carrying that
+    cluster's pristine summary, its VM list (edits/exclusions re-indexed), its
+    per-cluster options and chosen recommendation; in-sizing dedicated DR
+    clusters become project DR-target sizings; in-sizing replication becomes
+    ReplicationLink rows. The original sizing is soft-deleted — its content
+    lives on in the pieces.
+    """
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    project, err = _owned_project_or_error(sizing.project_id, user)
+    if err:
+        return err
+
+    payload = sizing.payload or {}
+    imp = payload.get("import") if payload.get("mode") == "import" else None
+    if not isinstance(imp, dict):
+        return jsonify({"error": "Only imported sizings can be split"}), 400
+    source_clusters = imp.get("sourceClusters") or []
+    dedicated = [n for n in (imp.get("dedicatedClusters") or [])]
+    dr = payload.get("drCluster") or {}
+    workload = [c for c in source_clusters
+                if (c.get("name") or "") not in set(dedicated)]
+    if len(workload) < 2 and not dedicated and not dr.get("enabled"):
+        return jsonify({"error": "This sizing has a single cluster and "
+                                 "nothing to split"}), 400
+
+    cluster_base = imp.get("clusterBase") or {}
+    vms = imp.get("importVms") or []
+    vm_cfg = imp.get("vmConfig") or {}
+    excl_c = set(imp.get("exclCompute") or [])
+    excl_s = set(imp.get("exclStorage") or [])
+    cluster_opts = imp.get("clusterOptions") or {}
+    sel_rec = imp.get("clusterSelectedRec") or {}
+
+    position = Configuration.query.filter_by(
+        project_id=project.id, is_deleted=False).count()
+    created = {}
+    try:
+        for c in workload:
+            name = (c.get("name") or "").strip()
+            summary = cluster_base.get(name) or c.get("summary")
+            if not name or not isinstance(summary, dict):
+                return jsonify({"error": f"Cluster '{name}' carries no "
+                                         "summary; re-import the file "
+                                         "instead of splitting"}), 400
+            kept, cfg_map, ec, es = [], {}, [], []
+            for old_idx, vm in enumerate(vms):
+                vm_cl = ((vm.get("cluster") or "").strip()) or UNCLUSTERED_NAME
+                if vm_cl != name:
+                    continue
+                new_idx = len(kept)
+                kept.append(vm)
+                # vmConfig keys arrive as strings after the JSON round-trip.
+                ov = vm_cfg.get(str(old_idx), vm_cfg.get(old_idx))
+                if ov:
+                    cfg_map[str(new_idx)] = ov
+                if old_idx in excl_c:
+                    ec.append(new_idx)
+                if old_idx in excl_s:
+                    es.append(new_idx)
+            fields = dict(payload.get("fields") or {})
+            fields.update(cluster_opts.get(name) or {})
+            new_payload = {
+                "version": payload.get("version", 2),
+                "mode": "import",
+                "fields": fields,
+                "drCluster": None,
+                "import": {
+                    "originalImportSummary": summary,
+                    "importSummary": summary,
+                    "importVms": kept,
+                    "vmConfig": cfg_map,
+                    "exclCompute": ec,
+                    "exclStorage": es,
+                    "includeLocalStorage": imp.get("includeLocalStorage", False),
+                    "lastProjection": None,
+                    "sourceClusters": [],
+                    "clusterBase": {},
+                    "separateClusters": False,
+                    "clusterOptions": {},
+                    "clusterSelectedRec": {},
+                    "selectedRec": sel_rec.get(name),
+                    "clusterReplication": {},
+                    "dedicatedClusters": [],
+                    "activeCluster": "__combined__",
+                    "wizardStep": None,
+                },
+            }
+            from auth import _payload_digest
+            created[name] = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, name),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload=new_payload,
+                project_id=project.id, position=position,
+                role=ROLE_ADDITIVE,
+                source_meta=dict(sizing.source_meta or {}, cluster=name) or None,
+                parser_version=sizing.parser_version,
+                payload_digest=_payload_digest(new_payload),
+            )
+            position += 1
+
+        # In-sizing dedicated DR clusters -> project DR-target sizings.
+        for name in dedicated:
+            created[name] = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, name),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload={"mode": "dr_target"},
+                project_id=project.id, position=position,
+                role=ROLE_ADDITIVE, is_dr_target=True,
+            )
+            position += 1
+
+        # Whole-workload DR (the non-separate path's single target).
+        if dr.get("enabled"):
+            dr_cfg = _add_config_with_code(
+                name=dedupe_sizing_name(project.id, "DR target"),
+                owner_id=user.id, tenant_id=user.tenant_id,
+                payload={"mode": "dr_target"},
+                project_id=project.id, position=position,
+                role=ROLE_ADDITIVE, is_dr_target=True,
+            )
+            created[dr_cfg.name] = dr_cfg
+            for c in workload:
+                name = (c.get("name") or "").strip()
+                if name in created:
+                    db.session.add(ReplicationLink(
+                        project_id=project.id,
+                        source_configuration_id=created[name].id,
+                        target_configuration_id=dr_cfg.id,
+                        compute_pct=int(dr.get("computePct") or 100),
+                        storage_pct=int(dr.get("storagePct") or 100),
+                        mode=(dr.get("mode") or "reserved"),
+                    ))
+
+        # In-sizing replication -> project links (whole-sizing endpoints).
+        for src_name, r in (imp.get("clusterReplication") or {}).items():
+            tgt = (r or {}).get("target")
+            if src_name in created and tgt in created:
+                db.session.add(ReplicationLink(
+                    project_id=project.id,
+                    source_configuration_id=created[src_name].id,
+                    target_configuration_id=created[tgt].id,
+                    compute_pct=int(r.get("computePct") or 0),
+                    storage_pct=int(r.get("storagePct") or 0),
+                    mode=(r.get("mode") or "reserved"),
+                ))
+
+        # Group the pieces under a tag named after the original sizing, so
+        # they can be tag-compared against other solution sets immediately.
+        from project_models import apply_sizing_tag
+        for cfg in created.values():
+            apply_sizing_tag(cfg, sizing.name)
+
+        sizing.is_deleted = True
+        sizing.deleted_at = _utcnow()
+        sizing.deleted_by_user_id = user.id
+        db.session.commit()
+    except RuntimeError:
+        db.session.rollback()
+        return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    return jsonify({
+        "created": [cfg.to_summary(user, "owned") for cfg in created.values()],
+        "deleted_id": sizing.id,
+        "project_id": project.id,
+    }), 201
 
 
 # ── DR-target sizing (workload-less, sized from inbound replication) ──────────

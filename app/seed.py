@@ -159,6 +159,10 @@ def _migrate_schema():
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS payload_digest VARCHAR(64)",
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
         "is_dr_target BOOLEAN NOT NULL DEFAULT false",
+        # Fan-out sizings from a multi-cluster import: machine-created, not yet
+        # opened+saved by a person (feature/per-cluster-sizing).
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
+        "untouched BOOLEAN NOT NULL DEFAULT false",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

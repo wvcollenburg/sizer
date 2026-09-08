@@ -206,6 +206,11 @@ class Configuration(db.Model):
     # A sizing that carries no workload of its own and exists purely as a
     # replication target, sized from what replicates into it (decision 30).
     is_dr_target = db.Column(db.Boolean, nullable=False, default=False)
+    # Machine-created and not yet reviewed: a multi-cluster import fans out
+    # into one sizing per source cluster, each flagged until a person opens it
+    # and saves. The flag drives the project page's "to be sized" badge and is
+    # cleared by ANY payload save — a human save is the review signal.
+    untouched = db.Column(db.Boolean, nullable=False, default=False)
 
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime(timezone=True))
@@ -248,6 +253,7 @@ class Configuration(db.Model):
             "notes": self.notes,
             "source_meta": self.source_meta,
             "is_dr_target": self.is_dr_target,
+            "untouched": self.untouched,
             "has_result": self.result_snapshot is not None,
             "result_computed_at": _iso(self.result_computed_at),
         }

@@ -375,7 +375,12 @@ function sizingRow(s, canEdit) {
     // Three distinct states, deliberately not merged: a re-import cannot be
     // fixed by recalculating (§3.3), so it must not read as ordinary staleness.
     let state;
-    if (s.needs_reimport) {
+    if (s.untouched) {
+        // Machine-created from a multi-cluster import; no human has reviewed
+        // it. Takes precedence: an unreviewed sizing must not read as merely
+        // "no result yet".
+        state = `<span class="state-badge state-untouched" title="${escHtml(tt('project.state.untouched_hint'))}">${escHtml(tt('project.state.untouched'))}</span>`;
+    } else if (s.needs_reimport) {
         state = `<span class="state-badge state-reimport" title="${escHtml(tt('project.state.reimport_hint'))}">${escHtml(tt('project.state.reimport'))}</span>`;
     } else if (!s.has_result) {
         state = `<span class="state-badge state-none">${escHtml(tt('project.state.none'))}</span>`;
@@ -601,131 +606,374 @@ function renderSelectionBar() {
 
 // ── comparison (§6) ─────────────────────────────────────────────────────────
 
-async function compareSelected() {
-    if (!currentProject || !selectedSizings.size) return;
-    const host = document.getElementById('project-compare');
-    if (!host) return;
-    host.hidden = false;
+// ── Comparisons wizard (modal) ──────────────────────────────────────────────
+// One entry point for every comparison: pick WHAT (individual sizings or tag
+// groups), pick the items, see the table — all inside the modal. Closing the
+// modal clears everything; row checkboxes on the project page mean "export"
+// and nothing else.
+
+let cmpState = { mode: null, lastBody: null, lastData: null };
+
+function openComparisons() {
+    if (!currentProject) return;
+    cmpState = { mode: null, lastBody: null, lastData: null };
+    _cmpShowStep('mode');
+    document.getElementById('comparisons-modal').style.display = 'flex';
+}
+
+function closeComparisons() {
+    cmpState = { mode: null, lastBody: null, lastData: null };
+    const list = document.getElementById('cmp-pick-list');
+    if (list) list.innerHTML = '';
+    const res = document.getElementById('cmp-step-result');
+    if (res) res.innerHTML = '';
+    document.getElementById('comparisons-modal').style.display = 'none';
+}
+
+function _cmpShowStep(step) {
+    const steps = { mode: 'cmp-step-mode', pick: 'cmp-step-pick', result: 'cmp-step-result' };
+    Object.entries(steps).forEach(([name, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = name === step ? '' : 'none';
+    });
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+    show('cmp-back-btn', step !== 'mode');
+    show('cmp-run-btn', step === 'pick');
+    show('cmp-csv-btn', step === 'result');
+    show('cmp-xlsx-btn', step === 'result');
+    if (step === 'pick') updateCmpPickCount();
+}
+
+function cmpChooseMode(mode) {
+    cmpState.mode = mode === 'tags' ? 'tags' : 'sizings';
+    const list = document.getElementById('cmp-pick-list');
+    const hint = document.getElementById('cmp-pick-hint');
+    if (cmpState.mode === 'tags') {
+        const seen = new Map();   // id -> {name, count}
+        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
+            const e = seen.get(t.id) || { name: t.name, count: 0 };
+            e.count++;
+            seen.set(t.id, e);
+        }));
+        hint.textContent = tt(seen.size < 2 ? 'project.compare.need_two_tags'
+                                            : 'cmp.pick_tags');
+        const tags = [...seen.entries()].sort((a, b) =>
+            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+        list.innerHTML = tags.map(([id, t]) => `
+            <label class="fanout-row">
+                <input type="checkbox" checked data-cmp-id="${id}" data-change='["updateCmpPickCount"]'>
+                <span class="fanout-name">${escHtml(t.name)}</span>
+                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+            </label>`).join('');
+    } else {
+        hint.textContent = tt('cmp.pick_sizings');
+        list.innerHTML = (currentProject.sizings || []).map(s => `
+            <label class="fanout-row">
+                <input type="checkbox" data-cmp-id="${s.id}" data-change='["updateCmpPickCount"]'>
+                <span class="fanout-name">${escHtml(s.name)}</span>
+                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
+            </label>`).join('');
+    }
+    _cmpShowStep('pick');
+}
+
+function cmpBack() {
+    const onResult = document.getElementById('cmp-step-result').style.display !== 'none';
+    _cmpShowStep(onResult ? 'pick' : 'mode');
+}
+
+function _cmpChosenIds() {
+    return [...document.querySelectorAll('#cmp-pick-list input[data-cmp-id]')]
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.dataset.cmpId, 10));
+}
+
+function updateCmpPickCount() {
+    const btn = document.getElementById('cmp-run-btn');
+    if (btn) btn.disabled = _cmpChosenIds().length < 2;
+}
+
+async function runComparison() {
+    const ids = _cmpChosenIds();
+    if (ids.length < 2) return;
+    const body = cmpState.mode === 'tags' ? { tag_ids: ids } : { sizing_ids: ids };
+    const host = document.getElementById('cmp-step-result');
+    _cmpShowStep('result');
     host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.loading'))}</p>`;
 
     const { ok, data } = await api(`/api/projects/${currentProject.id}/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sizing_ids: [...selectedSizings] }),
+        body: JSON.stringify(body),
     });
     if (!ok) { host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.failed'))}</p>`; return; }
+    cmpState.lastBody = body;
+    cmpState.lastData = data;
+    host.innerHTML = _compareTableHtml(data);
+}
 
+// The metric rows shared by the on-screen table and the CSV export. Each entry
+// is [i18n key, value renderer, numeric accessor (null = text-only)].
+function _compareMetricRows() {
+    const round = (n) => (Math.round(n * 100) / 100);
+    return [
+        ['project.compare.model', (r) => {
+            const so = r.totals.software_only ? tt('project.compare.software_only') : '';
+            const m = r.totals.model;
+            return (m && so ? `${m}, ${so}` : (m || so || '—'));
+        }, null],
+        ['project.compare.clusters', (r) => String(r.totals.clusters || 0), (r) => r.totals.clusters || 0],
+        ['project.compare.nodes', (r) => String(r.totals.nodes || 0), (r) => r.totals.nodes || 0],
+        ['project.compare.cores', (r) => String(r.totals.cores || 0), (r) => r.totals.cores || 0],
+        ['project.compare.ram', (r) => `${r.totals.ram_gb || 0} GB`, (r) => r.totals.ram_gb || 0],
+        ['project.compare.storage', (r) => `${round(r.totals.usable_tb || 0)} TB`, (r) => round(r.totals.usable_tb || 0)],
+        ['project.compare.n1_cores', (r) => String(r.totals.n1_cores || 0), (r) => r.totals.n1_cores || 0],
+        ['project.compare.n1_ram', (r) => `${r.totals.n1_ram_gb || 0} GB`, (r) => r.totals.n1_ram_gb || 0],
+    ];
+}
+
+function _compareTableHtml(data) {
     const rows = data.rows || [];
     const baseline = rows[0];
-    const metric = (key, row) => (row.totals && row.totals[key]) || 0;
-    const delta = (key, row) => {
-        if (!baseline || row.id === baseline.id) return '';
-        const d = metric(key, row) - metric(key, baseline);
+    const round = (n) => (Math.round(n * 100) / 100);
+    const delta = (num, row) => {
+        if (!num || !baseline || row.id === baseline.id) return '';
+        const d = num(row) - num(baseline);
         if (!d) return '';
         return `<span class="delta ${d > 0 ? 'delta-up' : 'delta-down'}">${d > 0 ? '+' : ''}${round(d)}</span>`;
     };
-    const round = (n) => (Math.round(n * 100) / 100);
 
-    const cols = [
-        // A software-only sizing has no appliance model by definition — label it
-        // rather than showing a dash (a mixed sizing lists both).
-        ['project.compare.model', r => {
-            const so = r.totals.software_only ? tt('project.compare.software_only') : '';
-            const m = r.totals.model;
-            return escHtml(m && so ? `${m}, ${so}` : (m || so || '—'));
-        }],
-        // Physical HyperCore clusters, with the node split behind a tooltip —
-        // "2" reads better than "8 + 5" in the table, but the split is the
-        // thing you argue about in the meeting.
-        ['project.compare.clusters', r => {
-            const layout = (r.totals.layout || []).join(' + ');
-            const title = layout ? ` title="${escHtml(layout)}"` : '';
-            return `<span${title}>${metric('clusters', r)}</span> ${delta('clusters', r)}`;
-        }],
-        ['project.compare.nodes', r => `${metric('nodes', r)} ${delta('nodes', r)}`],
-        ['project.compare.cores', r => `${metric('cores', r)} ${delta('cores', r)}`],
-        ['project.compare.ram', r => `${metric('ram_gb', r)} GB ${delta('ram_gb', r)}`],
-        ['project.compare.storage', r => `${round(metric('usable_tb', r))} TB ${delta('usable_tb', r)}`],
-        ['project.compare.n1_cores', r => `${metric('n1_cores', r)}`],
-        ['project.compare.n1_ram', r => `${metric('n1_ram_gb', r)} GB`],
-    ];
-
-    // Warnings first: a comparison of options sized under different assumptions
-    // is invalid, and saying so is the whole point of decision 16.
     const warn = (data.warnings || []).map(w => {
         const key = 'project.compare.warn_' + w.code;
         return `<li>${escHtml(tt(key, { name: w.name || '' }))}</li>`;
     }).join('');
 
-    const rollup = data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
+    const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         clusters: data.rollup.clusters,
         cores: data.rollup.cores, ram: data.rollup.ram_gb,
         storage: round(data.rollup.usable_tb),
     }))}</p>` : `<p class="compare-rollup compare-rollup-none">${escHtml(tt('project.compare.no_rollup'))}</p>`;
 
-    host.innerHTML = `
-        <div class="compare-head">
-            <h3>${escHtml(tt('project.compare.title'))}</h3>
-            <button class="btn btn-xs" data-click='["closeCompare"]'
-                    data-i18n="common.close">Close</button>
-        </div>
+    return `
         ${warn ? `<ul class="compare-warnings">${warn}</ul>` : ''}
         <div class="compare-scroll"><table class="sizing-table compare-table">
             <thead><tr><th>${escHtml(tt('project.compare.metric'))}</th>
-                ${rows.map(r => `<th>${escHtml(r.name)}${r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : ''}</th>`).join('')}
+                ${rows.map(r => {
+                    const chip = r.member_count != null
+                        ? ` <span class="role-chip role-additive">${escHtml(tt('project.compare.members', {count: r.member_count}))}</span>`
+                        : (r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : '');
+                    return `<th>${escHtml(r.name)}${chip}</th>`;
+                }).join('')}
             </tr></thead>
-            <tbody>${cols.map(([label, render]) => `<tr>
+            <tbody>${_compareMetricRows().map(([label, render, num]) => `<tr>
                 <td class="compare-metric">${escHtml(tt(label))}</td>
-                ${rows.map(r => `<td>${render(r)}</td>`).join('')}
+                ${rows.map(r => `<td>${escHtml(render(r))} ${delta(num, r)}</td>`).join('')}
             </tr>`).join('')}
-            <tr><td class="compare-metric">${escHtml(tt('project.compare.why'))}</td>
+            <tr><td class="compare-metric">${escHtml(tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why'))}</td>
                 ${rows.map(r => `<td class="compare-note">${escHtml(r.notes || '—')}</td>`).join('')}</tr>
             </tbody>
         </table></div>
         ${rollup}`;
-    host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function closeCompare() {
-    const host = document.getElementById('project-compare');
-    if (host) { host.hidden = true; host.innerHTML = ''; }
+// CSV of the comparison on screen: metrics as rows, one column per option,
+// plus a delta column against the first option for numeric metrics. UTF-8 BOM
+// so Excel opens it with correct encoding.
+function exportComparisonCsv() {
+    const data = cmpState.lastData;
+    if (!data) return;
+    const rows = data.rows || [];
+    const baseline = rows[0];
+    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lines = [];
+    const header = [tt('project.compare.metric')];
+    rows.forEach((r, i) => {
+        header.push(r.name);
+        if (i > 0) header.push('Δ');
+    });
+    lines.push(header.map(q).join(','));
+    _compareMetricRows().forEach(([label, render, num]) => {
+        const line = [tt(label)];
+        rows.forEach((r, i) => {
+            line.push(render(r));
+            if (i > 0) line.push(num ? (Math.round((num(r) - num(baseline)) * 100) / 100) : '');
+        });
+        lines.push(line.map(q).join(','));
+    });
+    const noteLabel = tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why');
+    lines.push([noteLabel, ...rows.flatMap((r, i) => i > 0 ? [r.notes || '', ''] : [r.notes || ''])].map(q).join(','));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    _downloadBlob(blob, `${currentProject.name} - comparison.csv`);
+}
+
+async function exportComparisonXlsx() {
+    if (!cmpState.lastBody || !currentProject) return;
+    const resp = await fetch(`/api/projects/${currentProject.id}/compare.xlsx`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(cmpState.lastBody),
+    });
+    if (!resp.ok) return;
+    _downloadBlob(await resp.blob(), `${currentProject.name} - comparison.xlsx`);
+}
+
+function _downloadBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
 // ── bundle exports (§7.2) ───────────────────────────────────────────────────
 
 let exportPollTimer = null;
 
-async function exportSelected() {
-    if (!currentProject || !selectedSizings.size) return;
-    const fmt = document.getElementById('project-export-format').value;
-    const notify = document.getElementById('project-export-notify').checked;
+// ── Exports wizard (modal) ──────────────────────────────────────────────────
+// Mirrors the Comparisons wizard: pick WHAT (individual sizings or a tag
+// group's members), choose format + notification, queue — and collect the
+// finished downloads, all in one modal. The header button carries a badge
+// while ready downloads exist.
 
+let expState = { mode: null };
+let lastExportJobs = [];
+
+function openExports() {
+    if (!currentProject) return;
+    expState = { mode: null };
+    _expShowStep('mode');
+    document.getElementById('exports-modal').style.display = 'flex';
+    loadExports();
+}
+
+function closeExports() {
+    expState = { mode: null };
+    const list = document.getElementById('exp-pick-list');
+    if (list) list.innerHTML = '';
+    document.getElementById('exports-modal').style.display = 'none';
+}
+
+function _expShowStep(step) {
+    const modeEl = document.getElementById('exp-step-mode');
+    const pickEl = document.getElementById('exp-step-pick');
+    if (modeEl) modeEl.style.display = step === 'mode' ? '' : 'none';
+    if (pickEl) pickEl.style.display = step === 'pick' ? '' : 'none';
+    const show = (id, on) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = on ? '' : 'none';
+    };
+    show('exp-back-btn', step === 'pick');
+    show('exp-run-btn', step === 'pick');
+    if (step === 'pick') updateExpPickCount();
+}
+
+function expChooseMode(mode) {
+    expState.mode = mode === 'tags' ? 'tags' : 'sizings';
+    const list = document.getElementById('exp-pick-list');
+    const hint = document.getElementById('exp-pick-hint');
+    if (expState.mode === 'tags') {
+        const seen = new Map();
+        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
+            const e = seen.get(t.id) || { name: t.name, count: 0 };
+            e.count++;
+            seen.set(t.id, e);
+        }));
+        hint.textContent = tt('exp.pick_tags');
+        const tags = [...seen.entries()].sort((a, b) =>
+            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+        list.innerHTML = tags.map(([id, t]) => `
+            <label class="fanout-row">
+                <input type="checkbox" data-exp-id="${id}" data-change='["updateExpPickCount"]'>
+                <span class="fanout-name">${escHtml(t.name)}</span>
+                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+            </label>`).join('');
+    } else {
+        hint.textContent = tt('exp.pick_sizings');
+        list.innerHTML = (currentProject.sizings || []).map(s => `
+            <label class="fanout-row">
+                <input type="checkbox" data-exp-id="${s.id}" data-change='["updateExpPickCount"]'>
+                <span class="fanout-name">${escHtml(s.name)}</span>
+                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
+            </label>`).join('');
+    }
+    _expShowStep('pick');
+}
+
+function expBack() { _expShowStep('mode'); }
+
+function _expChosenIds() {
+    return [...document.querySelectorAll('#exp-pick-list input[data-exp-id]')]
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.dataset.expId, 10));
+}
+
+function updateExpPickCount() {
+    const btn = document.getElementById('exp-run-btn');
+    if (btn) btn.disabled = _expChosenIds().length < 1;
+}
+
+async function runExport() {
+    const ids = _expChosenIds();
+    if (!ids.length) return;
+    // Tag mode exports the UNION of the chosen tags' member sizings, in
+    // project order (position) — the server takes sizing ids either way.
+    let sizingIds;
+    if (expState.mode === 'tags') {
+        const chosen = new Set(ids);
+        sizingIds = (currentProject.sizings || [])
+            .filter(s => (s.tags || []).some(t => chosen.has(t.id)))
+            .map(s => s.id);
+        if (!sizingIds.length) return;
+    } else {
+        sizingIds = ids;
+    }
+    const fmt = document.getElementById('exp-format').value;
+    const notify = document.getElementById('exp-notify').checked;
     const { ok, data } = await api(`/api/projects/${currentProject.id}/export`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            format: fmt, sizing_ids: [...selectedSizings],
+            format: fmt, sizing_ids: sizingIds,
             notify_email: notify, lang: currentProject.lang || window.I18N_ACTIVE,
         }),
     });
     if (!ok) return info(tt('project.export.failed'), (data && data.error) || '');
+    // Land on the downloads view so the new job is the next thing seen.
+    _expShowStep('mode');
     loadExports();
 }
 
+// Downloads list (inside the modal) + the header button's ready-count badge.
+// Polling runs while jobs are queued/running, whether or not the modal is
+// open, so the badge appears the moment a download is ready.
 async function loadExports() {
     if (!currentProject) return;
-    const host = document.getElementById('project-exports');
-    if (!host) return;
     const { ok, data } = await api(`/api/projects/${currentProject.id}/exports`);
     if (!ok) return;
-    const jobs = data || [];
-    if (!jobs.length) { host.innerHTML = ''; stopExportPolling(); return; }
-
-    host.innerHTML = `<h3 class="rep-heading">${escHtml(tt('project.export.title'))}</h3>
-        <ul class="export-list">${jobs.map(exportRow).join('')}</ul>`;
-
-    // Keep polling only while something is actually running.
-    if (jobs.some(j => j.status === 'queued' || j.status === 'running')) startExportPolling();
+    lastExportJobs = data || [];
+    renderExportsList();
+    updateExportsBadge();
+    if (lastExportJobs.some(j => j.status === 'queued' || j.status === 'running')) startExportPolling();
     else stopExportPolling();
+}
+
+function renderExportsList() {
+    const host = document.getElementById('exp-downloads-list');
+    const empty = document.getElementById('exp-downloads-empty');
+    if (!host) return;
+    host.innerHTML = lastExportJobs.map(exportRow).join('');
+    if (empty) empty.hidden = lastExportJobs.length > 0;
+}
+
+function updateExportsBadge() {
+    const badge = document.getElementById('exports-badge');
+    if (!badge) return;
+    const ready = lastExportJobs.filter(j => j.status === 'done' && !j.expired).length;
+    badge.hidden = ready === 0;
+    badge.textContent = ready;
 }
 
 function exportRow(j) {
@@ -754,6 +1002,127 @@ function stopExportPolling() {
     if (!exportPollTimer) return;
     clearInterval(exportPollTimer);
     exportPollTimer = null;
+}
+
+// ── batch edit (selected sizings) ───────────────────────────────────────────
+// Apply detail changes to every selected sizing at once, reusing the
+// per-sizing endpoints (role / tags / replication). Empty controls mean
+// "leave unchanged".
+
+function openBatchEdit() {
+    if (!currentProject || !selectedSizings.size) return;
+    hideError('batch-error');
+    document.getElementById('batch-summary').textContent =
+        tt('batch.summary', { count: selectedSizings.size });
+    document.getElementById('batch-role').value = '';
+    document.getElementById('batch-new-tag').value = '';
+
+    // Existing project tags as add-chips (click to toggle), and the tags on
+    // any selected sizing as remove-chips.
+    const all = (currentProject.tags || []);
+    const addHost = document.getElementById('batch-add-tags');
+    addHost.innerHTML = all.map(t =>
+        `<button class="tag-chip tag-chip-add" data-batch-add="${t.id}"
+                 data-click='["toggleBatchTag","add",${t.id}]'>${escHtml(t.name)}</button>`).join('');
+    const onSelected = new Map();
+    (currentProject.sizings || []).forEach(s => {
+        if (!selectedSizings.has(s.id)) return;
+        (s.tags || []).forEach(t => onSelected.set(t.id, t.name));
+    });
+    const remHost = document.getElementById('batch-remove-tags');
+    remHost.innerHTML = [...onSelected.entries()].map(([id, name]) =>
+        `<button class="tag-chip tag-chip-add" data-batch-remove="${id}"
+                 data-click='["toggleBatchTag","remove",${id}]'>${escHtml(name)}</button>`).join('')
+        || `<span class="tag-empty">${escHtml(tt('project.sizing.tag_none_on_sizing'))}</span>`;
+
+    // Replication targets: any sizing NOT in the selection (a link to a
+    // selected source would be fine, but to itself is not — filtered on apply).
+    const target = document.getElementById('batch-rep-target');
+    target.innerHTML = `<option value="">${escHtml(tt('batch.keep'))}</option>`
+        + `<option value="none">${escHtml(tt('batch.rep_none'))}</option>`
+        + (currentProject.sizings || [])
+            .filter(s => !selectedSizings.has(s.id))
+            .map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+    updateBatchRepFields();
+    document.getElementById('batch-edit-modal').style.display = 'flex';
+}
+
+function closeBatchEdit() {
+    document.getElementById('batch-edit-modal').style.display = 'none';
+}
+
+function toggleBatchTag(kind, id) {
+    const sel = kind === 'add' ? `[data-batch-add="${id}"]` : `[data-batch-remove="${id}"]`;
+    const chip = document.querySelector(sel);
+    if (chip) chip.classList.toggle('tag-chip-assigned');
+}
+
+function updateBatchRepFields() {
+    const v = document.getElementById('batch-rep-target').value;
+    document.getElementById('batch-rep-fields').style.display =
+        (v && v !== 'none') ? '' : 'none';
+}
+
+async function applyBatchEdit() {
+    const ids = [...selectedSizings];
+    if (!ids.length) return;
+    const role = document.getElementById('batch-role').value;
+    const addIds = [...document.querySelectorAll('#batch-add-tags .tag-chip-assigned')]
+        .map(el => parseInt(el.dataset.batchAdd, 10));
+    const removeIds = new Set([...document.querySelectorAll('#batch-remove-tags .tag-chip-assigned')]
+        .map(el => parseInt(el.dataset.batchRemove, 10)));
+    const newTag = document.getElementById('batch-new-tag').value.trim();
+    const repTarget = document.getElementById('batch-rep-target').value;
+
+    // A typed tag is created once at project level, then added like a chip.
+    if (newTag) {
+        const { ok, data } = await api(`/api/projects/${currentProject.id}/tags`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newTag }),
+        });
+        if (ok && data && data.id) addIds.push(data.id);
+    }
+
+    const rows = (currentProject.sizings || []).filter(s => selectedSizings.has(s.id));
+    let failed = null;
+    for (const s of rows) {
+        const calls = [];
+        if (role) {
+            calls.push(api(`/api/sizings/${s.id}/role`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role }),
+            }));
+        }
+        if (addIds.length || removeIds.size) {
+            const tagIds = new Set((s.tags || []).map(t => t.id));
+            addIds.forEach(id => tagIds.add(id));
+            removeIds.forEach(id => tagIds.delete(id));
+            calls.push(api(`/api/sizings/${s.id}/tags`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_ids: [...tagIds] }),
+            }));
+        }
+        if (repTarget === 'none') {
+            calls.push(api(`/api/sizings/${s.id}/replication?source_cluster=`, { method: 'DELETE' }));
+        } else if (repTarget) {
+            calls.push(api(`/api/sizings/${s.id}/replication`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_configuration_id: parseInt(repTarget, 10),
+                    source_cluster: '', target_cluster: '',
+                    compute_pct: parseInt(document.getElementById('batch-rep-compute').value, 10) || 100,
+                    storage_pct: parseInt(document.getElementById('batch-rep-storage').value, 10) || 100,
+                    mode: document.getElementById('batch-rep-mode').value,
+                }),
+            }));
+        }
+        const results = await Promise.all(calls);
+        results.forEach(r => { if (!r.ok && !failed) failed = `${s.name}: ${(r.data && r.data.error) || ''}`; });
+    }
+    if (failed) return showError('batch-error', failed);
+    closeBatchEdit();
+    clearSizingSelection();
+    openProject(currentProject.id);
 }
 
 // ── sizing actions ──────────────────────────────────────────────────────────
@@ -799,6 +1168,12 @@ async function openSizing(id, push) {
         if (window.setLoadedConfig) window.setLoadedConfig(data);
         await window.enterDrTarget(data);
         return;
+    }
+    // Inbound replication reserve (links targeting this sizing) must be set
+    // BEFORE restore: restore's recalc is what folds it into the sizing.
+    if (window.setInboundReserve) {
+        const inb = await api(`/api/sizings/${id}/inbound-reserve`);
+        window.setInboundReserve(inb.ok ? inb.data : null);
     }
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
@@ -1098,6 +1473,16 @@ function activeProjectId() {
     return currentProject ? currentProject.id : null;
 }
 
+// The open project's sizing rows (with tags), for app.js features that need
+// them — e.g. the fan-out's default-tag numbering.
+function currentProjectSizings() {
+    return (currentProject && currentProject.sizings) || [];
+}
+
+function currentProjectName() {
+    return (currentProject && currentProject.name) || '';
+}
+
 // "Use in export and save" on a single-sizing recommendation card: record the
 // pick, save, and go back to the project. Picking an option IS the decision, so
 // making it also the save point removes the step where a chosen option is left
@@ -1141,7 +1526,12 @@ Object.assign(window, {
     refreshPreparedByHint, usePreparedByMe,
     deleteCurrentProject,
     toggleSizing, clearSizingSelection, filterByTag, toggleProjectScope,
-    activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,
+    activeProjectId, currentProjectSizings, enterSizer, setSizerSizingName,
+    saveAndReturnToProject,
     bootFromUrl,
-    compareSelected, closeCompare, exportSelected, refreshProjectNow,
+    openComparisons, closeComparisons, cmpChooseMode, cmpBack, runComparison,
+    updateCmpPickCount, exportComparisonCsv, exportComparisonXlsx,
+    openExports, closeExports, expChooseMode, expBack, updateExpPickCount,
+    runExport, openBatchEdit, closeBatchEdit, toggleBatchTag,
+    updateBatchRepFields, applyBatchEdit, refreshProjectNow,
 });

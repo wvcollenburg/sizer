@@ -1442,6 +1442,77 @@ body { padding-bottom: 64px; }
 
 .rec-determinant strong { color: var(--accent); }
 
+/* Comparisons wizard modal: wide enough for several option columns; the
+   table scrolls horizontally inside it beyond that. The shared .modal-body
+   has padding 0 (the VM modal owns its own scroll chrome), so this modal
+   restores its breathing room explicitly. */
+.cmp-modal { max-width: min(1100px, 92vw); width: 92vw; }
+.cmp-modal .modal-body { padding: 1.1rem 1.5rem 1.35rem; }
+.cmp-modal .compare-scroll { overflow-x: auto; margin-top: 0.5rem; }
+.cmp-modal .compare-warnings { margin: 0 0 0.8rem; }
+.cmp-modal .compare-rollup { margin: 0.8rem 0 0; }
+
+/* Step-1 mode choices: primary-blue action buttons, title + subtitle.
+   Compound selectors on purpose: the shared .fanout-row card rule is defined
+   LATER in this file and would otherwise win the background back to white
+   under the white text set here. */
+.fanout-row.cmp-mode-btn {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: var(--on-accent);
+    padding: 0.9rem 1.1rem;
+}
+.fanout-row.cmp-mode-btn .fanout-name { color: inherit; }
+.fanout-row.cmp-mode-btn .fanout-meta { color: inherit; opacity: 0.8; }
+.fanout-row.cmp-mode-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Footer: navigation (Back/Close) left, actions (exports / Compare) right. */
+.cmp-modal .modal-footer-actions { width: 100%; }
+.cmp-modal #cmp-csv-btn, .cmp-modal #cmp-run-btn, .cmp-modal #exp-run-btn { margin-left: auto; }
+
+/* Header-button notification badge (ready downloads on Exports). */
+.btn-badged { display: inline-flex; align-items: center; gap: 0.4rem; }
+.notif-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 1.2rem; height: 1.2rem; padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--accent); color: var(--on-accent);
+    font-size: 0.72rem; font-weight: 700; line-height: 1;
+}
+
+/* Downloads section inside the Exports modal. */
+#exp-downloads { margin-top: 1.2rem; }
+#exp-downloads .export-list { margin: 0.4rem 0 0; }
+
+/* Modals that want the standard breathing room. Doubled selector so it
+   outranks the shared single-class .modal-body { padding: 0 } regardless of
+   source order. */
+.modal-body.cmp-body-padded { padding: 1.1rem 1.5rem 1.35rem; }
+.modal-body.cmp-body-padded .form-group { margin-top: 0.9rem; }
+.modal-body.cmp-body-padded .form-group .form-group { margin-top: 0; }
+
+/* Legacy multi-cluster banner (read-only sizing + split migration) */
+.legacy-multi-banner { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0; }
+.legacy-multi-banner .btn { margin-left: auto; flex: 0 0 auto; }
+
+/* Multi-cluster fan-out chooser */
+.fanout-list { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.8rem 0; }
+.fanout-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); cursor: pointer;
+}
+.fanout-row input[type="checkbox"] { width: auto; height: auto; box-shadow: none; }
+.fanout-name { font-weight: 600; }
+.fanout-meta { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
+
+/* "To be sized" badge on machine-created fan-out sizings (project page). */
+.state-badge.state-untouched { background: var(--orange-bg, #fff3e0); color: var(--orange, #b26a00); }
+
 /* Required-licence line on a recommendation card — same quiet strip as the
    determinant line above it. */
 .rec-license {

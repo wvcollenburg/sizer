@@ -1260,16 +1260,32 @@ def create_config():
     if not isinstance(source_meta, dict):
         source_meta = None
 
+    # Fan-out naming (multi-cluster imports): " - option N" on collision.
+    # Scoped to machine-created sizings; ordinary saves keep today's behaviour.
+    if data.get("untouched"):
+        from project_models import dedupe_sizing_name
+        name = dedupe_sizing_name(project.id, name)
+
+    # Optional explicit role. The fan-out sends 'additive': split clusters are
+    # complementary parts of one environment, so they count towards the total.
+    from project_models import SIZING_ROLES
+    role = data.get("role")
+    if role is not None and role not in SIZING_ROLES:
+        return jsonify({"error": "Unknown sizing role"}), 400
+
     from project_models import new_code
     for _ in range(6):
         config = Configuration(
             code=new_code(), name=name[:200],
             owner_id=user.id, tenant_id=user.tenant_id, payload=payload,
             project_id=project.id, position=position,
-            role=project.default_role,
+            role=role or project.default_role,
             source_meta=source_meta,
             parser_version=(source_meta or {}).get("parser_version"),
             payload_digest=_payload_digest(payload),
+            # Machine-created fan-out sizings arrive unreviewed; any later
+            # human save (PUT with a payload) clears the flag.
+            untouched=bool(data.get("untouched")),
         )
         db.session.add(config)
         try:
@@ -1279,6 +1295,14 @@ def create_config():
             db.session.rollback()  # code collision — regenerate and retry
     else:
         return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
+
+    # Optional group tag (fan-out sends the import's label): pre-grouping is
+    # what makes tag-based comparison usable without hand-tagging every row.
+    tag_name = (data.get("tag") or "").strip()
+    if tag_name:
+        from project_models import apply_sizing_tag
+        apply_sizing_tag(config, tag_name)
+        db.session.commit()
 
     return jsonify(config.to_summary(user, "owned")), 201
 
@@ -1350,6 +1374,8 @@ def update_config(config_id):
         # Keep the digest in step: anything replicating into this sizing folds
         # it into its own fingerprint and must go stale when the workload moves.
         config.payload_digest = _payload_digest(data["payload"])
+        # A payload save is a human review: the "to be sized" badge comes off.
+        config.untouched = False
     db.session.commit()
     return jsonify(config.to_summary(user, "owned"))
 

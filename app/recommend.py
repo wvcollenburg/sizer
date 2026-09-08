@@ -285,6 +285,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     needs["rep_ram_gb"] = rep_ram
     needs["rep_storage_tb"] = rep_storage
     needs["replication_compute_mode"] = rep_mode
+    # Grown replica vCPUs, kept separately from cores: the achieved-ratio
+    # display and the infeasibility hint reason in vCPU terms, and rep_cores
+    # already bakes in the requested ratio (which those two must not assume).
+    needs["rep_vcpus"] = rep_vcpus * growth_factor
+    needs["rep_vcpus_n1"] = needs["rep_vcpus"] if rep_mode != "failover" else 0.0
     # Compute reserve (CPU cores AND RAM) counts at N-1 (steady state) in
     # "reserved" mode; in "failover" mode it counts only against the full cluster
     # (own workload keeps its N-1 guarantee; replicas run only on failover). See
@@ -637,6 +642,24 @@ def _license_annotations(license_block, license_ctx):
     return out
 
 
+def license_annotations_for(cluster_layout, cores_per_node, ram_gb_per_node,
+                            term_years=None, region=None):
+    """Shape-only licence annotation for a direct hardware build
+    (/api/calculate, appliance and validated modes), so those results carry
+    the same required-licence block a recommendation does. Strings and
+    booleans only — the price stays server-side, exactly as in
+    _license_annotations. None when licence-aware scoring is off or the
+    region has no current price feed; callers then omit the field and the
+    UI/exports show a dash."""
+    ctx = _license_context(term_years, None, None, region)
+    if ctx is None:
+        return None
+    block = licensing.cluster_license(ctx["book"], cluster_layout,
+                                      cores_per_node, ram_gb_per_node,
+                                      ctx["term_years"])
+    return _license_annotations(block, ctx)
+
+
 def licensing_default_region():
     """Region for licence lookup. The user -> tenant -> global resolution chain
     is deferred (§10.1); today every sizing resolves to the one region that has
@@ -716,17 +739,33 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     # The core pool at the target is the full cluster (full-cluster sizing) or
     # N-1 (default), matching how _fit_model gated the CPU fit.
     layout = _cluster_layout(target_nodes)
-    cpu_nodes = target_nodes if needs.get("size_full_cluster") else target_nodes - len(layout)
-    if cpu_nodes > 0:
+    n1_pool = target_nodes if needs.get("size_full_cluster") else target_nodes - len(layout)
+    if n1_pool > 0:
         fixable = [c for c in deduped
                    if c["_nodes_for_cpu"] > target_nodes
                    and c["_nodes_for_ram"] <= target_nodes
                    and c["_nodes_for_storage"] <= target_nodes]
+
+        # A config's needed ratio must satisfy BOTH CPU gates: own workload
+        # (+ reserved-mode replicas) on the sizing basis, and own + ALL
+        # replicas against the full cluster — a replication target's hint would
+        # otherwise ignore the very reserve that made it infeasible.
+        def _needed_ratio(c):
+            u = c["usable_cores_per_node"]
+            gates = [(needs["vcpus"] + needs.get("rep_vcpus_n1", 0)) / (u * n1_pool)]
+            gates.append((needs["vcpus"] + needs.get("rep_vcpus", 0))
+                         / (u * target_nodes))
+            return max(gates)
+
         if fixable:
-            needed = min(needs["vcpus"] / (c["usable_cores_per_node"] * cpu_nodes)
-                         for c in fixable)
+            needed = min(_needed_ratio(c) for c in fixable)
             suggested = math.ceil(needed * 4) / 4   # round up to a 0.25 step
-            if suggested <= 8:                      # within the ratio slider range
+            # A suggestion at or below the current ratio means something other
+            # than the plain vCPU arithmetic binds (rounding, minimums) —
+            # naming a "raise" downwards would be nonsense.
+            if suggested <= vcpu_ratio:
+                msg += " Increase the target node count to proceed."
+            elif suggested <= 8:                    # within the ratio slider range
                 msg += (f" Raising the vCPU:core ratio to {suggested:g}:1 "
                         f"would allow a fit within {target_nodes} node{plural}.")
             else:
@@ -1029,8 +1068,14 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             n1_ghz = ghz_per_node * compute_n1_nodes
             # Operational ratio is measured against the sizing basis; the degraded
             # ratio is always the N-1 case (what you'd run at during a failure).
-            n1_ratio = needs["vcpus"] / n1_usable_cores if n1_usable_cores > 0 else 99
-            full_ratio = needs["vcpus"] / full_usable_cores if full_usable_cores > 0 else 99
+            # Replication reserve vCPUs count on the same basis the CPU fit
+            # gates them (N-1 in reserved mode, full cluster always): the cores
+            # host those replicas too, so a ratio computed from the own workload
+            # alone would read absurdly low on a replication target.
+            n1_ratio = ((needs["vcpus"] + needs.get("rep_vcpus_n1", 0))
+                        / n1_usable_cores if n1_usable_cores > 0 else 99)
+            full_ratio = ((needs["vcpus"] + needs.get("rep_vcpus", 0))
+                          / full_usable_cores if full_usable_cores > 0 else 99)
             rec_ratio = full_ratio if full_cluster else n1_ratio
 
             cost_tier = model.get("cost_tier") or T.default_cost_tier

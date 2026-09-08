@@ -113,6 +113,12 @@
                             data-i18n="project.view.new_sizing">New sizing</button>
                     <button class="btn btn-soft" data-click='["addDrTarget"]'
                             data-i18n="project.view.new_dr">Add DR target</button>
+                    <button class="btn btn-soft" data-click='["openComparisons"]'
+                            data-i18n="project.view.comparisons">Comparisons</button>
+                    <button class="btn btn-soft btn-badged" data-click='["openExports"]'>
+                        <span data-i18n="project.view.exports">Exports</span>
+                        <span id="exports-badge" class="notif-badge" hidden></span>
+                    </button>
                     <button class="btn btn-soft" data-click='["openProjectSettings"]'
                             data-i18n="project.view.settings">Details</button>
                 </div>
@@ -124,31 +130,16 @@
                  selection: compare it, or export it. The export controls are
                  grouped so the format and the notify option read as belonging
                  to the Export button rather than floating between them. -->
+            <!-- Selection drives BATCH EDIT of the selected sizings' details.
+                 Exports and comparisons live in their header-button modals. -->
             <div id="project-selection-bar" class="project-selection-bar" hidden>
                 <span id="project-selection-count" class="selection-count"></span>
-                <button class="btn btn-soft" data-click='["compareSelected"]'
-                        data-i18n="project.view.compare">Compare</button>
-                <span class="selection-divider" aria-hidden="true"></span>
-                <div class="export-controls">
-                    <select id="project-export-format" class="text-input inline-select">
-                        <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
-                        <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
-                        <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
-                        <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
-                    </select>
-                    <label class="notify-check">
-                        <input type="checkbox" id="project-export-notify">
-                        <span data-i18n="project.export.notify">Email me when ready</span>
-                    </label>
-                    <button class="btn btn-cta" data-click='["exportSelected"]'
-                            data-i18n="project.view.export">Export</button>
-                </div>
+                <button class="btn btn-soft" data-click='["openBatchEdit"]'
+                        data-i18n="batch.btn">Batch edit</button>
                 <button class="btn btn-ghost" data-click='["clearSizingSelection"]'
                         data-i18n="project.view.clear_selection">Clear</button>
             </div>
 
-            <div id="project-compare" class="project-compare" hidden></div>
-            <div id="project-exports" class="project-exports"></div>
 
             <div id="project-tag-filter" class="project-tag-filter"></div>
             <div id="project-sizings" class="project-sizings"></div>
@@ -166,6 +157,16 @@
             <span class="sizer-sizing-label">
                 <span data-i18n="project.bar.sizing">Sizing</span>:
                 <strong id="sizer-sizing-name"></strong></span>
+        </div>
+        <!-- Legacy multi-cluster sizing: read-only, with the one-time split
+             migration into per-cluster sizings. -->
+        <div id="legacy-multi-banner" class="info-bar legacy-multi-banner" style="display:none">
+            <span class="info-bar-icon">i</span>
+            <span>
+                <strong data-i18n="legacy.banner_title">Legacy multi-cluster sizing.</strong>
+                <span data-i18n="legacy.banner_body">This sizing holds several clusters in one document, which this version no longer edits. Split it into one sizing per cluster (replication and DR targets move to the project) — or keep it as a read-only record.</span>
+            </span>
+            <button class="btn btn-sm btn-primary" data-click='["splitLegacySizing"]' data-i18n="legacy.split_btn">Split into separate sizings</button>
         </div>
         <section class="mode-selector">
             <button class="mode-btn active" data-mode="appliance" data-click='["requestSwitchMode","appliance"]'>
@@ -432,20 +433,12 @@
                     <div class="section-header-row">
                         <h3 data-i18n="import.env_summary">Environment Summary</h3>
                         <div class="import-header-actions">
-                            <label class="checkbox-inline cluster-separate-toggle" id="cluster-separate-toggle" style="display:none">
-                                <input type="checkbox" id="separate-clusters-cb" data-change='["toggleSeparateClusters","$checked"]'>
-                                <span data-i18n="import.separate_clusters">Size each cluster separately</span>
-                                <span class="info-icon" tabindex="0"
-                                      data-i18n-title="import.separate_clusters_info"
-                                      title="This environment has more than one source cluster. Enable to size each cluster on its own tab, with its own recommendations and options, instead of as one combined workload.">i</span>
-                            </label>
                             <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                                 <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
                             </button>
                         </div>
                     </div>
-                    <div id="cluster-tabs" class="cluster-tabs" style="display:none"></div>
                     <div class="summary-grid" id="env-summary"></div>
                 </div>
 
@@ -769,13 +762,8 @@
                         </div>
                     </div>
 
-                    <!-- Multi-site replication (populated by JS; shown only when
-                         sizing clusters separately). -->
-                    <div id="replication-options" class="replication-options" style="display:none"></div>
-
-                    <!-- Single/combined-workload replication (populated by JS;
-                         shown when NOT sizing each cluster separately). -->
-                    <div id="dr-cluster-option" class="replication-options" style="display:none"></div>
+                    <!-- Replication/DR is configured at the PROJECT level
+                         (per-sizing replication links + DR-target sizings). -->
 
                 </div>
 
@@ -862,21 +850,15 @@
             </div><!-- /.sizing-rail -->
 
             <div class="sizing-output">
-                <!-- Primary / Replication-DR tabs (single-workload mode; shown by JS). -->
-                <div id="dr-tabs" class="cluster-tabs" style="display:none"></div>
                 <div id="primary-recommendations" class="import-recommendations">
                     <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
                     <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                    <!-- Inbound replication reserve from project links targeting
+                         this sizing (populated by JS when present). -->
+                    <div id="inbound-reserve-note" class="info-bar" style="display:none"></div>
                     <div id="rec-list"></div>
                 </div>
-                <!-- Replication (DR) cluster sizing for the single/combined workload. -->
-                <div id="dr-recommendations" class="import-recommendations" style="display:none">
-                    <h3 data-i18n="results.dr_recommendations">Replication (DR) Cluster</h3>
-                    <p class="rec-desc" data-i18n="results.dr_rec_desc">Sized to host the replicated workload (compute + storage reserve).</p>
-                    <div id="dr-rec-list"></div>
-                </div>
                 <!-- Multi-site "Selected clusters" review tab content (hidden until that tab is active). -->
-                <div id="cluster-review" style="display:none"></div>
             </div><!-- /.sizing-output -->
           </div><!-- /.sizing-inner -->
         </section>
@@ -896,6 +878,7 @@
                 <div class="result-card highlight">
                     <h3><span data-i18n="results.cluster_total">Cluster Total</span> (<span id="result-nodes"></span>)</h3>
                     <table id="cluster-table"></table>
+                    <div id="result-license"></div>
                 </div>
                 <div class="result-card n1">
                     <h3 data-i18n="results.n1_title">N-1 (Update/Failure)</h3>
@@ -924,6 +907,196 @@
         decisions taken based on its output. Always validate results before relying on them.</span>
     </div>
 
+    <!-- Multi-cluster fan-out chooser: one sizing per source cluster (default)
+         or a single combined consolidation sizing. -->
+    <div class="modal-overlay" id="cluster-fanout-modal" style="display:none">
+        <div class="modal-content" style="max-width:640px">
+            <div class="modal-header">
+                <h2 data-i18n="fanout.title">Multiple clusters detected</h2>
+                <button class="modal-close" data-click='["closeClusterFanout"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <p class="import-info" data-i18n="fanout.intro">This file contains several source clusters. The recommended path creates one sizing per cluster in your project, so each cluster gets its own options, recommendation and licence. Replication between them is configured on the project page.</p>
+                <div id="fanout-cluster-list" class="fanout-list"></div>
+                <div class="form-group">
+                    <label><span data-i18n="fanout.tag_label">Tag these sizings</span>
+                        <span class="info-icon" tabindex="0"
+                              data-i18n-title="fanout.tag_info"
+                              title="All sizings from this import get this project tag, so the whole solution set can be compared against another import's set with 'Compare tags'. Clear it to skip tagging.">i</span>
+                    </label>
+                    <input type="text" id="fanout-tag" maxlength="60">
+                </div>
+                <p class="import-info muted" data-i18n="fanout.combined_hint">Choose the combined option only when these clusters are meant to consolidate into a single new cluster.</p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["fanoutCombined"]' data-i18n="fanout.combined_btn">Size as one combined cluster</button>
+                    <button class="btn btn-primary" id="fanout-create-btn" data-click='["createPerClusterSizings"]'>Create sizings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparisons wizard: pick WHAT to compare (sizings or tag groups),
+         pick the items, see the table — all in one modal. Closing clears
+         everything; nothing about a comparison lives on the project page. -->
+    <div class="modal-overlay" id="comparisons-modal" style="display:none">
+        <div class="modal-content cmp-modal">
+            <div class="modal-header">
+                <h2 data-i18n="cmp.title">Comparisons</h2>
+                <button class="modal-close" data-click='["closeComparisons"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: what to compare -->
+                <div id="cmp-step-mode">
+                    <p class="import-info" data-i18n="cmp.step_what">What do you want to compare?</p>
+                    <div class="fanout-list">
+                        <button class="fanout-row cmp-mode-btn" data-click='["cmpChooseMode","sizings"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_sizings">Individual sizings</span>
+                            <span class="fanout-meta" data-i18n="cmp.mode_sizings_desc">Side-by-side options for the same cluster</span>
+                        </button>
+                        <button class="fanout-row cmp-mode-btn" data-click='["cmpChooseMode","tags"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_tags">Tag groups</span>
+                            <span class="fanout-meta" data-i18n="cmp.mode_tags_desc">Whole solution sets — each tag's sizings summed into one column</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Step 2: pick items -->
+                <div id="cmp-step-pick" style="display:none">
+                    <p class="import-info" id="cmp-pick-hint"></p>
+                    <div id="cmp-pick-list" class="fanout-list"></div>
+                </div>
+                <!-- Step 3: the comparison -->
+                <div id="cmp-step-result" style="display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" id="cmp-back-btn" style="display:none" data-click='["cmpBack"]' data-i18n="wizard.back">Back</button>
+                    <button class="btn btn-secondary" data-click='["closeComparisons"]' data-i18n="common.close">Close</button>
+                    <button class="btn btn-soft" id="cmp-csv-btn" style="display:none" data-click='["exportComparisonCsv"]' data-i18n="cmp.export_csv">Export CSV</button>
+                    <button class="btn btn-soft" id="cmp-xlsx-btn" style="display:none" data-click='["exportComparisonXlsx"]' data-i18n="cmp.export_xlsx">Export Excel</button>
+                    <button class="btn btn-primary" id="cmp-run-btn" style="display:none" data-click='["runComparison"]' data-i18n="cmp.run">Compare</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exports wizard: pick WHAT to export (sizings or a tag group's members),
+         choose the format, queue it — and collect finished downloads. The
+         header button carries a badge while downloads are ready. -->
+    <div class="modal-overlay" id="exports-modal" style="display:none">
+        <div class="modal-content cmp-modal" style="max-width:720px">
+            <div class="modal-header">
+                <h2 data-i18n="exp.title">Exports</h2>
+                <button class="modal-close" data-click='["closeExports"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div id="exp-step-mode">
+                    <p class="import-info" data-i18n="exp.step_what">What do you want to export?</p>
+                    <div class="fanout-list">
+                        <button class="fanout-row cmp-mode-btn" data-click='["expChooseMode","sizings"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_sizings">Individual sizings</span>
+                            <span class="fanout-meta" data-i18n="exp.mode_sizings_desc">Pick exactly which sizings go into the document</span>
+                        </button>
+                        <button class="fanout-row cmp-mode-btn" data-click='["expChooseMode","tags"]'>
+                            <span class="fanout-name" data-i18n="cmp.mode_tags">Tag groups</span>
+                            <span class="fanout-meta" data-i18n="exp.mode_tags_desc">Export a whole solution set — every sizing carrying the tag</span>
+                        </button>
+                    </div>
+                    <div id="exp-downloads">
+                        <h3 class="rep-heading" data-i18n="exp.downloads">Downloads</h3>
+                        <ul class="export-list" id="exp-downloads-list"></ul>
+                        <p class="import-info muted" id="exp-downloads-empty" data-i18n="exp.none">Nothing exported yet.</p>
+                    </div>
+                </div>
+                <div id="exp-step-pick" style="display:none">
+                    <p class="import-info" id="exp-pick-hint"></p>
+                    <div id="exp-pick-list" class="fanout-list"></div>
+                    <div class="export-controls" style="margin-top:0.8rem">
+                        <select id="exp-format" class="text-input inline-select">
+                            <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
+                            <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
+                            <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
+                            <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                        </select>
+                        <label class="notify-check">
+                            <input type="checkbox" id="exp-notify">
+                            <span data-i18n="project.export.notify">Email me when ready</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" id="exp-back-btn" style="display:none" data-click='["expBack"]' data-i18n="wizard.back">Back</button>
+                    <button class="btn btn-secondary" data-click='["closeExports"]' data-i18n="common.close">Close</button>
+                    <button class="btn btn-primary" id="exp-run-btn" style="display:none" data-click='["runExport"]' data-i18n="project.view.export">Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch edit: apply detail changes to every selected sizing at once. -->
+    <div class="modal-overlay" id="batch-edit-modal" style="display:none">
+        <div class="modal-content" style="max-width:560px">
+            <div class="modal-header">
+                <h2 data-i18n="batch.title">Batch edit</h2>
+                <button class="modal-close" data-click='["closeBatchEdit"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body cmp-body-padded">
+                <p class="import-info" id="batch-summary"></p>
+                <div class="form-group">
+                    <label data-i18n="project.sizing.role">Counts towards the total?</label>
+                    <select id="batch-role">
+                        <option value="" data-i18n="batch.keep">Leave unchanged</option>
+                        <option value="alternative" data-i18n="project.sizing.role_alternative">Alternative — one of several options</option>
+                        <option value="additive" data-i18n="project.sizing.role_additive">Part of the total — a site or phase</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="batch.add_tag">Add tag</label>
+                    <div id="batch-add-tags" class="tag-picker"></div>
+                    <input type="text" id="batch-new-tag" maxlength="60"
+                           placeholder="Add a tag…" data-i18n-ph="project.sizing.add_tag">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="batch.remove_tag">Remove tag</label>
+                    <div id="batch-remove-tags" class="tag-picker"></div>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="project.sizing.replication">Replicates to</label>
+                    <select id="batch-rep-target" data-change='["updateBatchRepFields"]'>
+                        <option value="" data-i18n="batch.keep">Leave unchanged</option>
+                        <option value="none" data-i18n="batch.rep_none">Nothing — remove replication</option>
+                    </select>
+                    <div id="batch-rep-fields" style="display:none">
+                        <div class="rep-grid">
+                            <div class="form-group">
+                                <label data-i18n="project.sizing.rep_compute">Compute %</label>
+                                <input type="number" id="batch-rep-compute" min="0" max="100" step="1" value="100">
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="project.sizing.rep_storage">Storage %</label>
+                                <input type="number" id="batch-rep-storage" min="0" max="100" step="1" value="100">
+                            </div>
+                        </div>
+                        <select id="batch-rep-mode">
+                            <option value="reserved" data-i18n="project.sizing.rep_reserved">Reserved — hold capacity at N-1</option>
+                            <option value="failover" data-i18n="project.sizing.rep_failover">Failover-only — replicas run after failover</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="rec-warning" id="batch-error" hidden></p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["closeBatchEdit"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyBatchEdit"]' data-i18n="batch.apply">Apply to selection</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">
@@ -934,7 +1107,6 @@
             <!-- Portable VM-triage panel: the wizard relocates this whole block
                  into its "Review VMs" step; in classic view it stays in the modal. -->
             <div id="vm-triage-panel">
-            <div id="vm-cluster-tabs" class="cluster-tabs cluster-tabs-modal" style="display:none"></div>
             <div class="modal-toolbar">
                 <input type="text" id="vm-search" class="vm-search" placeholder="Search VMs..." data-i18n-ph="modal.vmexcl.search_ph" data-input='["filterVmTable"]'>
                 <select id="vm-power-filter" class="vm-power-filter" data-change='["setVmPowerFilter","$value"]' data-i18n-title="modal.vmexcl.power_filter_title" title="Filter the table by power state">
@@ -950,6 +1122,7 @@
                     <button class="btn btn-sm" data-click='["addVm"]' data-i18n="modal.vmexcl.add_vm">+ Add VM</button>
                     <button class="btn btn-sm" data-click='["selectPoweredOffVms"]' data-i18n="modal.vmexcl.select_powered_off">Select powered off</button>
                     <button class="btn btn-sm" data-click='["selectLikelyCVMs"]' data-i18n="modal.vmexcl.select_cvms">Select likely CVMs</button>
+                    <button class="btn btn-sm" data-click='["removeVmwareArtifacts"]' data-i18n-title="modal.vmexcl.remove_vmware_title" title="Remove vCenter and vCLS helper VMs — VMware infrastructure that does not move to the new platform" data-i18n="modal.vmexcl.remove_vmware">Remove VMware artifacts</button>
                     <button class="btn btn-sm btn-muted" data-click='["clearAllVmExclusions"]' data-i18n="modal.vmexcl.clear_all">Clear all</button>
                 </div>
             </div>

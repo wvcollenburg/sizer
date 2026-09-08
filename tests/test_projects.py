@@ -510,3 +510,383 @@ def test_moving_a_sizing_drops_its_project_scoped_tags(app):
     detail = c.get(f"/api/projects/{second['id']}").get_json()
     assert detail["sizings"][0]["tags"] == [], \
         "tags belong to the old project's vocabulary and must not follow"
+
+
+# ── multi-cluster fan-out: untouched flag + option naming ────────────────────
+
+def _fanout_save(c, name, project_id):
+    resp = c.post("/api/configs/", json={
+        "name": name, "payload": {"mode": "import", "fields": {}},
+        "project_id": project_id, "untouched": True,
+    })
+    assert resp.status_code == 201, resp.get_data(as_text=True)
+    return resp.get_json()
+
+
+def test_fanout_untouched_flag_set_and_cleared_by_human_save(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Multi")["id"]
+
+    row = _fanout_save(c, "PROD", pid)
+    assert row["untouched"] is True
+
+    # Ordinary saves are never flagged.
+    plain = save_sizing(c, "Manual one", project_id=pid)
+    assert plain["untouched"] is False
+
+    # Any payload save is the human-review signal: the flag comes off.
+    upd = c.put(f"/api/configs/{row['id']}",
+                json={"payload": {"mode": "import", "fields": {"a": 1}}})
+    assert upd.status_code == 200
+    assert upd.get_json()["untouched"] is False
+
+
+def test_fanout_option_naming_on_collision(app):
+    """First import keeps plain cluster names; a re-import of the same file
+    reads as alternative options, not mystery duplicates."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Multi")["id"]
+
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD"
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD - option 2"
+    assert _fanout_save(c, "PROD", pid)["name"] == "PROD - option 3"
+
+    # Scoped to fan-out saves: ordinary saves keep duplicate names untouched.
+    assert save_sizing(c, "PROD", project_id=pid)["name"] == "PROD"
+
+
+# ── legacy multi-cluster split migration ─────────────────────────────────────
+
+def _legacy_multi_payload():
+    """A saved-sizing payload in the retired shape: two workload clusters, one
+    in-sizing dedicated DR cluster, per-cluster options, VM edits/exclusions
+    (indexed into the FULL VM list), and in-sizing replication."""
+    vms = [
+        {"name": "prod-vm1", "cluster": "PROD", "vcpus": 4},
+        {"name": "db-vm1", "cluster": "DB", "vcpus": 8},
+        {"name": "prod-vm2", "cluster": "PROD", "vcpus": 2},
+        {"name": "db-vm2", "cluster": "DB", "vcpus": 2},
+    ]
+    return {
+        "version": 2, "mode": "import",
+        "fields": {"growth-pct": "10", "snapshot-pct": "20"},
+        "drCluster": {"enabled": False},
+        "import": {
+            "originalImportSummary": {"total_vms": 4},
+            "importSummary": {"total_vms": 4},
+            "importVms": vms,
+            # Keys are strings after a JSON round-trip; index into the FULL list.
+            "vmConfig": {"2": {"vcpus": 6}, "1": {"model": "db box"}},
+            "exclCompute": [3], "exclStorage": [3],
+            "includeLocalStorage": True,
+            "sourceClusters": [
+                {"name": "PROD", "host_count": 2, "vm_count": 2},
+                {"name": "DB", "host_count": 1, "vm_count": 2},
+                {"name": "DR-Site", "host_count": 0, "vm_count": 0},
+            ],
+            "clusterBase": {"PROD": {"total_vms": 2, "total_vcpus": 6},
+                            "DB": {"total_vms": 2, "total_vcpus": 10},
+                            "DR-Site": {"total_vms": 0}},
+            "separateClusters": True,
+            "clusterOptions": {"DB": {"growth-pct": "25"}},
+            "clusterSelectedRec": {"PROD": 1},
+            "clusterReplication": {
+                "PROD": {"target": "DR-Site", "computePct": 50,
+                         "storagePct": 100, "mode": "failover"},
+            },
+            "dedicatedClusters": ["DR-Site"],
+            "activeCluster": "PROD",
+        },
+    }
+
+
+def test_split_legacy_multicluster_sizing(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Legacy")["id"]
+    row = save_sizing(c, "Old combined", project_id=pid,
+                      payload=_legacy_multi_payload())
+
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 201, resp.get_data(as_text=True)
+    out = resp.get_json()
+    by_name = {r["name"]: r for r in out["created"]}
+    assert set(by_name) == {"PROD", "DB", "DR-Site"}
+    assert by_name["DR-Site"]["is_dr_target"] is True
+    assert by_name["PROD"]["untouched"] is False   # content was human-reviewed
+
+    with app.app_context():
+        from project_models import ReplicationLink
+        prod = db.session.get(Configuration, by_name["PROD"]["id"])
+        dbc = db.session.get(Configuration, by_name["DB"]["id"])
+
+        # PROD: its 2 VMs, the edit on full-list idx 2 remapped to local idx 1.
+        pimp = prod.payload["import"]
+        assert [v["name"] for v in pimp["importVms"]] == ["prod-vm1", "prod-vm2"]
+        assert pimp["vmConfig"] == {"1": {"vcpus": 6}}
+        assert pimp["exclCompute"] == [] and pimp["selectedRec"] == 1
+        assert pimp["originalImportSummary"]["total_vcpus"] == 6
+        assert prod.payload["fields"]["growth-pct"] == "10"
+
+        # DB: exclusion on full-list idx 3 remapped to local idx 1; options
+        # overlay applied.
+        dimp = dbc.payload["import"]
+        assert [v["name"] for v in dimp["importVms"]] == ["db-vm1", "db-vm2"]
+        assert dimp["vmConfig"] == {"0": {"model": "db box"}}
+        assert dimp["exclCompute"] == [1] and dimp["exclStorage"] == [1]
+        assert dbc.payload["fields"]["growth-pct"] == "25"
+
+        # Replication became a project link with whole-sizing endpoints.
+        (link,) = ReplicationLink.query.all()
+        assert link.source_configuration_id == prod.id
+        assert link.target_configuration_id == by_name["DR-Site"]["id"]
+        assert (link.compute_pct, link.storage_pct, link.mode) == (50, 100, "failover")
+        assert link.source_cluster == "" and link.target_cluster == ""
+
+        # The original is gone from the project (soft-deleted).
+        original = db.session.get(Configuration, row["id"])
+        assert original.is_deleted is True
+
+
+def test_split_refuses_single_cluster_sizing(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Single")["id"]
+    row = save_sizing(c, "Plain", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importVms": [], "sourceClusters": []},
+    })
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 400
+
+
+def test_split_converts_whole_workload_dr(app):
+    """The non-separate path's single DR target becomes a project DR-target
+    sizing with one inbound link per workload sizing."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "DRLegacy")["id"]
+    payload = _legacy_multi_payload()
+    payload["drCluster"] = {"enabled": True, "computePct": 40,
+                            "storagePct": 80, "mode": "reserved"}
+    payload["import"]["clusterReplication"] = {}
+    row = save_sizing(c, "Old with DR", project_id=pid, payload=payload)
+
+    resp = c.post(f"/api/sizings/{row['id']}/split")
+    assert resp.status_code == 201
+    by_name = {r["name"]: r for r in resp.get_json()["created"]}
+    assert "DR target" in by_name and by_name["DR target"]["is_dr_target"] is True
+
+    with app.app_context():
+        from project_models import ReplicationLink
+        links = ReplicationLink.query.filter_by(
+            target_configuration_id=by_name["DR target"]["id"]).all()
+        assert len(links) == 2      # PROD and DB both replicate in
+        assert {(l.compute_pct, l.storage_pct, l.mode) for l in links} \
+            == {(40, 80, "reserved")}
+
+
+# ── inbound replication reserve + role plumbing ──────────────────────────────
+
+def test_create_config_accepts_explicit_role(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Roles")["id"]
+    resp = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import", "fields": {}},
+        "project_id": pid, "untouched": True, "role": "additive",
+    })
+    assert resp.status_code == 201
+    assert resp.get_json()["role"] == "additive"
+
+    bad = c.post("/api/configs/", json={
+        "name": "X", "payload": {}, "project_id": pid, "role": "nonsense"})
+    assert bad.status_code == 400
+
+
+def test_split_pieces_are_additive(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "SplitRoles")["id"]
+    row = save_sizing(c, "Old", project_id=pid, payload=_legacy_multi_payload())
+    out = c.post(f"/api/sizings/{row['id']}/split").get_json()
+    assert {r["role"] for r in out["created"]} == {"additive"}
+
+
+def test_inbound_reserve_endpoint(app):
+    """A workload sizing that is a replication target reports the aggregated
+    inbound reserve — the figures the sizer folds into its recommendation."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Reserve")["id"]
+    src = save_sizing(c, "Source", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importSummary": {"total_vcpus": 100,
+                                     "total_vm_provisioned_memory_gb": 400,
+                                     "datastore_used_tb": 10.0}},
+    })
+    tgt = save_sizing(c, "Target", project_id=pid, payload={
+        "mode": "import", "fields": {},
+        "import": {"importSummary": {"total_vcpus": 8}},
+    })
+
+    # No links yet.
+    empty = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert empty["has_inbound"] is False
+
+    resp = c.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": tgt["id"],
+        "compute_pct": 50, "storage_pct": 80, "mode": "reserved",
+    })
+    assert resp.status_code in (200, 201), resp.get_data(as_text=True)
+
+    d = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert d["has_inbound"] is True
+    assert d["reserve"] == {"vcpus": 50.0, "ram_gb": 200.0, "storage_tb": 8.0}
+    assert d["mode"] == "reserved"
+    assert d["sources"][0]["sizing_name"] == "Source"
+
+    # All-failover links flip the compute basis to full-cluster.
+    c.post(f"/api/sizings/{src['id']}/replication", json={
+        "target_configuration_id": tgt["id"],
+        "compute_pct": 50, "storage_pct": 80, "mode": "failover",
+    })
+    d2 = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
+    assert d2["mode"] == "failover"
+
+
+# ── tag-based comparison (solution sets) ─────────────────────────────────────
+
+def _snapshot(model, nodes, cores, ram_gb, usable_tb, n1_cores, n1_ram):
+    return {"clusters": [{"name": "c", "refs": {"mode": "import"},
+                          "recommendation": {
+        "model": model, "node_count": nodes, "num_clusters": 1,
+        "cluster_layout": [nodes],
+        "totals": {"cores": cores, "ram_gb": ram_gb,
+                   "usable_storage_tb": usable_tb},
+        "n_minus_1": {"cores": n1_cores, "ram_gb": n1_ram},
+    }}]}
+
+
+def test_create_config_tag_creates_and_links_project_tag(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Tagged")["id"]
+    r1 = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "lo-sept"}).get_json()
+    r2 = c.post("/api/configs/", json={
+        "name": "DB", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "lo-sept"}).get_json()
+
+    with app.app_context():
+        from project_models import ProjectTag, ConfigurationTag
+        (tag,) = ProjectTag.query.filter_by(project_id=pid).all()
+        assert tag.name == "lo-sept"
+        linked = {l.configuration_id for l in
+                  ConfigurationTag.query.filter_by(tag_id=tag.id).all()}
+        assert linked == {r1["id"], r2["id"]}
+
+
+def test_split_pieces_share_a_tag_named_after_the_original(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "SplitTag")["id"]
+    row = save_sizing(c, "Old combined", project_id=pid,
+                      payload=_legacy_multi_payload())
+    out = c.post(f"/api/sizings/{row['id']}/split").get_json()
+    with app.app_context():
+        from project_models import ProjectTag, ConfigurationTag
+        tag = ProjectTag.query.filter_by(project_id=pid,
+                                         name="Old combined").one()
+        linked = {l.configuration_id for l in
+                  ConfigurationTag.query.filter_by(tag_id=tag.id).all()}
+        assert linked == {r["id"] for r in out["created"]}
+
+
+def test_compare_by_tags_aggregates_solution_sets(app):
+    """One column per tag, members summed (DR targets included), member
+    sub-rows carried, and no cross-column rollup (rival sets must not add)."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "TagCompare")["id"]
+
+    def sized(name, tag, snapshot, dr=False):
+        row = c.post("/api/configs/", json={
+            "name": name, "payload": {"mode": "import"}, "project_id": pid,
+            "untouched": True, "tag": tag, "role": "additive"}).get_json()
+        if dr:
+            with app.app_context():
+                cfg = db.session.get(Configuration, row["id"])
+                cfg.is_dr_target = True
+                db.session.commit()
+        resp = c.put(f"/api/sizings/{row['id']}/result", json=snapshot)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        return row
+
+    sized("PROD", "set-a", _snapshot("HC5450D", 3, 192, 3072, 24.0, 126, 2048))
+    sized("DR", "set-a", _snapshot("HC1650D", 2, 48, 1024, 20.0, 24, 512), dr=True)
+    sized("PROD", "set-b", _snapshot("HC3650DF", 3, 192, 3072, 17.0, 126, 2048))
+
+    with app.app_context():
+        from project_models import ProjectTag
+        tags = {t.name: t.id for t in ProjectTag.query.filter_by(project_id=pid)}
+
+    d = c.post(f"/api/projects/{pid}/compare",
+               json={"tag_ids": [tags["set-a"], tags["set-b"]]}).get_json()
+    assert d["mode"] == "tags" and d["rollup"] is None
+    a, b = d["rows"]
+    assert (a["name"], a["member_count"]) == ("set-a", 2)
+    # DR target counted into the set's totals.
+    assert a["totals"]["nodes"] == 5 and a["totals"]["cores"] == 240
+    assert a["totals"]["ram_gb"] == 4096
+    assert round(a["totals"]["usable_tb"], 2) == 44.0
+    assert sorted(a["totals"]["model"].split(", ")) == ["HC1650D", "HC5450D"]
+    assert [m["name"] for m in a["clusters"]] == ["PROD", "DR"]
+    assert b["totals"]["nodes"] == 3
+
+    # An unsized member is named in the warnings, not silently zeroed.
+    c.post("/api/configs/", json={
+        "name": "Unsized", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-b"})
+    d2 = c.post(f"/api/projects/{pid}/compare",
+                json={"tag_ids": [tags["set-a"], tags["set-b"]]}).get_json()
+    assert {"code": "not_sized", "name": "Unsized"} in d2["warnings"]
+
+
+def test_compare_xlsx_export_matches_both_modes(app):
+    """The workbook uses the same payload builder as the JSON compare, for
+    both sizing and tag mode: header per option (+ delta columns), metric
+    rows, and the notes/sizings row."""
+    import io
+    from openpyxl import load_workbook
+
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "XlsxCompare")["id"]
+    a = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-a", "role": "additive"}).get_json()
+    b = c.post("/api/configs/", json={
+        "name": "PROD alt", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-b", "role": "additive"}).get_json()
+    c.put(f"/api/sizings/{a['id']}/result",
+          json=_snapshot("HC5450D", 3, 192, 3072, 24.0, 126, 2048))
+    c.put(f"/api/sizings/{b['id']}/result",
+          json=_snapshot("HC3650DF", 4, 200, 4096, 30.0, 150, 3072))
+
+    # Sizing mode.
+    resp = c.post(f"/api/projects/{pid}/compare.xlsx",
+                  json={"sizing_ids": [a["id"], b["id"]]})
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["Content-Type"]
+    ws = load_workbook(io.BytesIO(resp.data)).active
+    rows = list(ws.values)
+    assert rows[0] == ("Metric", "PROD", "PROD alt", "Δ vs first")
+    by_label = {r[0]: r for r in rows[1:]}
+    assert by_label["Nodes"] == ("Nodes", 3, 4, 1)
+    assert by_label["Memory (GB)"][3] == 1024
+    assert by_label["Model"][1] == "HC5450D"
+
+    # Tag mode: columns are the groups, with member counts in the header.
+    with app.app_context():
+        from project_models import ProjectTag
+        tags = {t.name: t.id for t in ProjectTag.query.filter_by(project_id=pid)}
+    resp = c.post(f"/api/projects/{pid}/compare.xlsx",
+                  json={"tag_ids": [tags["set-a"], tags["set-b"]]})
+    assert resp.status_code == 200
+    ws = load_workbook(io.BytesIO(resp.data)).active
+    rows = list(ws.values)
+    assert rows[0][1] == "set-a (1 sizings)"
+    by_label = {r[0]: r for r in rows[1:]}
+    assert by_label["Sizings in this set"][1] == "PROD"
