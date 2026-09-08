@@ -949,6 +949,26 @@
         </div>
     </div>
 
+    <!-- Tag-compare picker: choose which tag groups become comparison columns. -->
+    <div class="modal-overlay" id="tag-compare-modal" style="display:none">
+        <div class="modal-content" style="max-width:520px">
+            <div class="modal-header">
+                <h2 data-i18n="tagcmp.title">Compare tags</h2>
+                <button class="modal-close" data-click='["closeTagCompare"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <p class="import-info" data-i18n="tagcmp.intro">Each selected tag becomes one comparison column, summing the sizings that carry it.</p>
+                <div id="tag-compare-list" class="fanout-list"></div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["closeTagCompare"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" id="tagcmp-go-btn" data-click='["goCompareTags"]' data-i18n="tagcmp.go">Compare</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">

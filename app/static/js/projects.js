@@ -613,20 +613,53 @@ async function compareSelected() {
 
 // Compare whole TAG groups: one column per tag, each the summed solution set
 // of its members. This is the comparison that stays meaningful after a
-// multi-cluster import fans out into per-cluster sizings.
-async function compareTags() {
+// multi-cluster import fans out into per-cluster sizings. Opens a picker so
+// the columns are an explicit choice, not "everything tagged".
+function compareTags() {
     if (!currentProject) return;
-    // Tags that actually have members, in name order.
-    const seen = new Map();
+    // Tags that actually have members, with counts, in name order.
+    const seen = new Map();   // id -> {name, count}
     (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
-        if (!seen.has(t.id)) seen.set(t.id, t.name);
+        const e = seen.get(t.id) || { name: t.name, count: 0 };
+        e.count++;
+        seen.set(t.id, e);
     }));
-    const ids = [...seen.keys()].sort((a, b) =>
-        seen.get(a).toLowerCase() < seen.get(b).toLowerCase() ? -1 : 1);
-    if (ids.length < 2) {
+    if (seen.size < 2) {
         info(tt('project.compare.title'), tt('project.compare.need_two_tags'));
         return;
     }
+    const tags = [...seen.entries()].sort((a, b) =>
+        a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+    const list = document.getElementById('tag-compare-list');
+    list.innerHTML = tags.map(([id, t]) => `
+        <label class="fanout-row">
+            <input type="checkbox" checked data-tagcmp-id="${id}" data-change='["updateTagCompareCount"]'>
+            <span class="fanout-name">${escHtml(t.name)}</span>
+            <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+        </label>`).join('');
+    updateTagCompareCount();
+    document.getElementById('tag-compare-modal').style.display = 'flex';
+}
+
+function closeTagCompare() {
+    document.getElementById('tag-compare-modal').style.display = 'none';
+}
+
+function _chosenTagIds() {
+    return [...document.querySelectorAll('#tag-compare-list input[data-tagcmp-id]')]
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.dataset.tagcmpId, 10));
+}
+
+function updateTagCompareCount() {
+    const btn = document.getElementById('tagcmp-go-btn');
+    if (btn) btn.disabled = _chosenTagIds().length < 2;
+}
+
+async function goCompareTags() {
+    const ids = _chosenTagIds();
+    if (ids.length < 2) return;
+    closeTagCompare();
     await _runCompare({ tag_ids: ids });
 }
 
@@ -1140,9 +1173,13 @@ function activeProjectId() {
 }
 
 // The open project's sizing rows (with tags), for app.js features that need
-// them — e.g. the fan-out's default-tag dedupe.
+// them — e.g. the fan-out's default-tag numbering.
 function currentProjectSizings() {
     return (currentProject && currentProject.sizings) || [];
+}
+
+function currentProjectName() {
+    return (currentProject && currentProject.name) || '';
 }
 
 // "Use in export and save" on a single-sizing recommendation card: record the
@@ -1191,5 +1228,6 @@ Object.assign(window, {
     activeProjectId, currentProjectSizings, enterSizer, setSizerSizingName,
     saveAndReturnToProject,
     bootFromUrl,
-    compareSelected, compareTags, closeCompare, exportSelected, refreshProjectNow,
+    compareSelected, compareTags, closeTagCompare, goCompareTags,
+    updateTagCompareCount, closeCompare, exportSelected, refreshProjectNow,
 });

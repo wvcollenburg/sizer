@@ -1153,23 +1153,25 @@ function openClusterFanout(data) {
     modal.style.display = 'flex';
 }
 
-// Default group tag for a fan-out: the import file's stem, made unique
-// against the open project's existing tags (re-importing the same file is the
-// normal way to build a second solution set — sharing one tag would silently
-// merge the two sets the user wants to compare).
+// Default group tag for a fan-out: "<project name>-NN", counting up past the
+// project's existing tags of that shape — each import lands as its own
+// numbered solution set (sharing one tag would silently merge the two sets
+// the user wants to compare). The quick path (no project open yet) falls back
+// to a generic base; the field stays editable either way.
 function _fanoutDefaultTag(data) {
-    let base = ((data.source_meta || {}).file_name || '')
-        .replace(/\.xlsx$/i, '').slice(0, 50).trim();
-    if (!base) base = window.t('fanout.tag_fallback');
-    const existing = new Set();
+    const base = ((window.currentProjectName && window.currentProjectName())
+        || window.t('fanout.tag_fallback')).slice(0, 50).trim();
+    let highest = 0;
+    const pat = new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                           + '-(\\d+)$');
     if (window.currentProjectSizings) {
         window.currentProjectSizings().forEach(s =>
-            (s.tags || []).forEach(t => existing.add(t.name)));
+            (s.tags || []).forEach(t => {
+                const m = pat.exec(t.name);
+                if (m) highest = Math.max(highest, parseInt(m[1], 10));
+            }));
     }
-    if (!existing.has(base)) return base;
-    let n = 2;
-    while (existing.has(`${base} - ${n}`)) n++;
-    return `${base} - ${n}`;
+    return `${base}-${String(highest + 1).padStart(2, '0')}`;
 }
 
 function closeClusterFanout() {
