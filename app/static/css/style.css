@@ -1443,11 +1443,35 @@ body { padding-bottom: 64px; }
 .rec-determinant strong { color: var(--accent); }
 
 /* Comparisons wizard modal: wide enough for several option columns; the
-   table scrolls horizontally inside it beyond that. */
+   table scrolls horizontally inside it beyond that. The shared .modal-body
+   has padding 0 (the VM modal owns its own scroll chrome), so this modal
+   restores its breathing room explicitly. */
 .cmp-modal { max-width: min(1100px, 92vw); width: 92vw; }
-.cmp-modal .compare-scroll { overflow-x: auto; }
-.cmp-mode-btn { width: 100%; text-align: left; cursor: pointer; }
-.cmp-mode-btn:hover { border-color: var(--accent); }
+.cmp-modal .modal-body { padding: 1.1rem 1.5rem 1.35rem; }
+.cmp-modal .compare-scroll { overflow-x: auto; margin-top: 0.5rem; }
+.cmp-modal .compare-warnings { margin: 0 0 0.8rem; }
+.cmp-modal .compare-rollup { margin: 0.8rem 0 0; }
+
+/* Step-1 mode choices: primary-blue action buttons, title + subtitle.
+   Compound selectors on purpose: the shared .fanout-row card rule is defined
+   LATER in this file and would otherwise win the background back to white
+   under the white text set here. */
+.fanout-row.cmp-mode-btn {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: var(--on-accent);
+    padding: 0.9rem 1.1rem;
+}
+.fanout-row.cmp-mode-btn .fanout-name { color: inherit; }
+.fanout-row.cmp-mode-btn .fanout-meta { color: inherit; opacity: 0.8; }
+.fanout-row.cmp-mode-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Footer: navigation (Back/Close) left, actions (exports / Compare) right. */
+.cmp-modal .modal-footer-actions { width: 100%; }
+.cmp-modal #cmp-csv-btn, .cmp-modal #cmp-run-btn { margin-left: auto; }
 
 /* Legacy multi-cluster banner (read-only sizing + split migration) */
 .legacy-multi-banner { display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0; }
