@@ -608,6 +608,29 @@ function renderSelectionBar() {
 
 async function compareSelected() {
     if (!currentProject || !selectedSizings.size) return;
+    await _runCompare({ sizing_ids: [...selectedSizings] });
+}
+
+// Compare whole TAG groups: one column per tag, each the summed solution set
+// of its members. This is the comparison that stays meaningful after a
+// multi-cluster import fans out into per-cluster sizings.
+async function compareTags() {
+    if (!currentProject) return;
+    // Tags that actually have members, in name order.
+    const seen = new Map();
+    (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
+        if (!seen.has(t.id)) seen.set(t.id, t.name);
+    }));
+    const ids = [...seen.keys()].sort((a, b) =>
+        seen.get(a).toLowerCase() < seen.get(b).toLowerCase() ? -1 : 1);
+    if (ids.length < 2) {
+        info(tt('project.compare.title'), tt('project.compare.need_two_tags'));
+        return;
+    }
+    await _runCompare({ tag_ids: ids });
+}
+
+async function _runCompare(body) {
     const host = document.getElementById('project-compare');
     if (!host) return;
     host.hidden = false;
@@ -615,7 +638,7 @@ async function compareSelected() {
 
     const { ok, data } = await api(`/api/projects/${currentProject.id}/compare`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sizing_ids: [...selectedSizings] }),
+        body: JSON.stringify(body),
     });
     if (!ok) { host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.failed'))}</p>`; return; }
 
@@ -661,7 +684,9 @@ async function compareSelected() {
         return `<li>${escHtml(tt(key, { name: w.name || '' }))}</li>`;
     }).join('');
 
-    const rollup = data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
+    // Tag mode compares rival solution sets — a combined rollup (or a "no
+    // additive sizings" note) would both be wrong, so neither is shown.
+    const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         clusters: data.rollup.clusters,
         cores: data.rollup.cores, ram: data.rollup.ram_gb,
@@ -677,13 +702,18 @@ async function compareSelected() {
         ${warn ? `<ul class="compare-warnings">${warn}</ul>` : ''}
         <div class="compare-scroll"><table class="sizing-table compare-table">
             <thead><tr><th>${escHtml(tt('project.compare.metric'))}</th>
-                ${rows.map(r => `<th>${escHtml(r.name)}${r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : ''}</th>`).join('')}
+                ${rows.map(r => {
+                    const chip = r.member_count != null
+                        ? ` <span class="role-chip role-additive">${escHtml(tt('project.compare.members', {count: r.member_count}))}</span>`
+                        : (r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : '');
+                    return `<th>${escHtml(r.name)}${chip}</th>`;
+                }).join('')}
             </tr></thead>
             <tbody>${cols.map(([label, render]) => `<tr>
                 <td class="compare-metric">${escHtml(tt(label))}</td>
                 ${rows.map(r => `<td>${render(r)}</td>`).join('')}
             </tr>`).join('')}
-            <tr><td class="compare-metric">${escHtml(tt('project.compare.why'))}</td>
+            <tr><td class="compare-metric">${escHtml(tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why'))}</td>
                 ${rows.map(r => `<td class="compare-note">${escHtml(r.notes || '—')}</td>`).join('')}</tr>
             </tbody>
         </table></div>
@@ -1109,6 +1139,12 @@ function activeProjectId() {
     return currentProject ? currentProject.id : null;
 }
 
+// The open project's sizing rows (with tags), for app.js features that need
+// them — e.g. the fan-out's default-tag dedupe.
+function currentProjectSizings() {
+    return (currentProject && currentProject.sizings) || [];
+}
+
 // "Use in export and save" on a single-sizing recommendation card: record the
 // pick, save, and go back to the project. Picking an option IS the decision, so
 // making it also the save point removes the step where a chosen option is left
@@ -1152,7 +1188,8 @@ Object.assign(window, {
     refreshPreparedByHint, usePreparedByMe,
     deleteCurrentProject,
     toggleSizing, clearSizingSelection, filterByTag, toggleProjectScope,
-    activeProjectId, enterSizer, setSizerSizingName, saveAndReturnToProject,
+    activeProjectId, currentProjectSizings, enterSizer, setSizerSizingName,
+    saveAndReturnToProject,
     bootFromUrl,
-    compareSelected, closeCompare, exportSelected, refreshProjectNow,
+    compareSelected, compareTags, closeCompare, exportSelected, refreshProjectNow,
 });

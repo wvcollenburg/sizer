@@ -198,6 +198,27 @@ class ScaleProjectLink(db.Model):
     )
 
 
+def apply_sizing_tag(config, tag_name):
+    """Get-or-create a project-scoped tag and attach it to the sizing.
+
+    Used by the fan-out and the legacy split so an import's sizings arrive
+    pre-grouped — tag-based comparison is dead on arrival if every solution
+    set has to be hand-tagged first. Caller commits."""
+    name = (tag_name or "").strip()[:60]
+    if not name or not config.project_id:
+        return
+    tag = ProjectTag.query.filter_by(project_id=config.project_id,
+                                     name=name).first()
+    if tag is None:
+        tag = ProjectTag(project_id=config.project_id, name=name)
+        db.session.add(tag)
+        db.session.flush()
+    if not ConfigurationTag.query.filter_by(
+            configuration_id=config.id, tag_id=tag.id).first():
+        db.session.add(ConfigurationTag(configuration_id=config.id,
+                                        tag_id=tag.id))
+
+
 def dedupe_sizing_name(project_id, name):
     """Fan-out naming: the first sizing keeps the plain (cluster) name, later
     collisions in the same project become "<name> - option N" — a re-import

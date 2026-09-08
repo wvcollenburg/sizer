@@ -649,15 +649,104 @@ def _metrics_from_snapshot(snapshot):
     return total, rows
 
 
+def _compare_tag_groups(project, tag_ids):
+    """One comparison column per TAG: each column is the summed solution set
+    of that tag's member sizings (DR targets included — they are hardware the
+    customer buys as part of that solution), with the members as sub-rows.
+
+    This is what makes comparison useful after the per-cluster split: the
+    interesting question is option-set vs option-set, not sibling cluster vs
+    sibling cluster."""
+    from fingerprint import result_state, tunables_digest
+    tags = {t.id: t for t in ProjectTag.query.filter(
+        ProjectTag.project_id == project.id,
+        ProjectTag.id.in_(tag_ids or [-1])).all()}
+    ordered = [tags[i] for i in tag_ids if i in tags]
+    tunables = tunables_digest()
+
+    rows, warnings, seen_tunables = [], [], set()
+    any_alternative = False
+    for tag in ordered:
+        links = ConfigurationTag.query.filter_by(tag_id=tag.id).all()
+        members = Configuration.query.filter(
+            Configuration.id.in_([l.configuration_id for l in links] or [-1]),
+            Configuration.is_deleted.is_(False)).order_by(
+                Configuration.position, Configuration.id).all()
+
+        agg = {"nodes": 0, "cores": 0, "ram_gb": 0, "usable_tb": 0.0,
+               "n1_cores": 0, "n1_ram_gb": 0, "clusters": 0}
+        models, layout, member_rows = [], [], []
+        software_only = group_stale = group_reimport = False
+        unsized = 0
+        for s in members:
+            state = result_state(s, tunables)
+            totals, _sub = _metrics_from_snapshot(s.result_snapshot)
+            member_rows.append(dict(totals, name=s.name))
+            for key in ("nodes", "clusters", "cores", "ram_gb",
+                        "n1_cores", "n1_ram_gb"):
+                agg[key] += totals[key] or 0
+            agg["usable_tb"] += float(totals["usable_tb"] or 0)
+            if totals.get("model"):
+                models.extend(totals["model"].split(", "))
+            layout.extend(totals.get("layout") or [])
+            software_only = software_only or totals.get("software_only", False)
+            if s.role == "alternative":
+                any_alternative = True
+            stamp = (s.result_snapshot or {}).get("tunables")
+            if stamp:
+                seen_tunables.add(stamp)
+            if state["cache"] == "none":
+                unsized += 1
+                warnings.append({"code": "not_sized", "name": s.name})
+            elif state["stale"]:
+                group_stale = True
+                warnings.append({"code": "stale", "name": s.name})
+            if state["needs_reimport"]:
+                group_reimport = True
+                warnings.append({"code": "reimport", "name": s.name})
+
+        agg["usable_tb"] = round(agg["usable_tb"], 2)
+        agg["model"] = ", ".join(sorted(set(models))) if models else None
+        agg["software_only"] = software_only
+        agg["layout"] = layout
+        rows.append({
+            "id": f"tag-{tag.id}", "name": tag.name, "role": None,
+            "notes": ", ".join(s.name for s in members),
+            "member_count": len(members),
+            "totals": agg, "clusters": member_rows,
+            "stale": group_stale,
+            "cache": "none" if unsized == len(members) else "full",
+            "needs_reimport": group_reimport,
+        })
+
+    if len(seen_tunables) > 1:
+        warnings.append({"code": "mixed_tunables"})
+    if any_alternative:
+        # An 'alternative' inside a summed solution set inflates its total.
+        warnings.append({"code": "mixed_roles"})
+    # No cross-column rollup: summing rival solution sets would invent a
+    # cluster nobody is buying.
+    return jsonify({"rows": rows, "warnings": warnings, "rollup": None,
+                    "mode": "tags"})
+
+
 @projects_bp.route("/<int:project_id>/compare", methods=["POST"])
 @login_required
 def compare_sizings(project_id):
-    """Side-by-side figures for the selected sizings, plus the caveats that make
-    a comparison invalid if ignored (§6)."""
+    """Side-by-side figures for the selected sizings — or, with ``tag_ids``,
+    for whole tag groups — plus the caveats that make a comparison invalid if
+    ignored (§6)."""
     user = current_user()
     project, source = _visible_project(project_id, user)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
+
+    tag_ids = (request.json or {}).get("tag_ids")
+    if tag_ids:
+        if not isinstance(tag_ids, list):
+            return jsonify({"error": "tag_ids must be a list"}), 400
+        return _compare_tag_groups(project, [t for t in tag_ids
+                                             if isinstance(t, int)])
 
     wanted = (request.json or {}).get("sizing_ids") or []
     sizings = Configuration.query.filter(
@@ -1037,6 +1126,12 @@ def split_legacy_sizing(config_id):
                     storage_pct=int(r.get("storagePct") or 0),
                     mode=(r.get("mode") or "reserved"),
                 ))
+
+        # Group the pieces under a tag named after the original sizing, so
+        # they can be tag-compared against other solution sets immediately.
+        from project_models import apply_sizing_tag
+        for cfg in created.values():
+            apply_sizing_tag(cfg, sizing.name)
 
         sizing.is_deleted = True
         sizing.deleted_at = _utcnow()

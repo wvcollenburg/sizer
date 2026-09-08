@@ -113,6 +113,10 @@
                             data-i18n="project.view.new_sizing">New sizing</button>
                     <button class="btn btn-soft" data-click='["addDrTarget"]'
                             data-i18n="project.view.new_dr">Add DR target</button>
+                    <button class="btn btn-soft" data-click='["compareTags"]'
+                            data-i18n-title="project.view.compare_tags_title"
+                            title="Compare whole solution sets: one column per tag, summing the sizings that carry it."
+                            data-i18n="project.view.compare_tags">Compare tags</button>
                     <button class="btn btn-soft" data-click='["openProjectSettings"]'
                             data-i18n="project.view.settings">Details</button>
                 </div>
@@ -926,6 +930,14 @@
             <div class="modal-body">
                 <p class="import-info" data-i18n="fanout.intro">This file contains several source clusters. The recommended path creates one sizing per cluster in your project, so each cluster gets its own options, recommendation and licence. Replication between them is configured on the project page.</p>
                 <div id="fanout-cluster-list" class="fanout-list"></div>
+                <div class="form-group">
+                    <label><span data-i18n="fanout.tag_label">Tag these sizings</span>
+                        <span class="info-icon" tabindex="0"
+                              data-i18n-title="fanout.tag_info"
+                              title="All sizings from this import get this project tag, so the whole solution set can be compared against another import's set with 'Compare tags'. Clear it to skip tagging.">i</span>
+                    </label>
+                    <input type="text" id="fanout-tag" maxlength="60">
+                </div>
                 <p class="import-info muted" data-i18n="fanout.combined_hint">Choose the combined option only when these clusters are meant to consolidate into a single new cluster.</p>
             </div>
             <div class="modal-footer">

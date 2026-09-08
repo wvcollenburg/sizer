@@ -1147,8 +1147,29 @@ function openClusterFanout(data) {
             <span class="fanout-meta">${window.t('fanout.cluster_meta',
                 {hosts: cl.host_count, vms: cl.vm_count})}</span>
         </label>`).join('');
+    const tagInput = document.getElementById('fanout-tag');
+    if (tagInput) tagInput.value = _fanoutDefaultTag(data);
     updateFanoutCount();
     modal.style.display = 'flex';
+}
+
+// Default group tag for a fan-out: the import file's stem, made unique
+// against the open project's existing tags (re-importing the same file is the
+// normal way to build a second solution set — sharing one tag would silently
+// merge the two sets the user wants to compare).
+function _fanoutDefaultTag(data) {
+    let base = ((data.source_meta || {}).file_name || '')
+        .replace(/\.xlsx$/i, '').slice(0, 50).trim();
+    if (!base) base = window.t('fanout.tag_fallback');
+    const existing = new Set();
+    if (window.currentProjectSizings) {
+        window.currentProjectSizings().forEach(s =>
+            (s.tags || []).forEach(t => existing.add(t.name)));
+    }
+    if (!existing.has(base)) return base;
+    let n = 2;
+    while (existing.has(`${base} - ${n}`)) n++;
+    return `${base} - ${n}`;
 }
 
 function closeClusterFanout() {
@@ -1232,6 +1253,10 @@ async function createPerClusterSizings() {
                     // Split clusters are complementary parts of one
                     // environment: they count towards the project total.
                     role: 'additive',
+                    // Group tag from the chooser (blank = no tagging), so the
+                    // set is immediately comparable via "Compare tags".
+                    tag: (document.getElementById('fanout-tag') || {value: ''})
+                        .value.trim() || undefined,
                 }),
             });
             const d = await resp.json();

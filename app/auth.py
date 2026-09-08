@@ -1296,6 +1296,14 @@ def create_config():
     else:
         return jsonify({"error": "Could not allocate a unique code. Try again."}), 500
 
+    # Optional group tag (fan-out sends the import's label): pre-grouping is
+    # what makes tag-based comparison usable without hand-tagging every row.
+    tag_name = (data.get("tag") or "").strip()
+    if tag_name:
+        from project_models import apply_sizing_tag
+        apply_sizing_tag(config, tag_name)
+        db.session.commit()
+
     return jsonify(config.to_summary(user, "owned")), 201
 
 

@@ -747,3 +747,99 @@ def test_inbound_reserve_endpoint(app):
     })
     d2 = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
     assert d2["mode"] == "failover"
+
+
+# ── tag-based comparison (solution sets) ─────────────────────────────────────
+
+def _snapshot(model, nodes, cores, ram_gb, usable_tb, n1_cores, n1_ram):
+    return {"clusters": [{"name": "c", "refs": {"mode": "import"},
+                          "recommendation": {
+        "model": model, "node_count": nodes, "num_clusters": 1,
+        "cluster_layout": [nodes],
+        "totals": {"cores": cores, "ram_gb": ram_gb,
+                   "usable_storage_tb": usable_tb},
+        "n_minus_1": {"cores": n1_cores, "ram_gb": n1_ram},
+    }}]}
+
+
+def test_create_config_tag_creates_and_links_project_tag(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "Tagged")["id"]
+    r1 = c.post("/api/configs/", json={
+        "name": "PROD", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "lo-sept"}).get_json()
+    r2 = c.post("/api/configs/", json={
+        "name": "DB", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "lo-sept"}).get_json()
+
+    with app.app_context():
+        from project_models import ProjectTag, ConfigurationTag
+        (tag,) = ProjectTag.query.filter_by(project_id=pid).all()
+        assert tag.name == "lo-sept"
+        linked = {l.configuration_id for l in
+                  ConfigurationTag.query.filter_by(tag_id=tag.id).all()}
+        assert linked == {r1["id"], r2["id"]}
+
+
+def test_split_pieces_share_a_tag_named_after_the_original(app):
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "SplitTag")["id"]
+    row = save_sizing(c, "Old combined", project_id=pid,
+                      payload=_legacy_multi_payload())
+    out = c.post(f"/api/sizings/{row['id']}/split").get_json()
+    with app.app_context():
+        from project_models import ProjectTag, ConfigurationTag
+        tag = ProjectTag.query.filter_by(project_id=pid,
+                                         name="Old combined").one()
+        linked = {l.configuration_id for l in
+                  ConfigurationTag.query.filter_by(tag_id=tag.id).all()}
+        assert linked == {r["id"] for r in out["created"]}
+
+
+def test_compare_by_tags_aggregates_solution_sets(app):
+    """One column per tag, members summed (DR targets included), member
+    sub-rows carried, and no cross-column rollup (rival sets must not add)."""
+    c = client_for(app, PARTNER_EMAIL)
+    pid = make_project(c, "TagCompare")["id"]
+
+    def sized(name, tag, snapshot, dr=False):
+        row = c.post("/api/configs/", json={
+            "name": name, "payload": {"mode": "import"}, "project_id": pid,
+            "untouched": True, "tag": tag, "role": "additive"}).get_json()
+        if dr:
+            with app.app_context():
+                cfg = db.session.get(Configuration, row["id"])
+                cfg.is_dr_target = True
+                db.session.commit()
+        resp = c.put(f"/api/sizings/{row['id']}/result", json=snapshot)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        return row
+
+    sized("PROD", "set-a", _snapshot("HC5450D", 3, 192, 3072, 24.0, 126, 2048))
+    sized("DR", "set-a", _snapshot("HC1650D", 2, 48, 1024, 20.0, 24, 512), dr=True)
+    sized("PROD", "set-b", _snapshot("HC3650DF", 3, 192, 3072, 17.0, 126, 2048))
+
+    with app.app_context():
+        from project_models import ProjectTag
+        tags = {t.name: t.id for t in ProjectTag.query.filter_by(project_id=pid)}
+
+    d = c.post(f"/api/projects/{pid}/compare",
+               json={"tag_ids": [tags["set-a"], tags["set-b"]]}).get_json()
+    assert d["mode"] == "tags" and d["rollup"] is None
+    a, b = d["rows"]
+    assert (a["name"], a["member_count"]) == ("set-a", 2)
+    # DR target counted into the set's totals.
+    assert a["totals"]["nodes"] == 5 and a["totals"]["cores"] == 240
+    assert a["totals"]["ram_gb"] == 4096
+    assert round(a["totals"]["usable_tb"], 2) == 44.0
+    assert sorted(a["totals"]["model"].split(", ")) == ["HC1650D", "HC5450D"]
+    assert [m["name"] for m in a["clusters"]] == ["PROD", "DR"]
+    assert b["totals"]["nodes"] == 3
+
+    # An unsized member is named in the warnings, not silently zeroed.
+    c.post("/api/configs/", json={
+        "name": "Unsized", "payload": {"mode": "import"}, "project_id": pid,
+        "untouched": True, "tag": "set-b"})
+    d2 = c.post(f"/api/projects/{pid}/compare",
+                json={"tag_ids": [tags["set-a"], tags["set-b"]]}).get_json()
+    assert {"code": "not_sized", "name": "Unsized"} in d2["warnings"]
