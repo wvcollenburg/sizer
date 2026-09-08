@@ -1219,8 +1219,13 @@ async function createPerClusterSizings() {
                     name: cl.name,
                     payload: _fanoutSnap(cl, fields),
                     project_id: projectId || undefined,
-                    source_meta: Object.assign({}, lastSourceMeta || {},
-                                               {cluster: cl.name}),
+                    // Provenance from the PENDING import response — the
+                    // lastSourceMeta global is only set by finishImport, which
+                    // the fan-out path never reaches; reading it here left the
+                    // created sizings looking like Manual entries.
+                    source_meta: Object.assign(
+                        {}, (pendingImportData && pendingImportData.source_meta) || {},
+                        {cluster: cl.name}),
                     // Marks the sizing "to be sized" until a person opens and
                     // saves it; also asks the server for option-N name dedup.
                     untouched: true,
