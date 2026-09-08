@@ -1525,8 +1525,13 @@ function renderInboundReserveNote() {
 function updateFullClusterInfo(enabled, recommendations) {
     const icon = document.getElementById('full-cluster-info');
     if (!icon) return;
-    if (enabled && recommendations && recommendations.length > 0) {
-        const worst = Math.max(...recommendations.map(r => r.vcpu_ratio_degraded || 0));
+    // Only recs where a node failure actually RAISES the ratio contribute —
+    // with a failover-mode replication reserve the N-1 (own-workload) ratio
+    // can sit below the normal one, and "rises to" a lower number is nonsense.
+    const rising = (recommendations || []).filter(
+        r => (r.vcpu_ratio_degraded || 0) > (r.vcpu_ratio || 0) + 0.005);
+    if (enabled && rising.length > 0) {
+        const worst = Math.max(...rising.map(r => r.vcpu_ratio_degraded));
         setInfoTip(icon, window.t('results.full_cluster_info_base') +
             window.t('results.full_cluster_info_degraded', {ratio: worst.toFixed(2)}));
     } else {
@@ -1949,7 +1954,14 @@ function recCardHtml(r, i, mode, demand, opts) {
     const modelLabel = r.validated_only
         ? r.model
         : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
-    const ratioBadge = r.sized_full_cluster
+    // The "X:1 → Y:1" degraded badge only makes sense when a node failure
+    // actually RAISES the ratio. With a failover-mode replication reserve the
+    // normal ratio (which counts the replicas against the full cluster) can
+    // exceed the N-1 own-workload ratio — a falling arrow labelled "rises"
+    // would be nonsense, so the plain badge is shown instead.
+    const ratioRises = r.sized_full_cluster
+        && r.vcpu_ratio_degraded > r.vcpu_ratio + 0.005;
+    const ratioBadge = ratioRises
         ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)}:1 &rarr; ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
         : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
     const iops = r.iops || null;
@@ -2061,7 +2073,8 @@ function buildUtilAdvice(key, cur, tot, ha, r) {
     // CPU sized across every node: the cluster is fine until a node drops, at
     // which point the effective ratio rises. The card badges the number; this
     // names the way out.
-    if (key === 'CPU' && r.sized_full_cluster && r.vcpu_ratio_degraded) {
+    if (key === 'CPU' && r.sized_full_cluster && r.vcpu_ratio_degraded
+        && r.vcpu_ratio_degraded > r.vcpu_ratio + 0.005) {
         return `<p class="util-advice util-advice-warn">`
             + window.t('results.full_cluster_info_degraded',
                        {ratio: r.vcpu_ratio_degraded.toFixed(2)}).trim() + ' '
