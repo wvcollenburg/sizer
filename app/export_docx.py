@@ -698,7 +698,10 @@ def build_bundle_proposal_docx(clusters, lang="en"):
             tot = cfg.get("cluster_total", {})
             model = cfg.get("model") or t9n("export.pptx.configuration_software_only")
             nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
-            cores, ram_gb = tot.get("cores", ""), tot.get("ram_gb", 0)
+            # Same ACTUAL-installed basis as recommendation rows — the usable
+            # cluster_total figures deduct the OS overhead and would disagree
+            # with the licensing column next to them.
+            cores, ram_gb = overview_actual_totals(cfg)
         row = [cl.get("name", ""), model, str(nodes),
                str(cores), _fmt_ram(ram_gb),
                f"{tot.get('usable_storage_tb', 0)} TB",

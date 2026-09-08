@@ -121,10 +121,21 @@ def overview_actual_totals(r):
     show these rather than the usable totals (which deduct OS/platform
     overhead): the installed core count is what licensing is based on, and the
     usable story is told later in the document. Storage stays usable there —
-    raw storage is not a number anyone plans with."""
-    hci = r.get("hci_node_count") or r.get("node_count") or 0
-    cores = (r.get("cores_per_node") or 0) * hci
-    ram = (r.get("ram_per_node_gb") or 0) * hci
+    raw storage is not a number anyone plans with.
+
+    Accepts either shape: a recommendation (flat cores_per_node /
+    ram_per_node_gb) or a direct-build config result, whose physical per-node
+    figures live under per_node (with a usable-figure fallback for snapshots
+    stored before the physical fields existed)."""
+    pn = r.get("per_node")
+    if pn is not None:
+        hci = r.get("node_count") or 0
+        cores = (pn.get("physical_cores", pn.get("cores")) or 0) * hci
+        ram = (pn.get("physical_ram_gb", pn.get("ram_gb")) or 0) * hci
+    else:
+        hci = r.get("hci_node_count") or r.get("node_count") or 0
+        cores = (r.get("cores_per_node") or 0) * hci
+        ram = (r.get("ram_per_node_gb") or 0) * hci
     so = r.get("storage_only")
     if so:
         cores += (so.get("cores") or 0) * (so.get("count") or 0)

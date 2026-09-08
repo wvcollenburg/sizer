@@ -221,7 +221,10 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
             tot = cfg.get("cluster_total", {})
             model = cfg.get("model") or t("export.pptx.configuration_software_only")
             nodes = cfg.get("total_node_count") or cfg.get("node_count", "")
-            cores, ram_gb = tot.get("cores", ""), tot.get("ram_gb", 0)
+            # Same ACTUAL-installed basis as recommendation rows — the usable
+            # cluster_total figures deduct the OS overhead and would disagree
+            # with the licensing column next to them.
+            cores, ram_gb = overview_actual_totals(cfg)
         row = [
             cl.get("name", ""),
             model,

@@ -560,6 +560,25 @@ def test_direct_builds_stay_silent_with_scoring_off(seeded_app):
             assert license_required_short(result) is None
 
 
+def test_overview_totals_use_installed_figures_for_direct_builds(seeded_app):
+    """The multi-site overview shows ACTUAL installed cores/RAM. Config rows
+    used to read the usable cluster totals (post OS-deduction), so an
+    appliance sizing showed e.g. 45 cores next to a 16C/node licence while
+    recommendation rows showed 48 — the two bases disagreed in one table."""
+    from export_gauges import overview_actual_totals
+    with seeded_app.app_context():
+        _set_tunables(license_scoring=1)
+        result = _calc_appliance()
+        cores, ram = overview_actual_totals(result)
+        # Physical per-node figures × nodes: 48-core dual-socket CPU, 512 GB.
+        assert cores == 48 * 3
+        assert ram == 512 * 3
+        # An older snapshot without the physical fields falls back to usable
+        # rather than crashing or silently reporting zero.
+        legacy = {"node_count": 2, "per_node": {"cores": 15, "ram_gb": 250}}
+        assert overview_actual_totals(legacy) == (30, 500)
+
+
 def test_licence_term_is_independent_of_the_growth_horizon(seeded_app):
     with seeded_app.app_context():
         _set_tunables(license_scoring=1)
