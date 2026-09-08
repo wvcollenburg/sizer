@@ -79,6 +79,14 @@ def test_every_rendered_handler_exists():
             handler = re.match(r'\s*"(\w+)"', raw)
             if handler and handler.group(1) not in defined:
                 missing.setdefault(name, []).append(handler.group(1))
+        # Specs built INDIRECTLY (`const action = `["foo",${i}]`` interpolated
+        # into data-click='${action}') escape the literal-attribute scan above.
+        # Any string literal shaped like a delegate spec is held to the same
+        # contract — this is exactly how a deleted-but-still-referenced handler
+        # slipped through once (selectRecAndSave, 2026-09-08).
+        for m in re.finditer(r'[`\'"]\[(?:&quot;|\\?")(\w+)(?:&quot;|\\?")', text):
+            if m.group(1) not in defined:
+                missing.setdefault(name, []).append(m.group(1))
     assert not missing, f"rendered markup references undefined handlers: {missing}"
 
 

@@ -1772,6 +1772,18 @@ function formatComputeFloorLine(r) {
     return `<div class="rec-compute-floor">${window.t('results.compute_floor_line', {pct: cf.coverage_pct})}${detail}</div>`;
 }
 
+// Single-sizing picker: record the choice, then save and go back to the
+// project. The snapshot stored on save reads selectedRec, so the pick has to
+// land before the save runs — hence setting it here rather than inside the
+// save path.
+async function selectRecAndSave(i) {
+    if (currentMode !== 'import' && currentMode !== 'manual') return;
+    selectedRec[currentMode] = i;
+    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
+                            'ratio-slider', currentMode, []);
+    if (window.saveAndReturnToProject) await window.saveAndReturnToProject();
+}
+
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
     const recList = document.getElementById(listId);
     if (!recommendations || recommendations.length === 0) {
