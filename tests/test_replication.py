@@ -15,6 +15,7 @@ file. The rules that matter:
 Run: .venv/bin/python -m pytest tests/test_replication.py -q
 """
 import os
+import re
 import sys
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
@@ -310,3 +311,45 @@ def test_deleting_the_whole_project_still_cascades(app, c):
     resp = c.delete(f"/api/projects/{project['id']}")
     assert resp.status_code == 200
     assert resp.get_json()["sizings_deleted"] == 2
+
+
+# ── the reserve shapes the achieved ratio and the infeasibility hint ─────────
+
+def test_reserved_replicas_count_in_the_achieved_ratio():
+    """A replication target's vCPU:core ratio rates everything its cores host.
+    Computing it from the own workload alone read absurdly low (0.13:1) on a
+    small cluster holding a large inbound reserve — and the target-infeasible
+    hint then 'suggested' LOWERING the ratio while calling it a raise."""
+    import test_perf_sizing_e2e as e2e
+    from recommend import generate_recommendations
+
+    application = e2e._build_app()
+    with application.app_context():
+        db.create_all()
+        e2e._seed_catalog()
+
+        small_own = dict(e2e._summary(), total_vcpus=8,
+                         total_vm_provisioned_memory_gb=32, datastore_used_tb=0.5)
+        base = dict(growth_pct=0, snapshot_pct=0, years=1,
+                    max_day_one_storage_pct=100, max_day_one_ram_pct=100,
+                    vcpu_ratio=3.0, sizing_mode="validated")
+        reserve = {"vcpus": 200, "ram_gb": 400, "storage_tb": 4}
+
+        plain = generate_recommendations(small_own, **base)["recommendations"][0]
+        held = generate_recommendations(
+            small_own, replication_reserve=reserve,
+            replication_compute_mode="reserved", **base)["recommendations"][0]
+
+        # 8 own + 200 reserved vCPUs: the ratio must reflect the replicas.
+        assert held["vcpu_ratio"] > plain["vcpu_ratio"] * 3
+        assert held["vcpu_ratio"] > 1.0
+
+        # Infeasibility hint: with the reserve, a 'raise the ratio' suggestion
+        # must actually be a raise (or not be made at all).
+        res = generate_recommendations(
+            small_own, target_nodes=2, replication_reserve=reserve,
+            replication_compute_mode="reserved", **base)
+        for w in res["warnings"]:
+            m = re.search(r"Raising the vCPU:core ratio to ([\d.]+):1", w)
+            if m:
+                assert float(m.group(1)) > 3.0, w
