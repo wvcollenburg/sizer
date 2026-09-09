@@ -23,6 +23,10 @@ from project_models import (  # noqa: F401
     Project, ProjectTag, ConfigurationTag, ScaleProjectLink, ExportJob,
     ReplicationLink, ensure_scratch_project,
 )
+# HCL catalog + BOM checks (docs/bom-checker-build.md §2): new tables only, so
+# create_all() is the whole migration.
+import hcl_models  # noqa: F401,E402
+import bom_models  # noqa: F401,E402
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}
