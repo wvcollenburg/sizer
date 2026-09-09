@@ -41,6 +41,10 @@ bom_admin_bp.before_request(require_super_admin)
 bom_reject_admin_bp = Blueprint("bom_reject_admin", __name__,
                                 url_prefix="/admin/api/bom-rejects")
 bom_reject_admin_bp.before_request(require_super_admin)
+# Machine-to-machine pull feed for the HCL team (no user accounts on their
+# side): deliberately NOT behind login — auth.require_login exempts exactly
+# this path, and the route enforces its own bearer token instead.
+hcl_feed_bp = Blueprint("hcl_feed", __name__, url_prefix="/api/hcl")
 
 MAX_BOM_BYTES = 10 * 1024 * 1024
 ACCEPTED_EXTENSIONS = (".xlsx", ".csv")
@@ -53,6 +57,7 @@ def register_bom(app):
     app.register_blueprint(bom_checks_bp)
     app.register_blueprint(bom_admin_bp)
     app.register_blueprint(bom_reject_admin_bp)
+    app.register_blueprint(hcl_feed_bp)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -404,6 +409,66 @@ def annotate_review(check_id):
         check.id, check.name, status, (": " + note[:120]) if note else ""))
     db.session.commit()
     return jsonify({"message": "Review saved", "review": check.to_dict()})
+
+
+@bom_admin_bp.route("/<int:check_id>/acceptable", methods=["GET"])
+def acceptable_parts(check_id):
+    """Candidates a super admin could accept ahead of HCL publication —
+    findings whose parts the HCL team may already have verified."""
+    check = db.session.get(BomCheck, check_id)
+    if check is None or check.is_deleted:
+        return jsonify({"error": "BOM check not found"}), 404
+    from bom import preview
+    return jsonify(preview.candidates_for(check))
+
+
+@bom_admin_bp.route("/<int:check_id>/accept-parts", methods=["POST"])
+def accept_parts(check_id):
+    check = db.session.get(BomCheck, check_id)
+    if check is None or check.is_deleted:
+        return jsonify({"error": "BOM check not found"}), 404
+    data = request.get_json(silent=True) or {}
+    keys = data.get("keys")
+    if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
+        return jsonify({"error": "keys must be a non-empty list of candidate keys"}), 400
+    note = (data.get("note") or "").strip()[:2000] or None
+    from bom import preview
+    try:
+        result = preview.accept_parts(check, keys, current_user(), note=note)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    audit("hcl_preview_accept", "check #%d (%s): %s" % (
+        check.id, check.name, ", ".join(keys)[:150]))
+    db.session.commit()
+    return jsonify(result)
+
+
+# ── preview pull feed (HCL team, machine-to-machine) ─────────────────────────
+
+@hcl_feed_bp.route("/preview-feed", methods=["GET"])
+@limiter.limit("60 per hour")
+def preview_feed():
+    """The accepted-but-unpublished parts, pulled by the HCL team.
+
+    No session, no account: the caller authenticates with the bearer token a
+    super admin configured in the HCL settings (``?token=`` accepted too, for
+    curl-friendliness). No token configured means the feature is off — answer
+    404 so the endpoint's existence is not revealed. Nothing but the preview
+    set is ever exposed here.
+    """
+    import hmac
+    from auth import get_setting
+    from bom import preview
+    token = (get_setting(preview.PREVIEW_FEED_TOKEN_SETTING, "") or "").strip()
+    if not token:
+        return jsonify({"error": "Not found"}), 404
+    header = request.headers.get("Authorization") or ""
+    presented = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if not presented:
+        presented = (request.args.get("token") or "").strip()
+    if not presented or not hmac.compare_digest(presented, token):
+        return jsonify({"error": "Invalid token"}), 401
+    return jsonify(preview.preview_feed())
 
 
 # ── rejected-file retention (consent-based) ──────────────────────────────────

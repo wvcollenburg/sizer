@@ -42,8 +42,9 @@ from bom.hcl_scrape import synthetic_part_number
 from hcl_models import (
     APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_RELIST, CHANGE_UPDATE,
     COMPONENT_KINDS, HclComponent, HclDevice, HclPendingChange, HclPlatform,
-    HclPlatformComponent, HclScrapeRun, PENDING, REJECTED, RUN_FAILED,
-    RUN_RUNNING, RUN_SUCCEEDED, STATUS_ACTIVE, STATUS_DELISTED, SUPERSEDED,
+    HclPlatformComponent, HclScrapeRun, ORIGIN_PREVIEW, ORIGIN_SCRAPE,
+    PENDING, REJECTED, RUN_FAILED, RUN_RUNNING, RUN_SUCCEEDED, STATUS_ACTIVE,
+    STATUS_DELISTED, SUPERSEDED,
 )
 
 ENTITY_PLATFORM = "platform"
@@ -52,6 +53,11 @@ ENTITY_DEVICE = "device"
 # Pseudo-field on a platform update: the sorted list of "kind/part" keys the
 # detail page lists. One row for the whole list keeps the queue readable.
 FIELD_COMPONENTS = "components"
+# Pseudo-field on a platform update: ONE targeted link addition (used by the
+# preview accept flow, bom/preview.py). Unlike FIELD_COMPONENTS it never
+# touches the platform's other links, so accepting a pre-publication part
+# cannot delist anything the site still lists.
+FIELD_LINK = "link"
 
 LAST_SCRAPE_SETTING = "hcl_last_scrape_at"
 
@@ -275,9 +281,24 @@ def _unmark_key(key):
     return key, False
 
 
-def _active_link_keys(platform: HclPlatform) -> List[str]:
-    return sorted(_marked_key(l.component.key, l.tce)
-                  for l in platform.links if l.status == STATUS_ACTIVE)
+def _active_link_keys(platform: HclPlatform, snapshot_keys=None) -> List[str]:
+    """Sorted marked keys of the platform's active links, as the 'components'
+    compare sees them.
+
+    Preview-origin links (parts accepted ahead of HCL publication) are
+    excluded UNLESS the snapshot's page itself lists the part: their absence
+    from the site is the expected state, so leaving them out of the DB side
+    keeps the compare from queueing their removal, while a page that has
+    started listing the part diffs (and TCE-flips) like any other link."""
+    keys = []
+    for l in platform.links:
+        if l.status != STATUS_ACTIVE:
+            continue
+        if l.origin == ORIGIN_PREVIEW and (
+                snapshot_keys is None or l.component.key not in snapshot_keys):
+            continue
+        keys.append(_marked_key(l.component.key, l.tce))
+    return sorted(keys)
 
 
 def diff_snapshot(snapshot: dict) -> List[dict]:
@@ -312,7 +333,7 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
                     ENTITY_PLATFORM, key, CHANGE_UPDATE, field=field,
                     old_value=old, new_value=new,
                     label="Platform %s: %s changed" % (key, field)))
-        old_list = _active_link_keys(row)
+        old_list = _active_link_keys(row, set(c["key"] for c in rec["components"]))
         new_list = [_marked_key(c["key"], c["tce"]) for c in rec["components"]]
         if old_list != new_list:
             added = len(set(new_list) - set(old_list))
@@ -356,6 +377,14 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
     if complete:
         for key, row in db_components.items():
             if key not in recs["components"] and row.status == STATUS_ACTIVE:
+                # Delist immunity for preview-origin components: they were
+                # accepted ahead of HCL publication (bom/preview.py), so not
+                # appearing on the site is their expected state — a scrape
+                # must never read that absence as a delisting. The first
+                # complete snapshot that DOES list them flips their origin
+                # to 'scrape' (touch_seen), after which they diff normally.
+                if row.origin == ORIGIN_PREVIEW:
+                    continue
                 changes.append(_change(
                     ENTITY_COMPONENT, key, CHANGE_DELIST,
                     label="%s %s no longer listed on the HCL: %s" % (
@@ -469,8 +498,16 @@ def supersede_stale(run: HclScrapeRun, recs: dict, complete: bool) -> int:
 
 def touch_seen(snapshot: dict, seen_at: Optional[datetime] = None) -> int:
     """Bump ``last_seen`` on every active row (and link) the snapshot
-    contains. No approval needed: it records observation, not content."""
+    contains. No approval needed: it records observation, not content.
+
+    Publication flip: a COMPLETE snapshot that contains a preview-origin
+    component (or lists it on a platform's page) proves the HCL team has
+    published the part — it is now an ordinary catalog entry, so its origin
+    flips to 'scrape' silently, component and link alike. No pending row:
+    nothing about the catalog's *content* changed, only our knowledge that
+    the pre-publication accept has caught up with the site."""
     seen_at = seen_at or _utcnow()
+    complete = bool(snapshot.get("complete"))
 
     def _bump(row):
         # Never move last_seen backwards: importing an archived snapshot
@@ -490,9 +527,13 @@ def touch_seen(snapshot: dict, seen_at: Optional[datetime] = None) -> int:
         for link in platform.links:
             if link.status == STATUS_ACTIVE and link.component.key in listed:
                 _bump(link)
+                if complete and link.origin == ORIGIN_PREVIEW:
+                    link.origin = ORIGIN_SCRAPE
     for comp in HclComponent.query.filter_by(status=STATUS_ACTIVE).all():
         if comp.key in recs["components"]:
             _bump(comp)
+            if complete and comp.origin == ORIGIN_PREVIEW:
+                comp.origin = ORIGIN_SCRAPE
             n += 1
     for dev in HclDevice.query.filter_by(status=STATUS_ACTIVE).all():
         if dev.key in recs["devices"]:
@@ -530,12 +571,16 @@ def _auto_approve(entity_type, entity_key, kinds, note, user, now, result):
 def _ensure_component(rec, now, user, via, result):
     """Component row for ``rec`` (create or relist); existing active rows are
     left alone — their field changes are separate queue rows."""
+    # The payload may carry an explicit origin (the preview accept flow marks
+    # its parts 'preview' so they gain delist immunity); every scrape-built
+    # payload omits it and defaults to 'scrape', the ordinary provenance.
+    origin = rec.get("origin") or ORIGIN_SCRAPE
     comp = HclComponent.query.filter_by(kind=rec["kind"], part_number=rec["part_number"]).first()
     if comp is None:
         comp = HclComponent(
             kind=rec["kind"], part_number=rec["part_number"],
             description=rec.get("description") or "", attrs=rec.get("attrs") or {},
-            tce=bool(rec.get("tce")), status=STATUS_ACTIVE,
+            tce=bool(rec.get("tce")), status=STATUS_ACTIVE, origin=origin,
             first_seen=now, last_seen=now)
         db.session.add(comp)
         db.session.flush()
@@ -563,6 +608,10 @@ def _ensure_component(rec, now, user, via, result):
         comp.last_seen = now
         comp.description = rec.get("description") or comp.description
         comp.attrs = rec.get("attrs") or comp.attrs
+        # A relist re-establishes provenance: a preview accept of a delisted
+        # part marks it 'preview' (immune until published again), a scrape
+        # relist marks it 'scrape'.
+        comp.origin = origin
         result["created"].append(comp.key)
         if via:
             _auto_approve(ENTITY_COMPONENT, comp.key, (CHANGE_RELIST,), "via platform %s" % via,
@@ -586,6 +635,13 @@ def _sync_links(platform, comp_records, now, user, result):
             link.status = STATUS_ACTIVE
             link.last_seen = now
         elif link.status == STATUS_ACTIVE:
+            # Preview-origin links are managed by the accept flow, not the
+            # site: a whole-list 'components' update is built from a page
+            # that does not know the part yet, so applying it must not
+            # delist a pre-publication link (mirror of the diff-side
+            # exclusion in _active_link_keys).
+            if link.origin == ORIGIN_PREVIEW:
+                continue
             link.status = STATUS_DELISTED
     for comp_id, (comp, tce) in wanted.items():
         if comp_id not in existing:
@@ -632,6 +688,33 @@ def _apply_platform(change, now, user, result):
         return
 
     if kind == CHANGE_UPDATE:
+        if change.field == FIELD_LINK:
+            # Targeted single-link addition (preview accept flow): create or
+            # reactivate exactly one link, leaving the platform's other links
+            # untouched. Idempotent like every apply: an active link is a
+            # no-op re-touch.
+            rec = (change.payload or {}).get("component") or {}
+            if not rec.get("kind") or not rec.get("part_number"):
+                result["reason"] = "link payload carries no component"
+                return
+            comp = _ensure_component(rec, now, user, None, result)
+            link_origin = (change.payload or {}).get("link_origin") or ORIGIN_SCRAPE
+            link = next((l for l in platform.links if l.component_id == comp.id), None)
+            if link is None:
+                db.session.add(HclPlatformComponent(
+                    platform=platform, component=comp,
+                    tce=bool((change.payload or {}).get("tce")),
+                    status=STATUS_ACTIVE, origin=link_origin,
+                    first_seen=now, last_seen=now))
+            else:
+                if link.status != STATUS_ACTIVE:
+                    link.status = STATUS_ACTIVE
+                    link.origin = link_origin
+                link.last_seen = now
+            platform.last_seen = now
+            db.session.flush()
+            result["applied"] = True
+            return
         if change.field == FIELD_COMPONENTS:
             records = (change.payload or {}).get("components")
             if records is None:

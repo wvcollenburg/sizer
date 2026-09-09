@@ -33,15 +33,16 @@ from datetime import timedelta
 from flask import Blueprint, current_app, jsonify, request
 
 from admin_routes import require_super_admin
-from auth import _aware, audit, current_user
+from auth import _aware, audit, current_user, get_setting, set_setting
 from auth_models import _utcnow
 from bom import hcl_data, hcl_scrape, hcl_sync
+from bom.preview import PREVIEW_FEED_TOKEN_SETTING
 from database import db
 from extensions import limiter
 from hcl_models import (
     HclComponent, HclDevice, HclPendingChange, HclPlatform, HclScrapeRun,
-    PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING, STATUS_ACTIVE,
-    STATUS_DELISTED,
+    ORIGIN_PREVIEW, PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING,
+    STATUS_ACTIVE, STATUS_DELISTED,
 )
 
 hcl_admin_bp = Blueprint("hcl_admin", __name__, url_prefix="/admin/api/hcl")
@@ -352,27 +353,62 @@ def list_devices():
     return jsonify([d.to_dict() for d in rows])
 
 
+@hcl_admin_bp.route("/preview", methods=["GET"])
+def list_preview_components():
+    """The pre-publication accepted set (origin='preview'), with the
+    platforms each part was linked to — the admin's view of what the HCL
+    team can pull from the feed."""
+    rows = (HclComponent.query.filter_by(origin=ORIGIN_PREVIEW)
+            .order_by(HclComponent.kind, HclComponent.part_number).all())
+    return jsonify([c.to_dict(with_platforms=True) for c in rows])
+
+
 # ── settings ──────────────────────────────────────────────────────────────────
 
 @hcl_admin_bp.route("/settings", methods=["GET"])
 def get_settings():
-    return jsonify({"blocked_vendors": hcl_data.blocked_vendors()})
+    out = {"blocked_vendors": hcl_data.blocked_vendors()}
+    # The feed token appears only when configured: an unset token means the
+    # pull feed is off, and the settings payload should not advertise the
+    # (dormant) feature to every settings reader.
+    token = (get_setting(PREVIEW_FEED_TOKEN_SETTING, "") or "").strip()
+    if token:
+        out["preview_feed_token"] = token
+    return jsonify(out)
 
 
 @hcl_admin_bp.route("/settings", methods=["PUT"])
 def put_settings():
     data = request.get_json(silent=True)
-    if not isinstance(data, dict) or "blocked_vendors" not in data:
-        return _error("blocked_vendors list required")
-    vendors = data["blocked_vendors"]
-    if not isinstance(vendors, list) or not all(isinstance(v, str) for v in vendors):
-        return _error("blocked_vendors must be a list of strings")
-    if any(len(v) > 40 for v in vendors):
-        return _error("vendor names must be 40 characters or fewer")
-    cleaned = hcl_data.set_blocked_vendors(vendors)
-    audit("hcl_settings", "blocked_vendors = %s" % (", ".join(cleaned) or "(none)"))
+    if not isinstance(data, dict) or (
+            "blocked_vendors" not in data and "preview_feed_token" not in data):
+        return _error("blocked_vendors list or preview_feed_token required")
+    out = {}
+    if "blocked_vendors" in data:
+        vendors = data["blocked_vendors"]
+        if not isinstance(vendors, list) or not all(isinstance(v, str) for v in vendors):
+            return _error("blocked_vendors must be a list of strings")
+        if any(len(v) > 40 for v in vendors):
+            return _error("vendor names must be 40 characters or fewer")
+        cleaned = hcl_data.set_blocked_vendors(vendors)
+        audit("hcl_settings", "blocked_vendors = %s" % (", ".join(cleaned) or "(none)"))
+        out["blocked_vendors"] = cleaned
+    if "preview_feed_token" in data:
+        token = data["preview_feed_token"]
+        if not isinstance(token, str):
+            return _error("preview_feed_token must be a string")
+        token = token.strip()
+        if token and len(token) < 16:
+            return _error("preview_feed_token must be at least 16 characters "
+                          "(or empty to turn the feed off)")
+        if len(token) > 200:
+            return _error("preview_feed_token must be 200 characters or fewer")
+        set_setting(PREVIEW_FEED_TOKEN_SETTING, token)
+        # The token value itself stays out of the audit log.
+        audit("hcl_settings", "preview_feed_token %s" % ("set" if token else "cleared"))
+        out["preview_feed_token"] = token
     db.session.commit()
-    return jsonify({"blocked_vendors": cleaned})
+    return jsonify(out)
 
 
 # ── snapshot import (no-network seeding) ──────────────────────────────────────

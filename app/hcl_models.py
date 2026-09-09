@@ -25,6 +25,15 @@ from auth_models import JSON_TYPE, _iso, _utcnow
 STATUS_ACTIVE = "active"
 STATUS_DELISTED = "delisted"
 
+# Where a component (or platform link) came from. "scrape" is the normal
+# case: the entity was seen on hcl.scalecomputing.com. "preview" marks a part
+# the HCL team has verified but not yet published, accepted by a super admin
+# from a BOM check (bom/preview.py); its absence from the site is expected,
+# so the scrape diff never queues its delist, and the first complete scrape
+# that DOES list it silently flips it to "scrape".
+ORIGIN_SCRAPE = "scrape"
+ORIGIN_PREVIEW = "preview"
+
 COMPONENT_KINDS = ("cpu", "nic", "hba", "hdd", "ssd", "gpu")
 
 RUN_QUEUED = "queued"
@@ -120,7 +129,8 @@ class HclPlatform(db.Model):
         }
         if with_components:
             d["components"] = [
-                dict(l.component.to_dict(), tce=l.tce, link_status=l.status)
+                dict(l.component.to_dict(), tce=l.tce, link_status=l.status,
+                     link_origin=l.origin)
                 for l in sorted(self.links, key=lambda l: (l.component.kind, l.component.part_number))
             ]
         return d
@@ -141,6 +151,9 @@ class HclComponent(db.Model):
     description = db.Column(db.String(300), nullable=False)
     attrs = db.Column(JSON_TYPE)          # hcl_scrape.component_attrs() output
     tce = db.Column(db.Boolean, nullable=False, default=False)   # TCE on any platform
+    # Deliberately NOT in TRACKED: origin is provenance, not page content —
+    # the scrape diff must never produce an "origin changed" queue row.
+    origin = db.Column(db.String(10), nullable=False, default=ORIGIN_SCRAPE)
     status = db.Column(db.String(12), nullable=False, default=STATUS_ACTIVE, index=True)
     first_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
@@ -164,6 +177,7 @@ class HclComponent(db.Model):
             "description": self.description,
             "attrs": self.attrs or {},
             "tce": self.tce,
+            "origin": self.origin,
             "status": self.status,
             "first_seen": _iso(self.first_seen),
             "last_seen": _iso(self.last_seen),
@@ -173,7 +187,7 @@ class HclComponent(db.Model):
             d["platforms"] = [
                 {"key": l.platform.key, "brand": l.platform.brand,
                  "sc_model": l.platform.sc_model, "tce": l.tce,
-                 "link_status": l.status}
+                 "link_status": l.status, "link_origin": l.origin}
                 for l in sorted(self.links, key=lambda l: (l.platform.brand, l.platform.sc_model))
             ]
         return d
@@ -193,6 +207,9 @@ class HclPlatformComponent(db.Model):
     component_id = db.Column(db.Integer, db.ForeignKey("hcl_components.id"),
                              nullable=False, index=True)
     tce = db.Column(db.Boolean, nullable=False, default=False)
+    # See HclComponent.origin: a "preview" link was accepted ahead of
+    # publication, so the scrape's whole-list sync must not delist it.
+    origin = db.Column(db.String(10), nullable=False, default=ORIGIN_SCRAPE)
     status = db.Column(db.String(12), nullable=False, default=STATUS_ACTIVE)
     first_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)

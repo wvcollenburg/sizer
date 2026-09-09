@@ -380,6 +380,15 @@ def find_nic_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclNic]:
             desc = _first(hcl.nics, lambda n: all(k in n.description.lower() for k in keywords))
             if desc:
                 return desc
+    # Exact description match, mirroring the upstream HBA fallback: parts
+    # accepted from description-only quotes (pre-publication, Lenovo DCSC
+    # without part numbers) carry a synthetic part key, so the verbatim
+    # description is their only stable identity.
+    if c.description:
+        desc_lower = c.description.lower()
+        by_desc = _first(hcl.nics, lambda n: n.description.lower() == desc_lower)
+        if by_desc:
+            return by_desc
     return None
 
 
@@ -409,6 +418,12 @@ def find_gpu_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclGpu]:
                 g.model.lower() == k or k in g.description.lower() for k in keywords))
             if kw:
                 return kw
+    # Exact description fallback — see find_nic_in_hcl.
+    if c.description:
+        desc_lower = c.description.lower()
+        by_desc = _first(hcl.gpus, lambda g: g.description.lower() == desc_lower)
+        if by_desc:
+            return by_desc
     return None
 
 
@@ -471,7 +486,15 @@ _XEON_PREFIX_RE = _js_re(r'^Xeon\s+', ignore_case=True)
 def find_cpu_in_hcl(c: BOMComponent, hcl: HclData) -> bool:
     search_text = ('%s %s' % (c.part_number or '', c.description)).lower()
     # An empty model key matches everything, exactly as `includes('')` does.
-    return any(_XEON_PREFIX_RE.sub('', cpu.model).lower() in search_text for cpu in hcl.cpus)
+    if any(_XEON_PREFIX_RE.sub('', cpu.model).lower() in search_text for cpu in hcl.cpus):
+        return True
+    # Exact description fallback — see find_nic_in_hcl. A pre-publication CPU
+    # accepted from a description-only quote is stored with the BOM line
+    # verbatim, so the next identical line matches even when no model token
+    # can be parsed out of it (e.g. Core Ultra parts).
+    desc_lower = c.description.lower()
+    return bool(desc_lower) and any(
+        cpu.description and cpu.description.lower() == desc_lower for cpu in hcl.cpus)
 
 
 # ─── per-config validation ────────────────────────────────────────────────────

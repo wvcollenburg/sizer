@@ -167,6 +167,14 @@ def _migrate_schema():
         # opened+saved by a person (feature/per-cluster-sizing).
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
         "untouched BOOLEAN NOT NULL DEFAULT false",
+        # HCL preview accepts (feature/bomchecker): origin marks components/
+        # links accepted ahead of HCL publication. The hcl_* tables ship on
+        # this same unmerged branch, but it was already deployed to testenv
+        # mid-development, so the ALTERs are needed there anyway.
+        "ALTER TABLE hcl_components ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
+        "ALTER TABLE hcl_platform_components ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

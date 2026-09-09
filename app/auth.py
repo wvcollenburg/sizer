@@ -386,6 +386,12 @@ def require_login():
         return None
     if request.path in ("/", "/privacy"):
         return None
+    if request.path == "/api/hcl/preview-feed":
+        # Machine-to-machine pull of the pre-publication accepted HCL parts
+        # by the HCL team, who have no user accounts here. The route carries
+        # its own bearer-token gate (and answers 404 while unconfigured), so
+        # the login wall steps aside for exactly this one path.
+        return None
     if current_user() is not None:
         return None
     if "/api/" in request.path:

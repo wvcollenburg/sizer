@@ -503,6 +503,14 @@
                                 <option value="gpu" data-i18n="admin.hcl.ckind_gpu">GPU</option>
                             </select>
                         </label>
+                        <label class="hcl-filter" id="hcl-origin-wrap" hidden>
+                            <span data-i18n="admin.bomprev.origin_label">Origin</span>
+                            <select id="hcl-origin-filter" data-change='["loadHclCatalog"]'>
+                                <option value="" data-i18n="admin.bomprev.origin_all">All</option>
+                                <option value="scrape" data-i18n="admin.bomprev.origin_scrape">Scraped</option>
+                                <option value="preview" data-i18n="admin.bomprev.origin_preview">Pre-publication</option>
+                            </select>
+                        </label>
                         <label class="hcl-filter" id="hcl-search-wrap" hidden>
                             <span data-i18n="common.search">Search</span>
                             <input type="search" id="hcl-catalog-search" placeholder="Part number or description"
@@ -530,12 +538,23 @@
                         <input type="text" id="hcl-blocked-vendors" placeholder="e.g. acme, contoso"
                                data-i18n-ph="admin.hcl.blocked_ph" autocomplete="off">
                     </div>
+                    <div class="form-group hcl-grow">
+                        <label for="hcl-feed-token" data-i18n="admin.hcl.feed_label">HCL team feed token</label>
+                        <input type="text" id="hcl-feed-token" placeholder="min. 16 characters"
+                               data-i18n-ph="admin.hcl.feed_ph" autocomplete="off">
+                    </div>
                     <button class="btn btn-primary" id="hcl-settings-save" data-click='["hclSaveSettings"]' data-i18n="common.save">Save</button>
                 </div>
                 <p class="muted hcl-card-desc" data-i18n="admin.hcl.blocked_hint">
                     Comma-separated vendor names. Every BOM from a blocked vendor fails its technical
                     check outright, whatever parts it carries. Leave empty to block nobody.
                 </p>
+                <p class="muted hcl-card-desc">
+                    <span data-i18n="admin.hcl.feed_hint">The HCL team pulls accepted pre-publication parts from</span>
+                    <code>/api/hcl/preview-feed</code> · <code>Authorization: Bearer &lt;token&gt;</code>.
+                    <span data-i18n="admin.hcl.feed_hint2">A token must be at least 16 characters; save the field empty to disable the feed.</span>
+                </p>
+                <p class="muted hcl-card-desc" id="hcl-preview-count" aria-live="polite"></p>
             </div>
         </div>
 
@@ -845,6 +864,7 @@
                 </div>
                 <div class="modal-body" id="bom-review-modal-body">
                     <div id="bom-review-summary" class="bom-review-summary"></div>
+                    <div id="bom-prev-accept" class="bom-prev-accept"></div>
                     <div class="form-group">
                         <label for="bom-review-note" data-i18n="admin.bom.note_label">Reviewer note (shown to the user)</label>
                         <textarea id="bom-review-note" rows="4" maxlength="4000"></textarea>

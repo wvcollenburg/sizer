@@ -1730,6 +1730,7 @@ let hclSearchTimer = null;        // debounce for the component search box
 let hclExpandedPlatform = null;   // platform id whose detail row is open
 let bomReviewRows = [];           // last list from /admin/api/bom-reviews
 let bomReviewCurrent = null;      // row open in the modal
+let bomPrevData = null;           // /acceptable payload for the open review modal
 
 const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active' };
 const HCL_VERDICT_BADGE = { PASS: 'badge-active', FAIL: 'badge-eos', INCONCLUSIVE: 'badge-eol' };
@@ -1813,6 +1814,13 @@ function hclStatusBadge(status) {
     return `<span class="badge ${active ? 'badge-active' : 'badge-eos'}">${adminEsc(label)}</span>`;
 }
 
+// Parts accepted from a BOM review that the HCL team has confirmed but not
+// yet published on the HCL carry origin "preview" until a scrape sees them.
+function hclPreviewBadge(origin) {
+    if (origin !== 'preview') return '';
+    return ` <span class="badge badge-validated hcl-badge-tight" title="${adminEsc(t('admin.bomprev.badge_title'))}">${adminEsc(t('admin.bomprev.badge'))}</span>`;
+}
+
 function hclComponentKindLabel(kind) {
     return hclTextOr('admin.hcl.ckind_' + kind, String(kind || '').toUpperCase());
 }
@@ -1835,7 +1843,29 @@ async function loadHcl() {
     }
     hclCatalogKindChanged(true);      // sync filter visibility without reloading twice
     await hclLoadStats();             // first: it supplies hclLastRunId for the queue filter
-    await Promise.all([hclLoadScrapeStatus(), loadHclPending(), loadHclCatalog()]);
+    await Promise.all([hclLoadScrapeStatus(), loadHclPending(), loadHclCatalog(),
+                       hclLoadSettings(), hclLoadPreviewCount()]);
+}
+
+// Fills the feed-token field from the settings route. Errors are silent: the
+// stats loader already reports an unreachable backend on this tab.
+async function hclLoadSettings() {
+    const { ok, data } = await adminApi('/admin/api/hcl/settings');
+    if (!ok || !data) return;
+    const input = document.getElementById('hcl-feed-token');
+    if (input && typeof data.preview_feed_token === 'string' && document.activeElement !== input) {
+        input.value = data.preview_feed_token;
+    }
+}
+
+// Small "N pre-publication parts" line in the settings card, from the same
+// data the HCL team's pull feed serves.
+async function hclLoadPreviewCount() {
+    const el = document.getElementById('hcl-preview-count');
+    if (!el) return;
+    const { ok, data } = await adminApi('/admin/api/hcl/preview');
+    if (!ok || !Array.isArray(data)) { el.textContent = ''; return; }
+    el.textContent = t('admin.bomprev.count', { n: data.length });
 }
 
 async function hclLoadStats() {
@@ -2094,6 +2124,7 @@ function hclCatalogKindChanged(skipLoad) {
     const kind = document.getElementById('hcl-catalog-kind').value;
     const isComponents = kind === 'components';
     document.getElementById('hcl-component-kind-wrap').hidden = !isComponents;
+    document.getElementById('hcl-origin-wrap').hidden = !isComponents;
     document.getElementById('hcl-search-wrap').hidden = !isComponents;
     hclExpandedPlatform = null;
     if (skipLoad !== true) loadHclCatalog();
@@ -2136,14 +2167,18 @@ async function loadHclCatalog() {
     } else if (kind === 'components') {
         thead.innerHTML = th(['admin.hcl.col_kind', 'admin.hcl.col_part_number', 'admin.hcl.col_description', 'admin.hcl.col_tce',
             'common.status', 'admin.hcl.col_last_seen', 'admin.hcl.col_platform_count']);
-        body.innerHTML = data.map(c => {
+        // Origin is not a server-side filter; the rows carry it, so filter here.
+        const originWanted = document.getElementById('hcl-origin-filter').value;
+        const rows = originWanted ? data.filter(c => (c.origin || 'scrape') === originWanted) : data;
+        count.textContent = t('admin.hcl.catalog_count', { n: rows.length });
+        body.innerHTML = rows.map(c => {
             const platforms = Array.isArray(c.platforms) ? c.platforms : null;
             const pc = c.platform_count != null ? c.platform_count : (platforms ? platforms.length : null);
             const title = platforms ? platforms.map(p => p.key || `${p.brand}/${p.sc_model}`).join('\n') : '';
             return `
         <tr class="${c.status === 'active' ? '' : 'row-disabled'}">
             <td>${adminEsc(hclComponentKindLabel(c.kind))}</td>
-            <td><code>${adminEsc(c.part_number)}</code></td>
+            <td><code>${adminEsc(c.part_number)}</code>${hclPreviewBadge(c.origin)}</td>
             <td>${adminEsc(c.description || '')}</td>
             <td>${c.tce ? `<span class="badge badge-validated hcl-badge-tight">TCE</span>` : '<span class="muted">—</span>'}</td>
             <td>${hclStatusBadge(c.status)}</td>
@@ -2273,13 +2308,22 @@ async function hclSaveSettings() {
     const input = document.getElementById('hcl-blocked-vendors');
     const vendors = input.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     const unique = vendors.filter((v, i) => vendors.indexOf(v) === i);
+    const tokenInput = document.getElementById('hcl-feed-token');
+    const token = tokenInput.value.trim();
+    if (token && token.length < 16) {
+        setStatus('hcl-status', t('admin.hcl.feed_too_short'), true);
+        return;
+    }
     const btn = document.getElementById('hcl-settings-save');
     btn.disabled = true;
-    const { ok, data } = await hclJson('/admin/api/hcl/settings', 'PUT', { blocked_vendors: unique });
+    const { ok, data } = await hclJson('/admin/api/hcl/settings', 'PUT',
+        { blocked_vendors: unique, preview_feed_token: token });
     btn.disabled = false;
     if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
     if (data && Array.isArray(data.blocked_vendors)) input.value = data.blocked_vendors.join(', ');
     else input.value = unique.join(', ');
+    if (data && typeof data.preview_feed_token === 'string') tokenInput.value = data.preview_feed_token;
+    else tokenInput.value = token;
     toast(t('admin.msg.saved'), 'success');
 }
 
@@ -2346,10 +2390,15 @@ async function bomReviewOpen(id) {
     const row = bomReviewRows.find(r => r.id === id);
     if (!row) return;
     bomReviewCurrent = row;
+    bomPrevData = null;
+    document.getElementById('bom-prev-accept').innerHTML = '';
     const summary = document.getElementById('bom-review-summary');
     summary.innerHTML = bomReviewHeaderHtml(row) + `<p class="muted">${adminEsc(t('common.loading'))}</p>`;
     document.getElementById('bom-review-note').value = row.review_note || '';
     document.getElementById('bom-review-modal').style.display = 'flex';
+    // Flagged checks may carry parts the HCL team has verified but not yet
+    // published; offer to accept those into the catalog as pre-publication.
+    if (Array.isArray(row.flag_reasons) && row.flag_reasons.length) bomPrevLoad(id, row);
     // The full result (per-config findings) lives on the user-side check route;
     // if it is not reachable the row summary alone is still enough to decide.
     let full = null;
@@ -2437,7 +2486,84 @@ function bomReviewResultHtml(result, row) {
 
 function bomReviewClose() {
     document.getElementById('bom-review-modal').style.display = 'none';
+    document.getElementById('bom-prev-accept').innerHTML = '';
     bomReviewCurrent = null;
+    bomPrevData = null;
+}
+
+// ── accept pre-publication parts out of a flagged check ───────────────────
+// The HCL team sometimes confirms a part as validated before it appears on
+// hcl.scalecomputing.com. These flow: accept here -> catalog rows with
+// origin "preview" -> the team pulls them from /api/hcl/preview-feed.
+
+async function bomPrevLoad(id, row) {
+    const box = document.getElementById('bom-prev-accept');
+    const { ok, data } = await adminApi(`/admin/api/bom-reviews/${id}/acceptable`);
+    if (bomReviewCurrent !== row) return;      // modal moved on meanwhile
+    if (!ok || !data || !Array.isArray(data.candidates)) {
+        box.innerHTML = `<p class="muted">${adminEsc(t('admin.bomprev.load_error'))}</p>`;
+        return;
+    }
+    bomPrevData = data;
+    box.innerHTML = data.candidates.length ? bomPrevSectionHtml(data) : '';
+}
+
+function bomPrevSectionHtml(data) {
+    const platforms = Array.isArray(data.platforms) ? data.platforms : [];
+    let html = `<h4 class="bom-review-h">${adminEsc(t('admin.bomprev.title'))}</h4>`
+        + `<p class="muted bom-prev-explain">${adminEsc(t('admin.bomprev.explain'))}</p>`
+        + '<div class="bom-prev-list">';
+    html += data.candidates.map((c, i) => {
+        const inCat = !!c.already_in_catalog;
+        const noPart = !c.part_number || String(c.part_number).indexOf('no-part:') === 0;
+        const part = noPart
+            ? `<span class="muted">${adminEsc(t('admin.bomprev.no_part'))}</span>`
+            : `<code>${adminEsc(c.part_number)}</code>`;
+        const origin = t('admin.bomprev.found_in', { code: c.from_code || '', config: c.config_name || '' });
+        return `<label class="bom-prev-item${inCat ? ' bom-prev-item-dim' : ''}">
+            <input type="checkbox" class="bom-prev-check" data-idx="${i}"${inCat ? ' disabled' : ' checked'}>
+            <span class="badge hcl-badge-plain">${adminEsc(hclComponentKindLabel(c.kind))}</span>
+            <span class="bom-prev-part">${part}</span>
+            <span class="bom-prev-desc">${adminEsc(c.description || '')}
+                <span class="muted bom-prev-origin">${adminEsc(origin)}</span></span>
+            ${inCat ? `<span class="muted bom-prev-incat">${adminEsc(t('admin.bomprev.already'))}</span>` : ''}
+        </label>`;
+    }).join('');
+    html += '</div>';
+    if (platforms.length) {
+        const names = platforms.map(p => [p.brand, p.sc_model, p.server].filter(Boolean).join(' '));
+        html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.link_to', { platforms: names.join(', ') }))}</p>`;
+    } else {
+        html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.no_platform'))}</p>`;
+    }
+    html += `<div class="bom-prev-actions"><button class="btn btn-primary btn-sm" id="bom-prev-accept-btn"
+        data-click='["bomPrevAcceptSelected"]'>${adminEsc(t('admin.bomprev.accept_btn'))}</button></div>`;
+    return html;
+}
+
+async function bomPrevAcceptSelected() {
+    if (!bomReviewCurrent || !bomPrevData) return;
+    const row = bomReviewCurrent;
+    const checked = document.querySelectorAll('#bom-prev-accept .bom-prev-check:checked:not(:disabled)');
+    const keys = Array.from(checked).map(cb => {
+        const c = bomPrevData.candidates[parseInt(cb.getAttribute('data-idx'), 10)];
+        return c ? c.key : null;
+    }).filter(Boolean);
+    if (!keys.length) { toastError(t('admin.bomprev.none_selected')); return; }
+    const btn = document.getElementById('bom-prev-accept-btn');
+    if (btn) btn.disabled = true;
+    const { ok, data } = await hclJson(`/admin/api/bom-reviews/${row.id}/accept-parts`, 'POST', { keys: keys });
+    if (btn) btn.disabled = false;
+    if (!ok) { toastError(hclErrorText(data)); return; }
+    const n = x => Array.isArray(x) ? x.length : 0;
+    toast(t('admin.bomprev.accept_done', { created: n(data.created), linked: n(data.linked), skipped: n(data.skipped) }), 'success');
+    toast(t('admin.bomprev.recheck_hint'), 'info', 8000);
+    // The catalog, its stats and the feed count all just moved.
+    loadBomReviews();
+    hclLoadStats();
+    loadHclCatalog();
+    hclLoadPreviewCount();
+    if (bomReviewCurrent === row) bomPrevLoad(row.id, row);   // re-render as "already in catalog"
 }
 
 async function bomReviewSave(status) {

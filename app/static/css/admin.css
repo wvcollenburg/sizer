@@ -865,3 +865,20 @@ body { padding-bottom: 64px; }
 #bom-review-modal .bom-review-findings td { padding: 0.4rem 0.6rem; }
 #bom-review-modal textarea { width: 100%; resize: vertical; }
 #bom-review-modal .modal-footer { flex-wrap: wrap; }
+
+/* ── BOM review: accept pre-publication parts ───────────────────────────── */
+#bom-review-modal .bom-prev-explain { margin: 0 0 0.6rem; font-size: 0.83rem; line-height: 1.45; max-width: 62ch; }
+#bom-review-modal .bom-prev-list { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 0.6rem; }
+#bom-review-modal .bom-prev-item {
+    display: flex; align-items: baseline; gap: 0.5rem;
+    padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border);
+    font-size: 0.83rem; cursor: pointer;
+}
+#bom-review-modal .bom-prev-item:last-child { border-bottom: 0; }
+#bom-review-modal .bom-prev-item-dim { opacity: 0.6; cursor: default; }
+#bom-review-modal .bom-prev-part { white-space: nowrap; }
+#bom-review-modal .bom-prev-desc { flex: 1; min-width: 0; }
+#bom-review-modal .bom-prev-origin { display: block; font-size: 0.75rem; }
+#bom-review-modal .bom-prev-incat { white-space: nowrap; font-size: 0.75rem; }
+#bom-review-modal .bom-prev-platform { margin: 0 0 0.6rem; font-size: 0.8rem; }
+#bom-review-modal .bom-prev-actions { margin-bottom: 1rem; }
