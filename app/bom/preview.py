@@ -18,6 +18,7 @@ Ground rules, all enforced here or in hcl_sync:
   ``origin='scrape'`` entries (hcl_sync.touch_seen).
 * Idempotent: accepting the same key twice skips instead of duplicating.
 """
+import difflib
 import re
 from typing import Dict, List, Optional
 
@@ -29,7 +30,7 @@ from bom.normalize import NormalizedBOM
 from hcl_models import (
     CHANGE_ADD, CHANGE_RELIST, CHANGE_UPDATE, HclComponent, HclPendingChange,
     HclPlatform, HclScrapeRun, ORIGIN_PREVIEW, PENDING, RUN_SUCCEEDED,
-    STATUS_ACTIVE, STATUS_DELISTED,
+    STATUS_ACTIVE, STATUS_DELISTED, server_key,
 )
 
 # AppSetting key holding the bearer token for the machine-to-machine pull
@@ -179,6 +180,74 @@ def _model_name_from_server(server: Optional[str]) -> Optional[str]:
 # accept
 # ---------------------------------------------------------------------------
 
+# Two admins accepting the same box days apart will not spell it identically
+# ("ThinkEdge SE160 Gen 1" / "SE160 Gen1"), and the name is deliberately free
+# text — these are validated, software-only builds named after the
+# manufacturer's model, so we cannot constrain it to a code list. Instead the
+# form warns while the name is typed. server_key() already folds away vendor
+# words, spaces and punctuation, so the two spellings above normalise to the
+# same string; anything short of that is scored with difflib.
+_NEAR_MATCH_RATIO = 0.84
+
+
+def _norm_name(text: Optional[str]) -> str:
+    return server_key(text or "")
+
+
+def _similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    # One name contained in the other ("SE160" typed for an existing "SE160
+    # Gen 1") scores below the plain ratio because of the length difference,
+    # yet it is the likeliest duplicate of all. Five characters minimum so a
+    # bare family token ("M70q") cannot sweep in half the catalog.
+    short, long = sorted((a, b), key=len)
+    if len(short) >= 5 and short in long:
+        return max(0.9, difflib.SequenceMatcher(None, a, b).ratio())
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def near_matches(brand: Optional[str], name: Optional[str],
+                 server: Optional[str] = None, limit: int = 5) -> List[Dict]:
+    """Existing platforms that look like the one about to be created.
+
+    Both the typed name and the BOM's server line are compared against every
+    active platform's model name AND its server line, because the duplicate
+    can hide on either side ("SE160 Gen1" as a name, "Lenovo ThinkEdge SE160
+    Gen 1" as a server). Same-brand hits sort first, but other brands are
+    still reported: the same manufacturer box under the wrong brand is
+    exactly the mistake worth catching.
+    """
+    needles = [n for n in {_norm_name(name), _norm_name(server)} if n]
+    if not needles:
+        return []
+    brand = (brand or "").strip().lower() or None
+    out = []
+    for p in HclPlatform.query.filter_by(status=STATUS_ACTIVE).all():
+        hay = [(h, field) for h, field in
+               ((_norm_name(p.sc_model), "name"), (_norm_name(p.server), "server")) if h]
+        best, best_field = 0.0, None
+        for needle in needles:
+            for h, field in hay:
+                score = _similarity(needle, h)
+                if score > best:
+                    best, best_field = score, field
+        if best < _NEAR_MATCH_RATIO:
+            continue
+        out.append({
+            "id": p.id, "key": p.key, "brand": p.brand, "sc_model": p.sc_model,
+            "server": p.server, "origin": p.origin, "form_factor": p.form_factor,
+            "similarity": round(best, 3),
+            "matched_on": best_field,
+            "same_brand": (brand is None or p.brand == brand),
+            "identical": best >= 1.0,
+        })
+    out.sort(key=lambda m: (not m["same_brand"], -m["similarity"], m["key"]))
+    return out[:limit]
+
+
 _SERVER_LIMIT = hcl_sync._PLATFORM_LIMITS["server"]
 # HclPlatform.sc_model is String(40); the form must not let a longer
 # manufacturer model be typed only to be refused on submit.
@@ -193,6 +262,18 @@ def _validated_platform_spec(spec) -> Dict:
     entity key everywhere. Raises ValueError (route answers 400)."""
     if not isinstance(spec, dict):
         raise ValueError("platform must be an object with brand and sc_model")
+    # The near-match warning offers "link to this one instead": the admin
+    # picked an existing platform, so nothing is created and the parts simply
+    # link to it. Identified by id, not by name, so the choice is unambiguous.
+    if spec.get("existing_id") is not None:
+        try:
+            existing_id = int(spec["existing_id"])
+        except (TypeError, ValueError):
+            raise ValueError("platform existing_id must be a platform id")
+        platform = db.session.get(HclPlatform, existing_id)
+        if platform is None or platform.status != STATUS_ACTIVE:
+            raise ValueError("platform not found")
+        return {"existing_id": platform.id}
     brand = (spec.get("brand") or "").strip().lower()
     if not brand or len(brand) > 20 or "/" in brand or any(ch.isspace() for ch in brand):
         raise ValueError("platform brand must be a single token of at most 20 characters")
@@ -242,6 +323,7 @@ def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
         if info["platforms"]:
             raise ValueError("a platform was identified; acceptance links to it")
         spec = _validated_platform_spec(platform_spec)
+    if spec is not None and not spec.get("existing_id"):
         existing = HclPlatform.query.filter_by(
             brand=spec["brand"], sc_model=spec["sc_model"]).first()
         if existing is not None and existing.status == STATUS_ACTIVE \
@@ -265,7 +347,13 @@ def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
             platforms.append(p)
 
     platform_created = None
-    if spec is not None:
+    platform_linked = None
+    platform_warnings = []
+    if spec is not None and spec.get("existing_id"):
+        platform = db.session.get(HclPlatform, spec["existing_id"])
+        platforms.append(platform)
+        platform_linked = platform.key
+    elif spec is not None:
         # Create (or reuse) the pre-publication platform the admin described,
         # through the same audited path as everything else: an approved
         # platform 'add' row (payload origin preview, no components list — a
@@ -288,6 +376,12 @@ def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
                 brand=spec["brand"], sc_model=spec["sc_model"]).first()
         platforms.append(platform)
         platform_created = platform.key
+        # Recorded on the result (and in the approve note) even though the
+        # creation went ahead: free-text naming is deliberate, so a near miss
+        # is information for the admin and the HCL team, never a veto.
+        platform_warnings = [m for m in near_matches(
+            spec["brand"], spec["sc_model"], spec["server"])
+            if m["id"] != platform.id]
 
     created, linked, relisted, skipped = [], [], [], []
     for cand in wanted:
@@ -329,7 +423,9 @@ def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
 
     result = {"run_id": run.id, "created": created, "linked": linked,
               "relisted": relisted, "skipped": skipped,
-              "platform_created": platform_created}
+              "platform_created": platform_created,
+              "platform_linked": platform_linked,
+              "platform_warnings": platform_warnings}
     if not platforms:
         # No identified platform on the check: the parts still enter the
         # catalog (load_hcl_data reads components regardless of links) but

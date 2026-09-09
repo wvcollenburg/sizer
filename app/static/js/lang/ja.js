@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "サーバーモデル",
   "admin.bomprev.plat_hint": "これらはソフトウェアのみ（validated）の構成です。プラットフォームにはメーカーのモデル名を付けてください。リンクすると部品はそのプラットフォームに限定され、リンクなしの部品はプラットフォーム未特定のBOMにのみ一致します。",
   "admin.bomprev.plat_sc_required": "プラットフォームを作成するには名前を入力するか、チェックを外して部品をリンクなしで登録してください。",
-  "admin.bomprev.plat_created": "プラットフォームを作成しました: {name}。"
+  "admin.bomprev.plat_created": "プラットフォームを作成しました: {name}。",
+  "admin.bomprev.near_title": "カタログに類似のプラットフォームがあります:",
+  "admin.bomprev.near_use": "代わりにこれにリンク",
+  "admin.bomprev.near_linking": "部品を {name} にリンクします。新しいプラットフォームは作成されません。",
+  "admin.bomprev.near_undo": "やはり新しいプラットフォームを作成",
+  "admin.bomprev.near_after": "注意: この名前は {names} に似ています。同じ機種であればどちらを残すかHCLチームに確認してください。",
+  "admin.bomprev.plat_linked": "部品を {name} にリンクしました。"
 };

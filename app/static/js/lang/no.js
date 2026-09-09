@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Servermodell",
   "admin.bomprev.plat_hint": "Dette er rene programvarekonfigurasjoner (validated) – gi plattformen navn etter produsentens modell. Kobling begrenser delene til den; ukoblede deler matcher bare BOM-er uten identifisert plattform.",
   "admin.bomprev.plat_sc_required": "Skriv inn plattformens navn for å opprette den, eller fjern haken for å ta inn delene uten kobling.",
-  "admin.bomprev.plat_created": "Plattform opprettet: {name}."
+  "admin.bomprev.plat_created": "Plattform opprettet: {name}.",
+  "admin.bomprev.near_title": "Lignende plattformer finnes allerede i katalogen:",
+  "admin.bomprev.near_use": "Koble til denne i stedet",
+  "admin.bomprev.near_linking": "Delene kobles til {name} – ingen ny plattform opprettes.",
+  "admin.bomprev.near_undo": "Opprett en ny plattform likevel",
+  "admin.bomprev.near_after": "Merk: navnet ligner {names}. Spør HCL-teamet hvilken som skal beholdes hvis det er samme maskin.",
+  "admin.bomprev.plat_linked": "Deler koblet til {name}."
 };

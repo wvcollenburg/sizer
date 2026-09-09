@@ -2564,13 +2564,89 @@ function bomPrevPlatFormHtml(sug) {
             <label for="bom-prev-plat-sc">${adminEsc(t('admin.bomprev.plat_sc_model'))}</label>
             <input type="text" id="bom-prev-plat-sc" maxlength="40"
                 value="${adminEsc(sug.sc_model || '')}"
-                placeholder="${adminEsc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatError",""]'>
+                placeholder="${adminEsc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatNameTyped"]'>
             <label for="bom-prev-plat-server">${adminEsc(t('admin.bomprev.plat_server'))}</label>
             <input type="text" id="bom-prev-plat-server" maxlength="120" value="${adminEsc(sug.server || '')}">
         </div>
         <p class="muted bom-prev-plat-hint">${adminEsc(t('admin.bomprev.plat_hint'))}</p>
+        <div class="bom-prev-plat-near" id="bom-prev-plat-near" hidden></div>
         <p class="admin-status status-err bom-prev-plat-err" id="bom-prev-plat-err" style="display:none"></p>
     </div>`;
+}
+
+// ── near-match warning ───────────────────────────────────────────────────────
+// The platform name is free text on purpose (validated builds are named after
+// the manufacturer's model), so two admins can spell the same box differently
+// days apart. While the name is typed we look for platforms that already look
+// like it and offer to link to one instead of creating a twin. A warning, never
+// a block: only the admin knows whether it really is the same box.
+let bomPrevNearTimer = null;
+let bomPrevNearMatches = [];
+let bomPrevLinkExisting = null;      // {id, key} once "link to this" is chosen
+
+function bomPrevPlatNameTyped() {
+    bomPrevPlatError('');
+    if (bomPrevLinkExisting) return;          // already linking; nothing to warn about
+    clearTimeout(bomPrevNearTimer);
+    bomPrevNearTimer = setTimeout(bomPrevPlatLookup, 350);
+}
+
+async function bomPrevPlatLookup() {
+    const nameEl = document.getElementById('bom-prev-plat-sc');
+    const serverEl = document.getElementById('bom-prev-plat-server');
+    const brandEl = document.getElementById('bom-prev-plat-brand');
+    if (!nameEl) return;
+    const name = (nameEl.value || '').trim();
+    if (name.length < 3) { bomPrevRenderNear([]); return; }
+    const q = new URLSearchParams({ brand: brandEl ? brandEl.value : '', name: name });
+    if (serverEl && serverEl.value.trim()) q.set('server', serverEl.value.trim());
+    const { ok, data } = await adminApi('/admin/api/hcl/platform-matches?' + q.toString());
+    if (!ok || !data) return;
+    bomPrevRenderNear(data.matches || []);
+}
+
+function bomPrevRenderNear(matches) {
+    bomPrevNearMatches = matches || [];
+    const host = document.getElementById('bom-prev-plat-near');
+    if (!host) return;
+    if (!bomPrevNearMatches.length) { host.hidden = true; host.innerHTML = ''; return; }
+    const rows = bomPrevNearMatches.map((m, i) => {
+        const what = [m.brand, m.sc_model].filter(Boolean).join(' ');
+        const server = m.server ? ` <span class="muted">(${adminEsc(m.server)})</span>` : '';
+        const flag = m.origin === 'preview'
+            ? ` <span class="badge badge-validated hcl-badge-tight">${adminEsc(t('admin.bomprev.badge'))}</span>` : '';
+        return `<li><strong>${adminEsc(what)}</strong>${server}${flag}
+            <button class="btn btn-sm btn-secondary" data-click='["bomPrevLinkInstead",${i}]'
+                >${adminEsc(t('admin.bomprev.near_use'))}</button></li>`;
+    }).join('');
+    host.innerHTML = `<p class="bom-prev-near-title">${adminEsc(t('admin.bomprev.near_title'))}</p>
+        <ul class="bom-prev-near-list">${rows}</ul>`;
+    host.hidden = false;
+}
+
+// Chose an existing platform: collapse the create form and link to it instead.
+function bomPrevLinkInstead(idx) {
+    const m = bomPrevNearMatches[idx];
+    if (!m) return;
+    bomPrevLinkExisting = { id: m.id, key: m.key };
+    const grid = document.getElementById('bom-prev-plat-grid');
+    if (grid) grid.hidden = true;
+    const host = document.getElementById('bom-prev-plat-near');
+    if (host) {
+        host.innerHTML = `<p class="bom-prev-near-title">${adminEsc(t('admin.bomprev.near_linking', { name: m.key }))}
+            <button class="btn btn-sm btn-secondary" data-click='["bomPrevLinkUndo"]'
+                >${adminEsc(t('admin.bomprev.near_undo'))}</button></p>`;
+        host.hidden = false;
+    }
+    bomPrevPlatError('');
+}
+
+function bomPrevLinkUndo() {
+    bomPrevLinkExisting = null;
+    const grid = document.getElementById('bom-prev-plat-grid');
+    if (grid) grid.hidden = false;
+    bomPrevRenderNear([]);
+    bomPrevPlatLookup();
 }
 
 function bomPrevPlatToggle(enabled) {
@@ -2594,6 +2670,7 @@ function bomPrevPlatError(msg) {
 function bomPrevPlatPayload() {
     const enable = document.getElementById('bom-prev-plat-enable');
     if (!enable || !enable.checked) return undefined;
+    if (bomPrevLinkExisting) return { existing_id: bomPrevLinkExisting.id };
     const sc = (document.getElementById('bom-prev-plat-sc').value || '').trim();
     if (!sc) { bomPrevPlatError(t('admin.bomprev.plat_sc_required')); return null; }
     bomPrevPlatError('');
@@ -2625,6 +2702,11 @@ async function bomPrevAcceptSelected() {
     const n = x => Array.isArray(x) ? x.length : 0;
     let done = t('admin.bomprev.accept_done', { created: n(data.created), linked: n(data.linked), skipped: n(data.skipped) });
     if (data.platform_created) done += ' ' + t('admin.bomprev.plat_created', { name: data.platform_created });
+    if (data.platform_linked) done += ' ' + t('admin.bomprev.plat_linked', { name: data.platform_linked });
+    if ((data.platform_warnings || []).length) {
+        toast(t('admin.bomprev.near_after', {
+            names: data.platform_warnings.map(m => m.key).join(', ') }), 'warn', 10000);
+    }
     toast(done, 'success');
     toast(t('admin.bomprev.recheck_hint'), 'info', 8000);
     // The catalog, its stats and the feed count all just moved.

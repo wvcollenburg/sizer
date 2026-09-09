@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Servermodell",
   "admin.bomprev.plat_hint": "Detta är rena mjukvarukonfigurationer (validated) – namnge plattformen efter tillverkarens modell. Kopplingen begränsar delarna till den; okopplade delar matchar bara BOM:ar utan identifierad plattform.",
   "admin.bomprev.plat_sc_required": "Ange plattformens namn för att skapa den, eller avmarkera för att ta in delarna okopplade.",
-  "admin.bomprev.plat_created": "Plattform skapad: {name}."
+  "admin.bomprev.plat_created": "Plattform skapad: {name}.",
+  "admin.bomprev.near_title": "Liknande plattformar finns redan i katalogen:",
+  "admin.bomprev.near_use": "Koppla till denna i stället",
+  "admin.bomprev.near_linking": "Delarna kopplas till {name} – ingen ny plattform skapas.",
+  "admin.bomprev.near_undo": "Skapa en ny plattform ändå",
+  "admin.bomprev.near_after": "Obs: namnet liknar {names}. Fråga HCL-teamet vilken som ska behållas om det är samma maskin.",
+  "admin.bomprev.plat_linked": "Delar kopplade till {name}."
 };

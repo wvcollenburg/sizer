@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Palvelinmalli",
   "admin.bomprev.plat_hint": "Nämä ovat pelkkiä ohjelmistokokoonpanoja (validated) – nimeä alusta valmistajan mallin mukaan. Linkitys rajaa osat siihen; linkittämättömät osat täsmäävät vain BOMeihin, joiden alustaa ei tunnistettu.",
   "admin.bomprev.plat_sc_required": "Anna alustan nimi sen luomiseksi tai poista valinta hyväksyäksesi osat ilman linkitystä.",
-  "admin.bomprev.plat_created": "Alusta luotu: {name}."
+  "admin.bomprev.plat_created": "Alusta luotu: {name}.",
+  "admin.bomprev.near_title": "Samankaltaisia alustoja on jo luettelossa:",
+  "admin.bomprev.near_use": "Linkitä tähän sen sijaan",
+  "admin.bomprev.near_linking": "Osat linkitetään alustaan {name} – uutta alustaa ei luoda.",
+  "admin.bomprev.near_undo": "Luo sittenkin uusi alusta",
+  "admin.bomprev.near_after": "Huom: nimi muistuttaa kohdetta {names}. Kysy HCL-tiimiltä, kumpi säilytetään, jos kyseessä on sama kone.",
+  "admin.bomprev.plat_linked": "Osat linkitetty alustaan {name}."
 };

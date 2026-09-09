@@ -1554,5 +1554,11 @@
   "admin.bomprev.plat_server": "Server model",
   "admin.bomprev.plat_hint": "These are software-only (validated) builds, so name the platform after the manufacturer model. Linking scopes these parts to it; unlinked parts only match BOMs with no identified platform.",
   "admin.bomprev.plat_sc_required": "Enter the platform name to create it, or untick to accept the parts unlinked.",
-  "admin.bomprev.plat_created": "Platform created: {name}."
+  "admin.bomprev.plat_created": "Platform created: {name}.",
+  "admin.bomprev.near_title": "Similar platforms already in the catalog:",
+  "admin.bomprev.near_use": "Link to this one instead",
+  "admin.bomprev.near_linking": "Linking the parts to {name} — no new platform will be created.",
+  "admin.bomprev.near_undo": "Create a new platform instead",
+  "admin.bomprev.near_after": "Note: this name resembles {names}. Ask the HCL team which one to keep if they are the same box.",
+  "admin.bomprev.plat_linked": "Parts linked to {name}."
 };

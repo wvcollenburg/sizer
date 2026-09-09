@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Modelo de servidor",
   "admin.bomprev.plat_hint": "Son configuraciones solo de software (validadas): nombre la plataforma según el modelo del fabricante. La vinculación limita estas piezas a ella; las piezas sin vincular solo coinciden con BOM sin plataforma identificada.",
   "admin.bomprev.plat_sc_required": "Introduzca el nombre de la plataforma para crearla, o desmarque para aceptar las piezas sin vincular.",
-  "admin.bomprev.plat_created": "Plataforma creada: {name}."
+  "admin.bomprev.plat_created": "Plataforma creada: {name}.",
+  "admin.bomprev.near_title": "Plataformas similares ya en el catálogo:",
+  "admin.bomprev.near_use": "Vincular a esta en su lugar",
+  "admin.bomprev.near_linking": "Las piezas se vincularán a {name}: no se creará ninguna plataforma nueva.",
+  "admin.bomprev.near_undo": "Crear una plataforma nueva de todos modos",
+  "admin.bomprev.near_after": "Nota: este nombre se parece a {names}. Consulte al equipo de la HCL cuál conservar si es la misma máquina.",
+  "admin.bomprev.plat_linked": "Piezas vinculadas a {name}."
 };

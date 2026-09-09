@@ -904,3 +904,19 @@ body { padding-bottom: 64px; }
 #bom-review-modal .bom-prev-plat-off .bom-prev-plat-hint { opacity: 0.55; }
 #bom-review-modal .bom-prev-plat-hint { margin: 0; font-size: 0.75rem; line-height: 1.4; max-width: 62ch; }
 #bom-review-modal .bom-prev-plat-err { margin: 0.4rem 0 0; }
+
+/* Near-match warning inside the pre-publication platform form (admin.js).
+   Compound selectors so the card's own resets cannot swallow it. */
+.bom-prev-plat .bom-prev-plat-near {
+    margin: 0.5rem 0 0;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--orange, #f0b429);
+    border-left-width: 3px;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--orange-bg, #fef9c3);
+}
+.bom-prev-plat .bom-prev-near-title { margin: 0 0 0.35rem; font-size: 0.85rem; }
+.bom-prev-plat .bom-prev-near-list { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; }
+.bom-prev-plat .bom-prev-near-list li { margin: 0.2rem 0; }
+.bom-prev-plat .bom-prev-near-list button,
+.bom-prev-plat .bom-prev-near-title button { margin-left: 0.4rem; }

@@ -684,3 +684,96 @@ def test_a_manufacturer_model_name_is_a_valid_platform_name(app):
         plat = hm.HclPlatform.query.filter_by(sc_model=name).one()
         assert plat.origin == hm.ORIGIN_PREVIEW and plat.brand == "lenovo"
         assert [l.component.kind for l in plat.links] == ["gpu"]
+
+
+# ── near-match warning + link-to-existing (owner, 2026-09-09) ────────────────
+# The platform name is free text by design, so two admins can spell the same
+# box differently. The form warns while typing and offers to link to the
+# existing platform instead of creating a twin — a warning, never a veto.
+
+def test_near_matches_folds_spelling_differences(app):
+    with app.app_context():
+        from bom.preview import near_matches
+        exact = near_matches("lenovo", "ThinkCentre M70q Tiny Gen6")
+        assert exact and exact[0]["sc_model"] == "HE155"
+        assert exact[0]["identical"] is True and exact[0]["similarity"] == 1.0
+        # spacing and the vendor word must not hide the duplicate
+        for spelling in ("ThinkCentre M70q Tiny Gen 6", "Lenovo ThinkCentre M70q TinyGen6"):
+            assert [m["sc_model"] for m in near_matches("lenovo", spelling)] == ["HE155"]
+        # a genuinely different box is not flagged
+        assert near_matches("lenovo", "ThinkAgile VX7531 Gen 9") == []
+        # a partial name still finds the fuller one
+        partial = near_matches("lenovo", "M70q Tiny")
+        assert "HE155" in [m["sc_model"] for m in partial]
+        # …but a bare family token is too weak to sweep the catalog
+        assert near_matches("lenovo", "M70q") == []
+
+
+def test_near_matches_reports_other_brands_last(app):
+    with app.app_context():
+        from bom.preview import near_matches
+        m = near_matches("dell", "ThinkCentre M70q Tiny Gen6")
+        assert m and m[0]["sc_model"] == "HE155"
+        assert m[0]["same_brand"] is False       # flagged, not hidden
+
+
+def test_platform_matches_route(app):
+    partner, admin, check = make_failed_check(app)
+    r = admin.get("/admin/api/hcl/platform-matches?brand=lenovo&name=ThinkCentre%20M70q%20Tiny%20Gen%206")
+    assert r.status_code == 200
+    assert [m["sc_model"] for m in r.get_json()["matches"]] == ["HE155"]
+    # nothing typed yet, and a partner cannot look at the catalog
+    assert admin.get("/admin/api/hcl/platform-matches").get_json() == {"matches": []}
+    assert partner.get("/admin/api/hcl/platform-matches?name=x").status_code == 403
+
+
+def test_creating_a_near_duplicate_warns_but_proceeds(app):
+    """Free-text naming is deliberate: the twin is created, with the near
+    match reported so the admin (and the HCL team) can reconcile later."""
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    # a different server string, so the first platform does not then identify
+    # the second check — only the NAME is nearly the same
+    first = accept_platform(admin, check["id"], [gpu_key],
+                            dict(NEW_PLATFORM, server="Lenovo Legacy Tiny Box"))
+    assert first.status_code == 200, first.get_data(as_text=True)
+
+    partner2, admin2, check2 = make_unidentified_check(app)
+    gpu2 = gpu_candidate_key(admin2, check2["id"])
+    twin = dict(NEW_PLATFORM, sc_model="HE 160")     # same box, spelled loosely
+    r = accept_platform(admin2, check2["id"], [gpu2], twin)
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["platform_created"] == "lenovo/" + twin["sc_model"]
+    assert [w["sc_model"] for w in d["platform_warnings"]] == [NEW_PLATFORM["sc_model"]]
+
+
+def test_linking_to_an_existing_platform_creates_nothing(app):
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    with app.app_context():
+        target = hm.HclPlatform.query.filter_by(sc_model="HE155").one()
+        target_id, target_key = target.id, target.key
+        before = hm.HclPlatform.query.count()
+
+    r = accept_platform(admin, check["id"], [gpu_key], {"existing_id": target_id})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["platform_created"] is None
+    assert d["platform_linked"] == target_key
+    assert d["linked"] == ["%s -> %s" % (target_key, gpu_key)]
+    with app.app_context():
+        assert hm.HclPlatform.query.count() == before       # no twin
+        comp = hm.HclComponent.query.filter_by(kind="gpu").one()
+        assert [l.platform.sc_model for l in comp.links] == ["HE155"]
+        assert comp.origin == hm.ORIGIN_PREVIEW
+
+
+def test_link_to_existing_rejects_a_bad_id(app):
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    for bad in ({"existing_id": 999999}, {"existing_id": "abc"}):
+        r = accept_platform(admin, check["id"], [gpu_key], bad)
+        assert r.status_code == 400, r.get_data(as_text=True)
+    with app.app_context():
+        assert hm.HclComponent.query.filter_by(kind="gpu").count() == 0

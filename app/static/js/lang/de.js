@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Servermodell",
   "admin.bomprev.plat_hint": "Dies sind reine Software-Builds (validiert), benennen Sie die Plattform daher nach dem Herstellermodell. Die Verknüpfung beschränkt diese Teile darauf; unverknüpfte Teile passen nur auf BOMs ohne erkannte Plattform.",
   "admin.bomprev.plat_sc_required": "Geben Sie den Plattformnamen ein, um sie anzulegen, oder deaktivieren Sie die Option, um die Teile unverknüpft zu übernehmen.",
-  "admin.bomprev.plat_created": "Plattform angelegt: {name}."
+  "admin.bomprev.plat_created": "Plattform angelegt: {name}.",
+  "admin.bomprev.near_title": "Ähnliche Plattformen bereits im Katalog:",
+  "admin.bomprev.near_use": "Stattdessen damit verknüpfen",
+  "admin.bomprev.near_linking": "Die Teile werden mit {name} verknüpft — es wird keine neue Plattform angelegt.",
+  "admin.bomprev.near_undo": "Doch neue Plattform anlegen",
+  "admin.bomprev.near_after": "Hinweis: Dieser Name ähnelt {names}. Klären Sie mit dem HCL-Team, welcher bleibt, falls es dieselbe Maschine ist.",
+  "admin.bomprev.plat_linked": "Teile mit {name} verknüpft."
 };

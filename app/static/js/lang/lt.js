@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Serverio modelis",
   "admin.bomprev.plat_hint": "Tai tik programinės įrangos (validuotos) konfigūracijos — pavadinkite platformą pagal gamintojo modelį. Susiejimas apriboja dalis ja; nesusietos dalys atitinka tik BOM be nustatytos platformos.",
   "admin.bomprev.plat_sc_required": "Įveskite platformos pavadinimą, kad ją sukurtumėte, arba nuimkite žymę, kad dalys būtų priimtos be susiejimo.",
-  "admin.bomprev.plat_created": "Platforma sukurta: {name}."
+  "admin.bomprev.plat_created": "Platforma sukurta: {name}.",
+  "admin.bomprev.near_title": "Kataloge jau yra panašių platformų:",
+  "admin.bomprev.near_use": "Verčiau susieti su šia",
+  "admin.bomprev.near_linking": "Dalys bus susietos su {name} — nauja platforma nebus kuriama.",
+  "admin.bomprev.near_undo": "Vis dėlto sukurti naują platformą",
+  "admin.bomprev.near_after": "Pastaba: šis pavadinimas panašus į {names}. Pasiteiraukite HCL komandos, kurį palikti, jei tai ta pati mašina.",
+  "admin.bomprev.plat_linked": "Dalys susietos su {name}."
 };

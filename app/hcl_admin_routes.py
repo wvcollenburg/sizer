@@ -353,6 +353,20 @@ def list_devices():
     return jsonify([d.to_dict() for d in rows])
 
 
+@hcl_admin_bp.route("/platform-matches", methods=["GET"])
+def platform_matches():
+    """Existing platforms resembling a name the admin is typing into the
+    pre-publication accept form. A warning only — the name is free text by
+    design (validated builds are named after the manufacturer's model), so
+    this points out a probable duplicate instead of refusing it."""
+    from bom.preview import near_matches
+    name = (request.args.get("name") or "").strip()
+    server = (request.args.get("server") or "").strip() or None
+    if not name and not server:
+        return jsonify({"matches": []})
+    return jsonify({"matches": near_matches(request.args.get("brand"), name, server)})
+
+
 @hcl_admin_bp.route("/preview", methods=["GET"])
 def list_preview_components():
     """The pre-publication accepted set (origin='preview'), with the

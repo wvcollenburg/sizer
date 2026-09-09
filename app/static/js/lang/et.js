@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Serveri mudel",
   "admin.bomprev.plat_hint": "Need on ainult tarkvaralised (valideeritud) koosseisud – pange platvormile tootja mudeli nimi. Sidumine piirab osad sellega; sidumata osad sobivad ainult tuvastamata platvormiga BOM-idele.",
   "admin.bomprev.plat_sc_required": "Platvormi loomiseks sisestage selle nimi või eemaldage linnuke, et võtta osad vastu sidumata.",
-  "admin.bomprev.plat_created": "Platvorm loodud: {name}."
+  "admin.bomprev.plat_created": "Platvorm loodud: {name}.",
+  "admin.bomprev.near_title": "Kataloogis on juba sarnaseid platvorme:",
+  "admin.bomprev.near_use": "Seo hoopis sellega",
+  "admin.bomprev.near_linking": "Osad seotakse platvormiga {name} — uut platvormi ei looda.",
+  "admin.bomprev.near_undo": "Loo siiski uus platvorm",
+  "admin.bomprev.near_after": "Märkus: see nimi sarnaneb kirjega {names}. Küsige HCL-i meeskonnalt, kumb jääb, kui tegu on sama masinaga.",
+  "admin.bomprev.plat_linked": "Osad seotud platvormiga {name}."
 };

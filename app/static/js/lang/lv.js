@@ -1553,5 +1553,11 @@
   "admin.bomprev.plat_server": "Servera modelis",
   "admin.bomprev.plat_hint": "Šīs ir tikai programmatūras (validētas) konfigurācijas — nosauciet platformu pēc ražotāja modeļa. Piesaiste ierobežo daļas ar to; nepiesaistītas daļas atbilst tikai BOM bez identificētas platformas.",
   "admin.bomprev.plat_sc_required": "Ievadiet platformas nosaukumu, lai to izveidotu, vai noņemiet atzīmi, lai pieņemtu daļas bez piesaistes.",
-  "admin.bomprev.plat_created": "Platforma izveidota: {name}."
+  "admin.bomprev.plat_created": "Platforma izveidota: {name}.",
+  "admin.bomprev.near_title": "Katalogā jau ir līdzīgas platformas:",
+  "admin.bomprev.near_use": "Piesaistīt labāk šai",
+  "admin.bomprev.near_linking": "Daļas tiks piesaistītas platformai {name} — jauna platforma netiks izveidota.",
+  "admin.bomprev.near_undo": "Tomēr izveidot jaunu platformu",
+  "admin.bomprev.near_after": "Piezīme: šis nosaukums līdzinās {names}. Pajautājiet HCL komandai, kuru paturēt, ja tā ir tā pati iekārta.",
+  "admin.bomprev.plat_linked": "Daļas piesaistītas platformai {name}."
 };
