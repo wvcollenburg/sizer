@@ -330,12 +330,71 @@ def test_template_blank_vendor_and_config_default(tmp_path):
         [None, "SYS-511R-M", None, "511R-M-OTO-17", "UP 1U Optimized System", 3, "chassis"],
         [None, None, "unknown", "P4X-UPE2434-SRMXC", "Intel Xeon E-2434", 3, "cpu"],
     ])
-    bom, _ = parse_file(path, "vendor.xlsx")
-    assert bom.vendor == "Unknown"
-    assert [c.name for c in bom.configs] == ["Config 1"]
-    assert bom.configs[0].server_model == "SYS-511R-M"
-    assert bom.configs[0].node_count is None
-    assert detect_vendor(bom) == "Supermicro"          # content still says Supermicro
+    # The strict parser itself never guesses (build spec §9): blank -> Unknown.
+    raw = template.parse_template(path)
+    assert raw.vendor == "Unknown"
+    assert [c.name for c in raw.configs] == ["Config 1"]
+    assert raw.configs[0].server_model == "SYS-511R-M"
+    assert raw.configs[0].node_count is None
+    assert detect_vendor(raw) == "Supermicro"          # content still says Supermicro
+    # Finding: "Template uploads with a blank Vendor column stay 'Unknown' —
+    # parsers.detect_vendor exists but is never called". parse_file now wires
+    # detect_vendor in when the template's Vendor column is blank.
+    bom, fmt = parse_file(path, "vendor.xlsx")
+    assert fmt == "template"
+    assert bom.vendor == "Supermicro"
+
+
+def test_dell_list_qty_desc_pn_tolerates_non_numeric_quantity(tmp_path):
+    # Finding: "QTY/Description/Part Number list parser crashes on a
+    # non-numeric quantity cell" — '2 ea' / 'TBD' must coerce to the default
+    # like every other parser, never raise ValueError into the generic
+    # 'could not process the file' route message.
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["QTY", None, "Description", "Part Number"])
+    ws.append([3, None, "PowerEdge R760 Server", "210-BDZY"])
+    ws.append(["2 ea", None, "3.84TB NVMe Read Intensive SSD", "DMF5Y"])
+    ws.append(["TBD", None, "32GB RDIMM, 5600MT/s, Dual Rank", "1V1N1"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    path = _write(tmp_path, "list.xlsx", buf.getvalue())
+    assert detect_format(path, "list.xlsx") == "dell_list_qty_desc_pn"
+    bom, fmt = parse_file(path, "list.xlsx")
+    assert fmt == "dell_list_qty_desc_pn"
+    qty = {c.description: c.quantity for c in bom.configs[0].components}
+    assert qty["3.84TB NVMe Read Intensive SSD"] == 1
+    assert qty["32GB RDIMM, 5600MT/s, Dual Rank"] == 1
+    assert qty["PowerEdge R760 Server"] == 3
+
+
+def test_xlsx_decompression_bomb_is_refused_before_openpyxl(tmp_path):
+    # Finding: "xlsx decompression bomb: sharedStrings is loaded eagerly
+    # before any row cap applies" — a sub-MB upload whose sharedStrings part
+    # inflates past the member cap must be refused by the zip pre-check in
+    # load_workbook_safe (and via parse_file / ai_prefill._xlsx_text), before
+    # openpyxl materialises the strings.
+    import zipfile
+    from xlsx_utils import SheetTooLargeError
+    from bom.parsers.common import load_workbook_safe
+    from bom import ai_prefill
+    path = str(tmp_path / "bomb.xlsx")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", "<Types/>")
+        zf.writestr("xl/sharedStrings.xml", b"<si>x</si>" * (6 * 1024 * 1024))  # 60 MB
+    assert os.path.getsize(path) < 1024 * 1024, "the bomb passes the 10 MB upload cap"
+    with pytest.raises(SheetTooLargeError):
+        load_workbook_safe(path)
+    with pytest.raises(SheetTooLargeError):
+        parse_file(path, "bomb.xlsx")     # detect_format must not swallow it
+    with pytest.raises(ai_prefill.PrefillError):
+        ai_prefill._xlsx_text(path)
+
+
+def test_zip_pre_check_lets_ordinary_workbooks_through():
+    from bom.parsers.common import check_zip_bomb
+    path = os.path.join(FIXTURES, "synthetic_lenovo_dcsc.xlsx")
+    check_zip_bomb(path)                  # must not raise
 
 
 def test_template_marker_and_validation_lists():

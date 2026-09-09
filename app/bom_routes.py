@@ -233,6 +233,7 @@ def list_checks(project_id):
 def create_check(project_id):
     from bom.parsers import UnrecognizedFormat, parse_file
     from bom.parsers.template import TemplateError
+    from xlsx_utils import SheetTooLargeError
     user = current_user()
     project, err = _owned_project_or_error(project_id, user)
     if err:
@@ -258,6 +259,10 @@ def create_check(project_id):
             return jsonify({"error": "This file is not a BOM format the checker recognises.",
                             "hint": str(exc),
                             "details": []}), 400
+        except SheetTooLargeError as exc:
+            # Oversized sheet or a zip decompression bomb: a clear refusal,
+            # not the generic 'could not process' fallback below.
+            return jsonify({"error": str(exc), "details": []}), 400
         result = run_check(bom, sizing)
     except Exception as exc:
         from flask import current_app
@@ -323,7 +328,13 @@ def recheck(check_id):
         if err:
             return err
     else:
-        sizing = check.configuration if (check.configuration and not check.configuration.is_deleted) else None
+        # Reusing the stored sizing: it must still be a live member of THIS
+        # project — sizings can be moved between projects (move_sizing), and
+        # the explicit sizing_id path above enforces membership via
+        # _sizing_for, so the implicit path must not bypass that rule.
+        sizing = check.configuration
+        if sizing is not None and (sizing.is_deleted or sizing.project_id != project.id):
+            sizing = None
     bom = NormalizedBOM.from_dict(check.normalized or {})
     result = run_check(bom, sizing)
     _apply_result(check, result, sizing)

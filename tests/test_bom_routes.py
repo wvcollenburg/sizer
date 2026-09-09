@@ -351,6 +351,44 @@ def test_recheck_appends_history_and_can_switch_sizing(app):
     assert d["configuration_id"] == sizing["id"]
 
 
+def test_recheck_drops_a_sizing_moved_out_of_the_project(app):
+    # Finding: "recheck reuses a stored sizing after it was moved out of the
+    # project" — the implicit branch must enforce the same project-membership
+    # rule as the explicit sizing_id path (_sizing_for).
+    c = client_for(app, PARTNER)
+    p1 = make_project(c, "A")
+    p2 = make_project(c, "B")
+    sizing = sized(c, p1["id"])
+    check = upload(c, p1["id"], sizing_id=str(sizing["id"])).get_json()
+    assert check["configuration_id"] == sizing["id"]
+    r = c.post(f"/api/sizings/{sizing['id']}/move", json={"project_id": p2["id"]})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = c.post(f"/api/bom-checks/{check['id']}/recheck", json={}).get_json()
+    assert d["configuration_id"] is None
+    assert d["result"]["fit"] is None
+    # ... exactly like the explicit path refuses it.
+    r = c.post(f"/api/bom-checks/{check['id']}/recheck", json={"sizing_id": sizing["id"]})
+    assert r.status_code == 400
+
+
+def test_decompression_bomb_upload_gets_a_clear_400(app):
+    # Finding: "xlsx decompression bomb: sharedStrings is loaded eagerly
+    # before any row cap applies" — the route must refuse it with a clear
+    # error, not the generic 'could not process the file' message.
+    import zipfile
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", "<Types/>")
+        zf.writestr("xl/sharedStrings.xml", b"<si>x</si>" * (6 * 1024 * 1024))  # 60 MB
+    buf.seek(0)
+    r = c.post(f"/api/projects/{project['id']}/bom-checks",
+               data={"file": (buf, "bomb.xlsx")}, content_type="multipart/form-data")
+    assert r.status_code == 400
+    assert "too large" in r.get_json()["error"].lower()
+
+
 def test_no_price_shaped_keys_in_check_responses(app):
     """Same guard test_security.py applies to /api/models: nothing on the
     wire may look like a price or a tier."""

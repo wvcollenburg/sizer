@@ -460,10 +460,10 @@ def test_double_approve_is_idempotent(app, snapshot):
 
 
 def test_catalog_stamp_moves_with_approvals(app, snapshot):
-    assert sync.catalog_stamp() == "run0:change0"
+    assert sync.catalog_stamp() == "run0:change0:n0"
     run = sync.build_run(_snap(snapshot), user=ADMIN, source="import")
     stamp0 = sync.catalog_stamp()
-    assert stamp0 == "run%d:change0" % run.id
+    assert stamp0 == "run%d:change0:n0" % run.id
     first = _pending(run_id=run.id)[0]
     sync.approve(first, ADMIN)
     stamp1 = sync.catalog_stamp()
@@ -472,7 +472,23 @@ def test_catalog_stamp_moves_with_approvals(app, snapshot):
     stamp2 = sync.catalog_stamp()
     assert stamp2 != stamp1
     max_id = max(c.id for c in hm.HclPendingChange.query.all())
-    assert stamp2 == "run%d:change%d" % (run.id, max_id)
+    approved = hm.HclPendingChange.query.filter_by(status=hm.APPROVED).count()
+    assert stamp2 == "run%d:change%d:n%d" % (run.id, max_id, approved)
+
+
+def test_catalog_stamp_moves_regardless_of_approval_order(app, snapshot):
+    # Finding: "catalog_stamp does not move when lower-id changes are
+    # approved after higher-id ones" — ids are assigned in queue order
+    # (component, device, platform), so approving platforms first and
+    # devices second used to leave max(approved id) unchanged.
+    sync.build_run(_snap(snapshot), user=ADMIN, source="import")
+    sync.bulk(None, "approve", ADMIN, all_pending=True, filters={"entity_type": "platform"})
+    stamp1 = sync.catalog_stamp()
+    assert hm.HclDevice.query.count() == 0
+    sync.bulk(None, "approve", ADMIN, all_pending=True, filters={"entity_type": "device"})
+    assert hm.HclDevice.query.count() == EXPECTED_DEVICES
+    stamp2 = sync.catalog_stamp()
+    assert stamp2 != stamp1, "the catalog changed, the stamp must move"
 
 
 def test_touch_seen_bumps_last_seen_without_approval(app, snapshot):
@@ -485,6 +501,212 @@ def test_touch_seen_bumps_last_seen_without_approval(app, snapshot):
     p = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HC1350").one()
     assert p.last_seen.replace(tzinfo=None) == later.replace(tzinfo=None)
     assert p.first_seen.replace(tzinfo=None) != later.replace(tzinfo=None)
+
+
+# ---------------------------------------------------------------- regressions
+
+
+def test_bulk_skips_poison_row_instead_of_aborting(app, snapshot):
+    # Finding: "Snapshot import stores untyped/over-wide values in pending
+    # rows; approving them 500s and blocks 'approve all'" — one row whose
+    # apply fails at flush must be skipped with a note, not sink the batch.
+    run = sync.build_run(_snap(snapshot), user=ADMIN, source="import")
+    total = run.summary["pending_total"]
+    bad = hm.HclPendingChange(
+        run_id=run.id, entity_type="platform", entity_key="lenovo/HCBAD",
+        change_kind="add",
+        payload={"brand": "lenovo", "sc_model": "HCBAD",
+                 "sockets": {"a": 1}, "max_cores": "two"},
+        label="poison legacy row", status=hm.PENDING)
+    db.session.add(bad)
+    db.session.commit()
+    counts = sync.bulk(None, "approve", ADMIN, all_pending=True)
+    assert counts["approved"] == total
+    assert counts["skipped"] == 1 and counts["rejected"] == 0
+    db.session.refresh(bad)
+    assert bad.status == hm.PENDING and "apply failed" in bad.note
+    # the healthy rows all landed
+    assert hm.HclPlatform.query.count() == EXPECTED_PLATFORMS
+    assert hm.HclDevice.query.count() == EXPECTED_DEVICES
+    assert hm.HclPlatform.query.filter_by(sc_model="HCBAD").count() == 0
+
+
+def test_snapshot_records_coerce_untyped_and_overwide_values(app, snapshot):
+    # Finding: "Snapshot import stores untyped/over-wide values in pending
+    # rows" — record building must coerce numerics, trim brand to its
+    # column width and drop components with a junk kind.
+    rec = sync.platform_record({
+        "brand": "B" * 60, "sc_model": "HC1", "sockets": "two",
+        "max_cores": {"a": 1}, "ram_slots": "12", "max_ram_gb": None,
+        "hdd_max": 3.0, "ssd_max": "junk",
+        "components": [
+            {"kind": "k" * 30, "part_number": "X1", "description": "junk kind"},
+            {"kind": "nic", "part_number": "N1", "description": "ok"},
+        ]})
+    assert rec["brand"] == "b" * 20 and len(rec["key"]) <= 160
+    assert rec["sockets"] is None and rec["max_cores"] is None
+    assert rec["ram_slots"] == 12 and rec["hdd_max"] == 3 and rec["ssd_max"] is None
+    assert [c["key"] for c in rec["components"]] == ["nic/N1"]
+    assert sync.component_record({"kind": "widget99", "part_number": "X"}) is None
+
+
+def test_per_platform_tce_flip_reaches_the_link(app, snapshot):
+    # Finding: "Per-platform TCE flag changes are invisible to the diff and
+    # never reach the link row" — clearing the badge on ONE platform (the
+    # part stays TCE elsewhere) must queue a components row and, once
+    # approved, land on that platform's link only.
+    _seed(snapshot)
+    snap = _snap(snapshot)
+    target = None
+    for p in snap["platforms"]:
+        for c in p["components"]:
+            if not (c.get("tce") and c.get("part_number")):
+                continue
+            elsewhere = any(
+                q is not p and any(
+                    d["kind"] == c["kind"] and d.get("part_number") == c["part_number"]
+                    and d.get("tce") for d in q["components"])
+                for q in snap["platforms"])
+            if elsewhere:
+                target = (p, c)
+                break
+        if target:
+            break
+    assert target, "fixtures must contain a TCE part on two platforms"
+    p, c = target
+    c["tce"] = False
+    changes = sync.diff_snapshot(snap)
+    pkey = "%s/%s" % (p["brand"], p["sc_model"])
+    assert ("platform", pkey, "components") in [
+        (ch["entity_type"], ch["entity_key"], ch["field"]) for ch in changes]
+    run = sync.build_run(snap, user=ADMIN, source="import")
+    sync.bulk(None, "approve", ADMIN, all_pending=True, filters={"run_id": run.id})
+    platform = hm.HclPlatform.query.filter_by(brand=p["brand"], sc_model=p["sc_model"]).one()
+    comp = hm.HclComponent.query.filter_by(kind=c["kind"], part_number=c["part_number"]).one()
+    link = next(l for l in platform.links if l.component_id == comp.id)
+    assert link.tce is False
+    assert comp.tce is True  # still TCE on the other platform
+    assert sync.diff_snapshot(snap) == []  # applied fully, no self-healing loop
+
+
+def test_single_platform_tce_update_sets_the_only_link(app, snapshot):
+    # Finding 4, single-platform case: a component-level 'tce' update used to
+    # set comp.tce only, leaving the sole link's flag (what
+    # platform_components()/enrich show) stale forever.
+    _seed(snapshot)
+    snap = _snap(snapshot)
+    where = {}  # (kind, part) -> [entries], platforms
+    plats = {}
+    tce_any = {}
+    for p in snap["platforms"]:
+        for e in p["components"]:
+            if not e.get("part_number"):
+                continue
+            k = (e["kind"], e["part_number"])
+            where.setdefault(k, []).append(e)
+            plats.setdefault(k, set()).add((p["brand"], p["sc_model"]))
+            tce_any[k] = tce_any.get(k, False) or bool(e.get("tce"))
+    k = next(k for k in where if len(plats[k]) == 1 and not tce_any[k])
+    for e in where[k]:
+        e["tce"] = True
+    comp = hm.HclComponent.query.filter_by(kind=k[0], part_number=k[1]).one()
+    assert comp.tce is False
+    assert len([l for l in comp.links if l.status == hm.STATUS_ACTIVE]) == 1
+    run = sync.build_run(snap, user=ADMIN, source="import")
+    rows = _pending(run_id=run.id, entity_type="component", change_kind="update", field="tce")
+    (tce_row,) = [r for r in rows if r.entity_key == comp.key]
+    sync.approve(tce_row, ADMIN)
+    db.session.refresh(comp)
+    assert comp.tce is True
+    assert next(l for l in comp.links if l.status == hm.STATUS_ACTIVE).tce is True
+
+
+def test_stale_pending_rows_superseded_by_newer_complete_run(app, snapshot):
+    # Finding: "Stale pending rows from an older run survive a newer complete
+    # run and corrupt the catalog when approved" — run A queues changes the
+    # site then reverts; the complete run B reproduces none of them, so they
+    # must be retired, or 'approve all' writes stale content.
+    _seed(snapshot)
+    run_a = sync.build_run(_modified(snapshot), user=ADMIN, source="import")
+    stale = _pending(run_id=run_a.id, status=hm.PENDING)
+    assert stale
+    run_b = sync.build_run(_snap(snapshot), user=ADMIN, source="import")
+    assert run_b.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+    assert run_b.summary["pending_total"] == 0
+    for row in _pending(run_id=run_a.id):
+        assert row.status == hm.SUPERSEDED
+        assert row.note == "not reproduced by run %s" % run_b.id
+    # 'approve all' now applies nothing stale
+    counts = sync.bulk(None, "approve", ADMIN, all_pending=True)
+    assert counts["approved"] == 0
+    assert hm.HclPlatform.query.filter_by(brand="acme").count() == 0
+    hc1350 = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HC1350").one()
+    assert hc1350.status == hm.STATUS_ACTIVE
+    nic = hm.HclComponent.query.filter_by(kind="nic", part_number="4XC7A08294").one()
+    assert not nic.description.startswith("RENAMED ")
+
+
+def test_partial_snapshot_supersedes_only_fully_diffed_entities(app, snapshot):
+    # Finding 5, partial-run guard: a failed detail page must never retire a
+    # real pending change — only entities the partial snapshot actually
+    # carried (and therefore fully diffed) are swept.
+    _seed(snapshot)
+    run_a = sync.build_run(_modified(snapshot), user=ADMIN, source="import")
+    partial = _snap(snapshot)
+    partial["platforms"] = [p for p in partial["platforms"]
+                            if p["brand"] == "lenovo" and p["sc_model"] == "HC1450D"]
+    partial["devices"] = []
+    partial["complete"] = False
+    sync.build_run(partial, user=ADMIN, source="import")
+    # HC1450D was in the partial snapshot and its part-list change was not
+    # reproduced -> superseded
+    (pu,) = _pending(run_id=run_a.id, entity_type="platform", entity_key="lenovo/HC1450D")
+    assert pu.status == hm.SUPERSEDED
+    # entities absent from the partial snapshot keep their pending rows
+    (dl,) = _pending(run_id=run_a.id, entity_type="platform", entity_key="lenovo/HC1350")
+    assert dl.status == hm.PENDING
+    (pa,) = _pending(run_id=run_a.id, entity_type="platform", entity_key="acme/HC9999")
+    assert pa.status == hm.PENDING
+    (du,) = _pending(run_id=run_a.id, entity_type="device", entity_key="8086/a352")
+    assert du.status == hm.PENDING
+
+
+def test_older_snapshot_never_moves_time_backwards(app, snapshot):
+    # Finding: "Importing an older snapshot moves last_seen and
+    # hcl_last_scrape_at backwards"
+    from auth import get_setting
+    _seed(snapshot)
+    before = get_setting("hcl_last_scrape_at")
+    assert before
+    old = _snap(snapshot)
+    old["scraped_at"] = "2024-01-01T00:00:00+00:00"
+    run = sync.build_run(old, user=ADMIN, source="import")
+    assert run.status == hm.RUN_SUCCEEDED
+    assert get_setting("hcl_last_scrape_at") == before
+    p = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HC1350").one()
+    assert p.last_seen.year >= 2026
+    comp = hm.HclComponent.query.filter_by(kind="nic", part_number="4XC7A08294").one()
+    assert comp.last_seen.year >= 2026
+
+
+def test_rejected_component_add_is_annotated_when_platform_creates_it(app, snapshot):
+    # Finding: "A rejected component 'add' is silently re-created by
+    # approving the platform that lists it" — the platform's validated list
+    # is authoritative so the part IS created, but the rejected row must say
+    # the platform approval overrode it.
+    _seed(snapshot)
+    run = sync.build_run(_modified(snapshot), user=ADMIN, source="import")
+    (ca,) = _pending(run_id=run.id, entity_type="component", change_kind="add")
+    assert ca.entity_key == "nic/ACME-NIC-1"
+    sync.reject(ca, ADMIN, note="do not want")
+    (pa,) = _pending(run_id=run.id, entity_type="platform", change_kind="add")
+    res = sync.approve(pa, ADMIN)
+    assert "nic/ACME-NIC-1" in res["created"]
+    assert hm.HclComponent.query.filter_by(kind="nic", part_number="ACME-NIC-1").count() == 1
+    db.session.refresh(ca)
+    assert ca.status == hm.REJECTED  # the decision record is kept
+    assert "do not want" in ca.note
+    assert "created anyway via platform acme/HC9999" in ca.note
 
 
 # ---------------------------------------------------------------- hcl_data

@@ -68,8 +68,11 @@ def _is_xlsx(path: str) -> bool:
 def _detect_xlsx(path: str) -> Optional[str]:
     from bom.parsers import dell_lists, dell_quote, dell_service_tag, lenovo_dcsc, template
     from bom.parsers.common import load_workbook_safe
+    from xlsx_utils import SheetTooLargeError
     try:
         wb = load_workbook_safe(path)
+    except SheetTooLargeError:              # decompression bomb: refuse loudly
+        raise
     except Exception:                       # not a workbook openpyxl can read
         return None
     try:
@@ -116,6 +119,12 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
         raise UnrecognizedFormat()
     if fmt == template.FORMAT:
         bom = template.parse_template(path)
+        # The template's Vendor column is authoritative when filled; left
+        # blank, the parser reports 'Unknown' by contract and the content
+        # markers (detect_vendor was written for exactly this case) decide, so
+        # vendor-specific rules and HBA suggestions still apply.
+        if bom.vendor == 'Unknown':
+            bom.vendor = detect_vendor(bom)
     elif fmt == lenovo_dcsc.FORMAT:
         bom = lenovo_dcsc.parse(path)
     elif fmt == dell_service_tag.FORMAT:

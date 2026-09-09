@@ -40,6 +40,7 @@ from bom.parsers.common import (
     sheet_matrix,
     should_drop,
     split_nx,
+    to_int,
 )
 
 FORMAT_SKU = 'dell_list_sku'
@@ -124,7 +125,10 @@ def _parse_qty_desc_pn_sheet(rows, index: int, suffix: str) -> BOMConfig:
         desc = cell(rows, r, 3)
         if not desc:
             continue
-        qty = max(1, int(float(cell(rows, r, 1).replace(',', '.') or 1)))
+        # Hand-typed lists put junk in the quantity column ('2 ea', 'TBD', a
+        # repeated 'QTY' sub-header); coerce like every other parser instead
+        # of crashing the whole upload on one cell.
+        qty = max(1, to_int(cell(rows, r, 1), default=1))
         pn = cell(rows, r, 4) or None
         if model is None:
             model = server_model_from_text(desc)

@@ -171,6 +171,38 @@ def test_suggestions_come_from_the_identified_platform_only(app):
     assert any(x["tce"] for x in sugg[0]["candidates"])
 
 
+def test_nic_suggestions_never_lead_with_the_slowest_when_none_meet_the_speed(app):
+    # Finding: "NIC swap suggestions fall back to the whole pool and list the
+    # SLOWEST part first when nothing meets the offending speed" — for a
+    # 100 GbE NIC on a platform whose validated NICs top out at 25 GbE the
+    # fallback must lead with the FASTEST part and mark every candidate as
+    # below the required speed, so the UI never presents a 1 GbE adapter as
+    # the nearest equivalent.
+    cfg = lenovo_config("Mellanox ConnectX-6 Dx 100GbE QSFP56 2-port OCP")
+    platforms = platform_match.identify(cfg, "Lenovo")
+    result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]),
+                       hcl=hcl_data(), platforms=platforms)
+    sugg = result["suggestions"]
+    assert len(sugg) == 1 and sugg[0]["kind"] == "nic"
+    cands = sugg[0]["candidates"]
+    assert cands, "the fallback pool is kept, not silently emptied"
+    assert cands[0]["speed_gbe"] == 25, "fastest first — never the 1 GbE I350"
+    assert cands[0]["part_number"] == "4XC7A08294", "same form factor and port count still lead"
+    assert all(x.get("below_required_speed") is True for x in cands)
+
+
+def test_nic_suggestions_that_meet_the_speed_are_not_flagged(app):
+    # Companion to the finding above: when candidates DO cover the offending
+    # speed, nothing is flagged and the nearest-equivalent order is unchanged.
+    cfg = lenovo_config("Mellanox ConnectX-6 Dx 25GbE 2-port OCP")
+    platforms = platform_match.identify(cfg, "Lenovo")
+    result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]),
+                       hcl=hcl_data(), platforms=platforms)
+    cands = result["suggestions"][0]["candidates"]
+    assert [x["part_number"] for x in cands] == ["4XC7A08294", "4XC7A80269"]
+    assert not any("below_required_speed" in x for x in cands)
+
+
 def test_no_platform_means_no_suggestions_but_a_plain_red_flag(app):
     cfg = lenovo_config("Mellanox ConnectX-6 Dx 25GbE 2-port OCP", server="ThinkSystem SR999 V9")
     cfg.components = [x for x in cfg.components if x.category != "other"]

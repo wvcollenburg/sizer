@@ -43,6 +43,7 @@ from cpu_specs import CPU_SPECS, cpu_model_key, sizing_ghz, perf_index
 import cpu_benchmarks
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
+from bom.parsers.common import SERVER_LINE
 from bom.rules import (is_absence_indicator, is_hdd, is_nvme_drive, is_ssd,
                        is_hardware_config)
 
@@ -162,10 +163,14 @@ def _round(value: Any, unit: str) -> Any:
 # ─── 1. BOM config -> node model ─────────────────────────────────────────────
 
 def _infer_node_count(config: BOMConfig, lines: List[BOMComponent],
-                      notes: List[str]) -> int:
+                      notes: List[str]) -> Optional[int]:
     """The BOM's quantities are totals; the node count is the one number that
-    turns them into a per-node picture, so it is inferred conservatively and
-    the choice is always written down in the notes."""
+    turns them into a per-node picture, so only real evidence counts: the
+    parser-supplied count, or a chassis line that IS the server. Guessing it
+    from part quantities silently multiplied the cluster (6 CPUs of a 3-node
+    dual-socket BOM became 6 nodes and an under-sized BOM went green), so
+    when no evidence exists this returns None and compare() reports every
+    dimension as unknown instead of sizing on a guess."""
     if config.node_count:
         notes.append(f"Node count {config.node_count} taken from the BOM source.")
         return int(config.node_count)
@@ -177,25 +182,20 @@ def _infer_node_count(config: BOMConfig, lines: List[BOMComponent],
                     "dell", "hpe", "server", "system"}
     for c in chassis:
         words = _words(c.description)
+        # Backplane / media-bay rows are categorised 'chassis' too, but they
+        # are per-node hardware (often several per node) — never the server
+        # line, even when they name the model.
+        if "backplane" in words or ("media" in words and "bay" in words):
+            continue
         hit_model = bool(model_words) and bool(model_words & words)
-        if hit_model or "chassis" in words or "server" in words:
+        if (hit_model or "chassis" in words or "server" in words
+                or SERVER_LINE.match(c.description or "")):
             notes.append(f"Node count {c.quantity} from chassis line '{c.description}'.")
             return max(int(c.quantity or 1), 1)
-    if chassis:
-        n = max(min(int(c.quantity or 1) for c in chassis), 1)
-        notes.append(f"Node count {n}: smallest quantity among chassis lines.")
-        return n
-    cap = [int(c.quantity or 1) for c in lines
-           if c.category in ("cpu", "memory", "storage")]
-    if cap:
-        # A Dell single-node quote lists every part with qty 1; the smallest
-        # quantity among the capacity lines is the best available floor.
-        n = max(min(cap), 1)
-        notes.append(f"Node count {n}: no chassis line, smallest quantity among "
-                     f"CPU/memory/storage lines.")
-        return n
-    notes.append("Node count defaulted to 1: no chassis or capacity lines.")
-    return 1
+    notes.append("Node count unknown: the BOM names no node count and no "
+                 "server/chassis line identifies one. Fill the Nodes column "
+                 "of the template (or include the server line).")
+    return None
 
 
 def derive_nodes(config: BOMConfig) -> Dict[str, Any]:
@@ -207,6 +207,14 @@ def derive_nodes(config: BOMConfig) -> Dict[str, Any]:
              and not is_absence_indicator(c)]
 
     node_count = _infer_node_count(config, lines, notes)
+    node_count_known = node_count is not None
+    if not node_count_known:
+        # The sums below still run (as a single machine) so the cluster
+        # summary has something to show, but per-node figures cannot be
+        # trusted without a node count: compare() reports every dimension
+        # as unknown instead of sizing on a guess.
+        unresolved.append("nodes")
+        node_count = 1
 
     # CPUs: identical descriptions merge (two lines of the same SKU is still
     # one socket type); qty per node = sockets of that SKU.
@@ -320,7 +328,7 @@ def derive_nodes(config: BOMConfig) -> Dict[str, Any]:
         notes.append("No NIC line found in this config.")
 
     return {
-        "node_count": node_count,
+        "node_count": node_count if node_count_known else None,
         "cpus": cpus,
         "sockets_per_node": sockets,
         "ram_gb_per_node": int(ram_gb),
@@ -688,6 +696,22 @@ def sizing_requirements(configuration: Any) -> Optional[Dict[str, Any]]:
     return out
 
 
+def _replication_split(rec, dim: str, total) -> float:
+    """Approximate replication reserve of a utilization axis in real units.
+
+    The snapshot folds the reserve into ``abs.total`` and keeps it only as a
+    rounded percentage band (recommend.py: utilization.*.replication), so the
+    reserve is recovered as total * replication% / total%. 0 when there is no
+    replication band or the axis is missing."""
+    if total is None:
+        return 0.0
+    rep_pct = _get(rec, "utilization", dim, "replication", default=0) or 0
+    tot_pct = _get(rec, "utilization", dim, "total", default=0) or 0
+    if rep_pct <= 0 or tot_pct <= 0:
+        return 0.0
+    return float(total) * min(float(rep_pct) / float(tot_pct), 1.0)
+
+
 def _requirements_from_recommendation(cl, rec, fields, missing, notes):
     proj = cl.get("projection") or {}
     summ = cl.get("summary") or {}
@@ -700,22 +724,60 @@ def _requirements_from_recommendation(cl, rec, fields, missing, notes):
     ram_demand = _get(rec, "utilization", "ram", "abs", "total", missing=missing)
     stor_demand = _get(rec, "utilization", "storage", "abs", "total", missing=missing)
 
+    # Replication-target sizings: abs.total is own demand + the inbound
+    # replication reserve. The engine holds that reserve ON TOP of the
+    # day-one floor (recommend.py: max(own, floor) + rep), and in "failover"
+    # compute mode gates CPU/RAM with it at the full cluster only
+    # (rep_*_n1 = 0). Recover the reserve from the percentage bands so the
+    # fit gates the same figures the engine did.
+    rep_cores = _replication_split(rec, "cpu", cores_req)
+    rep_ram_gb = _replication_split(rec, "ram", ram_demand)
+    rep_stor_tb = _replication_split(rec, "storage", stor_demand)
+    if rep_cores or rep_ram_gb or rep_stor_tb:
+        notes.append("Replication reserve separated approximately from the "
+                     "utilization bands (the snapshot does not itemise it).")
+
     # Day-one floors are not persisted; re-derive them from the projection the
-    # way the engine does (recommend.py: floor = base / (pct/100)).
+    # way the engine does (recommend.py: floor = base / (pct/100)), and hold
+    # the replication reserve on top of the floor like the engine does.
     ram_req = ram_demand
     base_ram = proj.get("base_ram_gb")
     if base_ram is not None:
         floor = base_ram / (_pct(fields, "max-day-one-ram", T.max_day_one_ram_pct) / 100.0)
-        ram_req = max(ram_demand or 0, floor)
+        ram_req = max((ram_demand or 0) - rep_ram_gb, floor) + rep_ram_gb
     elif ram_demand is not None:
         notes.append("No projection.base_ram_gb: day-one RAM floor not applied.")
     stor_req = stor_demand
     base_stor = proj.get("base_storage_tb")
     if base_stor is not None:
         floor = base_stor / (_pct(fields, "max-day-one-storage", T.max_day_one_storage_pct) / 100.0)
-        stor_req = max(stor_demand or 0, floor)
+        stor_req = max((stor_demand or 0) - rep_stor_tb, floor) + rep_stor_tb
     elif stor_demand is not None:
         notes.append("No projection.base_storage_tb: day-one storage floor not applied.")
+
+    # Compute mode: "reserved" holds the CPU/RAM reserve at N-1 too, "failover"
+    # only at the full cluster (recommend.py: rep_*_n1). The mode is not
+    # persisted, so it is inferred from the engine's own accepted result: a
+    # sized N-1 pool below the reserved-mode requirement can only have passed
+    # the engine in failover mode — then the reserve must not red the N-1
+    # comparison here (the docstring contract: a copied config is never
+    # 'smaller').
+    if not full:
+        n1_block = rec.get("n_minus_1") or {}
+        sized_n1_cores = n1_block.get("cores")
+        if (rep_cores and cores_req is not None and sized_n1_cores is not None
+                and sized_n1_cores < cores_req):
+            cores_req = cores_req - rep_cores
+            notes.append("Replication compute reserve gated at the full cluster "
+                         "only (failover mode inferred): the N-1 cores "
+                         "requirement excludes it.")
+        sized_n1_ram = n1_block.get("ram_gb")
+        if (rep_ram_gb and ram_req is not None and sized_n1_ram is not None
+                and sized_n1_ram < ram_req - max(1.0, 0.01 * ram_req)):
+            ram_req = ram_req - rep_ram_gb
+            notes.append("Replication RAM reserve gated at the full cluster "
+                         "only (failover mode inferred): the N-1 RAM "
+                         "requirement excludes it.")
 
     counts = _get(rec, "storage_config", "drive_counts", default={}) or {}
     totals = rec.get("totals") or rec.get("cluster_total") or {}
@@ -862,6 +924,22 @@ def compare(config: BOMConfig, configuration_or_requirements: Any,
             "notes": notes + ["The selected sizing has no stored result."],
         }
     notes.extend(req.get("notes") or [])
+    if nodes["node_count"] is None:
+        # Node-count inference found no evidence: a guessed count silently
+        # multiplies/divides every per-node figure and has turned an
+        # under-sized BOM into a green verdict, so nothing is compared.
+        note = ("Node count could not be determined from the BOM; fill the "
+                "Nodes column of the template (or include the server line).")
+        summary = _cluster_summary(cluster)
+        summary["node_count"] = None
+        return {
+            "verdict": "unknown", "sizing": req.get("sizing"),
+            "config_name": config.name,
+            "dimensions": [_dim(k, "unknown", None, None, None, _UNITS[k], note)
+                           for k in DIMENSION_KEYS],
+            "cluster": summary,
+            "notes": notes + [note],
+        }
     no_demand = req.get("kind") == "config"
     if no_demand:
         notes.append("Direct build: relations are hardware vs hardware; 'smaller' means "

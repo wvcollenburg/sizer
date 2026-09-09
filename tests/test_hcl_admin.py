@@ -156,7 +156,7 @@ def test_stats_on_empty_catalog(client):
     assert d["components"] == {"active": 0, "delisted": 0, "by_kind": {}}
     assert d["devices"] == {"active": 0, "delisted": 0}
     assert d["pending"] == 0 and d["last_run"] is None and d["running"] is False
-    assert d["blocked_vendors"] == [] and d["catalog_stamp"] == "run0:change0"
+    assert d["blocked_vendors"] == [] and d["catalog_stamp"] == "run0:change0:n0"
     assert client.get("/admin/api/hcl/scrape/status").get_json() == {"running": False, "last": None}
     assert client.get("/admin/api/hcl/runs").get_json() == []
 
@@ -204,14 +204,53 @@ def test_scrape_409_while_running_and_timeout_recovery(client, inline_scrape):
     assert status["running"] is True and status["last"]["id"] == live.id
     assert client.get("/admin/api/hcl/stats").get_json()["running"] is True
 
-    # a run stuck for over 30 minutes is written off and the button works again
+    # Finding: "30-minute stale window is shorter than a scrape's worst-case
+    # runtime" — a slow-but-alive run (31 min) must NOT be written off...
     live.started_at = _utcnow() - timedelta(minutes=31)
+    db.session.commit()
+    assert client.post("/admin/api/hcl/scrape").status_code == 409
+    assert db.session.get(hm.HclScrapeRun, live.id).status == hm.RUN_RUNNING
+
+    # ...but a run stuck for over 2 hours is, and the button works again
+    live.started_at = _utcnow() - timedelta(hours=2, minutes=1)
     db.session.commit()
     resp = client.post("/admin/api/hcl/scrape")
     assert resp.status_code == 202
     stuck = db.session.get(hm.HclScrapeRun, live.id)
     assert stuck.status == hm.RUN_FAILED and stuck.error == "timed out"
     assert inline_scrape == [resp.get_json()["run"]["id"]]
+
+
+def test_timed_out_run_is_never_resurrected(app, client):
+    # Finding: "30-minute stale window ... 'timed out' runs get resurrected
+    # and concurrent scrapes overlap" — when the stale sweep marks a run
+    # failed while its thread is still fetching, the thread must drop its
+    # snapshot instead of flipping the row back to succeeded and queueing a
+    # competing diff.
+    run = hm.HclScrapeRun(status=hm.RUN_QUEUED, source="scrape")
+    db.session.add(run)
+    db.session.commit()
+    run_id = run.id
+    real = fixture_fetch()
+    state = {"timed_out": False}
+
+    def fetch(path):
+        if not state["timed_out"]:
+            # simulate _live_running_run() acting from another request
+            state["timed_out"] = True
+            row = db.session.get(hm.HclScrapeRun, run_id)
+            row.status = hm.RUN_FAILED
+            row.error = "timed out"
+            row.finished_at = _utcnow()
+            db.session.commit()
+        return real(path)
+
+    assert har.run_scrape(app, run_id, fetch=fetch, delay=0) is None
+    db.session.expire_all()
+    row = db.session.get(hm.HclScrapeRun, run_id)
+    assert row.status == hm.RUN_FAILED and row.error == "timed out"
+    # nothing from the dead run's snapshot was queued
+    assert hm.HclPendingChange.query.count() == 0
 
 
 def test_scrape_failure_lands_on_the_run(app, client, monkeypatch):
@@ -454,6 +493,50 @@ def test_import_snapshot_happy_path(client, snapshot):
     run2 = resp.get_json()["run"]
     assert run2["complete"] is False and run2["summary"]["changes"]["delist"] == 0
     assert run2["summary"]["platforms"] == 3
+
+
+def test_import_snapshot_untyped_values_do_not_block_approve_all(client):
+    # Finding: "Snapshot import stores untyped/over-wide values in pending
+    # rows; approving them 500s and blocks 'approve all'"
+    poison = {"platforms": [
+        {"brand": "dell", "sc_model": "HC1", "sockets": 2, "max_cores": 32,
+         "components": []},
+        {"brand": "lenovo", "sc_model": "HC2", "sockets": "two",
+         "max_cores": {"a": 1},
+         "components": [{"kind": "k" * 30, "part_number": "X1",
+                         "description": "junk kind, must be dropped"}]},
+        {"brand": "b" * 60, "sc_model": "HC3", "components": []},
+    ]}
+    resp = _import(client, poison)
+    assert resp.status_code == 201, resp.get_json()
+    resp = client.post("/admin/api/hcl/pending/bulk", json={"all": True, "action": "approve"})
+    assert resp.status_code == 200, resp.get_json()
+    d = resp.get_json()
+    assert d["approved"] == 3 and d["skipped"] == 0
+    platforms = client.get("/admin/api/hcl/platforms").get_json()
+    assert {p["key"] for p in platforms} == {"dell/HC1", "lenovo/HC2", ("b" * 20) + "/HC3"}
+    hc2 = next(p for p in platforms if p["key"] == "lenovo/HC2")
+    assert hc2["sockets"] is None and hc2["max_cores"] is None
+    # the junk-kind component never entered the queue or the catalog
+    assert client.get("/admin/api/hcl/components?status=all").get_json() == []
+    # a second approve-all is a clean no-op, not a repeat 500
+    resp = client.post("/admin/api/hcl/pending/bulk", json={"all": True, "action": "approve"})
+    assert resp.status_code == 200 and resp.get_json()["approved"] == 0
+
+
+def test_import_snapshot_bad_page_counters(client):
+    # Finding: "import_snapshot crashes with 500 on a non-numeric
+    # pages_total/pages_done" — must be a JSON 400, and huge floats clamp.
+    resp = _import(client, {"platforms": [], "pages_total": "abc"})
+    assert resp.status_code == 400
+    assert "pages_total" in resp.get_json()["error"]
+    resp = _import(client, {"platforms": [], "pages_done": [1]})
+    assert resp.status_code == 400
+    assert client.get("/admin/api/hcl/runs").get_json() == []  # nothing left behind
+    resp = _import(client, {"platforms": [], "pages_total": 1e30, "pages_done": "12"})
+    assert resp.status_code == 201
+    run = resp.get_json()["run"]
+    assert run["pages_total"] == 100000 and run["pages_done"] == 12
 
 
 def test_import_snapshot_bad_files(client):

@@ -87,9 +87,54 @@ def to_int(v: Any, default: int = 1) -> int:
 
 # ─── workbook access (bounded) ────────────────────────────────────────────────
 
+# Decompression-bomb limits for the zip pre-check below: any single member's
+# uncompressed size, all members together, and (for members big enough for it
+# to matter) the deflate ratio.
+MAX_XLSX_MEMBER_BYTES = 50 * 1024 * 1024
+MAX_XLSX_TOTAL_BYTES = 200 * 1024 * 1024
+MAX_XLSX_COMPRESSION_RATIO = 100
+_RATIO_CHECK_MIN_BYTES = 5 * 1024 * 1024
+
+
+def check_zip_bomb(path: str) -> None:
+    """Reject a decompression bomb BEFORE openpyxl touches the file.
+
+    openpyxl (read_only included) parses xl/sharedStrings.xml in full into a
+    Python list at load time, so the MAX_SHEET_ROWS/MAX_SHEET_COLS caps never
+    see an oversized strings part: a sub-MB upload can inflate to gigabytes
+    and OOM the worker. The zip central directory states every member's
+    uncompressed size, so this is a cheap metadata check. Files that are not
+    readable zips pass through — openpyxl raises its own error for those."""
+    import zipfile
+    try:
+        zf = zipfile.ZipFile(path)
+    except (zipfile.BadZipFile, OSError):
+        return
+    with zf:
+        total = 0
+        for info in zf.infolist():
+            size = int(info.file_size or 0)
+            total += size
+            ratio = (size / info.compress_size) if info.compress_size else 0
+            if (size > MAX_XLSX_MEMBER_BYTES
+                    or (size > _RATIO_CHECK_MIN_BYTES
+                        and ratio > MAX_XLSX_COMPRESSION_RATIO)):
+                raise SheetTooLargeError(
+                    "The workbook is too large to process safely: part %r "
+                    "expands to %d MB." % (info.filename, size // (1024 * 1024)))
+            if total > MAX_XLSX_TOTAL_BYTES:
+                raise SheetTooLargeError(
+                    "The workbook is too large to process safely: its parts "
+                    "expand to more than %d MB in total."
+                    % (MAX_XLSX_TOTAL_BYTES // (1024 * 1024)))
+
+
 def load_workbook_safe(path: str):
     """read_only + data_only like every other importer in the app; openpyxl's
-    'no default style' warning on some Lenovo exports is noise."""
+    'no default style' warning on some Lenovo exports is noise. The zip
+    pre-check runs first — read_only mode still loads sharedStrings.xml
+    eagerly, so the row/col caps alone cannot stop a decompression bomb."""
+    check_zip_bomb(path)
     from openpyxl import load_workbook
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', module='openpyxl')

@@ -123,9 +123,15 @@ def available() -> bool:
 # ── document extraction ─────────────────────────────────────────────────────
 
 def _xlsx_text(path: str) -> str:
-    from openpyxl import load_workbook
-    from xlsx_utils import MAX_SHEET_COLS, MAX_SHEET_ROWS
-    wb = load_workbook(path, read_only=True, data_only=True)
+    from bom.parsers.common import load_workbook_safe
+    from xlsx_utils import MAX_SHEET_COLS, MAX_SHEET_ROWS, SheetTooLargeError
+    try:
+        # Shares the zip decompression-bomb pre-check with the deterministic
+        # parsers: read_only openpyxl still inflates sharedStrings.xml in
+        # full, so the row cap below cannot protect the worker on its own.
+        wb = load_workbook_safe(path)
+    except SheetTooLargeError as exc:
+        raise PrefillError(str(exc))
     parts = []
     for ws in wb.worksheets[:20]:
         parts.append("=== Sheet: %s ===" % ws.title)

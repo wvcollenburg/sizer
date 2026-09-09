@@ -80,6 +80,11 @@
     function formatLabel(fmt) {
         if (!fmt) return t('bom.format.unknown');
         if (KNOWN_FORMATS.indexOf(fmt) >= 0) return t('bom.format.' + fmt);
+        // Slugs without their own i18n key (dell_list_*, dell_vnet, dh_bid, …)
+        // use the English label served by /api/bom/capabilities (FORMAT_LABELS);
+        // the raw slug is the last resort if capabilities haven't loaded.
+        const caps = bomState.capabilities || {};
+        if (caps.formats && caps.formats[fmt]) return String(caps.formats[fmt]);
         return String(fmt);
     }
 
@@ -690,6 +695,9 @@
         const host = $('bom-result');
         if (host) host.innerHTML = `<p class="project-empty">${escHtml(t('bom.loading'))}</p>`;
         showStep('result');
+        // formatLabel() reads capabilities.formats; make sure they are in
+        // before the header renders (cached after the first load).
+        await loadCapabilities();
         const { ok, data } = await api(`/api/bom-checks/${Number(id)}`);
         if (!ok || !data) {
             bomShowError((data && data.error) || t('bom.err.load_failed'), []);

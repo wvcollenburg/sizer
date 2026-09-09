@@ -141,18 +141,30 @@ def suggestions_for(config: BOMConfig, result: ConfigResult,
                           if c.description == f.component), None)
         off_attrs = component_attrs(kind, offending.description) if offending else {}
         pool = _platform_parts(platforms, kind)
+        below_speed = False
         if kind == "nic":
             need = off_attrs.get("speed_gbe")
             ff = off_attrs.get("form_factor")
             ports = off_attrs.get("ports")
             if need:
-                pool = [p for p in pool if (p["attrs"].get("speed_gbe") or 0) >= need] or pool
+                fast_enough = [p for p in pool
+                               if (p["attrs"].get("speed_gbe") or 0) >= need]
+                if fast_enough:
+                    pool = fast_enough
+                else:
+                    # No validated NIC on this platform reaches the offending
+                    # part's speed. Keep the pool as candidates, but flagged
+                    # and fastest-first — the old silent fallback presented a
+                    # 1 GbE adapter as the top swap for a 100 GbE NIC.
+                    below_speed = True
             # Nearest-equivalent first: same slot type, lowest speed that still
             # covers the offending part, closest port count (a 2-port asked
-            # for gets the 2-port offered before the 4-port).
+            # for gets the 2-port offered before the 4-port). When nothing
+            # covers the speed, the FASTEST available part leads instead.
             pool.sort(key=lambda p: (
                 0 if ff and p["attrs"].get("form_factor") == ff else 1,
-                p["attrs"].get("speed_gbe") or 0,
+                (-(p["attrs"].get("speed_gbe") or 0) if below_speed
+                 else (p["attrs"].get("speed_gbe") or 0)),
                 abs((p["attrs"].get("ports") or 0) - ports) if ports else 0,
                 -(p["attrs"].get("ports") or 0),
                 p["part_number"],
@@ -161,19 +173,23 @@ def suggestions_for(config: BOMConfig, result: ConfigResult,
             pool.sort(key=lambda p: (p["description"], p["part_number"]))
         if not pool:
             continue
+        candidates = [{
+            "part_number": p["part_number"],
+            "description": p["description"],
+            "tce": p["tce"],
+            "speed_gbe": p["attrs"].get("speed_gbe"),
+            "ports": p["attrs"].get("ports"),
+            "form_factor": p["attrs"].get("form_factor"),
+        } for p in pool[:limit]]
+        if below_speed:
+            for cand in candidates:
+                cand["below_required_speed"] = True
         out.append({
             "config_name": config.name,
             "component": f.component,
             "code": f.code,
             "kind": kind,
-            "candidates": [{
-                "part_number": p["part_number"],
-                "description": p["description"],
-                "tce": p["tce"],
-                "speed_gbe": p["attrs"].get("speed_gbe"),
-                "ports": p["attrs"].get("ports"),
-                "form_factor": p["attrs"].get("form_factor"),
-            } for p in pool[:limit]],
+            "candidates": candidates,
         })
     return out
 

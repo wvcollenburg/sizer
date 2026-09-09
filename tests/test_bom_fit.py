@@ -131,13 +131,51 @@ def test_derive_nodes_dell_single_node_two_sockets():
     assert not any("BOSS" in note for note in n["notes"])
 
 
-def test_derive_nodes_without_chassis_line_uses_smallest_capacity_quantity():
+def test_derive_nodes_without_chassis_line_is_unknown_not_a_guess():
+    # Finding: "Node-count inference silently doubles the cluster and turns an
+    # under-sized BOM into a green 'bigger' verdict" — a 3-node dual-socket
+    # BOM (6 CPUs / 48 DIMMs / 12 drives) used to be guessed as 6 single-
+    # socket nodes from the smallest capacity quantity. No evidence -> None.
     cfg = BOMConfig(name="x", server_model=None, components=[
-        _c(CPU_6526Y, 2, "cpu"), _c(DIMM_32, 16, "memory"), _c(NVME_384, 8, "storage"),
+        _c(CPU_6526Y, 6, "cpu"), _c(DIMM_32, 48, "memory"), _c(NVME_384, 12, "storage"),
     ])
     n = fit.derive_nodes(cfg)
-    assert n["node_count"] == 2
-    assert n["ram_gb_per_node"] == 256 and n["drives"][0]["qty_per_node"] == 4
+    assert n["node_count"] is None
+    assert "nodes" in n["unresolved"]
+    assert any("Node count unknown" in note for note in n["notes"])
+
+
+def test_derive_nodes_backplane_rows_are_not_the_server_line():
+    # Finding (chassis branch): a Lenovo backplane row is categorised
+    # 'chassis' and names the model; listed before the chassis row with 2 per
+    # node it used to win the node count. It must be skipped.
+    cfg = BOMConfig(name="x", server_model="ThinkSystem SR650 V3", components=[
+        _c('ThinkSystem SR650 V3 2.5" SAS/SATA 8-Bay Backplane', 6, "chassis"),
+        _c("ThinkSystem SR650 V3 Chassis", 3, "chassis"),
+        _c(CPU_6526Y, 6, "cpu"), _c(DIMM_32, 48, "memory"), _c(NVME_384, 12, "storage"),
+    ])
+    assert fit.derive_nodes(cfg)["node_count"] == 3
+    # ... and with ONLY the backplane row there is no evidence at all.
+    cfg2 = BOMConfig(name="y", server_model="ThinkSystem SR650 V3", components=[
+        _c('ThinkSystem SR650 V3 2.5" SAS/SATA 8-Bay Backplane', 6, "chassis"),
+        _c(CPU_6526Y, 6, "cpu"), _c(DIMM_32, 48, "memory"), _c(NVME_384, 12, "storage"),
+    ])
+    assert fit.derive_nodes(cfg2)["node_count"] is None
+
+
+def test_compare_unknown_node_count_never_reaches_the_verdict():
+    # Finding regression: with the node count unguessable, every dimension is
+    # 'unknown' and the verdict is 'unknown' — never a confident 'bigger'
+    # built on a doubled cluster.
+    cfg = BOMConfig(name="x", server_model=None, components=[
+        _c(CPU_6526Y, 6, "cpu"), _c(DIMM_32, 48, "memory"), _c(NVME_384, 12, "storage"),
+        _c(NIC_E810, 3, "nic"),
+    ])
+    r = fit.compare(cfg, requirements())
+    assert r["verdict"] == "unknown"
+    assert all(d["relation"] == "unknown" for d in r["dimensions"])
+    assert any("Nodes column" in n for n in r["notes"])
+    assert r["cluster"]["node_count"] is None
 
 
 def test_derive_nodes_honours_parser_supplied_node_count():
@@ -582,3 +620,83 @@ def test_sizing_requirements_config_type_direct_build(sqlite_app):
     d = _dims(r)
     assert d["nodes"]["relation"] == "equal" and d["cores"]["relation"] == "equal"
     assert d["storage"]["relation"] == "equal" and r["verdict"] == "match"
+
+
+# ─── 7. replication-target sizings (fit vs engine gates) ─────────────────────
+
+def _rep_req(extra):
+    """sizing_requirements through the dict path on the _snapshot shape."""
+    return fit.sizing_requirements({
+        "result_snapshot": _snapshot(extra=extra),
+        "payload": {"mode": "import", "fields": {}},
+        "id": 9, "name": "DR target",
+    })
+
+
+def test_requirements_hold_replication_reserve_on_top_of_the_day_one_floors():
+    # Finding: "Fit requirements include the replication reserve, so the N-1
+    # cores gate and the RAM day-one floor disagree with the engine" —
+    # reserved mode. The engine gates max(own, floor) + reserve
+    # (recommend.py:875), while the old fit computed max(own + reserve,
+    # floor), under-requiring by up to the reserve when the floor governs.
+    extra = {
+        "hci_node_count": 6, "cluster_layout": [6], "sized_full_cluster": False,
+        "n_minus_1": {"cores": 500, "ram_gb": 750},
+        "utilization": {
+            # cpu: own 200 + reserve 200; sized N-1 (500) covers 400 -> the
+            # reserve stays in the N-1 requirement (reserved mode).
+            "cpu": {"total": 100, "replication": 50, "abs": {"total": 400}},
+            # ram: own 320 + reserve 320; floor = 200 / 50 % = 400 GB.
+            "ram": {"total": 64, "replication": 32, "abs": {"total": 640.0}},
+            # storage: own 14 + reserve 3.5; floor = 8 / 50 % = 16 TB.
+            "storage": {"total": 50, "replication": 10, "abs": {"total": 17.5}},
+        },
+    }
+    req = _rep_req(extra)
+    assert req["cores_required"] == 400
+    # Engine: max(320, 400) + 320 = 720 (the old figure was max(640, 400) = 640).
+    assert req["ram_required_gb"] == pytest.approx(720.0)
+    # Engine: max(14, 16) + 3.5 = 19.5 (the old figure was max(17.5, 16) = 17.5).
+    assert req["storage_required_tb"] == pytest.approx(19.5)
+    assert any("Replication reserve" in n for n in req["notes"])
+
+
+def test_requirements_failover_reserve_is_excluded_from_the_n1_gate():
+    # Finding, failover mode: the reserve counts at the full cluster only
+    # (rep_*_n1 = 0, recommend.py:297), so a BOM copying the sized config
+    # line for line used to come out 'smaller' on cores. The mode is not in
+    # the snapshot; it is inferred from the sized N-1 pool being below the
+    # reserved-mode requirement.
+    extra = {
+        "hci_node_count": 6, "cluster_layout": [6], "sized_full_cluster": False,
+        # sized N-1 pools the engine ACCEPTED, yet below own+reserve:
+        "n_minus_1": {"cores": 250, "ram_gb": 500},
+        "utilization": {
+            "cpu": {"total": 100, "replication": 50, "abs": {"total": 400}},
+            "ram": {"total": 64, "replication": 32, "abs": {"total": 640.0}},
+            "storage": {"abs": {"total": 10.0}},
+        },
+    }
+    req = _rep_req(extra)
+    # own 200 (the old figure was 400 > sized N-1 250 -> guaranteed red).
+    assert req["cores_required"] == pytest.approx(200)
+    assert req["cores_required"] <= 250, "a copied config must not red on cores"
+    # RAM: max(own 320, floor 400) = 400, reserve at the full cluster only.
+    assert req["ram_required_gb"] == pytest.approx(400.0)
+    assert any("failover mode inferred" in n for n in req["notes"])
+
+
+def test_requirements_without_replication_band_are_unchanged():
+    extra = {
+        "hci_node_count": 6, "cluster_layout": [6], "sized_full_cluster": False,
+        "utilization": {
+            "cpu": {"abs": {"total": 120}},
+            "ram": {"abs": {"total": 300.0}},
+            "storage": {"abs": {"total": 10.0}},
+        },
+    }
+    req = _rep_req(extra)
+    assert req["cores_required"] == 120
+    assert req["ram_required_gb"] == pytest.approx(400.0)   # floor 200 / 50 %
+    assert req["storage_required_tb"] == pytest.approx(16.0)  # floor 8 / 50 %
+    assert not any("Replication" in n for n in req["notes"])

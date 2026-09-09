@@ -1725,6 +1725,7 @@ async function purgeSelectedStale() {
 let hclPollTimer = null;          // 3 s status poll while a scrape runs
 let hclWasRunning = false;        // to refresh the queue once a run finishes
 let hclLastRunId = null;          // from /stats or /scrape/status; drives the "latest run" filter
+let hclRunFilterDefaulted = false; // one-time: the queue's Run select starts on "All runs"
 let hclSearchTimer = null;        // debounce for the component search box
 let hclExpandedPlatform = null;   // platform id whose detail row is open
 let bomReviewRows = [];           // last list from /admin/api/bom-reviews
@@ -1823,6 +1824,15 @@ function hclEntityLabel(entityType) {
 // ── tab entry ─────────────────────────────────────────────────────────────
 
 async function loadHcl() {
+    // Rows from earlier runs stay pending when a later run doesn't re-diff
+    // their entities, so the "Latest run" view can hide changes the pending
+    // pill counts. Default to "All runs" so the table matches the pill; the
+    // admin can still narrow to the latest run by hand.
+    if (!hclRunFilterDefaulted) {
+        const runSel = document.getElementById('hcl-pending-run');
+        if (runSel) runSel.value = 'all';
+        hclRunFilterDefaulted = true;
+    }
     hclCatalogKindChanged(true);      // sync filter visibility without reloading twice
     await hclLoadStats();             // first: it supplies hclLastRunId for the queue filter
     await Promise.all([hclLoadScrapeStatus(), loadHclPending(), loadHclCatalog()]);
@@ -2056,14 +2066,21 @@ async function hclBulkPending(action) {
     hclAfterQueueChange();
 }
 
-// "Approve all pending" approves everything the current filters show, not just
-// the loaded page — the server applies the same filter, so the count shown is
-// the count approved.
+// "Approve all pending" approves everything the current filters MATCH on the
+// server, not just the rendered page (the list endpoint caps at 500 rows), so
+// the confirm count comes from the server-side stats total whenever the view
+// is unfiltered; a narrowed view falls back to the rendered rows.
 async function hclApproveAllPending() {
-    const n = hclPendingChecks().length;
+    if (!hclPendingChecks().length) { setStatus('hcl-status', t('admin.hcl.pending_none'), true); return; }
+    const filter = hclPendingFilter();
+    let n = hclPendingChecks().length;
+    if (!filter.entity_type && !filter.kind && filter.run_id == null) {
+        // Re-fetch so a stale page can't understate what the bulk will apply.
+        const stats = await adminApi('/admin/api/hcl/stats');
+        if (stats.ok && stats.data && stats.data.pending != null) n = stats.data.pending;
+    }
     if (!n) { setStatus('hcl-status', t('admin.hcl.pending_none'), true); return; }
     if (!confirm(t('admin.hcl.approve_all_confirm', { n: n }))) return;
-    const filter = hclPendingFilter();
     const { ok, data } = await hclJson('/admin/api/hcl/pending/bulk', 'POST', { all: true, filter: filter, action: 'approve' });
     if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
     setStatus('hcl-status', t('admin.hcl.bulk_done', {

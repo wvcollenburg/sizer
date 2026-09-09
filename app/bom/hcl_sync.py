@@ -41,7 +41,7 @@ from database import db
 from bom.hcl_scrape import synthetic_part_number
 from hcl_models import (
     APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_RELIST, CHANGE_UPDATE,
-    HclComponent, HclDevice, HclPendingChange, HclPlatform,
+    COMPONENT_KINDS, HclComponent, HclDevice, HclPendingChange, HclPlatform,
     HclPlatformComponent, HclScrapeRun, PENDING, REJECTED, RUN_FAILED,
     RUN_RUNNING, RUN_SUCCEEDED, STATUS_ACTIVE, STATUS_DELISTED, SUPERSEDED,
 )
@@ -72,6 +72,25 @@ class ChangeStateError(ValueError):
 # snapshot -> normalised records
 # ---------------------------------------------------------------------------
 
+def _int_or_none(value):
+    """Coerce a snapshot numeric field; junk becomes None instead of a
+    poison value that 500s at approve time (untyped snapshot values)."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _aware_dt(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _fit(value, limit):
     if value is None:
         return None
@@ -100,6 +119,11 @@ def _synthetic_part(kind: str, description: str, attrs: dict) -> Optional[str]:
 def component_record(comp: dict) -> Optional[dict]:
     """One snapshot component into the shape stored on hcl_components."""
     kind = (comp.get("kind") or "").strip().lower()
+    # A hand-edited/corrupted snapshot may carry any kind; the scraper
+    # restricts to COMPONENT_KINDS, the import path must too (String(8)
+    # column, and Postgres enforces widths where SQLite does not).
+    if kind not in COMPONENT_KINDS:
+        return None
     part = _fit(comp.get("part_number"), _COMPONENT_LIMITS["part_number"])
     if kind and not part:
         part = _synthetic_part(kind, comp.get("description") or "", comp.get("attrs") or {})
@@ -123,13 +147,14 @@ def platform_record(platform: dict) -> Optional[dict]:
     names (``cpu_count``/``sockets``, ``memory_type``/``ram_type``); the
     detail page wins when present, the card fills the gap.
     """
-    brand = (platform.get("brand") or "").strip().lower()
+    brand = (platform.get("brand") or "").strip().lower()[:20]  # String(20) column
     sc_model = _fit(platform.get("sc_model"), 40)
     if not brand or not sc_model:
         return None
     sockets = platform.get("sockets")
     if sockets is None:
         sockets = platform.get("cpu_count")
+    sockets = _int_or_none(sockets)
     rec = {
         "key": "%s/%s" % (brand, sc_model),
         "brand": brand,
@@ -138,18 +163,18 @@ def platform_record(platform: dict) -> Optional[dict]:
         "form_factor": _fit(platform.get("form_factor"), _PLATFORM_LIMITS["form_factor"]),
         "socket": _fit(platform.get("socket"), _PLATFORM_LIMITS["socket"]),
         "sockets": sockets,
-        "max_cores": platform.get("max_cores"),
+        "max_cores": _int_or_none(platform.get("max_cores")),
         "memory_type": _fit(platform.get("memory_type") or platform.get("ram_type"),
                             _PLATFORM_LIMITS["memory_type"]),
-        "ram_slots": platform.get("ram_slots"),
-        "max_ram_gb": platform.get("max_ram_gb"),
+        "ram_slots": _int_or_none(platform.get("ram_slots")),
+        "max_ram_gb": _int_or_none(platform.get("max_ram_gb")),
         "power_supply": _fit(platform.get("power_supply"), None),
         "cooling": _fit(platform.get("cooling"), None),
         "tpm": _fit(platform.get("tpm"), None),
         "risers": _fit(platform.get("risers"), None),
         "oob_license": _fit(platform.get("oob_license"), None),
-        "hdd_max": platform.get("hdd_max"),
-        "ssd_max": platform.get("ssd_max"),
+        "hdd_max": _int_or_none(platform.get("hdd_max")),
+        "ssd_max": _int_or_none(platform.get("ssd_max")),
         "nic_listed": bool(platform["nic_listed"]) if "nic_listed" in platform else True,
     }
     comps = {}  # type: Dict[str, dict]
@@ -236,8 +261,23 @@ def _component_label(rec):
     return "%s %s" % (rec["kind"], rec["part_number"])
 
 
+def _marked_key(key, tce):
+    """'kind/part' plus a '*' marker when the platform flags the part TCE.
+    The marker makes a per-platform TCE badge flip visible to the
+    components compare (it used to compare bare keys, so a badge change
+    produced no queue row and never reached the link)."""
+    return "%s*" % key if tce else key
+
+
+def _unmark_key(key):
+    if key.endswith("*"):
+        return key[:-1], True
+    return key, False
+
+
 def _active_link_keys(platform: HclPlatform) -> List[str]:
-    return sorted(l.component.key for l in platform.links if l.status == STATUS_ACTIVE)
+    return sorted(_marked_key(l.component.key, l.tce)
+                  for l in platform.links if l.status == STATUS_ACTIVE)
 
 
 def diff_snapshot(snapshot: dict) -> List[dict]:
@@ -273,7 +313,7 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
                     old_value=old, new_value=new,
                     label="Platform %s: %s changed" % (key, field)))
         old_list = _active_link_keys(row)
-        new_list = [c["key"] for c in rec["components"]]
+        new_list = [_marked_key(c["key"], c["tce"]) for c in rec["components"]]
         if old_list != new_list:
             added = len(set(new_list) - set(old_list))
             removed = len(set(old_list) - set(new_list))
@@ -375,6 +415,8 @@ def record_changes(run: HclScrapeRun, changes: List[dict]) -> int:
     does not commit."""
     n = 0
     for ch in changes:
+        if len(ch["entity_key"] or "") > 160:  # column width; a wider key 500s at flush
+            continue
         older = _pending_same(ch["entity_key"], ch["change_kind"], ch["field"]).filter(
             HclPendingChange.run_id != run.id).all()
         for old in older:
@@ -398,29 +440,63 @@ def record_changes(run: HclScrapeRun, changes: List[dict]) -> int:
     return n
 
 
+def supersede_stale(run: HclScrapeRun, recs: dict, complete: bool) -> int:
+    """Retire pending rows an older run queued that ``run`` did NOT re-produce.
+
+    ``record_changes`` already superseded older rows for the (entity, kind,
+    field) tuples the new run re-produced, so any row from another run still
+    pending here describes a change the newest diff no longer sees (the site
+    reverted, or the earlier scrape glitched). Left alone, it looks current
+    and approving it corrupts the catalog. For a complete snapshot every
+    entity was fully diffed, so all such rows go; for a partial snapshot only
+    entities present in the snapshot were fully diffed, so the sweep is
+    restricted to those — a failed detail page never hides a real change.
+    Flushes, does not commit."""
+    rows = HclPendingChange.query.filter(
+        HclPendingChange.status == PENDING,
+        HclPendingChange.run_id != run.id).all()
+    if not complete:
+        keys = set(recs["platforms"]) | set(recs["components"]) | set(recs["devices"])
+        rows = [r for r in rows if r.entity_key in keys]
+    now = _utcnow()
+    for row in rows:
+        row.status = SUPERSEDED
+        row.decided_at = now
+        row.note = "not reproduced by run %s" % run.id
+    db.session.flush()
+    return len(rows)
+
+
 def touch_seen(snapshot: dict, seen_at: Optional[datetime] = None) -> int:
     """Bump ``last_seen`` on every active row (and link) the snapshot
     contains. No approval needed: it records observation, not content."""
     seen_at = seen_at or _utcnow()
+
+    def _bump(row):
+        # Never move last_seen backwards: importing an archived snapshot
+        # (older scraped_at) must not un-see what a newer scrape saw.
+        if row.last_seen is None or _aware_dt(seen_at) > _aware_dt(row.last_seen):
+            row.last_seen = seen_at
+
     recs = snapshot_records(snapshot)
     n = 0
     for platform in HclPlatform.query.filter_by(status=STATUS_ACTIVE).all():
         rec = recs["platforms"].get(platform.key)
         if rec is None:
             continue
-        platform.last_seen = seen_at
+        _bump(platform)
         n += 1
         listed = set(c["key"] for c in rec["components"])
         for link in platform.links:
             if link.status == STATUS_ACTIVE and link.component.key in listed:
-                link.last_seen = seen_at
+                _bump(link)
     for comp in HclComponent.query.filter_by(status=STATUS_ACTIVE).all():
         if comp.key in recs["components"]:
-            comp.last_seen = seen_at
+            _bump(comp)
             n += 1
     for dev in HclDevice.query.filter_by(status=STATUS_ACTIVE).all():
         if dev.key in recs["devices"]:
-            dev.last_seen = seen_at
+            _bump(dev)
             n += 1
     db.session.flush()
     return n
@@ -467,6 +543,20 @@ def _ensure_component(rec, now, user, via, result):
         if via:
             _auto_approve(ENTITY_COMPONENT, comp.key, (CHANGE_ADD,), "via platform %s" % via,
                           user, now, result)
+            # The platform's validated part list is authoritative, so the part
+            # is created even when its own add row was rejected earlier — but
+            # that explicit rejection must not silently contradict the
+            # catalog: annotate the rejected row so the queue history says
+            # the platform approval overrode it.
+            rejected_adds = HclPendingChange.query.filter(
+                HclPendingChange.entity_type == ENTITY_COMPONENT,
+                HclPendingChange.entity_key == comp.key,
+                HclPendingChange.change_kind == CHANGE_ADD,
+                HclPendingChange.status == REJECTED).all()
+            for row in rejected_adds:
+                prefix = ("%s; " % row.note) if row.note else ""
+                row.note = ("%ssuperseded: created anyway via platform %s approval"
+                            % (prefix, via))[:2000]
     elif comp.status == STATUS_DELISTED:
         comp.status = STATUS_ACTIVE
         comp.delisted_at = None
@@ -549,11 +639,12 @@ def _apply_platform(change, now, user, result):
                 by_key = {c.key: c for c in HclComponent.query.all()}
                 records = []
                 for key in change.new_value or []:
+                    key, tce = _unmark_key(key)
                     comp = by_key.get(key)
                     if comp is not None:
                         records.append({"kind": comp.kind, "part_number": comp.part_number,
                                         "description": comp.description, "attrs": comp.attrs,
-                                        "tce": False})
+                                        "tce": tce})
             _sync_links(platform, records, now, user, result)
         elif change.field in HclPlatform.TRACKED:
             setattr(platform, change.field, change.new_value)
@@ -611,6 +702,12 @@ def _apply_component(change, now, user, result):
             value = _fit(value, _COMPONENT_LIMITS["description"]) or ""
         elif change.field == "tce":
             value = bool(value)
+            # The component-level flag is "TCE on any platform"; when the
+            # part sits on exactly one platform the link must follow, or
+            # platform_components()/enrich keep showing the stale badge.
+            active_links = [l for l in comp.links if l.status == STATUS_ACTIVE]
+            if len(active_links) == 1:
+                active_links[0].tce = value
         setattr(comp, change.field, value)
         comp.last_seen = now
         result["applied"] = True
@@ -776,7 +873,17 @@ def bulk(ids, action, user=None, all_pending=False, filters=None) -> dict:
             counts["skipped"] += 1
             continue
         if action == "approve":
-            result = apply_change(change, user)
+            # One poison row (e.g. an unvalidated legacy snapshot value that
+            # cannot bind to its column) must not abort the whole batch: the
+            # savepoint confines the failure, the row is skipped with a note
+            # and stays pending so the admin can see and reject it.
+            try:
+                with db.session.begin_nested():
+                    result = apply_change(change, user)
+            except Exception as exc:  # noqa: BLE001 - recorded on the row
+                change.note = ("apply failed: %s" % exc)[:2000]
+                counts["skipped"] += 1
+                continue
             _decide(change, APPROVED, user)
             if not result["applied"] and result.get("reason"):
                 change.note = result["reason"]
@@ -819,19 +926,21 @@ def build_run(snapshot: dict, user=None, source: str = "scrape",
         db.session.flush()
     try:
         run.status = RUN_RUNNING
-        if snapshot.get("pages_total"):
-            run.pages_total = int(snapshot["pages_total"])
-        if snapshot.get("pages_done"):
-            run.pages_done = int(snapshot["pages_done"])
+        pages_total = _int_or_none(snapshot.get("pages_total"))
+        if pages_total:
+            run.pages_total = pages_total
+        pages_done = _int_or_none(snapshot.get("pages_done"))
+        if pages_done:
+            run.pages_done = pages_done
         run.complete = bool(snapshot.get("complete"))
         run.errors = list(snapshot.get("errors") or [])
 
         changes = diff_snapshot(snapshot)
         record_changes(run, changes)
+        recs = snapshot_records(snapshot)
+        supersede_stale(run, recs, complete=bool(snapshot.get("complete")))
         seen_at = _parse_when(snapshot.get("scraped_at")) or _utcnow()
         touch_seen(snapshot, seen_at)
-
-        recs = snapshot_records(snapshot)
         kinds = {CHANGE_ADD: 0, CHANGE_UPDATE: 0, CHANGE_DELIST: 0, CHANGE_RELIST: 0}
         for ch in changes:
             kinds[ch["change_kind"]] = kinds.get(ch["change_kind"], 0) + 1
@@ -844,8 +953,12 @@ def build_run(snapshot: dict, user=None, source: str = "scrape",
         }
         run.status = RUN_SUCCEEDED
         run.finished_at = _utcnow()
-        from auth import set_setting
-        set_setting(LAST_SCRAPE_SETTING, seen_at.isoformat())
+        from auth import get_setting, set_setting
+        # Importing an older archived snapshot must not move the user-visible
+        # "catalog last updated" stamp backwards.
+        existing = _parse_when(get_setting(LAST_SCRAPE_SETTING, None))
+        if existing is None or seen_at > existing:
+            set_setting(LAST_SCRAPE_SETTING, seen_at.isoformat())
         db.session.commit()
     except Exception as exc:  # noqa: BLE001 - recorded on the run, then re-raised
         db.session.rollback()
@@ -860,10 +973,15 @@ def build_run(snapshot: dict, user=None, source: str = "scrape",
 
 
 def catalog_stamp() -> str:
-    """'run<last succeeded run>:change<max approved change>' — what a BOM
-    check records so a later re-check can say whether the catalog moved."""
+    """'run<last succeeded run>:change<max approved change>:n<approved count>'
+    — what a BOM check records so a later re-check can say whether the
+    catalog moved. Ids alone are not monotonic in approval order (they are
+    assigned in queue order), so the approved-row count is included: every
+    newly approved change moves the stamp regardless of the order the admin
+    approves in."""
     run_id = db.session.query(func.max(HclScrapeRun.id)).filter(
         HclScrapeRun.status == RUN_SUCCEEDED).scalar() or 0
     change_id = db.session.query(func.max(HclPendingChange.id)).filter(
         HclPendingChange.status == APPROVED).scalar() or 0
-    return "run%d:change%d" % (run_id, change_id)
+    approved = HclPendingChange.query.filter_by(status=APPROVED).count()
+    return "run%d:change%d:n%d" % (run_id, change_id, approved)

@@ -9,10 +9,13 @@ Why the scrape is a per-request daemon thread rather than a queued job:
 the plan decided "admin button only, no schedule", which keeps this the
 sole background activity besides the export worker and avoids the
 real-scheduler migration a second scheduled job would trigger. The run row
-is the lock — a run still 'running' blocks another; one older than 30
-minutes is assumed dead (a gunicorn restart mid-scrape) and marked failed
-so the button never wedges shut. The thread never raises: every failure
-lands on the run row where the UI can show it.
+is the lock — a run still 'running' blocks another; one older than 2 hours
+(longer than a scrape's worst case with every page timing out and retried)
+is assumed dead (a gunicorn restart mid-scrape) and marked failed so the
+button never wedges shut. A timed-out run stays failed for good: its
+thread, if still alive, notices and drops its snapshot instead of
+resurrecting the row and racing a newer scrape. The thread never raises:
+every failure lands on the run row where the UI can show it.
 
 ``run_scrape`` is the thread body and is public so a test can call it
 synchronously with a fake fetch serving the HTML fixtures.
@@ -44,7 +47,10 @@ from hcl_models import (
 hcl_admin_bp = Blueprint("hcl_admin", __name__, url_prefix="/admin/api/hcl")
 hcl_admin_bp.before_request(require_super_admin)
 
-RUN_STALE_AFTER = timedelta(minutes=30)
+# Worst case for a scrape with an unresponsive site is ~64 pages x ~2 min of
+# retries+timeouts; the stale window must sit above that or a "timed out" run
+# is still alive and would overlap the next one.
+RUN_STALE_AFTER = timedelta(hours=2)
 IMPORT_MAX_BYTES = 8 * 1024 * 1024
 PENDING_DEFAULT_LIMIT = 500
 PENDING_MAX_LIMIT = 2000
@@ -53,6 +59,17 @@ COMPONENT_MAX_LIMIT = 1000
 
 def _error(message, code=400):
     return jsonify({"error": message}), code
+
+
+def _int_field(value, cap=100000):
+    """Snapshot page counters are admin-supplied JSON: coerce, clamp into
+    [0, cap], and return None (-> a JSON 400, not an HTML 500) for
+    non-numeric junk."""
+    try:
+        n = int(value or 0)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return max(0, min(n, cap))
 
 
 # ── scrape run lifecycle ──────────────────────────────────────────────────────
@@ -110,6 +127,17 @@ def run_scrape(app, run_id, fetch=None, delay=None):
                     db.session.commit()
 
             snapshot = hcl_scrape.scrape_all(fetch=fetch, progress=progress, delay=delay)
+            # The scrape may have outlived the stale window: _live_running_run
+            # then marked this run failed ('timed out') and possibly let a new
+            # scrape start. That decision is final — building the run anyway
+            # would flip a failed row back to succeeded and race the newer
+            # scrape's record_changes. Drop the snapshot instead.
+            db.session.expire(run)
+            if run.status != RUN_RUNNING:
+                app.logger.warning(
+                    "HCL scrape run %s finished after being marked %s; discarding its snapshot",
+                    run_id, run.status)
+                return None
             hcl_sync.build_run(snapshot, user=None, source=run.source, run=run)
             return run.id
         except Exception as exc:  # noqa: BLE001 - recorded on the run, never raised
@@ -310,7 +338,11 @@ def list_components():
         q = q.filter(db.or_(HclComponent.part_number.ilike(like),
                             HclComponent.description.ilike(like)))
     rows = q.order_by(HclComponent.kind, HclComponent.part_number).limit(COMPONENT_MAX_LIMIT).all()
-    return jsonify([c.to_dict() for c in rows])
+    # platform_count feeds the catalog table's Platforms column; active links
+    # only, so a delisted platform doesn't inflate the number.
+    return jsonify([dict(c.to_dict(),
+                         platform_count=sum(1 for l in c.links if l.status == STATUS_ACTIVE))
+                    for c in rows])
 
 
 @hcl_admin_bp.route("/devices", methods=["GET"])
@@ -365,12 +397,17 @@ def import_snapshot():
         return _error("Snapshot 'devices' must be a list")
     snapshot.setdefault("devices", [])
     snapshot.setdefault("complete", False)
+    pages_total = _int_field(snapshot.get("pages_total"))
+    pages_done = _int_field(snapshot.get("pages_done"))
+    if pages_total is None or pages_done is None:
+        return _error("pages_total/pages_done must be a non-negative integer")
+    snapshot["pages_total"] = pages_total
+    snapshot["pages_done"] = pages_done
 
     user = current_user()
     run = HclScrapeRun(status=RUN_RUNNING, source="import",
                        triggered_by_user_id=getattr(user, "id", None),
-                       pages_total=int(snapshot.get("pages_total") or 0),
-                       pages_done=int(snapshot.get("pages_done") or 0))
+                       pages_total=pages_total, pages_done=pages_done)
     db.session.add(run)
     db.session.commit()
     try:
