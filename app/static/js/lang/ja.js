@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "やはり新しいプラットフォームを作成",
   "admin.bomprev.near_after": "注意: この名前は {names} に似ています。同じ機種であればどちらを残すかHCLチームに確認してください。",
   "admin.bomprev.plat_linked": "部品を {name} にリンクしました。",
-  "admin.hcl.kind_merge": "別名で公開済み"
+  "admin.hcl.kind_merge": "別名で公開済み",
+  "admin.bomprev.list_title": "公開前エントリ",
+  "admin.bomprev.list_desc": "HCLでの公開前にカタログへ登録した部品とプラットフォームです。上記のフィードでHCLチームに提供されます。取り消すとカタログから外れ、これに依存していたBOMチェックは再チェック後に再び指摘を報告します。",
+  "admin.bomprev.list_none": "公開前に登録されたものはありません。",
+  "admin.bomprev.col_platforms": "プラットフォーム",
+  "admin.bomprev.row_platform": "プラットフォーム",
+  "admin.bomprev.unlinked": "リンクなし",
+  "admin.bomprev.withdraw": "取り消す",
+  "admin.bomprev.withdraw_confirm": "{name} をカタログから取り消しますか？これにより合格していたBOMチェックは、再チェック後に再び指摘を報告します。",
+  "admin.bomprev.withdraw_done": "{name} を取り消しました。"
 };

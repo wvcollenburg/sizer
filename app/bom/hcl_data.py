@@ -24,6 +24,7 @@ from typing import Dict, Iterable, List, Optional
 from sqlalchemy.orm import joinedload
 
 from bom.rules import HclCpu, HclData, HclGpu, HclHba, HclNic
+from database import db
 from hcl_models import (
     HclComponent, HclDevice, HclPlatform, HclPlatformComponent, ORIGIN_PREVIEW,
     STATUS_ACTIVE, STATUS_DELISTED, server_key,
@@ -164,6 +165,15 @@ def load_hcl_data(include_delisted: bool = True) -> HclData:
     q = HclComponent.query.filter(HclComponent.kind.in_(("hba", "nic", "cpu", "gpu")))
     if not include_delisted:
         q = q.filter(HclComponent.status == STATUS_ACTIVE)
+    else:
+        # A delisted SCRAPED part stays matchable on purpose: it was validated
+        # once, so an old check still resolves and enrich adds the "removed
+        # from the HCL on <date>" warning. A delisted PRE-PUBLICATION part is
+        # the opposite case — withdrawn by an admin, or superseded by the
+        # published part it stood in for — and was never validated by anyone,
+        # so it must stop matching outright.
+        q = q.filter(db.or_(HclComponent.origin != ORIGIN_PREVIEW,
+                            HclComponent.status == STATUS_ACTIVE))
     q = q.options(joinedload(HclComponent.links).joinedload(HclPlatformComponent.platform))
     rows = q.order_by(HclComponent.kind, HclComponent.id).all()
     parts = []

@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Vis dėlto sukurti naują platformą",
   "admin.bomprev.near_after": "Pastaba: šis pavadinimas panašus į {names}. Pasiteiraukite HCL komandos, kurį palikti, jei tai ta pati mašina.",
   "admin.bomprev.plat_linked": "Dalys susietos su {name}.",
-  "admin.hcl.kind_merge": "Paskelbta kitu pavadinimu"
+  "admin.hcl.kind_merge": "Paskelbta kitu pavadinimu",
+  "admin.bomprev.list_title": "Išankstinio publikavimo įrašai",
+  "admin.bomprev.list_desc": "Dalys ir platformos, priimtos prieš HCL paskelbimą. Jos perduodamos HCL komandai per aukščiau esantį srautą. Atšaukus įrašas pašalinamas iš katalogo: juo rėmęsi BOM patikros vėl praneš savo pastebėjimus.",
+  "admin.bomprev.list_none": "Prieš paskelbimą nieko nepriimta.",
+  "admin.bomprev.col_platforms": "Platformos",
+  "admin.bomprev.row_platform": "platforma",
+  "admin.bomprev.unlinked": "nesusieta",
+  "admin.bomprev.withdraw": "Atšaukti",
+  "admin.bomprev.withdraw_confirm": "Atšaukti {name} iš katalogo? BOM patikros, praėjusios dėl šio įrašo, po pakartotinės patikros vėl praneš savo pastebėjimus.",
+  "admin.bomprev.withdraw_done": "{name} atšauktas."
 };

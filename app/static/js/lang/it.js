@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Crea comunque una nuova piattaforma",
   "admin.bomprev.near_after": "Nota: questo nome somiglia a {names}. Chieda al team HCL quale mantenere se si tratta della stessa macchina.",
   "admin.bomprev.plat_linked": "Parti collegate a {name}.",
-  "admin.hcl.kind_merge": "Pubblicato con un altro nome"
+  "admin.hcl.kind_merge": "Pubblicato con un altro nome",
+  "admin.bomprev.list_title": "Voci in prepubblicazione",
+  "admin.bomprev.list_desc": "Parti e piattaforme accettate prima della pubblicazione sulla HCL. Vengono consegnate al team HCL tramite il feed qui sopra. Ritirarne una la toglie dal catalogo: le verifiche BOM che vi si appoggiavano segnaleranno di nuovo i loro rilievi.",
+  "admin.bomprev.list_none": "Nulla accettato prima della pubblicazione.",
+  "admin.bomprev.col_platforms": "Piattaforme",
+  "admin.bomprev.row_platform": "piattaforma",
+  "admin.bomprev.unlinked": "non collegata",
+  "admin.bomprev.withdraw": "Ritira",
+  "admin.bomprev.withdraw_confirm": "Ritirare {name} dal catalogo? Le verifiche BOM passate grazie a questa voce torneranno a segnalare i loro rilievi dopo una nuova verifica.",
+  "admin.bomprev.withdraw_done": "{name} ritirata."
 };

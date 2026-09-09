@@ -333,9 +333,9 @@ def test_publication_flips_origin_silently(app, mini_snapshot):
 
 def test_admin_preview_list_shows_accepted_parts(app):
     partner, admin, check = make_failed_check(app)
-    assert admin.get("/admin/api/hcl/preview").get_json() == []
+    assert admin.get("/admin/api/hcl/preview").get_json()["components"] == []
     assert accept(admin, check["id"]).status_code == 200
-    rows = admin.get("/admin/api/hcl/preview").get_json()
+    rows = admin.get("/admin/api/hcl/preview").get_json()["components"]
     assert sorted(r["key"] for r in rows) == sorted([NIC_KEY, CPU_KEY])
     nic = next(r for r in rows if r["key"] == NIC_KEY)
     assert nic["origin"] == "preview"
@@ -922,3 +922,119 @@ def test_near_matches_do_not_flag_a_neighbouring_model_number(app):
         assert _similarity(_norm_name("SE160"), _norm_name("SE160 Gen 1")) >= 0.9
         # the fixture platform is still found by its own name
         assert [m["sc_model"] for m in near_matches("lenovo", "ThinkCentre M70q Tiny Gen 6")] == ["HE155"]
+
+
+# ── withdrawing an acceptance (owner, 2026-09-09) ────────────────────────────
+# Accepting is the one catalog mutation a scrape can never correct: the part
+# is *expected* to be absent from the site, so nothing retracts it. Found on
+# the dev box, where a test acceptance could not be undone from the UI.
+
+def call_stamp(admin):
+    r = admin.get("/admin/api/hcl/stats")
+    return r.status_code, r.get_json()["catalog_stamp"]
+
+
+def _accepted(app):
+    partner, admin, check = make_failed_check(app)
+    assert accept(admin, check["id"]).status_code == 200
+    return partner, admin, check
+
+
+def test_withdraw_delists_the_part_and_its_links(app):
+    partner, admin, check = _accepted(app)
+    with app.app_context():
+        comp = hm.HclComponent.query.filter_by(part_number=NIC_PART).one()
+        comp_id, comp_key = comp.id, comp.key
+        assert comp.status == hm.STATUS_ACTIVE
+
+    st, before = call_stamp(admin)
+    r = admin.post("/admin/api/hcl/preview/component/%d/withdraw" % comp_id,
+                   json={"note": "accepted by mistake"})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["withdrawn"] == comp_key and d["links"] == ["lenovo/HE155"]
+
+    with app.app_context():
+        comp = hm.HclComponent.query.filter_by(part_number=NIC_PART).one()
+        assert comp.status == hm.STATUS_DELISTED and comp.delisted_at
+        assert all(l.status == hm.STATUS_DELISTED for l in comp.links)
+        # the withdrawal is a decided row in the same queue, not a silent edit
+        change = (hm.HclPendingChange.query
+                  .filter_by(entity_key=comp_key, change_kind="delist").one())
+        assert change.status == hm.APPROVED and "withdrawal" in (change.note or "")
+    st, after = call_stamp(admin)
+    assert after != before                      # a re-check will notice
+
+    # and it is gone from both the admin list and the HCL team's feed
+    listing = admin.get("/admin/api/hcl/preview").get_json()
+    assert NIC_PART not in [c["part_number"] for c in listing["components"]]
+    with app.app_context():
+        assert NIC_PART not in [c["part_number"] for c in preview.preview_feed()["components"]]
+
+
+def test_recheck_after_a_withdrawal_reports_honestly_again(app):
+    partner, admin, check = _accepted(app)
+    passing = partner.post(f"/api/bom-checks/{check['id']}/recheck", json={}).get_json()
+    assert passing["technical_verdict"] == "PASS"
+
+    with app.app_context():
+        ids = [c.id for c in hm.HclComponent.query.filter_by(origin=hm.ORIGIN_PREVIEW).all()]
+    for cid in ids:
+        assert admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid).status_code == 200
+
+    back = partner.post(f"/api/bom-checks/{check['id']}/recheck", json={}).get_json()
+    assert back["technical_verdict"] == "FAIL"
+    assert set(back["flag_reasons"]) >= {"nic_not_in_hcl", "cpu_unknown"}
+    assert back["review_status"] == "open"
+    # …and it must not claim the HCL removed a part it never listed
+    codes = [f["code"] for f in back["result"]["technical"]["config_results"][0]["findings"]]
+    assert "component_delisted" not in codes
+
+
+def test_withdrawing_a_preview_platform(app):
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    assert accept_platform(admin, check["id"], [gpu_key], dict(NEW_PLATFORM)).status_code == 200
+    with app.app_context():
+        plat = hm.HclPlatform.query.filter_by(sc_model=NEW_PLATFORM["sc_model"]).one()
+        plat_id = plat.id
+    r = admin.post("/admin/api/hcl/preview/platform/%d/withdraw" % plat_id)
+    assert r.status_code == 200, r.get_data(as_text=True)
+    with app.app_context():
+        plat = hm.HclPlatform.query.filter_by(sc_model=NEW_PLATFORM["sc_model"]).one()
+        assert plat.status == hm.STATUS_DELISTED
+        assert all(l.status == hm.STATUS_DELISTED for l in plat.links)
+    assert admin.get("/admin/api/hcl/preview").get_json()["platforms"] == []
+
+
+def test_only_pre_publication_entries_can_be_withdrawn(app):
+    partner, admin, check = make_failed_check(app)
+    with app.app_context():
+        # HE155's own HCL page lists no parts, so give the catalog a scraped
+        # component to refuse (the platform itself is scraped already).
+        scraped = hm.HclComponent(kind="nic", part_number="4XC7A08294",
+                                  description="ThinkSystem Intel E810-DA2 OCP",
+                                  origin=hm.ORIGIN_SCRAPE, attrs={})
+        db.session.add(scraped)
+        db.session.commit()
+        scraped_id, scraped_key = scraped.id, scraped.key
+        plat_id = hm.HclPlatform.query.filter_by(sc_model="HE155").one().id
+    r = admin.post("/admin/api/hcl/preview/component/%d/withdraw" % scraped_id)
+    assert r.status_code == 400 and "came from the HCL" in r.get_json()["error"]
+    assert admin.post("/admin/api/hcl/preview/platform/%d/withdraw" % plat_id).status_code == 400
+    with app.app_context():
+        assert hm.HclComponent.query.filter_by(id=scraped_id).one().status == hm.STATUS_ACTIVE
+    # unknown id and unknown entity type
+    assert admin.post("/admin/api/hcl/preview/component/999999/withdraw").status_code == 404
+    assert admin.post("/admin/api/hcl/preview/widget/1/withdraw").status_code == 400
+    # partners cannot reach it at all
+    assert partner.post("/admin/api/hcl/preview/component/%d/withdraw" % scraped_id).status_code == 403
+
+
+def test_withdrawing_twice_is_harmless(app):
+    partner, admin, check = _accepted(app)
+    with app.app_context():
+        cid = hm.HclComponent.query.filter_by(part_number=NIC_PART).one().id
+    assert admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid).status_code == 200
+    r = admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid)
+    assert r.status_code == 200 and r.get_json().get("already") is True

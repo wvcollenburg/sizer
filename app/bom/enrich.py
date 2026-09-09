@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 from bom.normalize import BOMComponent, BOMConfig, ConfigResult, Finding, normalize_part
 from bom.hcl_scrape import component_attrs
-from hcl_models import (HclComponent, HclPlatform, HclPlatformComponent,
+from hcl_models import (HclComponent, HclPlatform, HclPlatformComponent, ORIGIN_PREVIEW,
                         STATUS_ACTIVE, STATUS_DELISTED)
 
 # finding code -> component kind in the catalog
@@ -206,4 +206,14 @@ def flag_reasons(verdict: str, config_results: List[ConfigResult]) -> List[str]:
 
 
 def load_delisted() -> List[HclComponent]:
-    return HclComponent.query.filter_by(status=STATUS_DELISTED).all()
+    """Parts the HCL dropped — and only those.
+
+    A delisted PRE-PUBLICATION part was never on the HCL: it was withdrawn by
+    an admin, or superseded by the part the HCL finally published. Telling a
+    partner it "was removed from the HCL on <date>" would be a plain untruth,
+    so those are left out and the check simply reports the part as unknown
+    again, which is the honest state.
+    """
+    return (HclComponent.query
+            .filter(HclComponent.status == STATUS_DELISTED,
+                    HclComponent.origin != ORIGIN_PREVIEW).all())

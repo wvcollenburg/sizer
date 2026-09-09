@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Opprett en ny plattform likevel",
   "admin.bomprev.near_after": "Merk: navnet ligner {names}. Spør HCL-teamet hvilken som skal beholdes hvis det er samme maskin.",
   "admin.bomprev.plat_linked": "Deler koblet til {name}.",
-  "admin.hcl.kind_merge": "Publisert under et annet navn"
+  "admin.hcl.kind_merge": "Publisert under et annet navn",
+  "admin.bomprev.list_title": "Førpubliseringsoppføringer",
+  "admin.bomprev.list_desc": "Deler og plattformer som er tatt inn før HCL publiserte dem. De leveres til HCL-teamet via feeden over. Å trekke tilbake en oppføring fjerner den fra katalogen: BOM-kontroller som bygde på den, rapporterer funnene sine igjen.",
+  "admin.bomprev.list_none": "Ingenting tatt inn før publisering.",
+  "admin.bomprev.col_platforms": "Plattformer",
+  "admin.bomprev.row_platform": "plattform",
+  "admin.bomprev.unlinked": "ikke koblet",
+  "admin.bomprev.withdraw": "Trekk tilbake",
+  "admin.bomprev.withdraw_confirm": "Trekke {name} tilbake fra katalogen? BOM-kontroller som besto på grunn av den, rapporterer funnene sine igjen etter en ny kontroll.",
+  "admin.bomprev.withdraw_done": "{name} trukket tilbake."
 };

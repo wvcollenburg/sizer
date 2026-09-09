@@ -1561,5 +1561,14 @@
   "admin.bomprev.near_undo": "Create a new platform instead",
   "admin.bomprev.near_after": "Note: this name resembles {names}. Ask the HCL team which one to keep if they are the same box.",
   "admin.bomprev.plat_linked": "Parts linked to {name}.",
-  "admin.hcl.kind_merge": "Published under another name"
+  "admin.hcl.kind_merge": "Published under another name",
+  "admin.bomprev.list_title": "Pre-publication entries",
+  "admin.bomprev.list_desc": "Parts and platforms accepted before the HCL published them. They are delivered to the HCL team through the feed above. Withdraw one to take it back out of the catalog: BOM checks that relied on it report honestly again.",
+  "admin.bomprev.list_none": "Nothing accepted ahead of publication.",
+  "admin.bomprev.col_platforms": "Platforms",
+  "admin.bomprev.row_platform": "platform",
+  "admin.bomprev.unlinked": "not linked",
+  "admin.bomprev.withdraw": "Withdraw",
+  "admin.bomprev.withdraw_confirm": "Withdraw {name} from the catalog? BOM checks that passed because of it will report their findings again after a re-check.",
+  "admin.bomprev.withdraw_done": "{name} withdrawn."
 };

@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Loo siiski uus platvorm",
   "admin.bomprev.near_after": "Märkus: see nimi sarnaneb kirjega {names}. Küsige HCL-i meeskonnalt, kumb jääb, kui tegu on sama masinaga.",
   "admin.bomprev.plat_linked": "Osad seotud platvormiga {name}.",
-  "admin.hcl.kind_merge": "Avaldatud teise nime all"
+  "admin.hcl.kind_merge": "Avaldatud teise nime all",
+  "admin.bomprev.list_title": "Eelavaldamise kirjed",
+  "admin.bomprev.list_desc": "Osad ja platvormid, mis võeti vastu enne HCL-is avaldamist. Need edastatakse HCL-i meeskonnale ülaloleva voo kaudu. Tagasivõtmine eemaldab kirje kataloogist: sellele tuginenud BOM-i kontrollid teatavad oma leidudest taas.",
+  "admin.bomprev.list_none": "Enne avaldamist pole midagi vastu võetud.",
+  "admin.bomprev.col_platforms": "Platvormid",
+  "admin.bomprev.row_platform": "platvorm",
+  "admin.bomprev.unlinked": "sidumata",
+  "admin.bomprev.withdraw": "Võta tagasi",
+  "admin.bomprev.withdraw_confirm": "Kas võtta {name} kataloogist tagasi? Selle tõttu läbinud BOM-i kontrollid teatavad pärast uut kontrolli taas oma leidudest.",
+  "admin.bomprev.withdraw_done": "{name} tagasi võetud."
 };

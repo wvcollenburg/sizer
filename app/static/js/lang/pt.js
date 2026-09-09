@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Criar mesmo assim uma nova plataforma",
   "admin.bomprev.near_after": "Nota: este nome assemelha-se a {names}. Pergunte à equipa da HCL qual manter se for a mesma máquina.",
   "admin.bomprev.plat_linked": "Peças associadas a {name}.",
-  "admin.hcl.kind_merge": "Publicado com outro nome"
+  "admin.hcl.kind_merge": "Publicado com outro nome",
+  "admin.bomprev.list_title": "Entradas em pré-publicação",
+  "admin.bomprev.list_desc": "Peças e plataformas aceites antes de a HCL as publicar. São entregues à equipa da HCL através do feed acima. Retirar uma remove-a do catálogo: as verificações de BOM que dependiam dela voltam a comunicar os seus resultados.",
+  "admin.bomprev.list_none": "Nada aceite antes da publicação.",
+  "admin.bomprev.col_platforms": "Plataformas",
+  "admin.bomprev.row_platform": "plataforma",
+  "admin.bomprev.unlinked": "sem associação",
+  "admin.bomprev.withdraw": "Retirar",
+  "admin.bomprev.withdraw_confirm": "Retirar {name} do catálogo? As verificações de BOM que passaram graças a esta entrada voltarão a comunicar os seus resultados após nova verificação.",
+  "admin.bomprev.withdraw_done": "{name} retirada."
 };

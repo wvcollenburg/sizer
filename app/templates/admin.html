@@ -556,6 +556,24 @@
                 </p>
                 <p class="muted hcl-card-desc" id="hcl-preview-count" aria-live="polite"></p>
             </div>
+
+            <!-- Everything accepted ahead of HCL publication, and the only
+                 place it can be taken back: a scrape can never retract these,
+                 because their absence from the site is their normal state. -->
+            <div class="iops-card" id="hcl-preview-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.bomprev.list_title">Pre-publication entries</h3>
+                    <p class="muted hcl-card-desc" data-i18n="admin.bomprev.list_desc">Parts and platforms accepted before the HCL published them. They are delivered to the HCL team through the feed above. Withdraw one to take it back out of the catalog: BOM checks that relied on it report honestly again.</p>
+                </div>
+                <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                    <th data-i18n="admin.hcl.col_kind">Kind</th>
+                    <th data-i18n="admin.hcl.col_part_number">Part number</th>
+                    <th data-i18n="admin.hcl.col_description">Description</th>
+                    <th data-i18n="admin.bomprev.col_platforms">Platforms</th>
+                    <th data-i18n="admin.hcl.col_first_seen">Accepted</th>
+                    <th class="col-actions" data-i18n="common.actions">Actions</th>
+                </tr></thead><tbody id="hcl-preview-tbody"></tbody></table></div>
+            </div>
         </div>
 
         <!-- ═══════════════════ BOM REVIEWS TAB (super admin) ═══════════════════ -->

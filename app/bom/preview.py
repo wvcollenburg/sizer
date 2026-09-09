@@ -28,7 +28,7 @@ from bom import hcl_sync
 from bom.hcl_scrape import component_attrs, synthetic_part_number
 from bom.normalize import NormalizedBOM
 from hcl_models import (
-    CHANGE_ADD, CHANGE_RELIST, CHANGE_UPDATE, HclComponent, HclPendingChange,
+    CHANGE_ADD, CHANGE_DELIST, CHANGE_RELIST, CHANGE_UPDATE, HclComponent, HclPendingChange,
     HclPlatform, HclScrapeRun, ORIGIN_PREVIEW, PENDING, RUN_SUCCEEDED,
     STATUS_ACTIVE, STATUS_DELISTED, server_key,
 )
@@ -459,6 +459,79 @@ def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
 # ---------------------------------------------------------------------------
 # feed
 # ---------------------------------------------------------------------------
+
+def withdraw(entity_type: str, entity_id: int, user=None, note=None) -> Dict:
+    """Undo a pre-publication acceptance.
+
+    Accepting is the only way a part enters the catalog without the HCL
+    listing it, so it is also the only mutation an admin can make by mistake
+    with nothing to correct it — a scrape can never retract it, because the
+    part's absence from the site is exactly its expected state. Withdrawing
+    delists the part (or platform) and its pre-publication links through the
+    same approved-pending-change path as everything else, so the audit trail
+    and the catalog stamp move and a re-check of any BOM that relied on it
+    reports honestly again.
+
+    Only origin='preview' rows may be withdrawn: anything the site listed is
+    the scrape's business, not the admin's. Raises ValueError (route → 400)
+    and returns {} for an unknown id (route → 404).
+    """
+    if entity_type == "component":
+        row = db.session.get(HclComponent, entity_id)
+    elif entity_type == "platform":
+        row = db.session.get(HclPlatform, entity_id)
+    else:
+        raise ValueError("entity_type must be 'component' or 'platform'")
+    if row is None:
+        return {}
+    if row.origin != ORIGIN_PREVIEW:
+        raise ValueError("only pre-publication entries can be withdrawn; %s came from the HCL"
+                         % row.key)
+    if row.status != STATUS_ACTIVE:
+        return {"run_id": None, "withdrawn": row.key, "links": [], "already": True}
+
+    run = HclScrapeRun(status=RUN_SUCCEEDED, source="preview", complete=False,
+                       pages_total=0, pages_done=0, finished_at=_utcnow(),
+                       triggered_by_user_id=getattr(user, "id", None))
+    db.session.add(run)
+    db.session.flush()
+    decision = "pre-publication withdrawal"
+    if note:
+        decision = "%s: %s" % (decision, note)
+
+    entity = (hcl_sync.ENTITY_COMPONENT if entity_type == "component"
+              else hcl_sync.ENTITY_PLATFORM)
+    change = HclPendingChange(
+        run_id=run.id, entity_type=entity, entity_key=row.key,
+        change_kind=CHANGE_DELIST, status=PENDING,
+        label="Withdraw pre-publication %s %s" % (entity_type, row.key))
+    db.session.add(change)
+    db.session.flush()
+    hcl_sync.approve(change, user, note=decision)
+    # A scrape delist leaves links alone (the platform's own list update
+    # retires them), but a withdrawal has no such follow-up: the link would
+    # outlive the part it points at.
+    links = []
+    for link in row.links:
+        if link.status == STATUS_ACTIVE:
+            link.status = STATUS_DELISTED
+        links.append(link.platform.key if entity_type == "component" else link.component.key)
+    result = {"run_id": run.id, "withdrawn": row.key, "links": sorted(set(links))}
+    run.summary = dict(result, entity_type=entity_type)
+    db.session.commit()
+    return result
+
+
+def preview_entries() -> Dict:
+    """Everything currently accepted ahead of HCL publication: the parts and
+    the platforms created for them. The admin's mirror of the pull feed."""
+    comps = (HclComponent.query.filter_by(origin=ORIGIN_PREVIEW, status=STATUS_ACTIVE)
+             .order_by(HclComponent.kind, HclComponent.part_number).all())
+    plats = (HclPlatform.query.filter_by(origin=ORIGIN_PREVIEW, status=STATUS_ACTIVE)
+             .order_by(HclPlatform.brand, HclPlatform.sc_model).all())
+    return {"components": [c.to_dict(with_platforms=True) for c in comps],
+            "platforms": [p.to_dict() for p in plats]}
+
 
 def preview_feed() -> Dict:
     """The accepted-but-unpublished set, shaped for the HCL team's pull.

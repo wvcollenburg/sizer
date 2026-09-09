@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Toch een nieuw platform aanmaken",
   "admin.bomprev.near_after": "Let op: deze naam lijkt op {names}. Vraag het HCL-team welke blijft als het dezelfde machine is.",
   "admin.bomprev.plat_linked": "Onderdelen gekoppeld aan {name}.",
-  "admin.hcl.kind_merge": "Onder een andere naam gepubliceerd"
+  "admin.hcl.kind_merge": "Onder een andere naam gepubliceerd",
+  "admin.bomprev.list_title": "Pre-publicatie-items",
+  "admin.bomprev.list_desc": "Onderdelen en platforms die zijn opgenomen voordat de HCL ze publiceerde. Ze worden via de bovenstaande feed aan het HCL-team geleverd. Intrekken haalt het item weer uit de catalogus: BOM-controles die erop steunden melden hun bevindingen opnieuw.",
+  "admin.bomprev.list_none": "Niets opgenomen vooruitlopend op publicatie.",
+  "admin.bomprev.col_platforms": "Platforms",
+  "admin.bomprev.row_platform": "platform",
+  "admin.bomprev.unlinked": "niet gekoppeld",
+  "admin.bomprev.withdraw": "Intrekken",
+  "admin.bomprev.withdraw_confirm": "{name} uit de catalogus intrekken? BOM-controles die hierdoor slaagden melden hun bevindingen na een hercontrole opnieuw.",
+  "admin.bomprev.withdraw_done": "{name} ingetrokken."
 };

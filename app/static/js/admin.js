@@ -1862,10 +1862,56 @@ async function hclLoadSettings() {
 // data the HCL team's pull feed serves.
 async function hclLoadPreviewCount() {
     const el = document.getElementById('hcl-preview-count');
-    if (!el) return;
+    const body = document.getElementById('hcl-preview-tbody');
     const { ok, data } = await adminApi('/admin/api/hcl/preview');
-    if (!ok || !Array.isArray(data)) { el.textContent = ''; return; }
-    el.textContent = t('admin.bomprev.count', { n: data.length });
+    const comps = (ok && data && Array.isArray(data.components)) ? data.components : [];
+    const plats = (ok && data && Array.isArray(data.platforms)) ? data.platforms : [];
+    if (el) el.textContent = ok ? t('admin.bomprev.count', { n: comps.length }) : '';
+    if (!body) return;
+    const platRows = plats.map(p => `
+        <tr>
+            <td><span class="badge badge-accent">${adminEsc(t('admin.bomprev.row_platform'))}</span></td>
+            <td><code>${adminEsc(p.sc_model)}</code></td>
+            <td>${adminEsc(p.server || '')}</td>
+            <td>${adminEsc(p.brand || '')}</td>
+            <td>${adminDate(p.first_seen)}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-danger"
+                    data-click='["hclWithdrawPreview","platform",${p.id},"${adminEsc(p.key)}"]'
+                    >${adminEsc(t('admin.bomprev.withdraw'))}</button>
+            </td>
+        </tr>`).join('');
+    const compRows = comps.map(c => {
+        const on = (c.platforms || []).map(p => p.sc_model).join(', ');
+        return `
+        <tr>
+            <td>${adminEsc(hclComponentKindLabel(c.kind))}</td>
+            <td><code>${adminEsc(c.part_number)}</code></td>
+            <td>${adminEsc(c.description || '')}</td>
+            <td>${adminEsc(on) || `<span class="muted">${adminEsc(t('admin.bomprev.unlinked'))}</span>`}</td>
+            <td>${adminDate(c.first_seen)}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-danger"
+                    data-click='["hclWithdrawPreview","component",${c.id},"${adminEsc(c.part_number)}"]'
+                    >${adminEsc(t('admin.bomprev.withdraw'))}</button>
+            </td>
+        </tr>`;
+    }).join('');
+    body.innerHTML = (platRows + compRows) ||
+        `<tr><td colspan="6">${adminEsc(t('admin.bomprev.list_none'))}</td></tr>`;
+}
+
+// Taking an acceptance back. Spelled out in the confirm because a BOM check
+// that passed on this part will report its finding again after a re-check.
+async function hclWithdrawPreview(entityType, id, label) {
+    if (!confirm(t('admin.bomprev.withdraw_confirm', { name: label }))) return;
+    const { ok, data } = await hclJson(
+        '/admin/api/hcl/preview/' + encodeURIComponent(entityType) + '/' + id + '/withdraw', 'POST', {});
+    if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
+    setStatus('hcl-status', t('admin.bomprev.withdraw_done', { name: label }), false);
+    hclLoadPreviewCount();
+    hclLoadStats();
+    loadHclCatalog();
 }
 
 async function hclLoadStats() {

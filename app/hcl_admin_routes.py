@@ -369,12 +369,30 @@ def platform_matches():
 
 @hcl_admin_bp.route("/preview", methods=["GET"])
 def list_preview_components():
-    """The pre-publication accepted set (origin='preview'), with the
-    platforms each part was linked to — the admin's view of what the HCL
-    team can pull from the feed."""
-    rows = (HclComponent.query.filter_by(origin=ORIGIN_PREVIEW)
-            .order_by(HclComponent.kind, HclComponent.part_number).all())
-    return jsonify([c.to_dict(with_platforms=True) for c in rows])
+    """The pre-publication accepted set (origin='preview'): the parts, the
+    platforms created for them, and the platforms each part is linked to —
+    the admin's mirror of what the HCL team pulls from the feed."""
+    from bom.preview import preview_entries
+    return jsonify(preview_entries())
+
+
+@hcl_admin_bp.route("/preview/<entity_type>/<int:entity_id>/withdraw", methods=["POST"])
+def withdraw_preview(entity_type, entity_id):
+    """Undo an acceptance. Accepting is the one catalog mutation a scrape can
+    never correct (the part is expected to be absent from the site), so it
+    needs an explicit reversal."""
+    from bom.preview import withdraw
+    data = request.get_json(silent=True) or {}
+    try:
+        result = withdraw(entity_type, entity_id, current_user(),
+                          (data.get("note") or "").strip()[:2000] or None)
+    except ValueError as exc:
+        return _error(str(exc), 400)
+    if not result:
+        return _error("Not found", 404)
+    audit("hcl_preview_withdraw", "%s %s" % (entity_type, result["withdrawn"]))
+    db.session.commit()
+    return jsonify(result)
 
 
 # ── settings ──────────────────────────────────────────────────────────────────

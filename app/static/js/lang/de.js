@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Doch neue Plattform anlegen",
   "admin.bomprev.near_after": "Hinweis: Dieser Name ähnelt {names}. Klären Sie mit dem HCL-Team, welcher bleibt, falls es dieselbe Maschine ist.",
   "admin.bomprev.plat_linked": "Teile mit {name} verknüpft.",
-  "admin.hcl.kind_merge": "Unter anderem Namen veröffentlicht"
+  "admin.hcl.kind_merge": "Unter anderem Namen veröffentlicht",
+  "admin.bomprev.list_title": "Vorveröffentlichungs-Einträge",
+  "admin.bomprev.list_desc": "Teile und Plattformen, die vor der HCL-Veröffentlichung übernommen wurden. Sie werden dem HCL-Team über den obigen Feed bereitgestellt. Ein Zurückziehen entfernt den Eintrag wieder aus dem Katalog: BOM-Prüfungen, die darauf beruhten, melden ihre Befunde erneut.",
+  "admin.bomprev.list_none": "Nichts vor der Veröffentlichung übernommen.",
+  "admin.bomprev.col_platforms": "Plattformen",
+  "admin.bomprev.row_platform": "Plattform",
+  "admin.bomprev.unlinked": "nicht verknüpft",
+  "admin.bomprev.withdraw": "Zurückziehen",
+  "admin.bomprev.withdraw_confirm": "{name} aus dem Katalog zurückziehen? BOM-Prüfungen, die dadurch bestanden haben, melden ihre Befunde nach einer erneuten Prüfung wieder.",
+  "admin.bomprev.withdraw_done": "{name} zurückgezogen."
 };

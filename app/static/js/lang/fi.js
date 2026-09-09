@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Luo sittenkin uusi alusta",
   "admin.bomprev.near_after": "Huom: nimi muistuttaa kohdetta {names}. Kysy HCL-tiimiltä, kumpi säilytetään, jos kyseessä on sama kone.",
   "admin.bomprev.plat_linked": "Osat linkitetty alustaan {name}.",
-  "admin.hcl.kind_merge": "Julkaistu toisella nimellä"
+  "admin.hcl.kind_merge": "Julkaistu toisella nimellä",
+  "admin.bomprev.list_title": "Ennakkojulkaisumerkinnät",
+  "admin.bomprev.list_desc": "Osat ja alustat, jotka on hyväksytty ennen HCL-julkaisua. Ne toimitetaan HCL-tiimille yllä olevan syötteen kautta. Peruuttaminen poistaa merkinnän luettelosta: siihen nojanneet BOM-tarkistukset raportoivat havaintonsa uudelleen.",
+  "admin.bomprev.list_none": "Mitään ei ole hyväksytty ennen julkaisua.",
+  "admin.bomprev.col_platforms": "Alustat",
+  "admin.bomprev.row_platform": "alusta",
+  "admin.bomprev.unlinked": "ei linkitetty",
+  "admin.bomprev.withdraw": "Peruuta",
+  "admin.bomprev.withdraw_confirm": "Peruutetaanko {name} luettelosta? Sen ansiosta läpäisseet BOM-tarkistukset raportoivat havaintonsa uudelleen tarkistuksen jälkeen.",
+  "admin.bomprev.withdraw_done": "{name} peruutettu."
 };

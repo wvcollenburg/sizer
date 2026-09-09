@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Skapa en ny plattform ändå",
   "admin.bomprev.near_after": "Obs: namnet liknar {names}. Fråga HCL-teamet vilken som ska behållas om det är samma maskin.",
   "admin.bomprev.plat_linked": "Delar kopplade till {name}.",
-  "admin.hcl.kind_merge": "Publicerad under ett annat namn"
+  "admin.hcl.kind_merge": "Publicerad under ett annat namn",
+  "admin.bomprev.list_title": "Förpubliceringsposter",
+  "admin.bomprev.list_desc": "Delar och plattformar som tagits in innan HCL publicerade dem. De levereras till HCL-teamet via flödet ovan. Att dra tillbaka en post tar bort den ur katalogen: BOM-kontroller som byggde på den rapporterar sina fynd igen.",
+  "admin.bomprev.list_none": "Inget intaget före publicering.",
+  "admin.bomprev.col_platforms": "Plattformar",
+  "admin.bomprev.row_platform": "plattform",
+  "admin.bomprev.unlinked": "inte kopplad",
+  "admin.bomprev.withdraw": "Dra tillbaka",
+  "admin.bomprev.withdraw_confirm": "Dra tillbaka {name} ur katalogen? BOM-kontroller som godkändes tack vare den rapporterar sina fynd igen efter en ny kontroll.",
+  "admin.bomprev.withdraw_done": "{name} tillbakadragen."
 };

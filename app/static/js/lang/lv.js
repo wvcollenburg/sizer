@@ -1560,5 +1560,14 @@
   "admin.bomprev.near_undo": "Tomēr izveidot jaunu platformu",
   "admin.bomprev.near_after": "Piezīme: šis nosaukums līdzinās {names}. Pajautājiet HCL komandai, kuru paturēt, ja tā ir tā pati iekārta.",
   "admin.bomprev.plat_linked": "Daļas piesaistītas platformai {name}.",
-  "admin.hcl.kind_merge": "Publicēts ar citu nosaukumu"
+  "admin.hcl.kind_merge": "Publicēts ar citu nosaukumu",
+  "admin.bomprev.list_title": "Pirmspublicēšanas ieraksti",
+  "admin.bomprev.list_desc": "Daļas un platformas, kas pieņemtas pirms HCL publicēšanas. Tās tiek nodotas HCL komandai caur iepriekšējo plūsmu. Atsaukšana izņem ierakstu no kataloga: BOM pārbaudes, kas uz to balstījās, atkal ziņos par saviem konstatējumiem.",
+  "admin.bomprev.list_none": "Pirms publicēšanas nekas nav pieņemts.",
+  "admin.bomprev.col_platforms": "Platformas",
+  "admin.bomprev.row_platform": "platforma",
+  "admin.bomprev.unlinked": "nav piesaistīta",
+  "admin.bomprev.withdraw": "Atsaukt",
+  "admin.bomprev.withdraw_confirm": "Vai atsaukt {name} no kataloga? BOM pārbaudes, kas tā dēļ izturēja, pēc atkārtotas pārbaudes atkal ziņos par konstatējumiem.",
+  "admin.bomprev.withdraw_done": "{name} atsaukts."
 };
