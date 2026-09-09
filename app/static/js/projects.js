@@ -302,6 +302,7 @@ function renderProject() {
     renderReplication();
     renderSelectionBar();
     loadExports();
+    loadBomChecks();       // bom.js: past BOM checks + the header badge
 }
 
 function visibleSizings() {

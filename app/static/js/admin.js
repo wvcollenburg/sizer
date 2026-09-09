@@ -42,6 +42,8 @@ function switchTab(tab) {
     document.getElementById(`tab-${tab}`).classList.add('active');
     if (tab === 'tuning') loadTunables();
     else if (tab === 'pricebook') loadPricebook();
+    else if (tab === 'hcl') loadHcl();
+    else if (tab === 'bomreviews') loadBomReviews();
     else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
@@ -1711,4 +1713,723 @@ async function purgeSelectedStale() {
         ? t('admin.stale.purged_skipped', {purged: data.purged, skipped: data.skipped})
         : t('admin.stale.purged', {purged: data.purged}), false);
     loadStaleUsers();
+}
+
+
+// ==================== SUPER-ADMIN: HCL CATALOG / SCRAPE QUEUE / BOM REVIEWS ====================
+// Front-end for docs/bom-checker-build.md §6 (admin endpoints) and §7. Every
+// top-level name here is prefixed hcl… / bomReview… because admin.js shares one
+// global scope with theme.js, i18n.js, delegate.js and toast.js. All server
+// strings pass through adminEsc() before they touch innerHTML.
+
+let hclPollTimer = null;          // 3 s status poll while a scrape runs
+let hclWasRunning = false;        // to refresh the queue once a run finishes
+let hclLastRunId = null;          // from /stats or /scrape/status; drives the "latest run" filter
+let hclSearchTimer = null;        // debounce for the component search box
+let hclExpandedPlatform = null;   // platform id whose detail row is open
+let bomReviewRows = [];           // last list from /admin/api/bom-reviews
+let bomReviewCurrent = null;      // row open in the modal
+
+const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active' };
+const HCL_VERDICT_BADGE = { PASS: 'badge-active', FAIL: 'badge-eos', INCONCLUSIVE: 'badge-eol' };
+const HCL_FIT_BADGE = { match: 'badge-active', bigger: 'badge-validated', smaller: 'badge-eos', unknown: 'hcl-badge-plain' };
+const HCL_REVIEW_BADGE = { open: 'badge-eol', confirmed: 'badge-active', incorrect: 'badge-eos', none: 'hcl-badge-plain' };
+const HCL_SEVERITY_BADGE = { error: 'badge-eos', warning: 'badge-eol', info: 'badge-validated' };
+
+// ── shared helpers ────────────────────────────────────────────────────────
+
+function hclErrorText(data) {
+    return (data && data.error) || t('admin.msg.failed');
+}
+
+function hclJson(url, method, payload) {
+    return adminApi(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+    });
+}
+
+// t() with a fallback when the key is not in the dictionary (mirrors tOr()
+// but for keys built at runtime, e.g. a finding code we have no text for).
+function hclTextOr(key, fallback) {
+    const s = t(key);
+    return s === key ? fallback : s;
+}
+
+function hclYesNo(v) {
+    return v ? t('common.yes') : t('common.no');
+}
+
+// "3 days ago" for the stats line; falls back to the absolute date beyond a month.
+function hclRelTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const mins = Math.round((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) return t('admin.hcl.ago_just_now');
+    if (mins < 60) return t('admin.hcl.ago_minutes', { n: mins });
+    const hours = Math.round(mins / 60);
+    if (hours < 48) return t('admin.hcl.ago_hours', { n: hours });
+    const days = Math.round(hours / 24);
+    if (days <= 31) return t('admin.hcl.ago_days', { n: days });
+    return adminDate(iso);
+}
+
+function hclTruncate(s, max) {
+    s = String(s == null ? '' : s);
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+// Compact HTML rendering of a pending-change value (JSON): lists become
+// "N items" with the items in a tooltip, dicts become key: value lines,
+// long strings are cut with the full text in the title.
+function hclFmtValue(v) {
+    if (v == null || v === '') return '<span class="muted">—</span>';
+    if (Array.isArray(v)) {
+        const items = v.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x));
+        return `<span class="hcl-val" title="${adminEsc(items.join('\n'))}">${adminEsc(t('admin.hcl.n_items', { n: v.length }))}</span>`;
+    }
+    if (typeof v === 'object') {
+        const keys = Object.keys(v);
+        if (!keys.length) return '<span class="muted">—</span>';
+        const lines = keys.map(k => {
+            const val = v[k];
+            const text = (val != null && typeof val === 'object') ? JSON.stringify(val) : String(val == null ? '—' : val);
+            return `<div class="hcl-kv" title="${adminEsc(text)}"><span class="hcl-kv-key">${adminEsc(k)}</span>: ${adminEsc(hclTruncate(text, 48))}</div>`;
+        });
+        return lines.join('');
+    }
+    if (typeof v === 'boolean') return adminEsc(hclYesNo(v));
+    const s = String(v);
+    if (s.length > 60) return `<span class="hcl-val" title="${adminEsc(s)}">${adminEsc(hclTruncate(s, 60))}</span>`;
+    return adminEsc(s);
+}
+
+function hclStatusBadge(status) {
+    const active = status === 'active';
+    const label = active ? t('admin.hcl.status_active') : t('admin.hcl.status_delisted');
+    return `<span class="badge ${active ? 'badge-active' : 'badge-eos'}">${adminEsc(label)}</span>`;
+}
+
+function hclComponentKindLabel(kind) {
+    return hclTextOr('admin.hcl.ckind_' + kind, String(kind || '').toUpperCase());
+}
+
+function hclEntityLabel(entityType) {
+    return hclTextOr('admin.hcl.entity_' + entityType, String(entityType || ''));
+}
+
+// ── tab entry ─────────────────────────────────────────────────────────────
+
+async function loadHcl() {
+    hclCatalogKindChanged(true);      // sync filter visibility without reloading twice
+    await hclLoadStats();             // first: it supplies hclLastRunId for the queue filter
+    await Promise.all([hclLoadScrapeStatus(), loadHclPending(), loadHclCatalog()]);
+}
+
+async function hclLoadStats() {
+    const { ok, data } = await adminApi('/admin/api/hcl/stats');
+    const el = document.getElementById('hcl-stats');
+    if (!ok || !data) { el.textContent = t('admin.hcl.load_error'); return; }
+    const active = o => (o && o.active != null) ? o.active : 0;
+    const last = data.last_run || null;
+    // A run still in progress has no changes yet; keep filtering on the previous one.
+    if (last && last.id != null && !data.running) hclLastRunId = last.id;
+    const parts = [
+        t('admin.hcl.stats_platforms', { n: active(data.platforms) }),
+        t('admin.hcl.stats_components', { n: active(data.components) }),
+        t('admin.hcl.stats_devices', { n: active(data.devices) }),
+        t('admin.hcl.stats_pending', { n: data.pending || 0 }),
+    ];
+    if (data.running) parts.push(t('admin.hcl.stats_running'));
+    else if (!last) parts.push(t('admin.hcl.stats_never'));
+    else if (last.status === 'failed') parts.push(t('admin.hcl.stats_last_failed', { when: hclRelTime(last.finished_at || last.started_at) }));
+    else parts.push(t('admin.hcl.stats_last', { when: hclRelTime(last.finished_at || last.started_at) }));
+    el.textContent = parts.join(' · ');
+    const pill = document.getElementById('hcl-pending-count');
+    if (pill) pill.textContent = String(data.pending || 0);
+    const vendors = document.getElementById('hcl-blocked-vendors');
+    if (vendors && Array.isArray(data.blocked_vendors) && document.activeElement !== vendors) {
+        vendors.value = data.blocked_vendors.join(', ');
+    }
+}
+
+// ── scrape card ───────────────────────────────────────────────────────────
+
+async function hclLoadScrapeStatus() {
+    const { ok, data } = await adminApi('/admin/api/hcl/scrape/status');
+    const wrap = document.getElementById('hcl-progress-wrap');
+    const bar = document.getElementById('hcl-progress');
+    const state = document.getElementById('hcl-scrape-state');
+    const btn = document.getElementById('hcl-scrape-btn');
+    const importBtn = document.getElementById('hcl-import-btn');
+    clearTimeout(hclPollTimer);
+    if (!ok || !data) {
+        wrap.hidden = true;
+        setStatus('hcl-status', t('admin.hcl.load_error'), true);
+        return;
+    }
+    const last = data.last || null;
+    const running = !!data.running;
+    if (last && last.id != null && !running) hclLastRunId = last.id;
+    btn.disabled = running;
+    importBtn.disabled = running;
+    if (running && last) {
+        const pct = Math.max(0, Math.min(100, last.progress || 0));
+        wrap.hidden = false;
+        bar.setAttribute('aria-valuenow', String(pct));
+        bar.firstElementChild.style.width = pct + '%';
+        state.className = 'iops-status';
+        state.textContent = t('admin.hcl.scrape_running', { done: last.pages_done || 0, total: last.pages_total || 0, pct: pct });
+        hclPollTimer = setTimeout(hclLoadScrapeStatus, 3000);
+    } else {
+        wrap.hidden = true;
+        state.textContent = '';
+    }
+    hclRenderLastRun(last, running);
+    if (hclWasRunning && !running) {
+        // A run just finished: the queue, the stats line and the catalog counts all moved.
+        toast(last && last.status === 'failed' ? t('admin.hcl.scrape_failed') : t('admin.hcl.scrape_finished'),
+              last && last.status === 'failed' ? 'error' : 'success');
+        hclLoadStats();
+        loadHclPending();
+        loadHclCatalog();
+    }
+    hclWasRunning = running;
+}
+
+function hclRenderLastRun(last, running) {
+    const el = document.getElementById('hcl-last-run');
+    if (!last) { el.innerHTML = `<p class="muted">${adminEsc(t('admin.hcl.never_scraped'))}</p>`; return; }
+    const summary = last.summary || {};
+    const changes = summary.changes || {};
+    const errors = Array.isArray(last.errors) ? last.errors : [];
+    const statusKey = 'admin.hcl.run_status_' + (last.status || 'queued');
+    const statusCls = last.status === 'succeeded' ? 'badge-active' : last.status === 'failed' ? 'badge-eos' : 'badge-eol';
+    const rows = [
+        [t('admin.hcl.run_when'), adminEsc(adminDate(last.finished_at || last.started_at))],
+        [t('common.status'), `<span class="badge ${statusCls}">${adminEsc(hclTextOr(statusKey, last.status || ''))}</span>`],
+        [t('admin.hcl.run_source'), adminEsc(hclTextOr('admin.hcl.source_' + (last.source || 'scrape'), last.source || ''))],
+        [t('admin.hcl.run_pages'), adminEsc(`${last.pages_done || 0} / ${last.pages_total || 0}`)],
+        [t('admin.hcl.run_complete'), last.complete
+            ? adminEsc(t('common.yes'))
+            : `<span class="hcl-warn" title="${adminEsc(t('admin.hcl.run_incomplete_hint'))}">${adminEsc(t('admin.hcl.run_incomplete'))}</span>`],
+        [t('admin.hcl.run_changes'), adminEsc(t('admin.hcl.run_changes_detail', {
+            add: changes.add || 0, update: changes.update || 0, delist: changes.delist || 0, relist: changes.relist || 0 }))],
+    ];
+    let html = `<h4 class="hcl-last-run-title">${adminEsc(running ? t('admin.hcl.current_run') : t('admin.hcl.last_run'))}</h4>`
+        + '<dl class="hcl-run-grid">'
+        + rows.map(r => `<dt>${adminEsc(r[0])}</dt><dd>${r[1]}</dd>`).join('')
+        + '</dl>';
+    if (last.error) html += `<p class="hcl-run-error">${adminEsc(last.error)}</p>`;
+    if (errors.length) {
+        html += `<details class="hcl-run-errors"><summary>${adminEsc(t('admin.hcl.run_errors', { n: errors.length }))}</summary><ul>`
+            + errors.map(e => `<li>${adminEsc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('')
+            + '</ul></details>';
+    } else {
+        html += `<p class="muted">${adminEsc(t('admin.hcl.run_no_errors'))}</p>`;
+    }
+    el.innerHTML = html;
+}
+
+async function hclStartScrape() {
+    if (!confirm(t('admin.hcl.scrape_confirm'))) return;
+    const btn = document.getElementById('hcl-scrape-btn');
+    btn.disabled = true;
+    const { ok, data } = await adminApi('/admin/api/hcl/scrape', { method: 'POST' });
+    if (!ok) {
+        btn.disabled = false;
+        setStatus('hcl-status', hclErrorText(data), true);
+        return;
+    }
+    setStatus('hcl-status', t('admin.hcl.scrape_started'), false);
+    hclWasRunning = true;
+    hclLoadScrapeStatus();
+}
+
+async function hclImportSnapshot() {
+    const input = document.getElementById('hcl-snapshot-file');
+    if (!input.files.length) { setStatus('hcl-status', t('admin.hcl.import_pick_file'), true); return; }
+    const btn = document.getElementById('hcl-import-btn');
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    let result;
+    try {
+        result = await adminApi('/admin/api/hcl/import-snapshot', { method: 'POST', body: fd });
+    } catch (e) {
+        result = { ok: false, data: null };
+    }
+    btn.disabled = false;
+    if (!result.ok) { setStatus('hcl-status', hclErrorText(result.data), true); return; }
+    input.value = '';
+    setStatus('hcl-status', t('admin.hcl.import_started'), false);
+    hclWasRunning = true;
+    await hclLoadScrapeStatus();
+    // A synchronous import is already finished at this point; make sure the queue reflects it.
+    hclLoadStats();
+    loadHclPending();
+    loadHclCatalog();
+}
+
+// ── pending changes ───────────────────────────────────────────────────────
+
+function hclPendingFilter() {
+    const filter = { status: 'pending' };
+    const entity = document.getElementById('hcl-pending-entity').value;
+    const kind = document.getElementById('hcl-pending-kind').value;
+    const run = document.getElementById('hcl-pending-run').value;
+    if (entity) filter.entity_type = entity;
+    if (kind) filter.kind = kind;
+    if (run === 'latest' && hclLastRunId != null) filter.run_id = hclLastRunId;
+    return filter;
+}
+
+async function loadHclPending() {
+    const filter = hclPendingFilter();
+    const params = new URLSearchParams();
+    Object.keys(filter).forEach(k => params.set(k, String(filter[k])));
+    const { ok, data } = await adminApi('/admin/api/hcl/pending?' + params.toString());
+    const body = document.getElementById('hcl-pending-tbody');
+    const head = document.getElementById('hcl-pending-select-all');
+    head.checked = false; head.indeterminate = false;
+    if (!ok || !Array.isArray(data)) { body.innerHTML = ''; setStatus('hcl-status', t('admin.hcl.load_error'), true); return; }
+    body.innerHTML = data.map(p => `
+        <tr>
+            <td><input type="checkbox" class="hcl-pending-check" value="${p.id}" aria-label="${adminEsc(t('admin.hcl.select_row'))}" data-click='["hclUpdatePendingCount"]'></td>
+            <td><span class="badge ${HCL_KIND_BADGE[p.change_kind] || 'badge-validated'}">${adminEsc(hclTextOr('admin.hcl.kind_' + p.change_kind, p.change_kind))}</span></td>
+            <td>${adminEsc(hclEntityLabel(p.entity_type))}</td>
+            <td><strong>${adminEsc(p.label || p.entity_key || '')}</strong>${p.label && p.entity_key ? `<div class="muted hcl-key">${adminEsc(p.entity_key)}</div>` : ''}</td>
+            <td>${adminEsc(p.field || '')}</td>
+            <td class="hcl-val-cell">${hclFmtValue(p.old)}</td>
+            <td class="hcl-val-cell">${hclFmtValue(p.new)}</td>
+            <td class="hcl-nowrap">${adminEsc(adminDate(p.created_at))}</td>
+            <td class="col-actions hcl-col-actions">
+                <button class="btn btn-sm btn-secondary" data-click='["hclPendingAction",${p.id},"approve"]'>${adminEsc(t('admin.hcl.approve'))}</button>
+                <button class="btn btn-sm btn-danger" data-click='["hclPendingAction",${p.id},"reject"]'>${adminEsc(t('admin.hcl.reject'))}</button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="9" class="muted">${adminEsc(t('admin.hcl.pending_none'))}</td></tr>`;
+    hclUpdatePendingCount();
+}
+
+function hclPendingChecks() {
+    return Array.from(document.querySelectorAll('.hcl-pending-check'));
+}
+
+function hclUpdatePendingCount() {
+    const all = hclPendingChecks();
+    const checked = all.filter(c => c.checked);
+    document.getElementById('hcl-pending-selected').textContent =
+        checked.length ? t('admin.hcl.selected_count', { n: checked.length }) : '';
+    const head = document.getElementById('hcl-pending-select-all');
+    head.checked = all.length > 0 && checked.length === all.length;
+    head.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function hclToggleSelectAllPending(cb) {
+    hclPendingChecks().forEach(c => { c.checked = cb.checked; });
+    hclUpdatePendingCount();
+}
+
+function hclAfterQueueChange() {
+    hclLoadStats();
+    loadHclPending();
+    loadHclCatalog();
+}
+
+async function hclPendingAction(id, action) {
+    const { ok, data } = await adminApi(`/admin/api/hcl/pending/${id}/${action}`, { method: 'POST' });
+    if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
+    toast((data && data.message) || t(action === 'approve' ? 'admin.hcl.approved_one' : 'admin.hcl.rejected_one'), 'success');
+    hclAfterQueueChange();
+}
+
+async function hclBulkPending(action) {
+    const ids = hclPendingChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
+    if (!ids.length) { setStatus('hcl-status', t('admin.hcl.select_first'), true); return; }
+    if (!confirm(t(action === 'approve' ? 'admin.hcl.bulk_confirm_approve' : 'admin.hcl.bulk_confirm_reject', { n: ids.length }))) return;
+    const { ok, data } = await hclJson('/admin/api/hcl/pending/bulk', 'POST', { ids: ids, action: action });
+    if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
+    setStatus('hcl-status', t('admin.hcl.bulk_done', {
+        approved: data.approved || 0, rejected: data.rejected || 0, skipped: data.skipped || 0 }), false);
+    hclAfterQueueChange();
+}
+
+// "Approve all pending" approves everything the current filters show, not just
+// the loaded page — the server applies the same filter, so the count shown is
+// the count approved.
+async function hclApproveAllPending() {
+    const n = hclPendingChecks().length;
+    if (!n) { setStatus('hcl-status', t('admin.hcl.pending_none'), true); return; }
+    if (!confirm(t('admin.hcl.approve_all_confirm', { n: n }))) return;
+    const filter = hclPendingFilter();
+    const { ok, data } = await hclJson('/admin/api/hcl/pending/bulk', 'POST', { all: true, filter: filter, action: 'approve' });
+    if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
+    setStatus('hcl-status', t('admin.hcl.bulk_done', {
+        approved: data.approved || 0, rejected: data.rejected || 0, skipped: data.skipped || 0 }), false);
+    hclAfterQueueChange();
+}
+
+// ── catalog ───────────────────────────────────────────────────────────────
+
+function hclCatalogKindChanged(skipLoad) {
+    const kind = document.getElementById('hcl-catalog-kind').value;
+    const isComponents = kind === 'components';
+    document.getElementById('hcl-component-kind-wrap').hidden = !isComponents;
+    document.getElementById('hcl-search-wrap').hidden = !isComponents;
+    hclExpandedPlatform = null;
+    if (skipLoad !== true) loadHclCatalog();
+}
+
+function hclCatalogSearchInput() {
+    clearTimeout(hclSearchTimer);
+    hclSearchTimer = setTimeout(loadHclCatalog, 300);
+}
+
+async function loadHclCatalog() {
+    const kind = document.getElementById('hcl-catalog-kind').value;
+    const status = document.getElementById('hcl-catalog-status').value;
+    const params = new URLSearchParams({ status: status });
+    if (kind === 'components') {
+        const ck = document.getElementById('hcl-component-kind').value;
+        const q = document.getElementById('hcl-catalog-search').value.trim();
+        if (ck) params.set('kind', ck);
+        if (q) params.set('q', q);
+    }
+    const { ok, data } = await adminApi(`/admin/api/hcl/${kind}?` + params.toString());
+    const thead = document.getElementById('hcl-catalog-thead');
+    const body = document.getElementById('hcl-catalog-tbody');
+    const count = document.getElementById('hcl-catalog-count');
+    if (!ok || !Array.isArray(data)) {
+        thead.innerHTML = ''; body.innerHTML = ''; count.textContent = '';
+        setStatus('hcl-status', t('admin.hcl.load_error'), true);
+        return;
+    }
+    count.textContent = t('admin.hcl.catalog_count', { n: data.length });
+    const th = keys => '<tr>' + keys.map(k => `<th>${adminEsc(t(k))}</th>`).join('') + '</tr>';
+    const empty = cols => `<tr><td colspan="${cols}" class="muted">${adminEsc(t('admin.hcl.catalog_none'))}</td></tr>`;
+    if (kind === 'platforms') {
+        thead.innerHTML = th(['admin.hcl.col_brand', 'admin.hcl.col_sc_model', 'admin.hcl.col_server', 'admin.hcl.col_form_factor',
+            'admin.hcl.col_sockets', 'admin.hcl.col_memory_type', 'admin.hcl.col_max_ram', 'admin.hcl.col_components',
+            'common.status', 'admin.hcl.col_last_seen']);
+        body.innerHTML = data.map(p => hclPlatformRow(p)).join('') || empty(10);
+        if (hclExpandedPlatform != null && !data.some(p => p.id === hclExpandedPlatform)) hclExpandedPlatform = null;
+        if (hclExpandedPlatform != null) hclTogglePlatform(hclExpandedPlatform, true);
+    } else if (kind === 'components') {
+        thead.innerHTML = th(['admin.hcl.col_kind', 'admin.hcl.col_part_number', 'admin.hcl.col_description', 'admin.hcl.col_tce',
+            'common.status', 'admin.hcl.col_last_seen', 'admin.hcl.col_platform_count']);
+        body.innerHTML = data.map(c => {
+            const platforms = Array.isArray(c.platforms) ? c.platforms : null;
+            const pc = c.platform_count != null ? c.platform_count : (platforms ? platforms.length : null);
+            const title = platforms ? platforms.map(p => p.key || `${p.brand}/${p.sc_model}`).join('\n') : '';
+            return `
+        <tr class="${c.status === 'active' ? '' : 'row-disabled'}">
+            <td>${adminEsc(hclComponentKindLabel(c.kind))}</td>
+            <td><code>${adminEsc(c.part_number)}</code></td>
+            <td>${adminEsc(c.description || '')}</td>
+            <td>${c.tce ? `<span class="badge badge-validated hcl-badge-tight">TCE</span>` : '<span class="muted">—</span>'}</td>
+            <td>${hclStatusBadge(c.status)}</td>
+            <td class="hcl-nowrap">${adminEsc(adminDate(c.last_seen))}</td>
+            <td${title ? ` title="${adminEsc(title)}"` : ''}>${pc == null ? '<span class="muted">—</span>' : adminEsc(String(pc))}</td>
+        </tr>`; }).join('') || empty(7);
+    } else {
+        thead.innerHTML = th(['admin.hcl.col_vendor_id', 'admin.hcl.col_device_id', 'admin.hcl.col_description', 'admin.hcl.col_driver',
+            'admin.hcl.col_type', 'admin.hcl.col_supported', 'admin.hcl.col_since', 'common.status']);
+        body.innerHTML = data.map(d => `
+        <tr class="${d.status === 'active' ? '' : 'row-disabled'}">
+            <td><code>${adminEsc(d.ven_id)}</code></td>
+            <td><code>${adminEsc(d.dev_id)}</code></td>
+            <td>${adminEsc(d.description || '')}</td>
+            <td>${adminEsc(d.driver || '')}</td>
+            <td>${adminEsc(d.dev_type || '')}</td>
+            <td>${adminEsc(hclYesNo(d.supported))}</td>
+            <td>${adminEsc(d.since || '')}</td>
+            <td>${hclStatusBadge(d.status)}</td>
+        </tr>`).join('') || empty(8);
+    }
+}
+
+function hclPlatformRow(p) {
+    const open = hclExpandedPlatform === p.id;
+    return `
+        <tr class="hcl-row-click ${p.status === 'active' ? '' : 'row-disabled'}" id="hcl-platform-row-${p.id}" tabindex="0" role="button"
+            aria-expanded="${open ? 'true' : 'false'}" aria-controls="hcl-platform-detail-${p.id}"
+            data-click='["hclTogglePlatform",${p.id}]' data-keydown='["hclPlatformKeydown","$event",${p.id}]'>
+            <td>${adminEsc(p.brand || '')}</td>
+            <td><strong>${adminEsc(p.sc_model || '')}</strong></td>
+            <td>${adminEsc(p.server || '')}</td>
+            <td>${adminEsc(p.form_factor || '')}</td>
+            <td>${adminEsc(p.sockets == null ? '' : String(p.sockets))}</td>
+            <td>${adminEsc(p.memory_type || '')}</td>
+            <td>${p.max_ram_gb == null ? '' : adminEsc(t('admin.hcl.gb', { n: p.max_ram_gb }))}</td>
+            <td>${adminEsc(String(p.component_count == null ? '' : p.component_count))}</td>
+            <td>${hclStatusBadge(p.status)}</td>
+            <td class="hcl-nowrap">${adminEsc(adminDate(p.last_seen))}</td>
+        </tr>`;
+}
+
+function hclPlatformKeydown(e, id) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hclTogglePlatform(id); }
+}
+
+// Click a platform row: open (or close) an inline detail row underneath it
+// listing every part validated for that platform, grouped by kind.
+async function hclTogglePlatform(id, forceOpen) {
+    const row = document.getElementById(`hcl-platform-row-${id}`);
+    if (!row) return;
+    const existing = document.getElementById(`hcl-platform-detail-${id}`);
+    if (existing && forceOpen !== true) {
+        existing.remove();
+        row.setAttribute('aria-expanded', 'false');
+        hclExpandedPlatform = null;
+        return;
+    }
+    // Only one detail open at a time.
+    document.querySelectorAll('.hcl-detail-row').forEach(r => r.remove());
+    document.querySelectorAll('.hcl-row-click[aria-expanded="true"]').forEach(r => r.setAttribute('aria-expanded', 'false'));
+    hclExpandedPlatform = id;
+    row.setAttribute('aria-expanded', 'true');
+    const detail = document.createElement('tr');
+    detail.className = 'hcl-detail-row';
+    detail.id = `hcl-platform-detail-${id}`;
+    detail.innerHTML = `<td colspan="10"><span class="muted">${adminEsc(t('common.loading'))}</span></td>`;
+    row.insertAdjacentElement('afterend', detail);
+    const { ok, data } = await adminApi(`/admin/api/hcl/platforms/${id}`);
+    if (hclExpandedPlatform !== id) return;   // closed or switched meanwhile
+    if (!ok || !data) {
+        detail.innerHTML = `<td colspan="10"><span class="hcl-run-error">${adminEsc(hclErrorText(data))}</span></td>`;
+        return;
+    }
+    detail.innerHTML = `<td colspan="10">${hclPlatformDetailHtml(data)}</td>`;
+}
+
+function hclPlatformDetailHtml(p) {
+    const facts = [
+        ['admin.hcl.col_socket', p.socket],
+        ['admin.hcl.col_max_cores', p.max_cores],
+        ['admin.hcl.col_ram_slots', p.ram_slots],
+        ['admin.hcl.col_hdd_max', p.hdd_max],
+        ['admin.hcl.col_ssd_max', p.ssd_max],
+        ['admin.hcl.col_power_supply', p.power_supply],
+        ['admin.hcl.col_cooling', p.cooling],
+        ['admin.hcl.col_tpm', p.tpm],
+        ['admin.hcl.col_risers', p.risers],
+        ['admin.hcl.col_oob_license', p.oob_license],
+        ['admin.hcl.col_nic_listed', p.nic_listed == null ? null : hclYesNo(p.nic_listed)],
+        ['admin.hcl.col_first_seen', p.first_seen ? adminDate(p.first_seen) : null],
+        ['admin.hcl.col_delisted_at', p.delisted_at ? adminDate(p.delisted_at) : null],
+    ].filter(f => f[1] != null && f[1] !== '');
+    let html = '<div class="hcl-detail">';
+    if (facts.length) {
+        html += '<dl class="hcl-run-grid hcl-detail-facts">'
+            + facts.map(f => `<dt>${adminEsc(t(f[0]))}</dt><dd>${adminEsc(String(f[1]))}</dd>`).join('')
+            + '</dl>';
+    }
+    const comps = Array.isArray(p.components) ? p.components : [];
+    if (!comps.length) {
+        html += `<p class="muted">${adminEsc(t('admin.hcl.platform_no_components'))}</p></div>`;
+        return html;
+    }
+    const groups = {};
+    comps.forEach(c => { (groups[c.kind] = groups[c.kind] || []).push(c); });
+    const order = ['cpu', 'nic', 'hba', 'hdd', 'ssd', 'gpu'].concat(Object.keys(groups).filter(k => ['cpu', 'nic', 'hba', 'hdd', 'ssd', 'gpu'].indexOf(k) === -1));
+    html += '<div class="hcl-detail-groups">';
+    order.forEach(kind => {
+        const list = groups[kind];
+        if (!list) return;
+        html += `<section class="hcl-detail-group"><h4>${adminEsc(hclComponentKindLabel(kind))} <span class="count-pill">${list.length}</span></h4><ul>`
+            + list.map(c => `<li class="${(c.link_status || c.status) === 'active' ? '' : 'row-disabled'}">`
+                + `<code>${adminEsc(c.part_number)}</code> ${adminEsc(c.description || '')}`
+                + (c.tce ? ' <span class="badge badge-validated hcl-badge-tight">TCE</span>' : '')
+                + ((c.link_status || c.status) === 'active' ? '' : ` <span class="badge badge-eos hcl-badge-tight">${adminEsc(t('admin.hcl.status_delisted'))}</span>`)
+                + '</li>').join('')
+            + '</ul></section>';
+    });
+    html += '</div></div>';
+    return html;
+}
+
+// ── settings ──────────────────────────────────────────────────────────────
+
+async function hclSaveSettings() {
+    const input = document.getElementById('hcl-blocked-vendors');
+    const vendors = input.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const unique = vendors.filter((v, i) => vendors.indexOf(v) === i);
+    const btn = document.getElementById('hcl-settings-save');
+    btn.disabled = true;
+    const { ok, data } = await hclJson('/admin/api/hcl/settings', 'PUT', { blocked_vendors: unique });
+    btn.disabled = false;
+    if (!ok) { setStatus('hcl-status', hclErrorText(data), true); return; }
+    if (data && Array.isArray(data.blocked_vendors)) input.value = data.blocked_vendors.join(', ');
+    else input.value = unique.join(', ');
+    toast(t('admin.msg.saved'), 'success');
+}
+
+// ==================== SUPER-ADMIN: BOM REVIEW QUEUE ====================
+// Checks whose result carried flag_reasons wait here. The admin confirms the
+// findings, marks them incorrect (with a note the user sees) or reopens.
+
+function bomReviewVerdictChip(v) {
+    if (!v) return '<span class="muted">—</span>';
+    const cls = HCL_VERDICT_BADGE[v] || 'hcl-badge-plain';
+    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.verdict_' + String(v).toLowerCase(), v))}</span>`;
+}
+
+function bomReviewFitChip(v) {
+    if (!v) return '<span class="muted">—</span>';
+    const cls = HCL_FIT_BADGE[v] || 'hcl-badge-plain';
+    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.fit_' + v, v))}</span>`;
+}
+
+function bomReviewStatusChip(s) {
+    s = s || 'none';
+    const cls = HCL_REVIEW_BADGE[s] || 'hcl-badge-plain';
+    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.status_' + s, s))}</span>`;
+}
+
+function bomReviewReasonText(code) {
+    return hclTextOr('admin.bom.reason_' + code, code);
+}
+
+async function loadBomReviews() {
+    const status = document.getElementById('bom-review-filter').value;
+    const { ok, data } = await adminApi('/admin/api/bom-reviews?status=' + encodeURIComponent(status));
+    const body = document.getElementById('bom-reviews-tbody');
+    const count = document.getElementById('bom-review-count');
+    if (!ok || !Array.isArray(data)) {
+        body.innerHTML = ''; count.textContent = '';
+        setStatus('bom-review-status', t('admin.bom.load_error'), true);
+        return;
+    }
+    bomReviewRows = data;
+    count.textContent = t('admin.bom.count', { n: data.length });
+    body.innerHTML = data.map(r => {
+        const project = r.project || {};
+        const reasons = Array.isArray(r.flag_reasons) ? r.flag_reasons : [];
+        const reasonTitle = reasons.map(bomReviewReasonText).join('\n');
+        return `
+        <tr>
+            <td class="hcl-nowrap">${adminEsc(adminDate(r.created_at))}</td>
+            <td>${adminEsc(project.name || '')}${project.code ? ` <code>${adminEsc(project.code)}</code>` : ''}</td>
+            <td>${adminEsc(r.owner_email || '')}</td>
+            <td>${adminEsc(r.tenant_domain || '')}</td>
+            <td title="${adminEsc(r.filename || '')}">${adminEsc(hclTruncate(r.filename || r.name || '', 40))}</td>
+            <td>${bomReviewVerdictChip(r.technical_verdict)}</td>
+            <td>${bomReviewFitChip(r.fit_verdict)}</td>
+            <td class="hcl-reasons" title="${adminEsc(reasonTitle)}">${reasons.length ? adminEsc(reasons.join(', ')) : '<span class="muted">—</span>'}</td>
+            <td>${bomReviewStatusChip(r.review_status)}</td>
+            <td class="col-actions hcl-col-actions">
+                <button class="btn btn-sm btn-secondary" data-click='["bomReviewOpen",${r.id}]'>${adminEsc(t('admin.bom.review_btn'))}</button>
+            </td>
+        </tr>`; }).join('') || `<tr><td colspan="10" class="muted">${adminEsc(t('admin.bom.none'))}</td></tr>`;
+}
+
+async function bomReviewOpen(id) {
+    const row = bomReviewRows.find(r => r.id === id);
+    if (!row) return;
+    bomReviewCurrent = row;
+    const summary = document.getElementById('bom-review-summary');
+    summary.innerHTML = bomReviewHeaderHtml(row) + `<p class="muted">${adminEsc(t('common.loading'))}</p>`;
+    document.getElementById('bom-review-note').value = row.review_note || '';
+    document.getElementById('bom-review-modal').style.display = 'flex';
+    // The full result (per-config findings) lives on the user-side check route;
+    // if it is not reachable the row summary alone is still enough to decide.
+    let full = null;
+    try {
+        const res = await adminApi(`/api/bom-checks/${id}`);
+        if (res.ok && res.data) full = res.data;
+    } catch (e) { full = null; }
+    if (bomReviewCurrent !== row) return;
+    summary.innerHTML = bomReviewHeaderHtml(row) + bomReviewResultHtml(full && full.result ? full.result : null, row);
+    document.getElementById('bom-review-note').focus();
+}
+
+function bomReviewHeaderHtml(r) {
+    const project = r.project || {};
+    const reasons = Array.isArray(r.flag_reasons) ? r.flag_reasons : [];
+    const rows = [
+        [t('admin.bom.col_project'), adminEsc(project.name || '') + (project.code ? ` <code>${adminEsc(project.code)}</code>` : '')],
+        [t('admin.sizings.col_owner'), adminEsc(r.owner_email || '')],
+        [t('admin.bom.col_file'), adminEsc(r.filename || r.name || '')],
+        [t('admin.bom.col_when'), adminEsc(adminDate(r.created_at))],
+        [t('admin.bom.col_technical'), bomReviewVerdictChip(r.technical_verdict)],
+        [t('admin.bom.col_fit'), bomReviewFitChip(r.fit_verdict)],
+        [t('admin.bom.col_review'), bomReviewStatusChip(r.review_status)],
+    ];
+    let html = '<dl class="hcl-run-grid bom-review-facts">'
+        + rows.map(x => `<dt>${adminEsc(x[0])}</dt><dd>${x[1]}</dd>`).join('')
+        + '</dl>';
+    if (reasons.length) {
+        html += `<h4 class="bom-review-h">${adminEsc(t('admin.bom.col_reason'))}</h4><ul class="bom-review-reasons">`
+            + reasons.map(c => `<li><code>${adminEsc(c)}</code> ${adminEsc(bomReviewReasonText(c))}</li>`).join('')
+            + '</ul>';
+    }
+    return html;
+}
+
+function bomReviewResultHtml(result, row) {
+    if (!result || !result.technical) {
+        return `<p class="muted">${adminEsc(t('admin.bom.no_details'))}</p>`;
+    }
+    const configs = Array.isArray(result.technical.config_results) ? result.technical.config_results : [];
+    let html = `<h4 class="bom-review-h">${adminEsc(t('admin.bom.findings_title'))}</h4>`;
+    if (!configs.length) html += `<p class="muted">${adminEsc(t('admin.bom.no_findings'))}</p>`;
+    configs.forEach(cfg => {
+        const findings = Array.isArray(cfg.findings) ? cfg.findings : [];
+        const platform = cfg.platform || null;
+        html += `<div class="bom-review-config"><div class="bom-review-config-head"><strong>${adminEsc(cfg.config_name || '')}</strong> ${bomReviewVerdictChip(cfg.verdict)}`
+            + (platform ? ` <span class="muted">${adminEsc([platform.brand, (platform.sc_models || []).join('/'), platform.server].filter(Boolean).join(' · '))}</span>` : '')
+            + '</div>';
+        if (!findings.length) {
+            html += `<p class="muted">${adminEsc(t('admin.bom.no_findings'))}</p></div>`;
+            return;
+        }
+        html += '<table class="model-table bom-review-findings"><thead><tr>'
+            + `<th>${adminEsc(t('admin.bom.col_severity'))}</th><th>${adminEsc(t('admin.bom.col_component'))}</th>`
+            + `<th>${adminEsc(t('admin.bom.col_issue'))}</th><th>${adminEsc(t('admin.bom.col_remediation'))}</th>`
+            + '</tr></thead><tbody>'
+            + findings.map(f => `<tr>
+                <td><span class="badge ${HCL_SEVERITY_BADGE[f.severity] || 'hcl-badge-plain'}">${adminEsc(hclTextOr('admin.bom.severity_' + f.severity, f.severity || ''))}</span></td>
+                <td>${adminEsc(f.component || '')}</td>
+                <td>${adminEsc(f.issue || '')}${f.code ? ` <code class="muted">${adminEsc(f.code)}</code>` : ''}</td>
+                <td>${adminEsc(f.remediation || '')}</td>
+            </tr>`).join('')
+            + '</tbody></table></div>';
+    });
+    const fit = result.fit || null;
+    if (fit && Array.isArray(fit.dimensions) && fit.dimensions.length) {
+        html += `<h4 class="bom-review-h">${adminEsc(t('admin.bom.fit_title'))} ${bomReviewFitChip(fit.verdict)}`
+            + (fit.sizing && fit.sizing.name ? ` <span class="muted">${adminEsc(fit.sizing.name)}</span>` : '') + '</h4>';
+        html += '<table class="model-table bom-review-findings"><thead><tr>'
+            + `<th>${adminEsc(t('admin.bom.col_dimension'))}</th><th>${adminEsc(t('admin.bom.col_relation'))}</th>`
+            + `<th>${adminEsc(t('admin.bom.col_bom'))}</th><th>${adminEsc(t('admin.bom.col_required'))}</th><th>${adminEsc(t('admin.bom.col_sized'))}</th>`
+            + '</tr></thead><tbody>'
+            + fit.dimensions.map(d => {
+                const unit = d.unit ? ' ' + d.unit : '';
+                const num = v => v == null ? '—' : String(v) + unit;
+                return `<tr>
+                <td title="${adminEsc(d.note || '')}">${adminEsc(hclTextOr('admin.bom.dim_' + d.key, d.key || ''))}</td>
+                <td>${adminEsc(hclTextOr('admin.bom.rel_' + d.relation, d.relation || ''))}</td>
+                <td>${adminEsc(num(d.bom))}</td><td>${adminEsc(num(d.required))}</td><td>${adminEsc(num(d.sized))}</td>
+            </tr>`; }).join('')
+            + '</tbody></table>';
+    }
+    return html;
+}
+
+function bomReviewClose() {
+    document.getElementById('bom-review-modal').style.display = 'none';
+    bomReviewCurrent = null;
+}
+
+async function bomReviewSave(status) {
+    if (!bomReviewCurrent) return;
+    const id = bomReviewCurrent.id;
+    const note = document.getElementById('bom-review-note').value.trim();
+    const { ok, data } = await hclJson(`/admin/api/bom-reviews/${id}`, 'POST', { status: status, note: note });
+    if (!ok) { toastError(hclErrorText(data)); return; }
+    toast((data && data.message) || t('admin.bom.saved'), 'success');
+    bomReviewClose();
+    loadBomReviews();
 }

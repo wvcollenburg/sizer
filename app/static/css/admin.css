@@ -727,3 +727,141 @@ body { padding-bottom: 64px; }
     border-radius: 4px;
 }
 .tun-info-beware h4 { color: #b3261e; }
+
+
+/* ── HCL catalog / scrape queue / BOM review tabs ───────────────────────────
+   admin.html does not load style.css, so .muted had no definition on this
+   page until now (admin.html/admin.js already used it — this makes it work). */
+.muted { color: var(--text-muted); font-size: 0.82rem; }
+
+#tab-hcl [hidden], #tab-bomreviews [hidden] { display: none !important; }
+
+#tab-hcl .hcl-stats { margin: 0 0 0.9rem; font-size: 0.85rem; }
+#tab-hcl .hcl-card-desc { margin: 4px 0 0; line-height: 1.45; max-width: 72ch; }
+#tab-hcl .hcl-import .hcl-card-desc { margin-top: 0.5rem; }
+#tab-hcl .iops-card-header h3 .count-pill { margin-left: 0.4rem; vertical-align: middle; }
+
+/* Filters: "label + select" pairs. The page-wide select/input rule sets
+   width:100%, so the controls need an explicit width here. */
+.hcl-filters { flex-wrap: wrap; }
+.hcl-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.hcl-filter select { width: auto; min-width: 8rem; }
+#tab-hcl input[type="search"] {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+    width: 16rem;
+}
+#tab-hcl input[type="search"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+
+/* Scrape progress */
+.hcl-progress-wrap { display: inline-flex; align-items: center; gap: 0.6rem; }
+.hcl-progress {
+    width: 180px;
+    height: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.hcl-progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
+
+/* Last run summary + platform detail facts */
+#tab-hcl .hcl-last-run { margin-top: 0.9rem; }
+#tab-hcl .hcl-last-run-title, #tab-hcl .hcl-import { margin: 0 0 0.4rem; }
+#tab-hcl .hcl-import { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+#tab-hcl .hcl-last-run-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); }
+.hcl-run-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.2rem 1rem;
+    margin: 0;
+    font-size: 0.83rem;
+}
+.hcl-run-grid dt { color: var(--text-muted); font-weight: 600; }
+.hcl-run-grid dd { margin: 0; color: var(--text); }
+.hcl-warn { color: var(--orange); font-weight: 600; }
+.hcl-run-error {
+    margin: 0.5rem 0 0;
+    padding: 0.4rem 0.7rem;
+    border-radius: var(--radius-sm);
+    background: var(--red-bg);
+    color: var(--red);
+    font-size: 0.82rem;
+}
+.hcl-run-errors { margin-top: 0.5rem; font-size: 0.82rem; }
+.hcl-run-errors summary { cursor: pointer; color: var(--orange); font-weight: 600; }
+.hcl-run-errors ul { margin: 0.4rem 0 0; padding-left: 1.2rem; color: var(--text-muted); max-height: 12rem; overflow: auto; }
+
+/* Tables */
+.hcl-table .hcl-nowrap { white-space: nowrap; }
+.hcl-table .hcl-col-actions { width: auto; white-space: nowrap; }
+.hcl-table .hcl-col-actions .btn + .btn { margin-left: 0.3rem; }
+.hcl-table .hcl-key { font-size: 0.72rem; }
+.hcl-table .hcl-val-cell { max-width: 18rem; }
+.hcl-table .hcl-kv { font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hcl-table .hcl-kv-key { color: var(--text-muted); }
+.hcl-table .hcl-val { cursor: help; border-bottom: 1px dotted var(--border-strong); }
+.hcl-table .hcl-reasons { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hcl-table tbody tr.hcl-row-click { cursor: pointer; }
+.hcl-table tbody tr.hcl-row-click:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hcl-table tbody tr.hcl-row-click[aria-expanded="true"] td { background: var(--accent-tint); }
+.hcl-table tbody tr.hcl-detail-row td { background: var(--surface3); padding: 0.9rem 1rem; }
+.hcl-table tbody tr.hcl-detail-row:hover { background: transparent; }
+.hcl-badge-tight { margin-left: 0; }
+.badge.hcl-badge-plain { background: var(--surface2); color: var(--text-muted); }
+
+/* Platform detail (inline row) */
+.hcl-detail { display: flex; flex-direction: column; gap: 0.9rem; }
+.hcl-detail-facts { grid-template-columns: repeat(auto-fit, minmax(10rem, max-content) minmax(8rem, 1fr)); }
+.hcl-detail-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 0.8rem 1.5rem;
+}
+.hcl-detail-group h4 {
+    margin: 0 0 0.3rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--accent);
+}
+.hcl-detail-group ul { margin: 0; padding-left: 1rem; font-size: 0.8rem; line-height: 1.5; }
+.hcl-detail-group li { color: var(--text); }
+.hcl-detail-group code, .hcl-table code { font-size: 0.78rem; background: var(--surface2); padding: 0 0.3rem; border-radius: 3px; }
+
+/* Blocked vendors input spans the card */
+#tab-hcl .iops-inputs .hcl-grow { flex: 1 1 18rem; }
+#tab-hcl .iops-inputs .hcl-grow input { width: 100%; }
+#tab-hcl .field-hint { margin-top: 0.5rem; }
+
+/* BOM review modal */
+#bom-review-modal.bom-review-overlay { z-index: 1100; }
+#bom-review-modal .modal-body { padding: 1.25rem 1.5rem; }
+#bom-review-modal .bom-review-summary { margin-bottom: 1rem; }
+#bom-review-modal .bom-review-h {
+    margin: 1rem 0 0.4rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+}
+#bom-review-modal .bom-review-reasons { margin: 0; padding-left: 1.2rem; font-size: 0.83rem; line-height: 1.5; }
+#bom-review-modal .bom-review-config { margin-bottom: 0.8rem; }
+#bom-review-modal .bom-review-config-head { margin-bottom: 0.3rem; font-size: 0.85rem; }
+#bom-review-modal .bom-review-findings { font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+#bom-review-modal .bom-review-findings th { font-size: 0.72rem; padding: 0.4rem 0.6rem; }
+#bom-review-modal .bom-review-findings td { padding: 0.4rem 0.6rem; }
+#bom-review-modal textarea { width: 100%; resize: vertical; }
+#bom-review-modal .modal-footer { flex-wrap: wrap; }

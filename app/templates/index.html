@@ -119,6 +119,10 @@
                         <span data-i18n="project.view.exports">Exports</span>
                         <span id="exports-badge" class="notif-badge" hidden></span>
                     </button>
+                    <button class="btn btn-soft btn-badged" data-click='["openBomChecker"]'>
+                        <span data-i18n="bom.btn">Check a BOM</span>
+                        <span id="bom-badge" class="notif-badge" hidden></span>
+                    </button>
                     <button class="btn btn-soft" data-click='["openProjectSettings"]'
                             data-i18n="project.view.settings">Details</button>
                 </div>
@@ -1097,6 +1101,97 @@
         </div>
     </div>
 
+    <!-- BOM checker modal (docs/bom-checker-build.md §7) — driven by js/bom.js.
+         Step "upload" holds the drop zone, the sizing picker, the help block
+         and the history of past checks; step "result" renders one check. -->
+    <div class="modal-overlay" id="bom-modal" style="display:none">
+        <div class="modal-content cmp-modal bom-modal" style="max-width:880px" role="dialog" aria-modal="true" aria-labelledby="bom-modal-title">
+            <div class="modal-header">
+                <h2 id="bom-modal-title" data-i18n="bom.title">Check a BOM</h2>
+                <button class="modal-close" data-click='["closeBomChecker"]' data-i18n-aria="common.close" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="bom-error" id="bom-error" role="alert" hidden>
+                    <p id="bom-error-text"></p>
+                    <ul id="bom-error-details" hidden></ul>
+                </div>
+
+                <div id="bom-step-upload">
+                    <p class="import-info" data-i18n="bom.upload.intro">Upload a vendor BOM to check every part against the Scale Computing HCL and, optionally, against one of this project's sizings.</p>
+
+                    <div class="upload-area bom-upload-area" id="bom-upload-area" role="button" tabindex="0" aria-describedby="bom-accept-hint">
+                        <div class="upload-icon" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                        <div class="upload-text" data-i18n="bom.upload.drop_hint">Drop a BOM file here or click to browse</div>
+                        <div class="bom-file-name" id="bom-file-name" hidden></div>
+                        <input type="file" id="bom-file-input" accept=".xlsx,.csv" data-change='["bomFileChosen","$this"]' aria-label="BOM file" data-i18n-aria="bom.upload.input_label">
+                    </div>
+                    <p class="field-hint" id="bom-accept-hint" data-i18n="bom.upload.accept_hint_static">Accepted: .xlsx, .csv</p>
+                    <div id="bom-upload-status" class="upload-status" style="display:none" aria-live="polite"></div>
+
+                    <div class="panel-field bom-field">
+                        <label class="field-label" for="bom-name" data-i18n="bom.name_label">Name (optional)</label>
+                        <input type="text" id="bom-name" class="text-input" maxlength="200" autocomplete="off">
+                        <p class="field-hint" data-i18n="bom.name_hint">Defaults to the file name.</p>
+                    </div>
+
+                    <h3 class="rep-heading" data-i18n="bom.pick.heading">Check against a sizing</h3>
+                    <p class="field-hint" data-i18n="bom.pick.hint">The compatibility check always runs. Pick a sizing to also compare node count, cores, RAM, storage and NIC speed with what was sized.</p>
+                    <div id="bom-sizing-pick" class="fanout-list bom-pick-list" role="radiogroup" aria-label="Sizing to check against" data-i18n-aria="bom.pick.heading"></div>
+
+                    <details class="bom-help">
+                        <summary data-i18n="bom.help.summary">Accepted formats and the blank template</summary>
+                        <div class="bom-help-body">
+                            <p data-i18n="bom.help.formats">Recognised out of the box: Lenovo DCSC configuration exports (.xlsx) and Dell quote or service-tag exports (.xlsx, .csv). Anything else is not guessed at — fill in the blank template instead and upload that.</p>
+                            <p data-i18n="bom.help.template_rules">One row per line item, quantities are totals across all nodes, and the node count is the quantity of the chassis/server line.</p>
+                            <p class="bom-help-actions">
+                                <a class="btn btn-soft btn-xs" href="/api/bom/template" download data-i18n="bom.help.template_download">Download the blank template</a>
+                            </p>
+                            <p class="field-hint" id="bom-catalog-line" hidden></p>
+                        </div>
+                    </details>
+
+                    <div class="panel-section bom-prefill" id="bom-prefill-panel" hidden>
+                        <div class="panel-section-title" data-i18n="bom.prefill.title">AI pre-fill of the template</div>
+                        <p class="field-hint" data-i18n="bom.prefill.desc">Have an unrecognised quote, PDF or document? Upload it here and a pre-filled copy of the template is generated for you.</p>
+                        <p class="rec-warning bom-prefill-warning" data-i18n="bom.prefill.mandatory">The pre-filled template must be reviewed and corrected by you, then uploaded above as a normal check. The AI result is never checked directly.</p>
+                        <div class="bom-prefill-row">
+                            <label class="btn btn-soft btn-xs bom-file-btn" for="bom-prefill-input">
+                                <span data-i18n="bom.prefill.choose">Choose a document</span>
+                                <input type="file" id="bom-prefill-input" accept=".xlsx,.csv,.pdf,.docx,.txt" data-change='["bomPrefillFileChosen","$this"]'>
+                            </label>
+                            <span class="bom-file-name" id="bom-prefill-name" hidden></span>
+                            <button class="btn btn-cta btn-xs" id="bom-prefill-btn" data-click='["bomRunPrefill"]' data-i18n="bom.prefill.run">Generate pre-filled template</button>
+                        </div>
+                        <p class="field-hint" id="bom-prefill-status" aria-live="polite" hidden></p>
+                    </div>
+
+                    <div id="bom-history">
+                        <h3 class="rep-heading" data-i18n="bom.history.heading">Past checks</h3>
+                        <ul class="export-list bom-history-list" id="bom-history-list"></ul>
+                        <p class="import-info muted" id="bom-history-empty" data-i18n="bom.history.empty">No BOM checked yet for this project.</p>
+                    </div>
+                </div>
+
+                <div id="bom-step-result" style="display:none">
+                    <div id="bom-result" aria-live="polite"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions bom-footer">
+                    <button class="btn btn-secondary" id="bom-back-btn" style="display:none" data-click='["bomBack"]' data-i18n="bom.back_to_list">Back to list</button>
+                    <button class="btn btn-secondary" data-click='["closeBomChecker"]' data-i18n="common.close">Close</button>
+                    <button class="btn btn-danger btn-sm" id="bom-delete-btn" style="display:none" data-click='["bomDelete"]' data-i18n="common.delete">Delete</button>
+                    <span class="bom-recheck-wrap" id="bom-recheck-wrap" style="display:none">
+                        <label class="field-label-inline" for="bom-recheck-sizing" data-i18n="bom.recheck_against">Re-check against</label>
+                        <select id="bom-recheck-sizing" class="text-input inline-select" data-change='["bomRecheckSizingChanged","$value"]'></select>
+                    </span>
+                    <button class="btn btn-primary" id="bom-recheck-btn" style="display:none" data-click='["bomRecheck"]' data-i18n="bom.recheck">Re-check</button>
+                    <button class="btn btn-primary" id="bom-run-btn" data-click='["bomRunCheck"]' data-i18n="bom.run">Check BOM</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">
@@ -1721,5 +1816,6 @@
     <script src="{{ asset('js/wizard.js') }}"></script>
     <script src="{{ asset('js/auth.js') }}"></script>
     <script src="{{ asset('js/projects.js') }}"></script>
+    <script src="{{ asset('js/bom.js') }}"></script>
 </body>
 </html>
