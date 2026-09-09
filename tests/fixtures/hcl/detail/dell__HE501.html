@@ -1,0 +1,116 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=dell" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HE501 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [dell]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  PowerEdge R350</ul>
+    <ul><b>POWER SUPPLY:</b>  2x Dell PE 600W 80 Plus Platinum HS [0Y20HJ]</ul>
+    <ul><b>COOLING:</b> 4x  []</ul>
+                        
+    <ul><b>TPM:</b>  461-AAIG</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  iDRAC Enterprise</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b>  1x FCLGA1200 (up to 8 cores)</ul>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 4x  ECC DDR4 UDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="555-BCKN">Intel X710 Dual Port 10GbE SFP+ Adapter, PCIe Low Profile [555-BCKN] </option>
+        
+          <option value="540-BDQZ">Intel X710 Dual Port 10GbE SFP+ Adapter, PCIe Low Profile [540-BDQZ] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="405-ABDK">PERC H355 Adapter [405-ABDK] </option>
+        
+      </select>
+    
+    
+      <ul><b>HDD: (up to 4) </b></ul>
+      <select name="hdd" id="hdd">
+        
+          <option value="161-BCNH">24TB Hard Drive SAS ISE 12 Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive [161-BCNH] </option>
+        
+          <option value="161-BBVV">20TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive [161-BBVV] </option>
+        
+          <option value="161-BCPD">12TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive [161-BCPD] </option>
+        
+          <option value="161-BCPX">8TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive [161-BCPX] </option>
+        
+          <option value="161-BCPC">16TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive [161-BCPC] </option>
+        
+          <option value="161-BCPH">4TB Hard Drive SAS ISE 12Gbps 7.2K 512n 3.5in Hot-Plug, AG Drive [161-BCPH] </option>
+        
+          <option value="400-AWIP">12TB 7.2K RPM NLSAS 12Gbps 512e 3.5in Hard Drive [400-AWIP] </option>
+        
+          <option value="400-AWIS">12TB 7.2K RPM NLSAS 12Gbps 512e 3.5in Internal Hard Drive [400-AWIS] </option>
+        
+          <option value="400-AWIU">12TB 7.2K RPM NLSAS 12Gbps 512e 3.5in Flex Bay Hard Drive [400-AWIU] </option>
+        
+      </select>
+    
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

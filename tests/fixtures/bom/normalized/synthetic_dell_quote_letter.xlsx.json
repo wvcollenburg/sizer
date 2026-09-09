@@ -1,0 +1,79 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "PowerEdge R660xs - Qty 1 needed| Dual 8c| x16 16GB RAM| x3 12TB HDD",
+      "serverModel": "PowerEdge R660xs",
+      "components": [
+        {
+          "partNumber": "210-BFUZ",
+          "description": "PowerEdge R660xs",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "461-AAIG",
+          "description": "Trusted Platform Module 2.0 V3",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "321-BJZZ",
+          "description": "2.5\" Chassis with up to 8 SAS/SATA Drives, Front PERC 11",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CHQR",
+          "description": "Intel Xeon Silver 4509Y 2.6G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (125W) DDR5-4400",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "No RAID",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "329-BHOF",
+          "description": "PowerEdge R660xs Motherboard with Broadcom 5720 Dual Port 1Gb On-Board LOM",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "450-AKMT",
+          "description": "Dual, Hot-Plug, Power Supply, 800W",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "370-AGZP",
+          "description": "16GB RDIMM, 6400MT/s, Single Rank",
+          "quantity": 16,
+          "category": "memory"
+        },
+        {
+          "partNumber": "161-BBVV",
+          "description": "12TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug",
+          "quantity": 3,
+          "category": "storage"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "Dear Customer,\nYour quote is ready. Thank you for choosing Acme Reseller.\nThis quote is valid until Sep. 30, 2026.\nRegards,\nJane Partner\nAcme Reseller\nSKU\t\tDescription\t\t\t\t\tQty\tUnit Price\t\t\tSubtotal\n\t\tPowerEdge R660xs - Qty 1 needed| Dual 8c| x16 16GB RAM| x3 12TB HDD\t\t\t\t\t1\t9000\n\t\tEstimated delivery date: Oct. 5, 2026\n210-BFUZ\t\tPowerEdge R660xs\t\t\t\t\t1\t-\n461-AAIG\t\tTrusted Platform Module 2.0 V3\t\t\t\t\t1\t-\n321-BJZZ\t\t2.5\" Chassis with up to 8 SAS/SATA Drives, Front PERC 11\t\t\t\t\t1\t-\n338-CHQR\t\tIntel Xeon Silver 4509Y 2.6G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (125W) DDR5-4400\t\t\t\t\t1\t-\n379-BDCO\t\tAdditional Processor Selected\t\t\t\t\t1\t-\n338-CHQR\t\tIntel Xeon Silver 4509Y 2.6G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (125W) DDR5-4400\t\t\t\t\t1\t-\n370-BCCX\t\t6400MT/s RDIMMs\t\t\t\t\t1\t-\n780-BCDI\t\tNo RAID\t\t\t\t\t1\t-\n405-AAZF\t\tDell HBA355i Adapter, Low Profile\t\t\t\t\t1\t-\n329-BHOF\t\tPowerEdge R660xs Motherboard with Broadcom 5720 Dual Port 1Gb On-Board LOM\t\t\t\t\t1\t-\n540-BCXW\t\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t\t\t\t\t1\t-\n450-AKMT\t\tDual, Hot-Plug, Power Supply, 800W\t\t\t\t\t1\t-\n892-9155\t\tProSupport Plus 4-Hour Mission Critical, 3 Years\t\t\t\t\t1\t-\n370-AGZP\t\t16GB RDIMM, 6400MT/s, Single Rank\t\t\t\t\t16\t-\n161-BBVV\t\t12TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug\t\t\t\t\t3\t-\n\t\t\t\t\t\t\tSubtotal:\t\t\t\t$9,000.00\n\t\t\t\t\t\t\tTotal:\t\t\t\t$9,000.00"
+}

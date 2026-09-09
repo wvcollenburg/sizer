@@ -1,0 +1,173 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=hpe" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HC1450 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [hpe]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  ProLiant DL320 Gen11</ul>
+    <ul><b>POWER SUPPLY:</b>  2x HPE 800Watt Flex Slot [P39385-001]</ul>
+    <ul><b>COOLING:</b>  Unspecified</ul>
+                        
+    <ul><b>TPM:</b>  Included (unspecified)</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  iLO Enterprise</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b> (up to 1x FCLGA4677) </ul>
+      <select name="cpu" id="cpu">
+        
+          <option value="PK8072205511700">[64C/128T @ 3GHz] Intel® Xeon® Platinum 8593Q Processor [PK8072205511700] </option>
+        
+          <option value="PK8072205511200">[64C/128T @ 2.9GHz] Intel® Xeon® Platinum 8592V Processor [PK8072205511200] </option>
+        
+          <option value="PK8072205511800">[64C/128T @ 2.9GHz] Intel® Xeon® Platinum 8592+ Processor [PK8072205511800] </option>
+        
+          <option value="PK8072205511300">[60C/120T @ 2.6GHz] Intel® Xeon® Platinum 8581V Processor [PK8072205511300] </option>
+        
+          <option value="PK8072205512000">[60C/120T @ 2.9GHz] Intel® Xeon® Platinum 8580 Processor [PK8072205512000] </option>
+        
+          <option value="PK8072205511600">[52C/104T @ 3GHz] Intel® Xeon® Platinum 8571N Processor [PK8072205511600] </option>
+        
+          <option value="PK8072205512100">[56C/112T @ 3GHz] Intel® Xeon® Platinum 8570 Processor [PK8072205512100] </option>
+        
+          <option value="PK8072205512200">[48C/96T @ 3.2GHz] Intel® Xeon® Platinum 8568Y+ Processor [PK8072205512200] </option>
+        
+          <option value="PK8072205499400">[32C/64T @ 3.8GHz] Intel® Xeon® Platinum 8562Y+ Processor [PK8072205499400] </option>
+        
+          <option value="PK8072205512400">[48C/96T @ 2.9GHz] Intel® Xeon® Platinum 8558U Processor [PK8072205512400] </option>
+        
+          <option value="PK8072205511500">[48C/96T @ 3.2GHz] Intel® Xeon® Platinum 8558P Processor [PK8072205511500] </option>
+        
+          <option value="PK8072205512300">[48C/96T @ 3GHz] Intel® Xeon® Platinum 8558 Processor [PK8072205512300] </option>
+        
+          <option value="PK8072205500500">[32C/64T @ 4.1GHz] Intel® Xeon® Gold 6558Q Processor [PK8072205500500] </option>
+        
+          <option value="PK8072205511100">[36C/72T @ 3GHz] Intel® Xeon® Gold 6554S Processor [PK8072205511100] </option>
+        
+          <option value="PK8072205500200">[32C/64T @ 3.5GHz] Intel® Xeon® Gold 6548Y+ Processor [PK8072205500200] </option>
+        
+          <option value="PK8072205503501">[32C/64T @ 3.5GHz] Intel® Xeon® Gold 6548N Processor [PK8072205503501] </option>
+        
+          <option value="PK8072205500300">[16C/32T @ 4.1GHz] Intel® Xeon® Gold 6544Y Processor [PK8072205500300] </option>
+        
+          <option value="PK8072205500100">[24C/48T @ 3.6GHz] Intel® Xeon® Gold 6542Y Processor [PK8072205500100] </option>
+        
+          <option value="PK8072205499900">[32C/64T @ 3.3GHz] Intel® Xeon® Gold 6538Y+ Processor [PK8072205499900] </option>
+        
+          <option value="PK8072205503600">[32C/64T @ 2.9GHz] Intel® Xeon® Gold 6538N Processor [PK8072205503600] </option>
+        
+          <option value="PK8072205499300">[8C/16T @ 4.2GHz] Intel® Xeon® Gold 6534 Processor [PK8072205499300] </option>
+        
+          <option value="PK8072205512500">[32C/64T @ 2.7GHz] Intel® Xeon® Gold 6530 Processor [PK8072205512500] </option>
+        
+          <option value="PK8072205500001">[16C/32T @ 3.5GHz] Intel® Xeon® Gold 6526Y Processor [PK8072205500001] </option>
+        
+          <option value="PK8072205499800">[28C/56T @ 3GHz] Intel® Xeon® Gold 5520+ Processor [PK8072205499800] </option>
+        
+          <option value="PK8072205499500">[8C/16T @ 3.6GHz] Intel® Xeon® Gold 5515+ Processor [PK8072205499500] </option>
+        
+          <option value="PK8072205500401">[28C/56T @ 3GHz] Intel® Xeon® Gold 5512U Processor [PK8072205500401] </option>
+        
+          <option value="PK8072205499700">[24C/48T @ 2.9GHz] Intel® Xeon® Silver 4516Y+ Processor [PK8072205499700] </option>
+        
+          <option value="PK8072205499600">[16C/32T @ 2.6GHz] Intel® Xeon® Silver 4514Y Processor [PK8072205499600] </option>
+        
+          <option value="PK8071305554600">[12C/24T @ 2.8GHz] Intel® Xeon® Silver 4510T Processor [PK8071305554600] </option>
+        
+          <option value="PK8071305554300">[12C/24T @ 3.3GHz] Intel® Xeon® Silver 4510 Processor [PK8071305554300] </option>
+        
+          <option value="PK8071305120002">[12C/24T @ GHz] Intel® Xeon® Silver 4410Y Processor [PK8071305120002] </option>
+        
+          <option value="PK8071305118701">[8C/16T @ GHz] Intel® Xeon® Gold 5415+ Processor [PK8071305118701] </option>
+        
+          <option value="PK8071305120301">[24C/48T @ GHz] Intel® Xeon® Gold 5418Y Processor [PK8071305120301] </option>
+        
+          <option value="PK8071305120102">[16C/32T @ GHz] Intel® Xeon® Gold 6426Y Processor [PK8071305120102] </option>
+        
+          <option value="PK8071305122101">[32C/64T @ GHz] Intel® Xeon® Gold 6438N Processor [PK8071305122101] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 16x  ECC DDR5 RDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="P26253-B21">Broadcom BCM57416 Ethernet 10Gb 2‑port BASE‑T Adapter for HPE [P26253-B21] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+    
+      <ul><b>HDD: (up to 3) </b></ul>
+      <select name="hdd" id="hdd">
+        
+          <option value="834031-B21">HPE 8TB SAS 12G Business Critical 7.2K LFF LP 512e Multi Vendor HDD [834031-B21] </option>
+        
+          <option value="834032-B21">HPE 8TB SAS 12G Business Critical 7.2K LFF LP 512e Multi Vendor HDD [834032-B21] </option>
+        
+      </select>
+    
+    
+      <ul><b>SSD: (up to 1) </b></ul>
+      <select name="ssd" id="ssd">
+        
+          <option value="P58232-B21">HPE 7.68TB SATA VRO LFF LPC 5400 SSD [P58232-B21] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

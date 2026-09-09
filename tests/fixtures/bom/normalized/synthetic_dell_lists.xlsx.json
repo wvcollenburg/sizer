@@ -1,0 +1,134 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "Config 1 - R660",
+      "serverModel": "PowerEdge R660",
+      "components": [
+        {
+          "partNumber": "210-BFUZ",
+          "description": "PowerEdge R660 Server",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "HMCG78AEBRA107N",
+          "description": "16GB RDIMM, 5600MT/s, Single Rank",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": "400-BMTN",
+          "description": "3.84TB Data Center NVMe Read Intensive AG Drive U2  with Carrier",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Front",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "540-BBXO",
+          "description": "Intel X710 Dual Port 10GbE SFP+ OCP NIC 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "330-BBXH",
+          "description": "Riser Config 2, 2 x16 LP",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AKMT",
+          "description": "Dual, Hot-Plug, Power Supply, 800W",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "325-BEVE",
+          "description": "PowerEdge 1U Standard Bezel",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "770-BDMT",
+          "description": "ReadyRails Sliding Rails",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "470-AFBU",
+          "description": "No BOSS Card",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "Config 2 - R750XS",
+      "serverModel": "PowerEdge R750XS",
+      "components": [
+        {
+          "partNumber": "PER750XS-12LFF-R4",
+          "description": "Dell R750XS 12x 3.5in LFF, Riser 4 Config",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "SRKXR",
+          "description": "Intel Xeon Silver 4310 2.1G 12C/24T",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "HMA84GR7CJR4N-XN",
+          "description": "32GB RDIMM 3200MT/s Dual Rank",
+          "quantity": 8,
+          "category": "memory"
+        },
+        {
+          "partNumber": "7GRF6",
+          "description": "Dell HBA355I Controller PCI Full Height",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "9HXK6-14G",
+          "description": "12TB 7.2K RPM SAS 12Gbps 512e 3.5in Hot-plug Hard Drive",
+          "quantity": 6,
+          "category": "storage"
+        },
+        {
+          "partNumber": "XC0M4",
+          "description": "Intel X710 Dual Port 10GB Base-T OCP 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "MGPPC",
+          "description": "Dell 1400W Hot Plug Power Supply",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "385-BBPP",
+          "description": "Dell 2U Cable Management Arm Kit",
+          "quantity": 1,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "=== Sheet: R660 ===\nQTY 3\tConfig 1\tAvailable SKUs\n\tPowerEdge R660 Server\t210-BFUZ\n\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t338-CPBV\n\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t338-CPBV\n\t8x 16GB RDIMM, 5600MT/s, Single Rank\t(Dell - Hynix PN) HMCG78AEBRA107N\n\t4x 3.84TB Data Center NVMe Read Intensive AG Drive U2  with Carrier\t400-BMTN\n\tDell HBA355i Front\t405-AAZF\n\tIntel X710 Dual Port 10GbE SFP+ OCP NIC 3.0\t540-BBXO\n\tRiser Config 2, 2 x16 LP\t330-BBXH\n\tDual, Hot-Plug, Power Supply, 800W\t450-AKMT\n\tPowerEdge 1U Standard Bezel\t325-BEVE, 350-BCKC\n\tReadyRails Sliding Rails\t770-BDMT, 770-BECD\n\tUEFI BIOS Boot Mode with GPT Partition\t800-BBDM\n\tProSupport Next Business Day 5 Years\t865-BBMY\n\tNo BOSS Card\t470-AFBU\n=== Sheet: R750XS ===\nQTY\t\tDescription\tPart Number\n1\t\tDell R750XS 12x 3.5in LFF, Riser 4 Config\tPER750XS-12LFF-R4\n2\t\tIntel Xeon Silver 4310 2.1G 12C/24T\tSRKXR\n8\t\t32GB RDIMM 3200MT/s Dual Rank\tHMA84GR7CJR4N-XN\n1\t\tDell HBA355I Controller PCI Full Height\t7GRF6\n6\t\t12TB 7.2K RPM SAS 12Gbps 512e 3.5in Hot-plug Hard Drive\t9HXK6-14G\n1\t\tIntel X710 Dual Port 10GB Base-T OCP 3.0\tXC0M4\n2\t\tDell 1400W Hot Plug Power Supply\tMGPPC\n1\t\tProSupport Next Business Day 5 Years\tDRB5W\n1\t\tDell 2U Cable Management Arm Kit\t385-BBPP"
+}

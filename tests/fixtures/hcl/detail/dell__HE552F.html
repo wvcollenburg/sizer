@@ -1,0 +1,110 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=dell" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HE552F ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [dell]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  PowerEdge R360</ul>
+    <ul><b>POWER SUPPLY:</b>  2x  [450-AMDH]</ul>
+    <ul><b>COOLING:</b>  Unspecified</ul>
+                        
+    <ul><b>TPM:</b>  461-AAIG</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  iDRAC Enterprise</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b> (up to 1x FCLGA1700) </ul>
+      <select name="cpu" id="cpu">
+        
+          <option value="">[4C/4T @ GHz] Intel® Xeon® E-2414 Processor [] </option>
+        
+          <option value="">[4C/8T @ GHz] Intel® Xeon® E-2434 Processor [] </option>
+        
+          <option value="">[6C/12T @ GHz] Intel® Xeon® E-2436 Processor [] </option>
+        
+          <option value="">[8C/16T @ GHz] Intel® Xeon® E-2468 Processor [] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 4x  ECC DDR5 UDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      
+        <ul><b>N/A</b></ul>
+      
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="405-ABBU">HBA355 Adapter [405-ABBU] </option>
+        
+      </select>
+    
+    
+    
+      <ul><b>SSD: (up to 4) </b></ul>
+      <select name="ssd" id="ssd">
+        
+          <option value="400-AXRK">1.92TB SSD SATA Read Intensive 6Gbps 512 2.5in Hot-plug AG Drive,3.5in HYB CARR, 1 DWPD [400-AXRK] </option>
+        
+          <option value="400-AXTF">3.84TB SSD SATA Read Intensive 6Gbps 512 2.5in Hot-plug AG Drive,3.5in HYB CARR, 1 DWPD [400-AXTF] </option>
+        
+          <option value="400-AXSJ">960GB SSD SATA Read Intensive 6Gbps 512 2.5in Flex Bay AG Drive,3.5in HYB CARR [400-AXSJ] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

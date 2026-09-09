@@ -1,0 +1,128 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "Config 1",
+      "serverModel": "PowerEdge R660xs",
+      "components": [
+        {
+          "partNumber": null,
+          "description": "PowerEdge R660xs",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": null,
+          "description": "Intel Xeon Gold 6434 3.7G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (195W) DDR5-4800",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": null,
+          "description": "16GB RDIMM, 4800MT/s, Dual Rank",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": null,
+          "description": "3.84TB NVMe SAS Read Intensive SSD",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": null,
+          "description": "2.5\" Chassis with up to 8 NVMe Direct Drives",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": null,
+          "description": "Dell HBA355i Front",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": null,
+          "description": "Intel X710 Dual Port 10GbE SFP+ OCP NIC 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": null,
+          "description": "Dual, Hot-Plug, Power Supply, 800W",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": null,
+          "description": "BOSS-N1 controller card + with 2 M.2 480GB (RAID 1)",
+          "quantity": 3,
+          "category": "boss"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "Config 2",
+      "serverModel": "PowerEdge R660",
+      "components": [
+        {
+          "partNumber": null,
+          "description": "PowerEdge R660",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": null,
+          "description": "Intel Xeon Silver 4410Y 2.0G, 12C/24T, 16GT/s, 30M Cache, Turbo, HT (150W) DDR5-4000",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": null,
+          "description": "32GB RDIMM, 4800MT/s, Dual Rank",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": null,
+          "description": "3.84TB SSD SAS Read Intensive 12Gbps 512e 2.5in Hot-Plug",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": null,
+          "description": "2.5\" Chassis with up to 8 SAS/SATA Drives",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": null,
+          "description": "Dell HBA355i Front",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": null,
+          "description": "Broadcom 57414 Dual Port 10/25GbE SFP28 OCP NIC 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": null,
+          "description": "Dual, Hot-Plug, Power Supply, 800W",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": null,
+          "description": "No BOSS Card",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "=== Sheet: Sheet1 ===\nConfig 1\tConfig 2\n3x PowerEdge R660xs\t3x PowerEdge R660\nIntel Xeon Gold 6434 3.7G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (195W) DDR5-4800\tIntel Xeon Silver 4410Y 2.0G, 12C/24T, 16GT/s, 30M Cache, Turbo, HT (150W) DDR5-4000\nIntel Xeon Gold 6434 3.7G, 8C/16T, 16GT/s, 22.5M Cache, Turbo, HT (195W) DDR5-4800\tIntel Xeon Silver 4410Y 2.0G, 12C/24T, 16GT/s, 30M Cache, Turbo, HT (150W) DDR5-4000\n8x 16GB RDIMM, 4800MT/s, Dual Rank\t8x 32GB RDIMM, 4800MT/s, Dual Rank\n4x 3.84TB NVMe SAS Read Intensive SSD\t4x 3.84TB SSD SAS Read Intensive 12Gbps 512e 2.5in Hot-Plug\n2.5\" Chassis with up to 8 NVMe Direct Drives\t2.5\" Chassis with up to 8 SAS/SATA Drives\nDell HBA355i Front\tDell HBA355i Front\nIntel X710 Dual Port 10GbE SFP+ OCP NIC 3.0\tBroadcom 57414 Dual Port 10/25GbE SFP28 OCP NIC 3.0\nDual, Hot-Plug, Power Supply, 800W\tDual, Hot-Plug, Power Supply, 800W\nBOSS-N1 controller card + with 2 M.2 480GB (RAID 1)\tNo BOSS Card\nPerformance BIOS Settings\tPerformance BIOS Settings\nUEFI BIOS Boot Mode with GPT Partition\tUEFI BIOS Boot Mode with GPT Partition\nDell Connectivity Client\tDell Connectivity Client\nProSupport Next Business Day 5 Years\tProSupport Next Business Day 5 Years\nA/C Power Recovery, Last\tA/C Power Recovery, Last"
+}
