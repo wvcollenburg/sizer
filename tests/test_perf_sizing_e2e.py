@@ -16,6 +16,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 from flask import Flask  # noqa: E402
 from database import db  # noqa: E402
 import orm_models as om  # noqa: E402
+# The model modules cross-reference each other by table name (catalog_feed ->
+# users, configurations -> projects, ...), so create_all() needs every one of
+# them in the metadata even though this test only reads the sizing catalog.
+import auth_models  # noqa: E402,F401
+import project_models  # noqa: E402,F401
+import bom_models  # noqa: E402,F401
+import hcl_models  # noqa: E402,F401
 from tunables import DEFAULTS  # noqa: E402
 from recommend import generate_recommendations  # noqa: E402
 
@@ -93,6 +100,10 @@ def _rec(app, summary=None, **kwargs):
             growth_pct=0, snapshot_pct=0, years=1,
             max_day_one_storage_pct=100, max_day_one_ram_pct=100,
             **kwargs)
+
+
+def test_perf_sizing_e2e():
+    run()
 
 
 def run():
