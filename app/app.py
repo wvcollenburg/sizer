@@ -165,6 +165,10 @@ def create_app():
     register_auth(app)
     register_projects(app)
     app.register_blueprint(admin_bp)
+    from hcl_admin_routes import hcl_admin_bp  # HCL catalog admin API (docs/bom-checker-build.md §6)
+    app.register_blueprint(hcl_admin_bp)
+    from bom_routes import register_bom  # BOM checks on projects + review queue
+    register_bom(app)
 
     # Daily retention/GDPR-anonymization scheduler. Disabled (ENABLE_SCHEDULER=0)
     # for one-off processes like seeding/CLI; on by default for the web server.
