@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Plūsmas pilnvarai jābūt vismaz 16 rakstzīmēm (vai tukšai, lai plūsmu atslēgtu).",
   "admin.bomprev.plat_title": "Izveidot platformu (pirmspublicēšana)",
   "admin.bomprev.plat_brand": "Zīmols",
-  "admin.bomprev.plat_sc_model": "SC modelis",
-  "admin.bomprev.plat_sc_ph": "Ar HCL komandu saskaņots modeļa nosaukums, piem., HE155",
+  "admin.bomprev.plat_sc_model": "Platformas nosaukums",
+  "admin.bomprev.plat_sc_ph": "Ražotāja modelis, piem., ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Servera modelis",
-  "admin.bomprev.plat_hint": "Piesaiste ierobežo šīs daļas ar šo platformu; nepiesaistītas daļas atbilst tikai BOM bez identificētas platformas.",
-  "admin.bomprev.plat_sc_required": "Ievadiet SC modeļa nosaukumu, lai izveidotu platformu, vai noņemiet atzīmi, lai pieņemtu daļas bez piesaistes.",
+  "admin.bomprev.plat_hint": "Šīs ir tikai programmatūras (validētas) konfigurācijas — nosauciet platformu pēc ražotāja modeļa. Piesaiste ierobežo daļas ar to; nepiesaistītas daļas atbilst tikai BOM bez identificētas platformas.",
+  "admin.bomprev.plat_sc_required": "Ievadiet platformas nosaukumu, lai to izveidotu, vai noņemiet atzīmi, lai pieņemtu daļas bez piesaistes.",
   "admin.bomprev.plat_created": "Platforma izveidota: {name}."
 };

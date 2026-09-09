@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Vootunnus peab olema vähemalt 16 märki (või tühi, et voog välja lülitada).",
   "admin.bomprev.plat_title": "Loo platvorm (eelavaldamine)",
   "admin.bomprev.plat_brand": "Bränd",
-  "admin.bomprev.plat_sc_model": "SC mudel",
-  "admin.bomprev.plat_sc_ph": "HCL-i meeskonnaga kokku lepitud mudelinimi, nt HE155",
+  "admin.bomprev.plat_sc_model": "Platvormi nimi",
+  "admin.bomprev.plat_sc_ph": "Tootja mudel, nt ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Serveri mudel",
-  "admin.bomprev.plat_hint": "Sidumine piirab need osad selle platvormiga; sidumata osad sobivad ainult tuvastamata platvormiga BOM-idele.",
-  "admin.bomprev.plat_sc_required": "Platvormi loomiseks sisestage SC mudelinimi või eemaldage linnuke, et võtta osad vastu sidumata.",
+  "admin.bomprev.plat_hint": "Need on ainult tarkvaralised (valideeritud) koosseisud – pange platvormile tootja mudeli nimi. Sidumine piirab osad sellega; sidumata osad sobivad ainult tuvastamata platvormiga BOM-idele.",
+  "admin.bomprev.plat_sc_required": "Platvormi loomiseks sisestage selle nimi või eemaldage linnuke, et võtta osad vastu sidumata.",
   "admin.bomprev.plat_created": "Platvorm loodud: {name}."
 };

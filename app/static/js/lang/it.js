@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Il token del feed deve avere almeno 16 caratteri (oppure vuoto per disattivare il feed).",
   "admin.bomprev.plat_title": "Crea piattaforma (prepubblicazione)",
   "admin.bomprev.plat_brand": "Marca",
-  "admin.bomprev.plat_sc_model": "Modello SC",
-  "admin.bomprev.plat_sc_ph": "Nome del modello concordato con il team HCL, ad es. HE155",
+  "admin.bomprev.plat_sc_model": "Nome della piattaforma",
+  "admin.bomprev.plat_sc_ph": "Modello del produttore, ad es. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Modello di server",
-  "admin.bomprev.plat_hint": "Il collegamento limita queste parti a questa piattaforma; le parti non collegate corrispondono solo a BOM senza piattaforma identificata.",
-  "admin.bomprev.plat_sc_required": "Inserisca il nome del modello SC per creare la piattaforma, oppure deselezioni per accettare le parti senza collegamento.",
+  "admin.bomprev.plat_hint": "Sono configurazioni solo software (validate): dia alla piattaforma il nome del modello del produttore. Il collegamento vi limita queste parti; le parti non collegate corrispondono solo a BOM senza piattaforma identificata.",
+  "admin.bomprev.plat_sc_required": "Inserisca il nome della piattaforma per crearla, oppure deselezioni per accettare le parti senza collegamento.",
   "admin.bomprev.plat_created": "Piattaforma creata: {name}."
 };

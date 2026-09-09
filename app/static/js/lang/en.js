@@ -1549,10 +1549,10 @@
   "admin.hcl.feed_too_short": "The feed token must be at least 16 characters (or empty to disable the feed).",
   "admin.bomprev.plat_title": "Create platform (pre-publication)",
   "admin.bomprev.plat_brand": "Brand",
-  "admin.bomprev.plat_sc_model": "SC model",
-  "admin.bomprev.plat_sc_ph": "Model name agreed with the HCL team, e.g. HE155",
+  "admin.bomprev.plat_sc_model": "Platform name",
+  "admin.bomprev.plat_sc_ph": "Manufacturer model, e.g. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Server model",
-  "admin.bomprev.plat_hint": "Linking scopes these parts to this platform; unlinked parts only match BOMs with no identified platform.",
-  "admin.bomprev.plat_sc_required": "Enter the SC model name to create the platform, or untick to accept the parts unlinked.",
+  "admin.bomprev.plat_hint": "These are software-only (validated) builds, so name the platform after the manufacturer model. Linking scopes these parts to it; unlinked parts only match BOMs with no identified platform.",
+  "admin.bomprev.plat_sc_required": "Enter the platform name to create it, or untick to accept the parts unlinked.",
   "admin.bomprev.plat_created": "Platform created: {name}."
 };

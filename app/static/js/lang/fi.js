@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Syötetunnuksessa on oltava vähintään 16 merkkiä (tai tyhjä, jolloin syöte poistuu käytöstä).",
   "admin.bomprev.plat_title": "Luo alusta (ennakkojulkaisu)",
   "admin.bomprev.plat_brand": "Merkki",
-  "admin.bomprev.plat_sc_model": "SC-malli",
-  "admin.bomprev.plat_sc_ph": "HCL-tiimin kanssa sovittu mallinimi, esim. HE155",
+  "admin.bomprev.plat_sc_model": "Alustan nimi",
+  "admin.bomprev.plat_sc_ph": "Valmistajan malli, esim. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Palvelinmalli",
-  "admin.bomprev.plat_hint": "Linkitys rajaa osat tähän alustaan; linkittämättömät osat täsmäävät vain BOMeihin, joiden alustaa ei tunnistettu.",
-  "admin.bomprev.plat_sc_required": "Anna SC-mallinimi alustan luomiseksi tai poista valinta hyväksyäksesi osat ilman linkitystä.",
+  "admin.bomprev.plat_hint": "Nämä ovat pelkkiä ohjelmistokokoonpanoja (validated) – nimeä alusta valmistajan mallin mukaan. Linkitys rajaa osat siihen; linkittämättömät osat täsmäävät vain BOMeihin, joiden alustaa ei tunnistettu.",
+  "admin.bomprev.plat_sc_required": "Anna alustan nimi sen luomiseksi tai poista valinta hyväksyäksesi osat ilman linkitystä.",
   "admin.bomprev.plat_created": "Alusta luotu: {name}."
 };

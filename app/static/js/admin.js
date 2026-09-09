@@ -2562,7 +2562,8 @@ function bomPrevPlatFormHtml(sug) {
             <select id="bom-prev-plat-brand">${brands.map(b =>
                 `<option value="${b[0]}"${b[0] === cur ? ' selected' : ''}>${b[1]}</option>`).join('')}</select>
             <label for="bom-prev-plat-sc">${adminEsc(t('admin.bomprev.plat_sc_model'))}</label>
-            <input type="text" id="bom-prev-plat-sc" maxlength="60"
+            <input type="text" id="bom-prev-plat-sc" maxlength="40"
+                value="${adminEsc(sug.sc_model || '')}"
                 placeholder="${adminEsc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatError",""]'>
             <label for="bom-prev-plat-server">${adminEsc(t('admin.bomprev.plat_server'))}</label>
             <input type="text" id="bom-prev-plat-server" maxlength="120" value="${adminEsc(sug.server || '')}">

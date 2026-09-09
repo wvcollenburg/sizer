@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Het feed-token moet minstens 16 tekens hebben (of leeg om de feed uit te schakelen).",
   "admin.bomprev.plat_title": "Platform aanmaken (pre-publicatie)",
   "admin.bomprev.plat_brand": "Merk",
-  "admin.bomprev.plat_sc_model": "SC-model",
-  "admin.bomprev.plat_sc_ph": "Met het HCL-team afgesproken modelnaam, bijv. HE155",
+  "admin.bomprev.plat_sc_model": "Platformnaam",
+  "admin.bomprev.plat_sc_ph": "Fabrikantmodel, bijv. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Servermodel",
-  "admin.bomprev.plat_hint": "Koppelen beperkt deze onderdelen tot dit platform; ongekoppelde onderdelen passen alleen op BOM's zonder herkend platform.",
-  "admin.bomprev.plat_sc_required": "Voer de SC-modelnaam in om het platform aan te maken, of vink uit om de onderdelen ongekoppeld op te nemen.",
+  "admin.bomprev.plat_hint": "Dit zijn software-only (validated) builds; noem het platform daarom naar het fabrikantmodel. Koppelen beperkt deze onderdelen ertoe; ongekoppelde onderdelen passen alleen op BOM's zonder herkend platform.",
+  "admin.bomprev.plat_sc_required": "Voer de platformnaam in om het aan te maken, of vink uit om de onderdelen ongekoppeld op te nemen.",
   "admin.bomprev.plat_created": "Platform aangemaakt: {name}."
 };

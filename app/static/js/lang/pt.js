@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "O token do feed deve ter pelo menos 16 caracteres (ou vazio para desativar o feed).",
   "admin.bomprev.plat_title": "Criar plataforma (pré-publicação)",
   "admin.bomprev.plat_brand": "Marca",
-  "admin.bomprev.plat_sc_model": "Modelo SC",
-  "admin.bomprev.plat_sc_ph": "Nome de modelo acordado com a equipa da HCL, p. ex. HE155",
+  "admin.bomprev.plat_sc_model": "Nome da plataforma",
+  "admin.bomprev.plat_sc_ph": "Modelo do fabricante, p. ex. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Modelo de servidor",
-  "admin.bomprev.plat_hint": "A associação limita estas peças a esta plataforma; peças não associadas só correspondem a BOM sem plataforma identificada.",
-  "admin.bomprev.plat_sc_required": "Introduza o nome do modelo SC para criar a plataforma, ou desmarque para aceitar as peças sem associação.",
+  "admin.bomprev.plat_hint": "São configurações apenas de software (validadas): dê à plataforma o nome do modelo do fabricante. A associação limita estas peças a ela; peças não associadas só correspondem a BOM sem plataforma identificada.",
+  "admin.bomprev.plat_sc_required": "Introduza o nome da plataforma para a criar, ou desmarque para aceitar as peças sem associação.",
   "admin.bomprev.plat_created": "Plataforma criada: {name}."
 };

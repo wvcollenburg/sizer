@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Srauto raktas turi būti bent 16 simbolių (arba tuščias, kad srautas būtų išjungtas).",
   "admin.bomprev.plat_title": "Sukurti platformą (išankstinis publikavimas)",
   "admin.bomprev.plat_brand": "Prekės ženklas",
-  "admin.bomprev.plat_sc_model": "SC modelis",
-  "admin.bomprev.plat_sc_ph": "Su HCL komanda sutartas modelio pavadinimas, pvz., HE155",
+  "admin.bomprev.plat_sc_model": "Platformos pavadinimas",
+  "admin.bomprev.plat_sc_ph": "Gamintojo modelis, pvz., ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Serverio modelis",
-  "admin.bomprev.plat_hint": "Susiejimas apriboja šias dalis šia platforma; nesusietos dalys atitinka tik BOM be nustatytos platformos.",
-  "admin.bomprev.plat_sc_required": "Įveskite SC modelio pavadinimą platformai sukurti arba nuimkite žymę, kad dalys būtų priimtos be susiejimo.",
+  "admin.bomprev.plat_hint": "Tai tik programinės įrangos (validuotos) konfigūracijos — pavadinkite platformą pagal gamintojo modelį. Susiejimas apriboja dalis ja; nesusietos dalys atitinka tik BOM be nustatytos platformos.",
+  "admin.bomprev.plat_sc_required": "Įveskite platformos pavadinimą, kad ją sukurtumėte, arba nuimkite žymę, kad dalys būtų priimtos be susiejimo.",
   "admin.bomprev.plat_created": "Platforma sukurta: {name}."
 };

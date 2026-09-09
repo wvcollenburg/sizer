@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Le jeton du flux doit comporter au moins 16 caractères (ou rester vide pour désactiver le flux).",
   "admin.bomprev.plat_title": "Créer la plateforme (prépublication)",
   "admin.bomprev.plat_brand": "Marque",
-  "admin.bomprev.plat_sc_model": "Modèle SC",
-  "admin.bomprev.plat_sc_ph": "Nom de modèle convenu avec l'équipe HCL, p. ex. HE155",
+  "admin.bomprev.plat_sc_model": "Nom de la plateforme",
+  "admin.bomprev.plat_sc_ph": "Modèle du fabricant, p. ex. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Modèle de serveur",
-  "admin.bomprev.plat_hint": "La liaison limite ces pièces à cette plateforme ; les pièces non liées ne correspondent qu'aux BOM sans plateforme identifiée.",
-  "admin.bomprev.plat_sc_required": "Saisissez le nom du modèle SC pour créer la plateforme, ou décochez pour accepter les pièces sans liaison.",
+  "admin.bomprev.plat_hint": "Ce sont des configurations logicielles seules (validées) : nommez la plateforme d'après le modèle du fabricant. La liaison y limite ces pièces ; les pièces non liées ne correspondent qu'aux BOM sans plateforme identifiée.",
+  "admin.bomprev.plat_sc_required": "Saisissez le nom de la plateforme pour la créer, ou décochez pour accepter les pièces sans liaison.",
   "admin.bomprev.plat_created": "Plateforme créée : {name}."
 };

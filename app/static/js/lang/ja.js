@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "フィードトークンは16文字以上必要です（空にするとフィードは無効になります）。",
   "admin.bomprev.plat_title": "プラットフォームを作成（公開前）",
   "admin.bomprev.plat_brand": "ブランド",
-  "admin.bomprev.plat_sc_model": "SCモデル",
-  "admin.bomprev.plat_sc_ph": "HCLチームと合意したモデル名（例: HE155）",
+  "admin.bomprev.plat_sc_model": "プラットフォーム名",
+  "admin.bomprev.plat_sc_ph": "メーカーのモデル名（例: ThinkEdge SE160 Gen 1）",
   "admin.bomprev.plat_server": "サーバーモデル",
-  "admin.bomprev.plat_hint": "リンクすると部品はこのプラットフォームに限定されます。リンクなしの部品はプラットフォーム未特定のBOMにのみ一致します。",
-  "admin.bomprev.plat_sc_required": "プラットフォームを作成するにはSCモデル名を入力するか、チェックを外して部品をリンクなしで登録してください。",
+  "admin.bomprev.plat_hint": "これらはソフトウェアのみ（validated）の構成です。プラットフォームにはメーカーのモデル名を付けてください。リンクすると部品はそのプラットフォームに限定され、リンクなしの部品はプラットフォーム未特定のBOMにのみ一致します。",
+  "admin.bomprev.plat_sc_required": "プラットフォームを作成するには名前を入力するか、チェックを外して部品をリンクなしで登録してください。",
   "admin.bomprev.plat_created": "プラットフォームを作成しました: {name}。"
 };

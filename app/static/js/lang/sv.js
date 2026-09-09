@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Flödestoken måste ha minst 16 tecken (eller tom för att stänga av flödet).",
   "admin.bomprev.plat_title": "Skapa plattform (förpublicering)",
   "admin.bomprev.plat_brand": "Märke",
-  "admin.bomprev.plat_sc_model": "SC-modell",
-  "admin.bomprev.plat_sc_ph": "Modellnamn överenskommet med HCL-teamet, t.ex. HE155",
+  "admin.bomprev.plat_sc_model": "Plattformens namn",
+  "admin.bomprev.plat_sc_ph": "Tillverkarens modell, t.ex. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Servermodell",
-  "admin.bomprev.plat_hint": "Kopplingen begränsar delarna till denna plattform; okopplade delar matchar bara BOM:ar utan identifierad plattform.",
-  "admin.bomprev.plat_sc_required": "Ange SC-modellnamnet för att skapa plattformen, eller avmarkera för att ta in delarna okopplade.",
+  "admin.bomprev.plat_hint": "Detta är rena mjukvarukonfigurationer (validated) – namnge plattformen efter tillverkarens modell. Kopplingen begränsar delarna till den; okopplade delar matchar bara BOM:ar utan identifierad plattform.",
+  "admin.bomprev.plat_sc_required": "Ange plattformens namn för att skapa den, eller avmarkera för att ta in delarna okopplade.",
   "admin.bomprev.plat_created": "Plattform skapad: {name}."
 };

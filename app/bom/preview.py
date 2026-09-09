@@ -18,6 +18,7 @@ Ground rules, all enforced here or in hcl_sync:
   ``origin='scrape'`` entries (hcl_sync.touch_seen).
 * Idempotent: accepting the same key twice skips instead of duplicating.
 """
+import re
 from typing import Dict, List, Optional
 
 from auth_models import _iso, _utcnow
@@ -147,11 +148,31 @@ def candidates_for(check) -> Dict:
         server = next((c.server_model for c in bom.configs if c.server_model), None)
         result["platform_suggestion"] = {
             "brand": (bom.vendor or "").strip().lower() or None,
-            "sc_model": None,
+            "sc_model": _model_name_from_server(server),
             "server": server,
             "form_factor": None,
         }
     return result
+
+
+_VENDOR_PREFIX_RE = re.compile(
+    r"^(lenovo|dell(?:\s+emc)?|hpe|hewlett[- ]packard(?:\s+enterprise)?|supermicro|super\s+micro)\s+",
+    re.I)
+
+
+def _model_name_from_server(server: Optional[str]) -> Optional[str]:
+    """Suggested platform name from the BOM's server model.
+
+    These builds are software-only — validated, not certified — so the
+    platform is named after the manufacturer's model ("ThinkEdge SE160 Gen 1"),
+    not an SC appliance number: there is no HE/HC model to quote. The vendor
+    word is dropped because the brand is already a separate field.
+    """
+    if not server:
+        return None
+    name = _VENDOR_PREFIX_RE.sub("", server.strip()).strip()
+    name = name[:_PLATFORM_NAME_LIMIT].strip()
+    return name or None
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +180,9 @@ def candidates_for(check) -> Dict:
 # ---------------------------------------------------------------------------
 
 _SERVER_LIMIT = hcl_sync._PLATFORM_LIMITS["server"]
+# HclPlatform.sc_model is String(40); the form must not let a longer
+# manufacturer model be typed only to be refused on submit.
+_PLATFORM_NAME_LIMIT = 40
 
 
 def _validated_platform_spec(spec) -> Dict:

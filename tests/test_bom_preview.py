@@ -27,7 +27,8 @@ import app as appmod  # noqa: E402
 from database import db  # noqa: E402
 from extensions import limiter  # noqa: E402
 from auth_models import AdminAuditLog, ROLE_SUPER_ADMIN, User  # noqa: E402
-import hcl_models as hm  # noqa: E402
+import hcl_models as hm
+from bom import preview  # noqa: E402
 from bom import hcl_scrape as hs  # noqa: E402
 from bom import hcl_sync as sync  # noqa: E402
 from bom.hcl_scrape import component_attrs  # noqa: E402
@@ -463,8 +464,13 @@ def test_accept_with_platform_spec_creates_and_links_the_platform(app):
     r = admin.get(f"/admin/api/bom-reviews/{check['id']}/acceptable")
     d = r.get_json()
     assert d["platforms"] == []
-    assert d["platform_suggestion"] == {"brand": "lenovo", "sc_model": None,
-                                        "server": NEW_SERVER, "form_factor": None}
+    # sc_model is suggested from the server line: these are software-only
+    # (validated) builds, so the platform is named after the manufacturer
+    # model, never an SC appliance number.
+    assert d["platform_suggestion"] == {
+        "brand": "lenovo",
+        "sc_model": preview._model_name_from_server(NEW_SERVER),
+        "server": NEW_SERVER, "form_factor": None}
     gpu_key = next(c["key"] for c in d["candidates"] if c["kind"] == "gpu")
 
     r = accept_platform(admin, check["id"], [gpu_key], dict(NEW_PLATFORM))
@@ -646,3 +652,35 @@ def test_platform_spec_validation_errors(app):
         assert hm.HclPlatform.query.filter_by(sc_model="HE160").count() == 0
         assert hm.HclComponent.query.filter_by(kind="gpu").count() == 0
         assert hm.HclScrapeRun.query.filter_by(source="preview").count() == 0
+
+
+# ── platform naming for software-only builds (owner, 2026-09-09) ─────────────
+# These configurations are validated, not certified: there is no SC appliance
+# number to quote, so the platform is named after the manufacturer's model and
+# the form suggests it from the BOM's server line.
+
+def test_platform_name_is_suggested_from_the_manufacturer_model():
+    f = preview._model_name_from_server
+    assert f("Lenovo ThinkEdge SE160 Gen 1") == "ThinkEdge SE160 Gen 1"
+    assert f("Dell PowerEdge R760XD2") == "PowerEdge R760XD2"
+    assert f("Supermicro SYS-511R-M") == "SYS-511R-M"
+    assert f("HPE ProLiant DL320 Gen11") == "ProLiant DL320 Gen11"
+    assert f("ThinkSystem SR650 V4") == "ThinkSystem SR650 V4"   # already vendor-less
+    assert f(None) is None and f("   ") is None
+    assert len(f("Lenovo " + "X" * 80)) == 40                    # fits sc_model
+
+
+def test_a_manufacturer_model_name_is_a_valid_platform_name(app):
+    """Free text with spaces must be accepted: the old hint steered towards
+    HE/HC numbers, which do not exist for software-only builds."""
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    name = "ThinkEdge SE160 Gen 1"
+    r = accept_platform(admin, check["id"], [gpu_key],
+                        {"brand": "lenovo", "sc_model": name, "server": NEW_SERVER})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    assert r.get_json()["platform_created"] == "lenovo/" + name
+    with app.app_context():
+        plat = hm.HclPlatform.query.filter_by(sc_model=name).one()
+        assert plat.origin == hm.ORIGIN_PREVIEW and plat.brand == "lenovo"
+        assert [l.component.kind for l in plat.links] == ["gpu"]

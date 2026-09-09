@@ -1548,10 +1548,10 @@
   "admin.hcl.feed_too_short": "Feed-tokenet må ha minst 16 tegn (eller tomt for å slå av feeden).",
   "admin.bomprev.plat_title": "Opprett plattform (førpublisering)",
   "admin.bomprev.plat_brand": "Merke",
-  "admin.bomprev.plat_sc_model": "SC-modell",
-  "admin.bomprev.plat_sc_ph": "Modellnavn avtalt med HCL-teamet, f.eks. HE155",
+  "admin.bomprev.plat_sc_model": "Plattformens navn",
+  "admin.bomprev.plat_sc_ph": "Produsentens modell, f.eks. ThinkEdge SE160 Gen 1",
   "admin.bomprev.plat_server": "Servermodell",
-  "admin.bomprev.plat_hint": "Kobling begrenser delene til denne plattformen; ukoblede deler matcher bare BOM-er uten identifisert plattform.",
-  "admin.bomprev.plat_sc_required": "Skriv inn SC-modellnavnet for å opprette plattformen, eller fjern haken for å ta inn delene uten kobling.",
+  "admin.bomprev.plat_hint": "Dette er rene programvarekonfigurasjoner (validated) – gi plattformen navn etter produsentens modell. Kobling begrenser delene til den; ukoblede deler matcher bare BOM-er uten identifisert plattform.",
+  "admin.bomprev.plat_sc_required": "Skriv inn plattformens navn for å opprette den, eller fjern haken for å ta inn delene uten kobling.",
   "admin.bomprev.plat_created": "Plattform opprettet: {name}."
 };
