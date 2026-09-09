@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Les pièces seront liées à {name} — aucune nouvelle plateforme ne sera créée.",
   "admin.bomprev.near_undo": "Créer plutôt une nouvelle plateforme",
   "admin.bomprev.near_after": "Remarque : ce nom ressemble à {names}. Demandez à l'équipe HCL lequel conserver s'il s'agit de la même machine.",
-  "admin.bomprev.plat_linked": "Pièces liées à {name}."
+  "admin.bomprev.plat_linked": "Pièces liées à {name}.",
+  "admin.hcl.kind_merge": "Publié sous un autre nom"
 };

@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Osad seotakse platvormiga {name} — uut platvormi ei looda.",
   "admin.bomprev.near_undo": "Loo siiski uus platvorm",
   "admin.bomprev.near_after": "Märkus: see nimi sarnaneb kirjega {names}. Küsige HCL-i meeskonnalt, kumb jääb, kui tegu on sama masinaga.",
-  "admin.bomprev.plat_linked": "Osad seotud platvormiga {name}."
+  "admin.bomprev.plat_linked": "Osad seotud platvormiga {name}.",
+  "admin.hcl.kind_merge": "Avaldatud teise nime all"
 };

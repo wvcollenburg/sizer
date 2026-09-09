@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Osat linkitetään alustaan {name} – uutta alustaa ei luoda.",
   "admin.bomprev.near_undo": "Luo sittenkin uusi alusta",
   "admin.bomprev.near_after": "Huom: nimi muistuttaa kohdetta {names}. Kysy HCL-tiimiltä, kumpi säilytetään, jos kyseessä on sama kone.",
-  "admin.bomprev.plat_linked": "Osat linkitetty alustaan {name}."
+  "admin.bomprev.plat_linked": "Osat linkitetty alustaan {name}.",
+  "admin.hcl.kind_merge": "Julkaistu toisella nimellä"
 };

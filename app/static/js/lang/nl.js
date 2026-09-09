@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "De onderdelen worden aan {name} gekoppeld — er wordt geen nieuw platform aangemaakt.",
   "admin.bomprev.near_undo": "Toch een nieuw platform aanmaken",
   "admin.bomprev.near_after": "Let op: deze naam lijkt op {names}. Vraag het HCL-team welke blijft als het dezelfde machine is.",
-  "admin.bomprev.plat_linked": "Onderdelen gekoppeld aan {name}."
+  "admin.bomprev.plat_linked": "Onderdelen gekoppeld aan {name}.",
+  "admin.hcl.kind_merge": "Onder een andere naam gepubliceerd"
 };

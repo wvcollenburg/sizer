@@ -91,7 +91,7 @@ def _pending(**kw):
 
 def _kinds(changes):
     # the run summary always carries all four kinds, zeros included
-    out = {"add": 0, "update": 0, "delist": 0, "relist": 0}
+    out = {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
     for c in changes:
         out[c["change_kind"]] = out.get(c["change_kind"], 0) + 1
     return out
@@ -115,7 +115,7 @@ def test_first_run_on_empty_catalog(app, snapshot):
     assert s["components"] == sum(EXPECTED_DISTINCT_PARTS.values())
     n_components = len(hs.snapshot_component_index(snapshot))
     assert s["changes"] == {"add": EXPECTED_PLATFORMS + n_components + EXPECTED_DEVICES,
-                            "update": 0, "delist": 0, "relist": 0}
+                            "update": 0, "delist": 0, "relist": 0, "merge": 0}
     assert s["pending_total"] == s["changes"]["add"]
     assert hm.HclPendingChange.query.filter_by(status=hm.PENDING).count() == s["pending_total"]
     # nothing has landed in the catalog yet
@@ -178,7 +178,7 @@ def test_second_run_on_same_snapshot_is_empty(app, snapshot):
     _seed(snapshot)
     assert sync.diff_snapshot(_snap(snapshot)) == []
     run = sync.build_run(_snap(snapshot), user=ADMIN, source="import")
-    assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+    assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
     assert run.summary["pending_total"] == 0
 
 
@@ -631,7 +631,7 @@ def test_stale_pending_rows_superseded_by_newer_complete_run(app, snapshot):
     stale = _pending(run_id=run_a.id, status=hm.PENDING)
     assert stale
     run_b = sync.build_run(_snap(snapshot), user=ADMIN, source="import")
-    assert run_b.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+    assert run_b.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
     assert run_b.summary["pending_total"] == 0
     for row in _pending(run_id=run_a.id):
         assert row.status == hm.SUPERSEDED

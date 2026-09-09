@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Die Teile werden mit {name} verknüpft — es wird keine neue Plattform angelegt.",
   "admin.bomprev.near_undo": "Doch neue Plattform anlegen",
   "admin.bomprev.near_after": "Hinweis: Dieser Name ähnelt {names}. Klären Sie mit dem HCL-Team, welcher bleibt, falls es dieselbe Maschine ist.",
-  "admin.bomprev.plat_linked": "Teile mit {name} verknüpft."
+  "admin.bomprev.plat_linked": "Teile mit {name} verknüpft.",
+  "admin.hcl.kind_merge": "Unter anderem Namen veröffentlicht"
 };

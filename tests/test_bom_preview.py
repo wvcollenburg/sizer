@@ -295,7 +295,7 @@ def test_scrape_without_the_parts_never_delists_them(app, mini_snapshot):
     assert accept(admin, check["id"]).status_code == 200
     with app.app_context():
         run = sync.build_run(copy.deepcopy(mini_snapshot), user=None, source="import")
-        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
         assert hm.HclPendingChange.query.filter_by(status=hm.PENDING).count() == 0
         nic = hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).one()
         assert nic.status == hm.STATUS_ACTIVE and nic.origin == hm.ORIGIN_PREVIEW
@@ -314,7 +314,7 @@ def test_publication_flips_origin_silently(app, mini_snapshot):
     with app.app_context():
         run = sync.build_run(published, user=None, source="import")
         # published = ordinary: no add, no update, no delist queued
-        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
         assert hm.HclPendingChange.query.filter_by(status=hm.PENDING).count() == 0
         assert hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).count() == 1
         nic = hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).one()
@@ -594,7 +594,7 @@ def test_preview_platform_is_delist_immune_then_flips_on_publication(app, mini_s
     with app.app_context():
         # complete snapshot NOT listing the platform: immune, nothing queued
         run = sync.build_run(copy.deepcopy(mini_snapshot), user=None, source="import")
-        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0, "merge": 0}
         plat = hm.HclPlatform.query.filter_by(sc_model="HE160").one()
         assert plat.status == hm.STATUS_ACTIVE and plat.origin == hm.ORIGIN_PREVIEW
 
@@ -777,3 +777,132 @@ def test_link_to_existing_rejects_a_bad_id(app):
         assert r.status_code == 400, r.get_data(as_text=True)
     with app.app_context():
         assert hm.HclComponent.query.filter_by(kind="gpu").count() == 0
+
+
+# ── the HCL publishes a placeholder under its own name (owner, 2026-09-09) ────
+# The publication flip keys on (brand, sc_model) and cannot see a rename, so
+# without this the placeholder would live on beside the published platform and
+# the feed would keep asking the HCL team to publish a box they already have.
+
+MERGE_SERVER = "ThinkEdge SE160 Gen 1"
+
+
+def _placeholder_with_parts(app):
+    """A pre-publication platform holding two parts: one the HCL will publish
+    an equivalent of, one it will not."""
+    with app.app_context():
+        p = hm.HclPlatform(brand="lenovo", sc_model=MERGE_SERVER,
+                           server="Lenovo " + MERGE_SERVER, origin=hm.ORIGIN_PREVIEW)
+        gpu = hm.HclComponent(kind="gpu", part_number="no-part:integrated-graphics",
+                              description="Integrated Graphics",
+                              origin=hm.ORIGIN_PREVIEW, attrs={})
+        nic = hm.HclComponent(kind="nic", part_number="no-part:realtek-2-5g",
+                              description="Realtek RTL8125BGS 2.5G Ethernet",
+                              origin=hm.ORIGIN_PREVIEW, attrs={})
+        db.session.add_all([p, gpu, nic])
+        db.session.flush()
+        db.session.add_all([
+            hm.HclPlatformComponent(platform=p, component=gpu, origin=hm.ORIGIN_PREVIEW),
+            hm.HclPlatformComponent(platform=p, component=nic, origin=hm.ORIGIN_PREVIEW)])
+        db.session.commit()
+
+
+def _published_snapshot(sc_model="HE160", server=MERGE_SERVER):
+    return {"scraped_at": "2026-09-16T00:00:00+00:00", "complete": True, "errors": [],
+            "pages_total": 2, "pages_done": 2, "devices": [],
+            "platforms": [{"brand": "lenovo", "sc_model": sc_model, "server": server,
+                           "form_factor": "DT", "sockets": 1, "components": [
+                               {"kind": "gpu", "part_number": "LEN-GPU-1",
+                                "description": "Integrated Graphics",
+                                "tce": False, "attrs": {}}]}]}
+
+
+def test_publication_under_another_name_queues_a_merge(app):
+    _placeholder_with_parts(app)
+    with app.app_context():
+        changes = sync.diff_snapshot(_published_snapshot())
+        merges = [c for c in changes if c["change_kind"] == "merge"]
+        assert [(c["entity_key"], c["payload"]["into"]) for c in merges] == [
+            ("lenovo/%s" % MERGE_SERVER, "lenovo/HE160")]
+        # the placeholder is merged, never delisted outright (other platforms
+        # absent from this deliberately minimal snapshot still delist normally)
+        assert not [c for c in changes if c["change_kind"] == "delist"
+                    and c["entity_key"] == "lenovo/%s" % MERGE_SERVER]
+
+
+def test_approving_the_merge_retires_the_placeholder_into_the_published_platform(app):
+    _placeholder_with_parts(app)
+    with app.app_context():
+        sync.build_run(_published_snapshot(), user=None, source="import")
+        sync.bulk([], "approve", None, all_pending=True)
+
+        placeholder = hm.HclPlatform.query.filter_by(sc_model=MERGE_SERVER).one()
+        published = hm.HclPlatform.query.filter_by(sc_model="HE160").one()
+        assert placeholder.status == hm.STATUS_DELISTED and placeholder.delisted_at
+        assert published.status == hm.STATUS_ACTIVE and published.origin == "scrape"
+
+        # the part the HCL published supersedes ours; the other one moves over
+        gpu = hm.HclComponent.query.filter_by(part_number="no-part:integrated-graphics").one()
+        nic = hm.HclComponent.query.filter_by(part_number="no-part:realtek-2-5g").one()
+        assert gpu.status == hm.STATUS_DELISTED and gpu.delisted_at
+        assert nic.status == hm.STATUS_ACTIVE and nic.origin == hm.ORIGIN_PREVIEW
+        live = {l.component.key for l in published.links if l.status == hm.STATUS_ACTIVE}
+        assert live == {"gpu/LEN-GPU-1", "nic/no-part:realtek-2-5g"}
+
+        # and the HCL team is no longer asked to publish what they published
+        feed = preview.preview_feed()
+        assert feed["platforms"] == []
+        assert [c["part_number"] for c in feed["components"]] == ["no-part:realtek-2-5g"]
+
+
+def test_a_boms_check_survives_the_merge(app):
+    """The placeholder disappearing must not turn a passing BOM red: the
+    published part matches the same description, the still-unpublished one
+    moved to the published platform."""
+    _placeholder_with_parts(app)
+    with app.app_context():
+        sync.build_run(_published_snapshot(), user=None, source="import")
+        sync.bulk([], "approve", None, all_pending=True)
+
+        from bom.check import run_check
+        def part(cat, desc, qty=3):
+            return BOMComponent(part_number=None, description=desc, quantity=qty, category=cat)
+        bom = NormalizedBOM(vendor="Lenovo", configs=[BOMConfig(
+            name="Edge", server_model="Lenovo " + MERGE_SERVER, node_count=3, components=[
+                part("chassis", "ThinkEdge SE160 chassis"),
+                part("memory", "16 GB DDR5-5600MT/s SODIMM"),
+                part("storage", "512 GB SSD M.2 2280 PCIe Gen4 TLC Opal"),
+                part("gpu", "Integrated Graphics"),
+                part("nic", "Realtek RTL8125BGS 2.5G Ethernet")])])
+        result = run_check(bom, None)
+        cr = result["technical"]["config_results"][0]
+        codes = [f["code"] for f in cr["findings"]]
+        assert "gpu_not_in_hcl" not in codes and "nic_not_in_hcl" not in codes
+        # one platform now, not two
+        assert cr["platform"]["sc_models"] == ["HE160"]
+
+
+def test_a_merge_waits_for_the_published_platform_instead_of_being_consumed(app):
+    """Approving the merge first must not mark it done and leave the catalog
+    half-merged — it stays pending until the platform's own add is approved."""
+    _placeholder_with_parts(app)
+    with app.app_context():
+        run = sync.build_run(_published_snapshot(), user=None, source="import")
+        merge = next(c for c in run.changes if c.change_kind == "merge")
+        res = sync.approve(merge, None)
+        assert res["applied"] is False and "not in the catalog yet" in res["reason"]
+        assert merge.status == hm.PENDING and "not in the catalog yet" in merge.note
+        assert hm.HclPlatform.query.filter_by(sc_model=MERGE_SERVER).one().status == hm.STATUS_ACTIVE
+
+        # a full pass then applies it, whatever order the rows come in
+        sync.bulk([], "approve", None, all_pending=True)
+        assert hm.HclPlatform.query.filter_by(sc_model=MERGE_SERVER).one().status == hm.STATUS_DELISTED
+
+
+def test_no_merge_when_the_server_differs(app):
+    """A genuinely different box must not swallow the placeholder."""
+    _placeholder_with_parts(app)
+    with app.app_context():
+        snap = _published_snapshot(server="ThinkEdge SE450 Gen 2")
+        changes = sync.diff_snapshot(snap)
+        assert not [c for c in changes if c["change_kind"] == "merge"]

@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Daļas tiks piesaistītas platformai {name} — jauna platforma netiks izveidota.",
   "admin.bomprev.near_undo": "Tomēr izveidot jaunu platformu",
   "admin.bomprev.near_after": "Piezīme: šis nosaukums līdzinās {names}. Pajautājiet HCL komandai, kuru paturēt, ja tā ir tā pati iekārta.",
-  "admin.bomprev.plat_linked": "Daļas piesaistītas platformai {name}."
+  "admin.bomprev.plat_linked": "Daļas piesaistītas platformai {name}.",
+  "admin.hcl.kind_merge": "Publicēts ar citu nosaukumu"
 };

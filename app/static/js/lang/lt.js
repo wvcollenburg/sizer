@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Dalys bus susietos su {name} — nauja platforma nebus kuriama.",
   "admin.bomprev.near_undo": "Vis dėlto sukurti naują platformą",
   "admin.bomprev.near_after": "Pastaba: šis pavadinimas panašus į {names}. Pasiteiraukite HCL komandos, kurį palikti, jei tai ta pati mašina.",
-  "admin.bomprev.plat_linked": "Dalys susietos su {name}."
+  "admin.bomprev.plat_linked": "Dalys susietos su {name}.",
+  "admin.hcl.kind_merge": "Paskelbta kitu pavadinimu"
 };

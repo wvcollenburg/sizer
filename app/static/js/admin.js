@@ -1732,7 +1732,7 @@ let bomReviewRows = [];           // last list from /admin/api/bom-reviews
 let bomReviewCurrent = null;      // row open in the modal
 let bomPrevData = null;           // /acceptable payload for the open review modal
 
-const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active' };
+const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active', merge: 'badge-accent' };
 const HCL_VERDICT_BADGE = { PASS: 'badge-active', FAIL: 'badge-eos', INCONCLUSIVE: 'badge-eol' };
 const HCL_FIT_BADGE = { match: 'badge-active', bigger: 'badge-validated', smaller: 'badge-eos', unknown: 'hcl-badge-plain' };
 const HCL_REVIEW_BADGE = { open: 'badge-eol', confirmed: 'badge-active', incorrect: 'badge-eos', none: 'hcl-badge-plain' };

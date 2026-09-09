@@ -45,6 +45,10 @@ CHANGE_ADD = "add"
 CHANGE_UPDATE = "update"
 CHANGE_DELIST = "delist"
 CHANGE_RELIST = "relist"
+# The HCL published a pre-publication platform under its own name: our
+# placeholder and the scraped platform are the same box, so the placeholder is
+# retired into the published one (bom/hcl_sync._apply_platform).
+CHANGE_MERGE = "merge"
 
 PENDING = "pending"
 APPROVED = "approved"

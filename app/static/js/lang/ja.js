@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "部品を {name} にリンクします。新しいプラットフォームは作成されません。",
   "admin.bomprev.near_undo": "やはり新しいプラットフォームを作成",
   "admin.bomprev.near_after": "注意: この名前は {names} に似ています。同じ機種であればどちらを残すかHCLチームに確認してください。",
-  "admin.bomprev.plat_linked": "部品を {name} にリンクしました。"
+  "admin.bomprev.plat_linked": "部品を {name} にリンクしました。",
+  "admin.hcl.kind_merge": "別名で公開済み"
 };

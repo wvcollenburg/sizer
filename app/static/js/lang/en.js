@@ -1560,5 +1560,6 @@
   "admin.bomprev.near_linking": "Linking the parts to {name} — no new platform will be created.",
   "admin.bomprev.near_undo": "Create a new platform instead",
   "admin.bomprev.near_after": "Note: this name resembles {names}. Ask the HCL team which one to keep if they are the same box.",
-  "admin.bomprev.plat_linked": "Parts linked to {name}."
+  "admin.bomprev.plat_linked": "Parts linked to {name}.",
+  "admin.hcl.kind_merge": "Published under another name"
 };

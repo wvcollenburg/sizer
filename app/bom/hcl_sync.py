@@ -40,11 +40,11 @@ from auth_models import _utcnow
 from database import db
 from bom.hcl_scrape import synthetic_part_number
 from hcl_models import (
-    APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_RELIST, CHANGE_UPDATE,
+    APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_MERGE, CHANGE_RELIST, CHANGE_UPDATE,
     COMPONENT_KINDS, HclComponent, HclDevice, HclPendingChange, HclPlatform,
     HclPlatformComponent, HclScrapeRun, ORIGIN_PREVIEW, ORIGIN_SCRAPE,
     PENDING, REJECTED, RUN_FAILED, RUN_RUNNING, RUN_SUCCEEDED, STATUS_ACTIVE,
-    STATUS_DELISTED, SUPERSEDED,
+    STATUS_DELISTED, SUPERSEDED, server_key,
 )
 
 ENTITY_PLATFORM = "platform"
@@ -281,6 +281,23 @@ def _unmark_key(key):
     return key, False
 
 
+def _published_under_another_name(row, recs) -> Optional[str]:
+    """Key of the scraped platform that is the same box as preview ``row``.
+
+    Same brand and the same normalised server line (server_key folds vendor
+    words, spacing and punctuation), and only when the placeholder's own
+    (brand, sc_model) is absent from the snapshot — otherwise the ordinary
+    publication flip already handles it.
+    """
+    mine = server_key(row.server)
+    if not mine:
+        return None
+    for key, rec in recs["platforms"].items():
+        if rec["brand"] == row.brand and server_key(rec.get("server")) == mine:
+            return key
+    return None
+
+
 def _active_link_keys(platform: HclPlatform, snapshot_keys=None) -> List[str]:
     """Sorted marked keys of the platform's active links, as the 'components'
     compare sees them.
@@ -357,6 +374,20 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
                 # update rows — that is correct: the scraped truth replaces
                 # the admin's guess, but only via approval.
                 if row.origin == ORIGIN_PREVIEW:
+                    # …unless the site now lists the same server under a name
+                    # of its own choosing. The flip in touch_seen keys on
+                    # (brand, sc_model) and cannot see that, so without this
+                    # the placeholder would live forever beside the published
+                    # platform, and the feed would keep asking the HCL team to
+                    # publish a box they already have.
+                    into = _published_under_another_name(row, recs)
+                    if into is not None:
+                        changes.append(_change(
+                            ENTITY_PLATFORM, key, CHANGE_MERGE,
+                            payload={"into": into},
+                            label="Platform %s appears to be published as %s (same server); "
+                                  "retire the pre-publication placeholder into it"
+                                  % (key, into)))
                     continue
                 changes.append(_change(
                     ENTITY_PLATFORM, key, CHANGE_DELIST,
@@ -772,7 +803,76 @@ def _apply_platform(change, now, user, result):
         result["applied"] = True
         return
 
+    if kind == CHANGE_MERGE:
+        _merge_platform(platform, change, now, result)
+        return
+
     result["reason"] = "unknown change kind %r" % kind
+
+
+def _norm_desc(text) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def _merge_platform(placeholder, change, now, result):
+    """Retire a pre-publication placeholder into the platform the HCL
+    published for the same server.
+
+    Each of the placeholder's parts either (a) is already published on the
+    successor — an active part of the same kind with the same description, in
+    which case ours is delisted, because keeping it would ask the HCL team
+    forever to publish something they just did — or (b) is still unpublished,
+    in which case its link moves to the successor so BOMs for that box keep
+    validating. The placeholder itself is delisted, never deleted, so old
+    checks stay resolvable.
+    """
+    into_key = (change.payload or {}).get("into")
+    successor = None
+    if into_key:
+        brand, _, sc_model = str(into_key).partition("/")
+        successor = HclPlatform.query.filter_by(brand=brand, sc_model=sc_model).first()
+    if successor is None or successor.status != STATUS_ACTIVE:
+        # Its own 'add' row is probably still pending: nothing is applied and
+        # the change stays actionable rather than half-done.
+        result["reason"] = ("the published platform %s is not in the catalog yet; "
+                            "approve its addition first" % (into_key or "?"))
+        result["retry"] = True
+        return
+
+    published = {}
+    for link in successor.links:
+        if link.status == STATUS_ACTIVE and link.component.status == STATUS_ACTIVE:
+            published[(link.component.kind, _norm_desc(link.component.description))] = link.component
+
+    moved, superseded = [], []
+    for link in placeholder.links:
+        if link.status != STATUS_ACTIVE:
+            continue
+        comp = link.component
+        link.status = STATUS_DELISTED
+        twin = published.get((comp.kind, _norm_desc(comp.description)))
+        if twin is not None and twin.id != comp.id:
+            if comp.status == STATUS_ACTIVE:
+                comp.status = STATUS_DELISTED
+                comp.delisted_at = now
+            superseded.append("%s -> %s" % (comp.key, twin.key))
+            continue
+        existing = next((l for l in successor.links if l.component_id == comp.id), None)
+        if existing is None:
+            db.session.add(HclPlatformComponent(
+                platform_id=successor.id, component_id=comp.id, tce=link.tce,
+                origin=comp.origin, first_seen=now, last_seen=now))
+        elif existing.status != STATUS_ACTIVE:
+            existing.status = STATUS_ACTIVE
+            existing.last_seen = now
+        moved.append(comp.key)
+
+    placeholder.status = STATUS_DELISTED
+    placeholder.delisted_at = now
+    result["applied"] = True
+    result["merged_into"] = successor.key
+    result["moved"] = moved
+    result["superseded"] = superseded
 
 
 def _apply_component(change, now, user, result):
@@ -919,6 +1019,15 @@ def approve(change: HclPendingChange, user=None, note=None) -> dict:
     if change.status == SUPERSEDED:
         raise ChangeStateError("change %s was superseded by a newer scrape" % change.id)
     result = apply_change(change, user)
+    if not result["applied"] and result.get("retry"):
+        # Not applicable *yet* (a merge whose published platform is still an
+        # unapproved add). Marking it approved would consume the row and leave
+        # the catalog half-merged, so it stays pending with the reason on it
+        # and the next approval — or the next bulk pass — picks it up.
+        change.note = result.get("reason") or change.note
+        db.session.commit()
+        result["change"] = change.to_dict()
+        return result
     _decide(change, APPROVED, user, note)
     if not result["applied"] and result.get("reason") and not change.note:
         change.note = result["reason"]
@@ -968,10 +1077,16 @@ def bulk(ids, action, user=None, all_pending=False, filters=None) -> dict:
         rows = HclPendingChange.query.filter(HclPendingChange.id.in_(wanted or [-1])).all() \
             if wanted else []
         requested = len(wanted)
-    rows.sort(key=lambda c: (c.entity_type, c.entity_key, c.field or "", c.id))
+    # Merges go last on purpose: retiring a placeholder into a published
+    # platform needs that platform to exist, and alphabetical order alone
+    # would only sometimes deliver it (a 'lenovo/AAA' placeholder merging into
+    # 'lenovo/ZZZ' would sort first). A retry pass below covers the rest.
+    rows.sort(key=lambda c: (c.change_kind == CHANGE_MERGE, c.entity_type,
+                             c.entity_key, c.field or "", c.id))
 
     counts = {"approved": 0, "rejected": 0, "skipped": requested - len(rows)}
     auto = set()
+    deferred = []
     for change in rows:
         if change.id in auto:
             counts["approved"] += 1
@@ -991,6 +1106,12 @@ def bulk(ids, action, user=None, all_pending=False, filters=None) -> dict:
                 change.note = ("apply failed: %s" % exc)[:2000]
                 counts["skipped"] += 1
                 continue
+            if not result["applied"] and result.get("retry"):
+                # Its dependency is not in the catalog yet; keep the row
+                # pending and try again once this pass has created things.
+                change.note = result.get("reason") or change.note
+                deferred.append(change)
+                continue
             _decide(change, APPROVED, user)
             if not result["applied"] and result.get("reason"):
                 change.note = result["reason"]
@@ -999,6 +1120,21 @@ def bulk(ids, action, user=None, all_pending=False, filters=None) -> dict:
         else:
             _decide(change, REJECTED, user)
             counts["rejected"] += 1
+
+    for change in deferred:
+        try:
+            with db.session.begin_nested():
+                result = apply_change(change, user)
+        except Exception as exc:  # noqa: BLE001 - recorded on the row
+            change.note = ("apply failed: %s" % exc)[:2000]
+            counts["skipped"] += 1
+            continue
+        if not result["applied"] and result.get("retry"):
+            counts["skipped"] += 1          # still blocked; stays pending
+            continue
+        _decide(change, APPROVED, user)
+        auto.update(result["auto_approved"])
+        counts["approved"] += 1
     db.session.commit()
     return counts
 
@@ -1048,7 +1184,8 @@ def build_run(snapshot: dict, user=None, source: str = "scrape",
         supersede_stale(run, recs, complete=bool(snapshot.get("complete")))
         seen_at = _parse_when(snapshot.get("scraped_at")) or _utcnow()
         touch_seen(snapshot, seen_at)
-        kinds = {CHANGE_ADD: 0, CHANGE_UPDATE: 0, CHANGE_DELIST: 0, CHANGE_RELIST: 0}
+        kinds = {CHANGE_ADD: 0, CHANGE_UPDATE: 0, CHANGE_DELIST: 0,
+                 CHANGE_RELIST: 0, CHANGE_MERGE: 0}
         for ch in changes:
             kinds[ch["change_kind"]] = kinds.get(ch["change_kind"], 0) + 1
         run.summary = {

@@ -1559,5 +1559,6 @@
   "admin.bomprev.near_linking": "Delene kobles til {name} – der oprettes ingen ny platform.",
   "admin.bomprev.near_undo": "Opret alligevel en ny platform",
   "admin.bomprev.near_after": "Bemærk: navnet ligner {names}. Spørg HCL-teamet, hvilken der skal beholdes, hvis det er samme maskine.",
-  "admin.bomprev.plat_linked": "Dele koblet til {name}."
+  "admin.bomprev.plat_linked": "Dele koblet til {name}.",
+  "admin.hcl.kind_merge": "Udgivet under et andet navn"
 };
