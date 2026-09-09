@@ -85,7 +85,11 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
             continue
         matched = platform_match.identify(config, bom.vendor, platforms)
         form_factor = matched[0].form_factor if matched else None
-        result = rules.validate_config(config, bom.vendor, hcl, form_factor=form_factor)
+        # The identified platform keys scope description-based matching of
+        # preview-origin parts (rules._platform_scope_allows); an empty set
+        # (no platform) lets only UNLINKED preview parts match.
+        result = rules.validate_config(config, bom.vendor, hcl, form_factor=form_factor,
+                                       platform_keys={p.key for p in matched})
         extra = enrich.delisted_findings(config, delisted)
         result.findings.extend(extra)
         result.findings.append(enrich.platform_finding(matched))

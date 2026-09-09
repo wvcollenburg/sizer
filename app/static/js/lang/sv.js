@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "minst 16 tecken",
   "admin.hcl.feed_hint": "HCL-teamet hämtar intagna förpubliceringsdelar från",
   "admin.hcl.feed_hint2": "En token måste ha minst 16 tecken; spara fältet tomt för att stänga av flödet.",
-  "admin.hcl.feed_too_short": "Flödestoken måste ha minst 16 tecken (eller tom för att stänga av flödet)."
+  "admin.hcl.feed_too_short": "Flödestoken måste ha minst 16 tecken (eller tom för att stänga av flödet).",
+  "admin.bomprev.plat_title": "Skapa plattform (förpublicering)",
+  "admin.bomprev.plat_brand": "Märke",
+  "admin.bomprev.plat_sc_model": "SC-modell",
+  "admin.bomprev.plat_sc_ph": "Modellnamn överenskommet med HCL-teamet, t.ex. HE155",
+  "admin.bomprev.plat_server": "Servermodell",
+  "admin.bomprev.plat_hint": "Kopplingen begränsar delarna till denna plattform; okopplade delar matchar bara BOM:ar utan identifierad plattform.",
+  "admin.bomprev.plat_sc_required": "Ange SC-modellnamnet för att skapa plattformen, eller avmarkera för att ta in delarna okopplade.",
+  "admin.bomprev.plat_created": "Plattform skapad: {name}."
 };

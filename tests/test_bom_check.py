@@ -142,6 +142,29 @@ def test_model_tokens():
     assert platform_match.model_tokens("Riser cage") == []
 
 
+def test_model_tokens_thinkcentre_q_emits_the_tiny_variant():
+    """M-series models ending in 'q' ARE the Tiny form factor, but quotes
+    phrase them without the word — every phrasing must yield both the plain
+    and the 'tiny'-inserted key so the HCL's 'ThinkCentre M70q Tiny Gen6'
+    SERVER line matches."""
+    for text in ("TC M70q G6", "Desktop TC M70q G6", "ThinkCentre M70q Gen 6",
+                 "ThinkCentre M70q Gen6", "Desktop TC M70q G6_OEM_Q870_ES_R"):
+        toks = platform_match.model_tokens(text)
+        assert "m70qgen6" in toks and "m70qtinygen6" in toks, text
+    # no other family gains an invented variant
+    assert platform_match.model_tokens("ThinkSystem SR650 V4") == ["sr650v4"]
+
+
+def test_identify_thinkcentre_q_oem_string_matches_the_tiny_platform(app):
+    he155 = HclPlatform(brand="lenovo", sc_model="HE155",
+                        server="ThinkCentre M70q Tiny Gen6", form_factor="DT")
+    db.session.add(he155)
+    db.session.commit()
+    cfg = BOMConfig(name="C1", server_model="Desktop TC M70q G6_OEM_Q870_ES_R",
+                    components=[])
+    assert [p.sc_model for p in platform_match.identify(cfg, "Lenovo")] == ["HE155"]
+
+
 # ── enrichment ───────────────────────────────────────────────────────────────
 
 def test_delisted_part_draws_a_dated_warning(app):

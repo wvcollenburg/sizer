@@ -175,6 +175,10 @@ def _migrate_schema():
         "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
         "ALTER TABLE hcl_platform_components ADD COLUMN IF NOT EXISTS "
         "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
+        # Platforms created during a pre-publication accept carry the same
+        # provenance marker (delist immunity until a scrape lists them).
+        "ALTER TABLE hcl_platforms ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

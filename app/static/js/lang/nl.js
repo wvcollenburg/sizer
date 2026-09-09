@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "min. 16 tekens",
   "admin.hcl.feed_hint": "Het HCL-team haalt opgenomen pre-publicatieonderdelen op via",
   "admin.hcl.feed_hint2": "Een token moet minstens 16 tekens hebben; leeg opslaan schakelt de feed uit.",
-  "admin.hcl.feed_too_short": "Het feed-token moet minstens 16 tekens hebben (of leeg om de feed uit te schakelen)."
+  "admin.hcl.feed_too_short": "Het feed-token moet minstens 16 tekens hebben (of leeg om de feed uit te schakelen).",
+  "admin.bomprev.plat_title": "Platform aanmaken (pre-publicatie)",
+  "admin.bomprev.plat_brand": "Merk",
+  "admin.bomprev.plat_sc_model": "SC-model",
+  "admin.bomprev.plat_sc_ph": "Met het HCL-team afgesproken modelnaam, bijv. HE155",
+  "admin.bomprev.plat_server": "Servermodel",
+  "admin.bomprev.plat_hint": "Koppelen beperkt deze onderdelen tot dit platform; ongekoppelde onderdelen passen alleen op BOM's zonder herkend platform.",
+  "admin.bomprev.plat_sc_required": "Voer de SC-modelnaam in om het platform aan te maken, of vink uit om de onderdelen ongekoppeld op te nemen.",
+  "admin.bomprev.plat_created": "Platform aangemaakt: {name}."
 };

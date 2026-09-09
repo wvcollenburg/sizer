@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "mín. 16 caracteres",
   "admin.hcl.feed_hint": "A equipa da HCL recolhe as peças em pré-publicação em",
   "admin.hcl.feed_hint2": "O token deve ter pelo menos 16 caracteres; guarde o campo vazio para desativar o feed.",
-  "admin.hcl.feed_too_short": "O token do feed deve ter pelo menos 16 caracteres (ou vazio para desativar o feed)."
+  "admin.hcl.feed_too_short": "O token do feed deve ter pelo menos 16 caracteres (ou vazio para desativar o feed).",
+  "admin.bomprev.plat_title": "Criar plataforma (pré-publicação)",
+  "admin.bomprev.plat_brand": "Marca",
+  "admin.bomprev.plat_sc_model": "Modelo SC",
+  "admin.bomprev.plat_sc_ph": "Nome de modelo acordado com a equipa da HCL, p. ex. HE155",
+  "admin.bomprev.plat_server": "Modelo de servidor",
+  "admin.bomprev.plat_hint": "A associação limita estas peças a esta plataforma; peças não associadas só correspondem a BOM sem plataforma identificada.",
+  "admin.bomprev.plat_sc_required": "Introduza o nome do modelo SC para criar a plataforma, ou desmarque para aceitar as peças sem associação.",
+  "admin.bomprev.plat_created": "Plataforma criada: {name}."
 };

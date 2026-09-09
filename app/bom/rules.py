@@ -27,7 +27,7 @@ us (or the archived snapshot in tests).
 """
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from bom.normalize import (
     BOMComponent,
@@ -75,6 +75,10 @@ class HclNic:
     speed: str = ''
     description: str = ''
     form_factor: str = ''
+    # Platform keys ('lenovo/HE155') the entry is scoped to for
+    # description-based matching; None = unrestricted (every scraped part,
+    # and every archived-snapshot fixture). See _platform_scope_allows.
+    platforms: Optional[Tuple[str, ...]] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'HclNic':
@@ -92,6 +96,8 @@ class HclCpu:
     model: str
     description: str = ''
     socket: str = ''
+    # See HclNic.platforms.
+    platforms: Optional[Tuple[str, ...]] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'HclCpu':
@@ -110,6 +116,8 @@ class HclGpu:
     vram: int = 0
     eol: bool = False
     supported: bool = True
+    # See HclNic.platforms.
+    platforms: Optional[Tuple[str, ...]] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'HclGpu':
@@ -292,6 +300,33 @@ def get_drive_count(components: List[BOMComponent]) -> Dict[str, int]:
 
 # ─── HCL lookup helpers ───────────────────────────────────────────────────────
 
+
+def _platform_scope_allows(entry_platforms: Optional[Tuple[str, ...]],
+                           platform_keys: Optional[Iterable[str]]) -> bool:
+    """May a description-based match use this catalog entry for this BOM?
+
+    Description equality is weak identity — 'Integrated Graphics' accepted
+    for one Tiny platform must not validate on every platform's BOMs — so
+    entries accepted ahead of publication (origin='preview') carry the
+    platform keys they were linked to and are only matched in that scope.
+    Part-number and keyword-family matches never come here: a real part
+    number or known chip family is unambiguous identity, so they stay global.
+
+    * ``entry_platforms is None``: an unrestricted entry (every scraped part)
+      — always allowed.
+    * non-empty tuple: allowed only when the BOM's identified platform keys
+      intersect it.
+    * empty tuple (a preview part accepted with no platform links): allowed
+      only when the BOM's platform is unidentified too (``platform_keys``
+      falsy) — an unlinked generic part validates only equally anonymous BOMs.
+    """
+    if entry_platforms is None:
+        return True
+    if entry_platforms:
+        return bool(platform_keys) and bool(set(entry_platforms) & set(platform_keys))
+    return not platform_keys
+
+
 VENDOR_HBA_PREFIXES: Dict[str, List[str]] = {
     'Dell': ['405-'],
     'Lenovo': ['4Y37A', '7Y37A'],
@@ -368,7 +403,8 @@ def extract_nic_keywords(desc: str) -> Optional[List[str]]:
     return [m.group(1).lower()]
 
 
-def find_nic_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclNic]:
+def find_nic_in_hcl(c: BOMComponent, hcl: HclData,
+                    platform_keys: Optional[Iterable[str]] = None) -> Optional[HclNic]:
     for term in _search_terms(c):
         lower = term.lower()
         normalized = normalize_part(lower)
@@ -383,10 +419,12 @@ def find_nic_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclNic]:
     # Exact description match, mirroring the upstream HBA fallback: parts
     # accepted from description-only quotes (pre-publication, Lenovo DCSC
     # without part numbers) carry a synthetic part key, so the verbatim
-    # description is their only stable identity.
+    # description is their only stable identity. Scoped to the entry's
+    # platforms (_platform_scope_allows) because that identity is weak.
     if c.description:
         desc_lower = c.description.lower()
-        by_desc = _first(hcl.nics, lambda n: n.description.lower() == desc_lower)
+        by_desc = _first(hcl.nics, lambda n: n.description.lower() == desc_lower
+                         and _platform_scope_allows(n.platforms, platform_keys))
         if by_desc:
             return by_desc
     return None
@@ -405,7 +443,8 @@ def extract_gpu_keywords(desc: str) -> Optional[List[str]]:
     return None
 
 
-def find_gpu_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclGpu]:
+def find_gpu_in_hcl(c: BOMComponent, hcl: HclData,
+                    platform_keys: Optional[Iterable[str]] = None) -> Optional[HclGpu]:
     for term in _search_terms(c):
         lower = term.lower()
         normalized = normalize_part(lower)
@@ -418,10 +457,11 @@ def find_gpu_in_hcl(c: BOMComponent, hcl: HclData) -> Optional[HclGpu]:
                 g.model.lower() == k or k in g.description.lower() for k in keywords))
             if kw:
                 return kw
-    # Exact description fallback — see find_nic_in_hcl.
+    # Exact description fallback — see find_nic_in_hcl (scoped the same way).
     if c.description:
         desc_lower = c.description.lower()
-        by_desc = _first(hcl.gpus, lambda g: g.description.lower() == desc_lower)
+        by_desc = _first(hcl.gpus, lambda g: g.description.lower() == desc_lower
+                         and _platform_scope_allows(g.platforms, platform_keys))
         if by_desc:
             return by_desc
     return None
@@ -483,7 +523,8 @@ def is_scalable_cpu(description: str) -> bool:
 _XEON_PREFIX_RE = _js_re(r'^Xeon\s+', ignore_case=True)
 
 
-def find_cpu_in_hcl(c: BOMComponent, hcl: HclData) -> bool:
+def find_cpu_in_hcl(c: BOMComponent, hcl: HclData,
+                    platform_keys: Optional[Iterable[str]] = None) -> bool:
     search_text = ('%s %s' % (c.part_number or '', c.description)).lower()
     # An empty model key matches everything, exactly as `includes('')` does.
     if any(_XEON_PREFIX_RE.sub('', cpu.model).lower() in search_text for cpu in hcl.cpus):
@@ -491,10 +532,12 @@ def find_cpu_in_hcl(c: BOMComponent, hcl: HclData) -> bool:
     # Exact description fallback — see find_nic_in_hcl. A pre-publication CPU
     # accepted from a description-only quote is stored with the BOM line
     # verbatim, so the next identical line matches even when no model token
-    # can be parsed out of it (e.g. Core Ultra parts).
+    # can be parsed out of it (e.g. Core Ultra parts). Description equality
+    # is scoped (_platform_scope_allows); the model branch above stays global.
     desc_lower = c.description.lower()
     return bool(desc_lower) and any(
-        cpu.description and cpu.description.lower() == desc_lower for cpu in hcl.cpus)
+        cpu.description and cpu.description.lower() == desc_lower
+        and _platform_scope_allows(cpu.platforms, platform_keys) for cpu in hcl.cpus)
 
 
 # ─── per-config validation ────────────────────────────────────────────────────
@@ -516,7 +559,12 @@ _LOM_FORM_FACTORS = ('rndc', 'lom', 'mezz', 'mezzanine')
 
 
 def validate_config(config: BOMConfig, vendor: str, hcl: HclData,
-                    form_factor: Optional[str] = None) -> ConfigResult:
+                    form_factor: Optional[str] = None,
+                    platform_keys: Optional[Iterable[str]] = None) -> ConfigResult:
+    """``platform_keys`` (our extension, like form_factor): the BOM's
+    identified platform keys, consulted only by the description-based
+    fallbacks (_platform_scope_allows). None = no platform context, so every
+    existing caller behaves exactly as before."""
     findings: List[Finding] = []
     components = config.components
 
@@ -568,7 +616,8 @@ def validate_config(config: BOMConfig, vendor: str, hcl: HclData,
     for cpu in [c for c in components if c.category == 'cpu']:
         if is_clearly_old_cpu(cpu.description):
             findings.append(finding('error', cpu.description, 'CPU is too old — pre-Xeon Scalable generation', 'Requires Intel Xeon 1st Gen Scalable (Skylake-SP) or newer. E5/E7/E3-series processors are not supported.', 'cpu_too_old'))
-        elif not is_scalable_cpu(cpu.description) and not find_cpu_in_hcl(cpu, hcl):
+        elif not is_scalable_cpu(cpu.description) and not find_cpu_in_hcl(
+                cpu, hcl, platform_keys=platform_keys):
             findings.append(finding('warning', cpu.description, 'CPU generation could not be determined', 'Unable to confirm this is a supported CPU. Verify it is Xeon Gold/Platinum/Silver/Bronze (1st Gen Scalable / Skylake-SP or newer) or another HCL-listed family.', 'cpu_unknown'))
 
     # 4. Storage checks
@@ -644,7 +693,7 @@ def validate_config(config: BOMConfig, vendor: str, hcl: HclData,
         if matches_any(nic.description, _LOM_KEYWORDS):
             findings.append(finding('info', nic.description, 'Onboard/mezzanine NIC (LOM/rNDC) — limited to Backplane over VLAN', 'This NIC is supported but results in Backplane over VLAN networking. A dedicated 10GbE or 25GbE PCIe/OCP NIC is strongly recommended.', 'nic_lom'))
             continue
-        nic_record = find_nic_in_hcl(nic, hcl)
+        nic_record = find_nic_in_hcl(nic, hcl, platform_keys=platform_keys)
         if nic_record:
             if nic_record.form_factor.lower() in _LOM_FORM_FACTORS:
                 findings.append(finding('info', nic.description, 'Onboard/mezzanine NIC (LOM/rNDC) — limited to Backplane over VLAN', 'This NIC is supported but results in Backplane over VLAN networking. A dedicated 10GbE or 25GbE PCIe/OCP NIC is strongly recommended.', 'nic_lom'))
@@ -662,7 +711,7 @@ def validate_config(config: BOMConfig, vendor: str, hcl: HclData,
     # 9. GPU checks
     gpus = [c for c in components if c.category == 'gpu' and not is_absence_indicator(c)]
     for gpu in gpus:
-        gpu_record = find_gpu_in_hcl(gpu, hcl)
+        gpu_record = find_gpu_in_hcl(gpu, hcl, platform_keys=platform_keys)
         if gpu_record:
             if not gpu_record.supported:
                 findings.append(finding('error', gpu.description, 'GPU is in the HCL but not marked as supported', 'Contact the product team for guidance on this GPU model.', 'gpu_unsupported'))

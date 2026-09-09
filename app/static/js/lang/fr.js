@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "16 caractères min.",
   "admin.hcl.feed_hint": "L'équipe HCL récupère les pièces en prépublication via",
   "admin.hcl.feed_hint2": "Le jeton doit comporter au moins 16 caractères ; enregistrez le champ vide pour désactiver le flux.",
-  "admin.hcl.feed_too_short": "Le jeton du flux doit comporter au moins 16 caractères (ou rester vide pour désactiver le flux)."
+  "admin.hcl.feed_too_short": "Le jeton du flux doit comporter au moins 16 caractères (ou rester vide pour désactiver le flux).",
+  "admin.bomprev.plat_title": "Créer la plateforme (prépublication)",
+  "admin.bomprev.plat_brand": "Marque",
+  "admin.bomprev.plat_sc_model": "Modèle SC",
+  "admin.bomprev.plat_sc_ph": "Nom de modèle convenu avec l'équipe HCL, p. ex. HE155",
+  "admin.bomprev.plat_server": "Modèle de serveur",
+  "admin.bomprev.plat_hint": "La liaison limite ces pièces à cette plateforme ; les pièces non liées ne correspondent qu'aux BOM sans plateforme identifiée.",
+  "admin.bomprev.plat_sc_required": "Saisissez le nom du modèle SC pour créer la plateforme, ou décochez pour accepter les pièces sans liaison.",
+  "admin.bomprev.plat_created": "Plateforme créée : {name}."
 };

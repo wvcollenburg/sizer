@@ -80,6 +80,13 @@ class HclPlatform(db.Model):
     hdd_max = db.Column(db.Integer)
     ssd_max = db.Column(db.Integer)
     nic_listed = db.Column(db.Boolean, nullable=False, default=True)
+    # See HclComponent.origin: a "preview" platform was created by a super
+    # admin during a pre-publication accept (bom/preview.py) because the HCL
+    # does not list the server yet. Deliberately NOT in TRACKED — provenance,
+    # not page content — so the scrape diff never queues an "origin changed"
+    # row; the first complete scrape that lists (brand, sc_model) flips it to
+    # "scrape" silently (hcl_sync.touch_seen).
+    origin = db.Column(db.String(10), nullable=False, default=ORIGIN_SCRAPE)
     status = db.Column(db.String(12), nullable=False, default=STATUS_ACTIVE, index=True)
     first_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
@@ -121,6 +128,7 @@ class HclPlatform(db.Model):
             "hdd_max": self.hdd_max,
             "ssd_max": self.ssd_max,
             "nic_listed": self.nic_listed,
+            "origin": self.origin,
             "status": self.status,
             "first_seen": _iso(self.first_seen),
             "last_seen": _iso(self.last_seen),

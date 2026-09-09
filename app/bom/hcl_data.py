@@ -25,8 +25,8 @@ from sqlalchemy.orm import joinedload
 
 from bom.rules import HclCpu, HclData, HclGpu, HclHba, HclNic
 from hcl_models import (
-    HclComponent, HclDevice, HclPlatform, HclPlatformComponent, STATUS_ACTIVE,
-    STATUS_DELISTED, server_key,
+    HclComponent, HclDevice, HclPlatform, HclPlatformComponent, ORIGIN_PREVIEW,
+    STATUS_ACTIVE, STATUS_DELISTED, server_key,
 )
 
 BLOCKED_VENDORS_SETTING = "bom_blocked_vendors"
@@ -56,7 +56,7 @@ def _hba(part: str, description: str, attrs: dict, delisted: bool) -> HclHba:
     )
 
 
-def _nic(part: str, description: str, attrs: dict) -> HclNic:
+def _nic(part: str, description: str, attrs: dict, platforms=None) -> HclNic:
     attrs = attrs or {}
     return HclNic(
         part=part,
@@ -64,18 +64,20 @@ def _nic(part: str, description: str, attrs: dict) -> HclNic:
         speed=_speed_str(attrs),
         description=description or "",
         form_factor=str(attrs.get("form_factor") or ""),
+        platforms=platforms,
     )
 
 
-def _cpu(description: str, attrs: dict, socket: str) -> HclCpu:
+def _cpu(description: str, attrs: dict, socket: str, platforms=None) -> HclCpu:
     return HclCpu(
         model=str((attrs or {}).get("model") or description or ""),
         description=description or "",
         socket=socket or "",
+        platforms=platforms,
     )
 
 
-def _gpu(part: str, description: str, attrs: dict, delisted: bool) -> HclGpu:
+def _gpu(part: str, description: str, attrs: dict, delisted: bool, platforms=None) -> HclGpu:
     attrs = attrs or {}
     vram = attrs.get("vram_gb") or attrs.get("vram") or 0
     try:
@@ -89,24 +91,31 @@ def _gpu(part: str, description: str, attrs: dict, delisted: bool) -> HclGpu:
         vram=vram,
         eol=delisted,
         supported=True,
+        platforms=platforms,
     )
 
 
 def _build(parts: Iterable[dict], blocked: List[str]) -> HclData:
     """``parts`` are dicts {kind, part_number, description, attrs, delisted,
-    socket}; order is preserved because rules.py's Array.find semantics
-    return the first match."""
+    socket, platforms?}; order is preserved because rules.py's Array.find
+    semantics return the first match. ``platforms`` (absent/None for every
+    scraped part) scopes description-based matching — see
+    rules._platform_scope_allows."""
     data = HclData(blocked_vendors=list(blocked))
     for p in parts:
         kind = p["kind"]
+        scope = p.get("platforms")
         if kind == "hba":
             data.hbas.append(_hba(p["part_number"], p["description"], p["attrs"], p["delisted"]))
         elif kind == "nic":
-            data.nics.append(_nic(p["part_number"], p["description"], p["attrs"]))
+            data.nics.append(_nic(p["part_number"], p["description"], p["attrs"],
+                                  platforms=scope))
         elif kind == "cpu":
-            data.cpus.append(_cpu(p["description"], p["attrs"], p.get("socket") or ""))
+            data.cpus.append(_cpu(p["description"], p["attrs"], p.get("socket") or "",
+                                  platforms=scope))
         elif kind == "gpu":
-            data.gpus.append(_gpu(p["part_number"], p["description"], p["attrs"], p["delisted"]))
+            data.gpus.append(_gpu(p["part_number"], p["description"], p["attrs"], p["delisted"],
+                                  platforms=scope))
     return data
 
 
@@ -159,6 +168,17 @@ def load_hcl_data(include_delisted: bool = True) -> HclData:
     rows = q.order_by(HclComponent.kind, HclComponent.id).all()
     parts = []
     for comp in rows:
+        # Scoping is filled ONLY for preview-origin parts: their identity may
+        # be nothing more than a verbatim description, so description-based
+        # matches must stay confined to the platforms they were accepted for
+        # (empty tuple = accepted with no platform, matches only BOMs with no
+        # identified platform). Scraped parts stay None = unrestricted.
+        scope = None
+        if comp.origin == ORIGIN_PREVIEW:
+            scope = tuple(sorted(
+                l.platform.key for l in comp.links
+                if l.status == STATUS_ACTIVE and l.platform is not None
+                and l.platform.status == STATUS_ACTIVE))
         parts.append({
             "kind": comp.kind,
             "part_number": comp.part_number,
@@ -166,6 +186,7 @@ def load_hcl_data(include_delisted: bool = True) -> HclData:
             "attrs": comp.attrs or {},
             "delisted": comp.status == STATUS_DELISTED,
             "socket": _first_socket(comp) if comp.kind == "cpu" else "",
+            "platforms": scope,
         })
     return _build(parts, blocked_vendors())
 

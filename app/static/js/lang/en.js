@@ -1546,5 +1546,13 @@
   "admin.hcl.feed_ph": "min. 16 characters",
   "admin.hcl.feed_hint": "The HCL team pulls accepted pre-publication parts from",
   "admin.hcl.feed_hint2": "A token must be at least 16 characters; save the field empty to disable the feed.",
-  "admin.hcl.feed_too_short": "The feed token must be at least 16 characters (or empty to disable the feed)."
+  "admin.hcl.feed_too_short": "The feed token must be at least 16 characters (or empty to disable the feed).",
+  "admin.bomprev.plat_title": "Create platform (pre-publication)",
+  "admin.bomprev.plat_brand": "Brand",
+  "admin.bomprev.plat_sc_model": "SC model",
+  "admin.bomprev.plat_sc_ph": "Model name agreed with the HCL team, e.g. HE155",
+  "admin.bomprev.plat_server": "Server model",
+  "admin.bomprev.plat_hint": "Linking scopes these parts to this platform; unlinked parts only match BOMs with no identified platform.",
+  "admin.bomprev.plat_sc_required": "Enter the SC model name to create the platform, or untick to accept the parts unlinked.",
+  "admin.bomprev.plat_created": "Platform created: {name}."
 };

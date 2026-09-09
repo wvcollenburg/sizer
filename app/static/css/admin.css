@@ -882,3 +882,25 @@ body { padding-bottom: 64px; }
 #bom-review-modal .bom-prev-incat { white-space: nowrap; font-size: 0.75rem; }
 #bom-review-modal .bom-prev-platform { margin: 0 0 0.6rem; font-size: 0.8rem; }
 #bom-review-modal .bom-prev-actions { margin-bottom: 1rem; }
+
+/* ── BOM review: create-platform sub-form (no platform identified) ──────── */
+#bom-review-modal .bom-prev-plat {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 0.6rem 0.7rem; margin-bottom: 0.6rem; font-size: 0.83rem;
+    background: var(--surface2);
+}
+#bom-review-modal .bom-prev-plat-enable {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 0.5rem; cursor: pointer;
+}
+#bom-review-modal .bom-prev-plat-grid {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 0.4rem 0.6rem; align-items: center; margin-bottom: 0.5rem;
+}
+#bom-review-modal .bom-prev-plat-grid label { font-size: 0.78rem; color: var(--text-muted); }
+#bom-review-modal .bom-prev-plat-grid input,
+#bom-review-modal .bom-prev-plat-grid select { width: 100%; font-size: 0.83rem; }
+#bom-review-modal .bom-prev-plat-off .bom-prev-plat-grid,
+#bom-review-modal .bom-prev-plat-off .bom-prev-plat-hint { opacity: 0.55; }
+#bom-review-modal .bom-prev-plat-hint { margin: 0; font-size: 0.75rem; line-height: 1.4; max-width: 62ch; }
+#bom-review-modal .bom-prev-plat-err { margin: 0.4rem 0 0; }

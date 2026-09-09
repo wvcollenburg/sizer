@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "vismaz 16 rakstzīmes",
   "admin.hcl.feed_hint": "HCL komanda saņem pieņemtās pirmspublicēšanas daļas no",
   "admin.hcl.feed_hint2": "Pilnvarai jābūt vismaz 16 rakstzīmēm; saglabājiet lauku tukšu, lai plūsmu atslēgtu.",
-  "admin.hcl.feed_too_short": "Plūsmas pilnvarai jābūt vismaz 16 rakstzīmēm (vai tukšai, lai plūsmu atslēgtu)."
+  "admin.hcl.feed_too_short": "Plūsmas pilnvarai jābūt vismaz 16 rakstzīmēm (vai tukšai, lai plūsmu atslēgtu).",
+  "admin.bomprev.plat_title": "Izveidot platformu (pirmspublicēšana)",
+  "admin.bomprev.plat_brand": "Zīmols",
+  "admin.bomprev.plat_sc_model": "SC modelis",
+  "admin.bomprev.plat_sc_ph": "Ar HCL komandu saskaņots modeļa nosaukums, piem., HE155",
+  "admin.bomprev.plat_server": "Servera modelis",
+  "admin.bomprev.plat_hint": "Piesaiste ierobežo šīs daļas ar šo platformu; nepiesaistītas daļas atbilst tikai BOM bez identificētas platformas.",
+  "admin.bomprev.plat_sc_required": "Ievadiet SC modeļa nosaukumu, lai izveidotu platformu, vai noņemiet atzīmi, lai pieņemtu daļas bez piesaistes.",
+  "admin.bomprev.plat_created": "Platforma izveidota: {name}."
 };

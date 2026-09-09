@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "mind. 16 Zeichen",
   "admin.hcl.feed_hint": "Das HCL-Team holt übernommene Vorveröffentlichungs-Teile ab unter",
   "admin.hcl.feed_hint2": "Ein Token braucht mindestens 16 Zeichen; leer speichern deaktiviert den Feed.",
-  "admin.hcl.feed_too_short": "Das Feed-Token braucht mindestens 16 Zeichen (oder leer lassen, um den Feed zu deaktivieren)."
+  "admin.hcl.feed_too_short": "Das Feed-Token braucht mindestens 16 Zeichen (oder leer lassen, um den Feed zu deaktivieren).",
+  "admin.bomprev.plat_title": "Plattform anlegen (Vorveröffentlichung)",
+  "admin.bomprev.plat_brand": "Marke",
+  "admin.bomprev.plat_sc_model": "SC-Modell",
+  "admin.bomprev.plat_sc_ph": "Mit dem HCL-Team vereinbarter Modellname, z. B. HE155",
+  "admin.bomprev.plat_server": "Servermodell",
+  "admin.bomprev.plat_hint": "Die Verknüpfung beschränkt diese Teile auf diese Plattform; unverknüpfte Teile passen nur auf BOMs ohne erkannte Plattform.",
+  "admin.bomprev.plat_sc_required": "Geben Sie den SC-Modellnamen ein, um die Plattform anzulegen, oder deaktivieren Sie die Option, um die Teile unverknüpft zu übernehmen.",
+  "admin.bomprev.plat_created": "Plattform angelegt: {name}."
 };

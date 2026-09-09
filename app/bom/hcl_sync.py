@@ -346,6 +346,18 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
     if complete:
         for key, row in db_platforms.items():
             if key not in recs["platforms"] and row.status == STATUS_ACTIVE:
+                # Delist immunity for preview-origin platforms: a super admin
+                # created them during a pre-publication accept precisely
+                # because the HCL does not list the server yet, so absence
+                # from the site is their expected state — a scrape must never
+                # read it as a delisting. The first complete snapshot that
+                # DOES list (brand, sc_model) flips the origin to 'scrape'
+                # (touch_seen); the same diff then compares the page's field
+                # values against the admin-entered ones and queues ordinary
+                # update rows — that is correct: the scraped truth replaces
+                # the admin's guess, but only via approval.
+                if row.origin == ORIGIN_PREVIEW:
+                    continue
                 changes.append(_change(
                     ENTITY_PLATFORM, key, CHANGE_DELIST,
                     label="Platform %s (%s) no longer listed on the HCL" % (key, row.server or "?")))
@@ -522,6 +534,10 @@ def touch_seen(snapshot: dict, seen_at: Optional[datetime] = None) -> int:
         if rec is None:
             continue
         _bump(platform)
+        if complete and platform.origin == ORIGIN_PREVIEW:
+            # Publication flip, platform edition: the site now lists this
+            # (brand, sc_model), so the pre-publication platform is ordinary.
+            platform.origin = ORIGIN_SCRAPE
         n += 1
         listed = set(c["key"] for c in rec["components"])
         for link in platform.links:
@@ -664,9 +680,13 @@ def _apply_platform(change, now, user, result):
 
     if kind in (CHANGE_ADD, CHANGE_RELIST):
         rec = change.payload or {}
+        # Like _ensure_component: the payload may carry an explicit origin
+        # (the preview accept flow creates platforms marked 'preview' so they
+        # gain delist immunity); scrape payloads omit it.
+        origin = rec.get("origin") or ORIGIN_SCRAPE
         if platform is None:
             platform = HclPlatform(brand=brand, sc_model=sc_model, status=STATUS_ACTIVE,
-                                   first_seen=now, last_seen=now)
+                                   origin=origin, first_seen=now, last_seen=now)
             _set_platform_fields(platform, rec)
             db.session.add(platform)
             db.session.flush()
@@ -674,6 +694,10 @@ def _apply_platform(change, now, user, result):
         else:
             _set_platform_fields(platform, rec)
             if platform.status != STATUS_ACTIVE:
+                # (Re)creation of a delisted row re-establishes provenance,
+                # mirroring _ensure_component; an already-active platform
+                # keeps the origin it has.
+                platform.origin = origin
                 result["created"].append(platform.key)
             platform.status = STATUS_ACTIVE
             platform.delisted_at = None

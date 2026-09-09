@@ -397,3 +397,252 @@ def test_partner_cannot_touch_the_accept_surface(app):
     assert partner.get("/admin/api/hcl/preview").status_code == 403
     assert partner.put("/admin/api/hcl/settings",
                        json={"preview_feed_token": FEED_TOKEN}).status_code == 403
+
+
+# ── pre-publication platform creation + description scoping ──────────────────
+# The motivating case: a BOM known to be a Tiny the HCL does not list yet.
+# Without a platform, accepted parts land unlinked — and a generic line like
+# 'Integrated Graphics' would then validate on EVERY platform's BOMs. So the
+# admin creates the platform during acceptance, and description-based matches
+# of preview parts stay scoped to the platforms they were linked to.
+
+GPU_DESC = "Integrated Graphics"
+NEW_SERVER = "ThinkCentre M75q Gen 5"
+NEW_PLATFORM = {"brand": "lenovo", "sc_model": "HE160", "server": NEW_SERVER}
+
+
+def _tiny_bom(server=NEW_SERVER):
+    """A BOM on a server the catalog does NOT list: no platform identified.
+    Everything but the GPU line is clean (scalable CPU, NVMe-only storage)."""
+    def comp(cat, desc, part, qty):
+        return BOMComponent(part_number=part, description=desc, quantity=qty, category=cat)
+    return NormalizedBOM(vendor="Lenovo", configs=[BOMConfig(
+        name="Tiny PROD", server_model=server, node_count=3,
+        components=[
+            comp("chassis", "ThinkCentre M75q Chassis", "BLK9", 3),
+            comp("cpu", "Intel Xeon Gold 6526Y Processor", "CPU9", 3),
+            comp("memory", "ThinkCentre 32GB DDR5 5600MHz SODIMM", "MEM9", 6),
+            comp("storage", 'ThinkCentre 2.5" 1.92TB NVMe PCIe 4.0 SSD', "SSD9", 6),
+            comp("gpu", GPU_DESC, None, 3),
+        ])])
+
+
+def upload_bom(c, project_id, bom, filename="tiny-bom.xlsx"):
+    from bom.parsers.template import build_template_bytes
+    data = {"file": (io.BytesIO(build_template_bytes(bom=bom)), filename)}
+    r = c.post(f"/api/projects/{project_id}/bom-checks", data=data,
+               content_type="multipart/form-data")
+    assert r.status_code == 201, r.get_data(as_text=True)
+    return r.get_json()
+
+
+def make_unidentified_check(app):
+    partner = client_for(app, PARTNER)
+    project = make_project(partner, name="Tiny")
+    check = upload_bom(partner, project["id"], _tiny_bom())
+    admin = admin_for(app)
+    return partner, admin, check
+
+
+def gpu_candidate_key(admin, check_id):
+    d = admin.get(f"/admin/api/bom-reviews/{check_id}/acceptable").get_json()
+    return next(c["key"] for c in d["candidates"] if c["kind"] == "gpu")
+
+
+def accept_platform(admin, check_id, keys, platform):
+    body = {"keys": list(keys)}
+    if platform is not None:
+        body["platform"] = platform
+    return admin.post(f"/admin/api/bom-reviews/{check_id}/accept-parts", json=body)
+
+
+def test_accept_with_platform_spec_creates_and_links_the_platform(app):
+    partner, admin, check = make_unidentified_check(app)
+    assert "gpu_not_in_hcl" in check["flag_reasons"]
+
+    r = admin.get(f"/admin/api/bom-reviews/{check['id']}/acceptable")
+    d = r.get_json()
+    assert d["platforms"] == []
+    assert d["platform_suggestion"] == {"brand": "lenovo", "sc_model": None,
+                                        "server": NEW_SERVER, "form_factor": None}
+    gpu_key = next(c["key"] for c in d["candidates"] if c["kind"] == "gpu")
+
+    r = accept_platform(admin, check["id"], [gpu_key], dict(NEW_PLATFORM))
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["platform_created"] == "lenovo/HE160"
+    assert d["created"] == [gpu_key]
+    assert d["linked"] == ["lenovo/HE160 -> %s" % gpu_key]
+    assert "unlinked" not in d
+
+    with app.app_context():
+        plat = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HE160").one()
+        assert plat.status == hm.STATUS_ACTIVE and plat.origin == hm.ORIGIN_PREVIEW
+        assert plat.server == NEW_SERVER
+        # created via an approved pending 'add' row on the same preview run,
+        # payload origin preview and no components list
+        row = hm.HclPendingChange.query.filter_by(
+            entity_type="platform", entity_key="lenovo/HE160", change_kind="add").one()
+        assert row.status == hm.APPROVED and row.run_id == d["run_id"]
+        assert row.payload["origin"] == "preview"
+        assert "components" not in row.payload
+        assert len(plat.links) == 1
+        link = plat.links[0]
+        assert link.component.key == gpu_key and link.origin == hm.ORIGIN_PREVIEW
+        # the pull feed lists the platform
+        from bom import preview as pv
+        feed = pv.preview_feed()
+        assert len(feed["platforms"]) == 1
+        fp = feed["platforms"][0]
+        assert fp["brand"] == "lenovo" and fp["sc_model"] == "HE160"
+        assert fp["server"] == NEW_SERVER and fp["form_factor"] is None
+        assert fp["accepted_at"]
+
+    # a second accept reuses the ACTIVE preview platform: no duplicate rows
+    r = accept_platform(admin, check["id"], [gpu_key], dict(NEW_PLATFORM))
+    assert r.status_code == 200
+    d2 = r.get_json()
+    assert d2["skipped"] == [gpu_key] and d2["platform_created"] == "lenovo/HE160"
+    with app.app_context():
+        assert hm.HclPlatform.query.filter_by(sc_model="HE160").count() == 1
+        assert hm.HclPendingChange.query.filter_by(
+            entity_type="platform", entity_key="lenovo/HE160",
+            change_kind="add").count() == 1
+
+    # re-check: the created platform is identified by its server string and
+    # the linked GPU now validates — the check PASSes
+    r = partner.post(f"/api/bom-checks/{check['id']}/recheck", json={})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    d = r.get_json()
+    assert d["technical_verdict"] == "PASS"
+    assert d["flag_reasons"] == []
+    cr = d["result"]["technical"]["config_results"][0]
+    assert cr["platform"]["sc_models"] == ["HE160"]
+    assert "gpu_not_in_hcl" not in [f["code"] for f in cr["findings"]]
+
+
+def test_linked_generic_description_stays_scoped_to_its_platform(app):
+    """'Integrated Graphics' accepted for lenovo/HE160 must not validate on a
+    BOM identified as another platform, nor on a platform-less BOM."""
+    from bom.check import run_check
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    assert accept_platform(admin, check["id"], [gpu_key],
+                           dict(NEW_PLATFORM)).status_code == 200
+
+    with app.app_context():
+        # same line on a BOM identified as HE155: still gpu_not_in_hcl
+        bom = _bom()
+        bom.configs[0].components.append(BOMComponent(
+            part_number=None, description=GPU_DESC, quantity=1, category="gpu"))
+        result = run_check(bom)
+        cr = result["technical"]["config_results"][0]
+        assert cr["platform"]["sc_models"] == ["HE155"]
+        assert "gpu_not_in_hcl" in [f["code"] for f in cr["findings"]]
+
+        # same line on a BOM with NO identified platform: the part is LINKED,
+        # so it does not match there either
+        result = run_check(_tiny_bom(server="ThinkCentre M75q Gen 9"))
+        cr = result["technical"]["config_results"][0]
+        assert cr["platform"] is None
+        assert "gpu_not_in_hcl" in [f["code"] for f in cr["findings"]]
+
+
+def test_unlinked_preview_part_matches_only_platformless_boms(app):
+    """Accepted WITHOUT a platform (empty scope): the description matches a
+    BOM whose platform is unidentified, and nothing else."""
+    from bom.check import run_check
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    r = accept_platform(admin, check["id"], [gpu_key], None)
+    assert r.status_code == 200
+    d = r.get_json()
+    assert d["unlinked"] is True and d["platform_created"] is None
+
+    with app.app_context():
+        comp = hm.HclComponent.query.filter_by(kind="gpu").one()
+        assert comp.origin == hm.ORIGIN_PREVIEW and not comp.links
+
+        # platform-less BOM: the unlinked part matches
+        result = run_check(_tiny_bom(server="ThinkCentre M75q Gen 9"))
+        cr = result["technical"]["config_results"][0]
+        assert cr["platform"] is None
+        assert "gpu_not_in_hcl" not in [f["code"] for f in cr["findings"]]
+
+        # identified BOM (HE155): the unlinked part does NOT match
+        bom = _bom()
+        bom.configs[0].components.append(BOMComponent(
+            part_number=None, description=GPU_DESC, quantity=1, category="gpu"))
+        result = run_check(bom)
+        cr = result["technical"]["config_results"][0]
+        assert cr["platform"]["sc_models"] == ["HE155"]
+        assert "gpu_not_in_hcl" in [f["code"] for f in cr["findings"]]
+
+
+def test_preview_platform_is_delist_immune_then_flips_on_publication(app, mini_snapshot):
+    partner, admin, check = make_unidentified_check(app)
+    gpu_key = gpu_candidate_key(admin, check["id"])
+    assert accept_platform(admin, check["id"], [gpu_key],
+                           dict(NEW_PLATFORM)).status_code == 200
+
+    with app.app_context():
+        # complete snapshot NOT listing the platform: immune, nothing queued
+        run = sync.build_run(copy.deepcopy(mini_snapshot), user=None, source="import")
+        assert run.summary["changes"] == {"add": 0, "update": 0, "delist": 0, "relist": 0}
+        plat = hm.HclPlatform.query.filter_by(sc_model="HE160").one()
+        assert plat.status == hm.STATUS_ACTIVE and plat.origin == hm.ORIGIN_PREVIEW
+
+        # publication: a complete snapshot now lists (lenovo, HE160), with
+        # the site's own field values
+        published = copy.deepcopy(mini_snapshot)
+        published["platforms"].append({
+            "brand": "lenovo", "sc_model": "HE160",
+            "server": "ThinkCentre M75q Gen5",   # scraped truth != admin entry
+            "components": [],
+        })
+        run2 = sync.build_run(published, user=None, source="import")
+        plat = hm.HclPlatform.query.filter_by(sc_model="HE160").one()
+        # origin flipped silently; NO duplicate add/relist/conflict — the
+        # scraped field values arrive as ordinary update rows for approval
+        assert plat.origin == hm.ORIGIN_SCRAPE
+        assert run2.summary["changes"]["add"] == 0
+        assert run2.summary["changes"]["relist"] == 0
+        assert run2.summary["changes"]["delist"] == 0
+        assert run2.summary["changes"]["update"] >= 1
+        pending = hm.HclPendingChange.query.filter_by(status=hm.PENDING).all()
+        fields = {(p.entity_key, p.field) for p in pending if p.entity_type == "platform"}
+        assert ("lenovo/HE160", "server") in fields
+        srv = next(p for p in pending if p.entity_key == "lenovo/HE160"
+                   and p.field == "server")
+        assert srv.old_value == NEW_SERVER
+        assert srv.new_value == "ThinkCentre M75q Gen5"
+
+
+def test_platform_spec_validation_errors(app):
+    partner, admin, check = make_failed_check(app)          # identifies HE155
+    project = make_project(partner, name="Tiny2")
+    check2 = upload_bom(partner, project["id"], _tiny_bom())  # no platform
+    gpu_key = gpu_candidate_key(admin, check2["id"])
+
+    # a platform WAS identified: the spec is refused, acceptance links to it
+    r = accept_platform(admin, check["id"], [NIC_KEY], dict(NEW_PLATFORM))
+    assert r.status_code == 400
+    assert "identified" in r.get_json()["error"]
+
+    # a scrape-origin ACTIVE platform with that key already exists
+    r = accept_platform(admin, check2["id"], [gpu_key],
+                        {"brand": "lenovo", "sc_model": "HE155", "server": None})
+    assert r.status_code == 400
+    assert "already exists" in r.get_json()["error"]
+
+    # missing sc_model / missing brand
+    r = accept_platform(admin, check2["id"], [gpu_key],
+                        {"brand": "lenovo", "sc_model": ""})
+    assert r.status_code == 400 and "sc_model" in r.get_json()["error"]
+    r = accept_platform(admin, check2["id"], [gpu_key], {"sc_model": "HE160"})
+    assert r.status_code == 400 and "brand" in r.get_json()["error"]
+
+    with app.app_context():   # the refused attempts created nothing
+        assert hm.HclPlatform.query.filter_by(sc_model="HE160").count() == 0
+        assert hm.HclComponent.query.filter_by(kind="gpu").count() == 0
+        assert hm.HclScrapeRun.query.filter_by(source="preview").count() == 0

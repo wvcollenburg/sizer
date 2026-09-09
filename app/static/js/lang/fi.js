@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "väh. 16 merkkiä",
   "admin.hcl.feed_hint": "HCL-tiimi noutaa hyväksytyt ennakkojulkaisuosat osoitteesta",
   "admin.hcl.feed_hint2": "Tunnuksessa on oltava vähintään 16 merkkiä; tyhjänä tallennus poistaa syötteen käytöstä.",
-  "admin.hcl.feed_too_short": "Syötetunnuksessa on oltava vähintään 16 merkkiä (tai tyhjä, jolloin syöte poistuu käytöstä)."
+  "admin.hcl.feed_too_short": "Syötetunnuksessa on oltava vähintään 16 merkkiä (tai tyhjä, jolloin syöte poistuu käytöstä).",
+  "admin.bomprev.plat_title": "Luo alusta (ennakkojulkaisu)",
+  "admin.bomprev.plat_brand": "Merkki",
+  "admin.bomprev.plat_sc_model": "SC-malli",
+  "admin.bomprev.plat_sc_ph": "HCL-tiimin kanssa sovittu mallinimi, esim. HE155",
+  "admin.bomprev.plat_server": "Palvelinmalli",
+  "admin.bomprev.plat_hint": "Linkitys rajaa osat tähän alustaan; linkittämättömät osat täsmäävät vain BOMeihin, joiden alustaa ei tunnistettu.",
+  "admin.bomprev.plat_sc_required": "Anna SC-mallinimi alustan luomiseksi tai poista valinta hyväksyäksesi osat ilman linkitystä.",
+  "admin.bomprev.plat_created": "Alusta luotu: {name}."
 };

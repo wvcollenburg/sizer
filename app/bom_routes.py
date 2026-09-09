@@ -432,9 +432,13 @@ def accept_parts(check_id):
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         return jsonify({"error": "keys must be a non-empty list of candidate keys"}), 400
     note = (data.get("note") or "").strip()[:2000] or None
+    # Optional {brand, sc_model, server}: create the platform as
+    # pre-publication when the check identified none (validated in preview).
+    platform_spec = data.get("platform")
     from bom import preview
     try:
-        result = preview.accept_parts(check, keys, current_user(), note=note)
+        result = preview.accept_parts(check, keys, current_user(), note=note,
+                                      platform_spec=platform_spec)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     audit("hcl_preview_accept", "check #%d (%s): %s" % (

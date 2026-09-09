@@ -2533,12 +2533,74 @@ function bomPrevSectionHtml(data) {
     if (platforms.length) {
         const names = platforms.map(p => [p.brand, p.sc_model, p.server].filter(Boolean).join(' '));
         html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.link_to', { platforms: names.join(', ') }))}</p>`;
+    } else if (data.platform_suggestion) {
+        // No platform identified but the backend can seed one: offer to create
+        // it as pre-publication so the accepted parts are linked (scoped to the
+        // platform) instead of unlinked.
+        html += bomPrevPlatFormHtml(data.platform_suggestion);
     } else {
         html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.no_platform'))}</p>`;
     }
     html += `<div class="bom-prev-actions"><button class="btn btn-primary btn-sm" id="bom-prev-accept-btn"
         data-click='["bomPrevAcceptSelected"]'>${adminEsc(t('admin.bomprev.accept_btn'))}</button></div>`;
     return html;
+}
+
+// Sub-form offering to create the (missing) platform as pre-publication so
+// the accepted parts land linked. Default ON: unlinked acceptance is exactly
+// what this steers away from.
+function bomPrevPlatFormHtml(sug) {
+    const brands = [['dell', 'Dell'], ['lenovo', 'Lenovo'], ['hpe', 'HPE'], ['supermicro', 'Supermicro']];
+    const cur = String(sug.brand || '').toLowerCase();
+    return `<div class="bom-prev-plat" id="bom-prev-plat">
+        <label class="bom-prev-plat-enable">
+            <input type="checkbox" id="bom-prev-plat-enable" checked data-change='["bomPrevPlatToggle","$checked"]'>
+            <strong>${adminEsc(t('admin.bomprev.plat_title'))}</strong>
+        </label>
+        <div class="bom-prev-plat-grid" id="bom-prev-plat-grid">
+            <label for="bom-prev-plat-brand">${adminEsc(t('admin.bomprev.plat_brand'))}</label>
+            <select id="bom-prev-plat-brand">${brands.map(b =>
+                `<option value="${b[0]}"${b[0] === cur ? ' selected' : ''}>${b[1]}</option>`).join('')}</select>
+            <label for="bom-prev-plat-sc">${adminEsc(t('admin.bomprev.plat_sc_model'))}</label>
+            <input type="text" id="bom-prev-plat-sc" maxlength="60"
+                placeholder="${adminEsc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatError",""]'>
+            <label for="bom-prev-plat-server">${adminEsc(t('admin.bomprev.plat_server'))}</label>
+            <input type="text" id="bom-prev-plat-server" maxlength="120" value="${adminEsc(sug.server || '')}">
+        </div>
+        <p class="muted bom-prev-plat-hint">${adminEsc(t('admin.bomprev.plat_hint'))}</p>
+        <p class="admin-status status-err bom-prev-plat-err" id="bom-prev-plat-err" style="display:none"></p>
+    </div>`;
+}
+
+function bomPrevPlatToggle(enabled) {
+    const box = document.getElementById('bom-prev-plat');
+    if (box) box.classList.toggle('bom-prev-plat-off', !enabled);
+    const grid = document.getElementById('bom-prev-plat-grid');
+    if (grid) grid.querySelectorAll('input, select').forEach(el => { el.disabled = !enabled; });
+    if (!enabled) bomPrevPlatError('');
+}
+
+// Inline error under the platform sub-form (also the data-input clear hook).
+function bomPrevPlatError(msg) {
+    const el = document.getElementById('bom-prev-plat-err');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+}
+
+// Returns undefined when the sub-form is absent/disabled, the platform object
+// to POST when it is filled in, and null after flagging an inline error.
+function bomPrevPlatPayload() {
+    const enable = document.getElementById('bom-prev-plat-enable');
+    if (!enable || !enable.checked) return undefined;
+    const sc = (document.getElementById('bom-prev-plat-sc').value || '').trim();
+    if (!sc) { bomPrevPlatError(t('admin.bomprev.plat_sc_required')); return null; }
+    bomPrevPlatError('');
+    return {
+        brand: document.getElementById('bom-prev-plat-brand').value,
+        sc_model: sc,
+        server: (document.getElementById('bom-prev-plat-server').value || '').trim() || null,
+    };
 }
 
 async function bomPrevAcceptSelected() {
@@ -2550,13 +2612,19 @@ async function bomPrevAcceptSelected() {
         return c ? c.key : null;
     }).filter(Boolean);
     if (!keys.length) { toastError(t('admin.bomprev.none_selected')); return; }
+    const platform = bomPrevPlatPayload();
+    if (platform === null) return;             // sub-form enabled but invalid
+    const body = { keys: keys };
+    if (platform) body.platform = platform;
     const btn = document.getElementById('bom-prev-accept-btn');
     if (btn) btn.disabled = true;
-    const { ok, data } = await hclJson(`/admin/api/bom-reviews/${row.id}/accept-parts`, 'POST', { keys: keys });
+    const { ok, data } = await hclJson(`/admin/api/bom-reviews/${row.id}/accept-parts`, 'POST', body);
     if (btn) btn.disabled = false;
     if (!ok) { toastError(hclErrorText(data)); return; }
     const n = x => Array.isArray(x) ? x.length : 0;
-    toast(t('admin.bomprev.accept_done', { created: n(data.created), linked: n(data.linked), skipped: n(data.skipped) }), 'success');
+    let done = t('admin.bomprev.accept_done', { created: n(data.created), linked: n(data.linked), skipped: n(data.skipped) });
+    if (data.platform_created) done += ' ' + t('admin.bomprev.plat_created', { name: data.platform_created });
+    toast(done, 'success');
     toast(t('admin.bomprev.recheck_hint'), 'info', 8000);
     // The catalog, its stats and the feed count all just moved.
     loadBomReviews();

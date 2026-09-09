@@ -1545,5 +1545,13 @@
   "admin.hcl.feed_ph": "mindst 16 tegn",
   "admin.hcl.feed_hint": "HCL-teamet henter optagne førudgivelsesdele fra",
   "admin.hcl.feed_hint2": "En token skal have mindst 16 tegn; gem feltet tomt for at slå feedet fra.",
-  "admin.hcl.feed_too_short": "Feed-tokenet skal have mindst 16 tegn (eller tomt for at slå feedet fra)."
+  "admin.hcl.feed_too_short": "Feed-tokenet skal have mindst 16 tegn (eller tomt for at slå feedet fra).",
+  "admin.bomprev.plat_title": "Opret platform (førudgivelse)",
+  "admin.bomprev.plat_brand": "Mærke",
+  "admin.bomprev.plat_sc_model": "SC-model",
+  "admin.bomprev.plat_sc_ph": "Modelnavn aftalt med HCL-teamet, f.eks. HE155",
+  "admin.bomprev.plat_server": "Servermodel",
+  "admin.bomprev.plat_hint": "Kobling begrænser delene til denne platform; ukoblede dele matcher kun BOM'er uden identificeret platform.",
+  "admin.bomprev.plat_sc_required": "Indtast SC-modelnavnet for at oprette platformen, eller fjern markeringen for at optage delene uden kobling.",
+  "admin.bomprev.plat_created": "Platform oprettet: {name}."
 };

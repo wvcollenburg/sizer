@@ -86,7 +86,8 @@ def candidates_for(check) -> Dict:
     the identified platforms of the result become link targets.
     """
     tech = (check.result or {}).get("technical") or {}
-    configs = {c.name: c for c in NormalizedBOM.from_dict(check.normalized or {}).configs}
+    bom = NormalizedBOM.from_dict(check.normalized or {})
+    configs = {c.name: c for c in bom.configs}
     candidates = {}  # type: Dict[str, dict]
     platform_ids = []  # type: List[int]
     for cr in tech.get("config_results") or []:
@@ -138,21 +139,63 @@ def candidates_for(check) -> Dict:
         if p is not None and p.status == STATUS_ACTIVE:
             platforms.append({"id": p.id, "key": p.key, "brand": p.brand,
                               "sc_model": p.sc_model, "server": p.server})
-    return {"candidates": list(candidates.values()), "platforms": platforms}
+    result = {"candidates": list(candidates.values()), "platforms": platforms}
+    if not platforms:
+        # No platform identified: seed the "create it as pre-publication"
+        # sub-form so accepted parts can land linked (and scoped) instead of
+        # unlinked. The SC model is the one fact only the admin knows.
+        server = next((c.server_model for c in bom.configs if c.server_model), None)
+        result["platform_suggestion"] = {
+            "brand": (bom.vendor or "").strip().lower() or None,
+            "sc_model": None,
+            "server": server,
+            "form_factor": None,
+        }
+    return result
 
 
 # ---------------------------------------------------------------------------
 # accept
 # ---------------------------------------------------------------------------
 
-def accept_parts(check, keys, user, note=None) -> Dict:
+_SERVER_LIMIT = hcl_sync._PLATFORM_LIMITS["server"]
+
+
+def _validated_platform_spec(spec) -> Dict:
+    """Normalise + validate the optional {brand, sc_model, server} dict of an
+    accept. Brand is any lower-case token up to the column width (the four
+    known brands are just the common case — a new vendor must not need a
+    deploy); '/' is refused in the key halves because 'brand/sc_model' is the
+    entity key everywhere. Raises ValueError (route answers 400)."""
+    if not isinstance(spec, dict):
+        raise ValueError("platform must be an object with brand and sc_model")
+    brand = (spec.get("brand") or "").strip().lower()
+    if not brand or len(brand) > 20 or "/" in brand or any(ch.isspace() for ch in brand):
+        raise ValueError("platform brand must be a single token of at most 20 characters")
+    sc_model = (spec.get("sc_model") or "").strip()
+    if not sc_model or len(sc_model) > 40 or "/" in sc_model:
+        raise ValueError("platform sc_model must be 1-40 characters (no '/')")
+    server = (spec.get("server") or "").strip() or None
+    if server is not None and len(server) > _SERVER_LIMIT:
+        raise ValueError("platform server must be at most %d characters" % _SERVER_LIMIT)
+    return {"brand": brand, "sc_model": sc_model, "server": server}
+
+
+def accept_parts(check, keys, user, note=None, platform_spec=None) -> Dict:
     """Accept selected candidates of ``check`` into the catalog as
     origin='preview' components, linked to the check's identified platforms.
+
+    ``platform_spec`` ({brand, sc_model, server}) may create — or reuse — a
+    pre-publication platform when the check identified none, so the parts
+    land linked (and description-scoped) instead of unlinked; the created
+    platform is origin='preview' like the parts, with the same delist
+    immunity and publication flip.
 
     Everything goes through the queue-and-approve machinery: a ``preview``
     run collects one approved pending row per mutation, so the audit trail
     and catalog_stamp move exactly as they would for a scrape approval.
-    Raises ValueError for unknown keys (route answers 400).
+    Raises ValueError for unknown keys / a bad platform_spec (route answers
+    400).
     """
     info = candidates_for(check)
     by_key = {c["key"]: c for c in info["candidates"]}
@@ -167,6 +210,19 @@ def accept_parts(check, keys, user, note=None) -> Dict:
             wanted.append(by_key[k])
     if not wanted:
         raise ValueError("no candidate keys selected")
+
+    # Validate the platform spec BEFORE any row is written: a refused accept
+    # must leave no run behind.
+    spec = None
+    if platform_spec is not None:
+        if info["platforms"]:
+            raise ValueError("a platform was identified; acceptance links to it")
+        spec = _validated_platform_spec(platform_spec)
+        existing = HclPlatform.query.filter_by(
+            brand=spec["brand"], sc_model=spec["sc_model"]).first()
+        if existing is not None and existing.status == STATUS_ACTIVE \
+                and existing.origin != ORIGIN_PREVIEW:
+            raise ValueError("platform already exists")
 
     run = HclScrapeRun(status=RUN_SUCCEEDED, source="preview", complete=False,
                        pages_total=0, pages_done=0, finished_at=_utcnow(),
@@ -183,6 +239,31 @@ def accept_parts(check, keys, user, note=None) -> Dict:
         p = db.session.get(HclPlatform, pd["id"])
         if p is not None and p.status == STATUS_ACTIVE:
             platforms.append(p)
+
+    platform_created = None
+    if spec is not None:
+        # Create (or reuse) the pre-publication platform the admin described,
+        # through the same audited path as everything else: an approved
+        # platform 'add' row (payload origin preview, no components list — a
+        # targeted FIELD_LINK row per accepted part follows below).
+        platform = HclPlatform.query.filter_by(
+            brand=spec["brand"], sc_model=spec["sc_model"]).first()
+        if platform is None or platform.status != STATUS_ACTIVE:
+            key = "%s/%s" % (spec["brand"], spec["sc_model"])
+            change = HclPendingChange(
+                run_id=run.id, entity_type=hcl_sync.ENTITY_PLATFORM,
+                entity_key=key, change_kind=CHANGE_ADD,
+                payload={"brand": spec["brand"], "sc_model": spec["sc_model"],
+                         "server": spec["server"], "origin": ORIGIN_PREVIEW},
+                status=PENDING,
+                label="Pre-publication platform %s (%s)" % (key, spec["server"] or "?"))
+            db.session.add(change)
+            db.session.flush()
+            hcl_sync.approve(change, user, note=approve_note)
+            platform = HclPlatform.query.filter_by(
+                brand=spec["brand"], sc_model=spec["sc_model"]).first()
+        platforms.append(platform)
+        platform_created = platform.key
 
     created, linked, relisted, skipped = [], [], [], []
     for cand in wanted:
@@ -223,7 +304,8 @@ def accept_parts(check, keys, user, note=None) -> Dict:
             linked.append("%s -> %s" % (platform.key, cand["key"]))
 
     result = {"run_id": run.id, "created": created, "linked": linked,
-              "relisted": relisted, "skipped": skipped}
+              "relisted": relisted, "skipped": skipped,
+              "platform_created": platform_created}
     if not platforms:
         # No identified platform on the check: the parts still enter the
         # catalog (load_hcl_data reads components regardless of links) but
@@ -267,4 +349,14 @@ def preview_feed() -> Dict:
             "accepted_at": _iso(c.first_seen),
             "platforms": platforms,
         })
-    return {"generated_at": _utcnow().isoformat(), "components": components}
+    # Pre-publication PLATFORMS the admin created (accept_parts platform_spec)
+    # — the HCL team needs to know about the missing server card too, not
+    # just its parts. Same lifecycle: publication flips origin, dropping it.
+    plat_rows = (HclPlatform.query
+                 .filter_by(origin=ORIGIN_PREVIEW, status=STATUS_ACTIVE)
+                 .order_by(HclPlatform.brand, HclPlatform.sc_model).all())
+    plats = [{"brand": p.brand, "sc_model": p.sc_model, "server": p.server,
+              "form_factor": p.form_factor, "accepted_at": _iso(p.first_seen)}
+             for p in plat_rows]
+    return {"generated_at": _utcnow().isoformat(), "components": components,
+            "platforms": plats}

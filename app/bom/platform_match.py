@@ -37,6 +37,17 @@ _MODEL_RES = (
     re.compile(r"\bThinkCentre\s+(M\d{2}[a-z]?\s+\w+(?:\s+Gen\s*\d+)?)", re.I),
 )
 
+# ThinkCentre M-series models ending in 'q' (M70q, M90q): the 'q' IS the Tiny
+# form factor by definition, but quotes phrase the model inconsistently —
+# 'TC M70q G6', 'Desktop TC M70q G6', 'ThinkCentre M70q Gen 6' — while the
+# HCL's SERVER line says 'ThinkCentre M70q Tiny Gen6'. So every M\d{2}q +
+# generation sighting emits BOTH the plain and the 'tiny'-inserted key
+# ('m70qgen6' and 'm70qtinygen6'), normalising 'G6'/'Gen 6'/'Gen6' to 'gen6'.
+# Deliberately restricted to \bM\d{2}q\b so no other family (SR/ST/R/DL/...)
+# ever gains an invented variant. (\d+ carries no trailing \b: OEM strings
+# glue suffixes on with underscores, 'G6_OEM_Q870_ES_R'.)
+_TINY_Q_RE = re.compile(r"\b(M\d{2}q)\b[\s_-]*(?:Gen\s*|G)(\d+)", re.I)
+
 _VENDOR_BRAND = {"dell": "dell", "lenovo": "lenovo", "hpe": "hpe",
                  "supermicro": "supermicro"}
 
@@ -46,11 +57,18 @@ def model_tokens(text: Optional[str]) -> List[str]:
     if not text:
         return []
     out = []
+
+    def add(key):
+        if key and key not in out:
+            out.append(key)
+
     for rx in _MODEL_RES:
         for m in rx.finditer(text):
-            key = server_key(m.group(1))
-            if key and key not in out:
-                out.append(key)
+            add(server_key(m.group(1)))
+    for m in _TINY_Q_RE.finditer(text):
+        model, gen = m.group(1).lower(), m.group(2)
+        add("%sgen%s" % (model, gen))
+        add("%stinygen%s" % (model, gen))
     return out
 
 
