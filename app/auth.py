@@ -493,11 +493,13 @@ def purge_expired():
     db.session.commit()
 
     artifacts_purged = _purge_expired_exports()
+    rejects_purged = _purge_expired_bom_rejects()
     tenants_removed = _cleanup_empty_tenants()
     db.session.commit()
     pii_anonymized = anonymize_expired_pii()
     return {"configs_purged": len(cfg_ids), "users_purged": len(stale_users),
             "artifacts_purged": artifacts_purged,
+            "rejects_purged": rejects_purged,
             "tenants_removed": tenants_removed, "pii_anonymized": pii_anonymized}
 
 
@@ -1143,6 +1145,17 @@ def _detach_configuration_refs(config_ids):
         (ReplicationLink.source_configuration_id.in_(config_ids))
         | (ReplicationLink.target_configuration_id.in_(config_ids))
     ).delete(synchronize_session=False)
+
+
+def _purge_expired_bom_rejects():
+    """Age out BOM files kept for format inspection (consent-based, see
+    bom_models.BomRejectedFile). They are customer quote material: the consent
+    was to help teach the checker, not to archive the quote forever."""
+    from bom_models import BomRejectedFile
+    cutoff = _utcnow() - timedelta(days=BomRejectedFile.RETENTION_DAYS)
+    count = BomRejectedFile.query.filter(
+        BomRejectedFile.created_at < cutoff).delete(synchronize_session=False)
+    return count
 
 
 def _purge_expired_exports():

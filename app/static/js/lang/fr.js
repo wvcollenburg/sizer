@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Propriétaire",
+  "admin.bomrej.title": "Fichiers refusés partagés pour analyse",
+  "admin.bomrej.desc": "Fichiers BOM que le vérificateur n'a pas pu lire, conservés avec l'accord de l'utilisateur afin d'ajouter leur format. Supprimés automatiquement après 90 jours.",
+  "admin.bomrej.col_size": "Taille",
+  "admin.bomrej.col_error": "Réponse du vérificateur",
+  "admin.bomrej.download": "Télécharger",
+  "admin.bomrej.none": "Aucun fichier partagé.",
+  "admin.bomrej.delete_confirm": "Supprimer définitivement ce fichier partagé ?",
+  "bom.retain.offer": "Le vérificateur n'a pas pu lire ce fichier. Pouvons-nous en conserver une copie afin que Scale puisse lui apprendre ce format ? Elle sert uniquement à améliorer l'analyse et est supprimée après 90 jours.",
+  "bom.retain.share": "Partager le fichier avec Scale",
+  "bom.retain.no": "Non merci",
+  "bom.retain.thanks": "Merci — le fichier a été partagé avec Scale pour analyse."
 };

@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Savininkas",
+  "admin.bomrej.title": "Atmesti įkėlimai, bendrinami patikrai",
+  "admin.bomrej.desc": "BOM failai, kurių patikra negalėjo perskaityti; saugomi su įkėlusio asmens sutikimu, kad formatą būtų galima pridėti. Automatiškai ištrinami po 90 dienų.",
+  "admin.bomrej.col_size": "Dydis",
+  "admin.bomrej.col_error": "Patikros atsakymas",
+  "admin.bomrej.download": "Atsisiųsti",
+  "admin.bomrej.none": "Bendrinamų failų nėra.",
+  "admin.bomrej.delete_confirm": "Ar visam laikui ištrinti šį bendrinamą failą?",
+  "bom.retain.offer": "Patikra negalėjo perskaityti šio failo. Ar galime pasilikti kopiją, kad Scale galėtų pridėti šį formatą? Ji naudojama tik analizei gerinti ir ištrinama po 90 dienų.",
+  "bom.retain.share": "Bendrinti failą su Scale",
+  "bom.retain.no": "Ne, ačiū",
+  "bom.retain.thanks": "Ačiū — failas bendrintas su Scale patikrai."
 };

@@ -27,8 +27,8 @@ from auth_models import Configuration, _utcnow
 from bom import ai_prefill
 from bom.check import run_check
 from bom.normalize import NormalizedBOM
-from bom_models import (BomCheck, REVIEW_CONFIRMED, REVIEW_INCORRECT, REVIEW_NONE,
-                        REVIEW_OPEN)
+from bom_models import (BomCheck, BomRejectedFile, REVIEW_CONFIRMED,
+                        REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN)
 from database import db
 from extensions import limiter
 from projects import _owned_project_or_error, _visible_project
@@ -38,6 +38,9 @@ bom_project_bp = Blueprint("bom_project", __name__, url_prefix="/api/projects")
 bom_checks_bp = Blueprint("bom_checks", __name__, url_prefix="/api/bom-checks")
 bom_admin_bp = Blueprint("bom_admin", __name__, url_prefix="/admin/api/bom-reviews")
 bom_admin_bp.before_request(require_super_admin)
+bom_reject_admin_bp = Blueprint("bom_reject_admin", __name__,
+                                url_prefix="/admin/api/bom-rejects")
+bom_reject_admin_bp.before_request(require_super_admin)
 
 MAX_BOM_BYTES = 10 * 1024 * 1024
 ACCEPTED_EXTENSIONS = (".xlsx", ".csv")
@@ -49,6 +52,7 @@ def register_bom(app):
     app.register_blueprint(bom_project_bp)
     app.register_blueprint(bom_checks_bp)
     app.register_blueprint(bom_admin_bp)
+    app.register_blueprint(bom_reject_admin_bp)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -258,6 +262,7 @@ def create_check(project_id):
         except UnrecognizedFormat as exc:
             return jsonify({"error": "This file is not a BOM format the checker recognises.",
                             "hint": str(exc),
+                            "retainable": True,
                             "details": []}), 400
         except SheetTooLargeError as exc:
             # Oversized sheet or a zip decompression bomb: a clear refusal,
@@ -268,7 +273,8 @@ def create_check(project_id):
         from flask import current_app
         current_app.logger.warning("BOM check failed: %s", exc)
         return jsonify({"error": "Could not process the file. If it is a quote in another "
-                                 "layout, download the template and fill it in."}), 400
+                                 "layout, download the template and fill it in.",
+                        "retainable": True}), 400
     finally:
         try:
             os.unlink(path)
@@ -398,3 +404,78 @@ def annotate_review(check_id):
         check.id, check.name, status, (": " + note[:120]) if note else ""))
     db.session.commit()
     return jsonify({"message": "Review saved", "review": check.to_dict()})
+
+
+# ── rejected-file retention (consent-based) ──────────────────────────────────
+# The check route never keeps the upload. When a file is refused the client
+# offers to share it; only an explicit second POST — the consent — lands here.
+# The owner then downloads it over HTTP to teach the checker the format.
+
+@bom_project_bp.route("/<int:project_id>/bom-rejects", methods=["POST"])
+@login_required
+@limiter.limit("10 per hour")
+def retain_rejected(project_id):
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    f = request.files["file"]
+    try:
+        path, ext = _save_upload(f, ACCEPTED_EXTENSIONS)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
+        digest = _sha256(path)
+        with open(path, "rb") as fh:
+            content = fh.read()
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    existing = BomRejectedFile.query.filter_by(
+        file_sha256=digest, project_id=project.id).first()
+    if existing is not None:
+        # The same file offered twice (a retried upload): one copy is enough.
+        return jsonify(existing.to_dict()), 200
+    row = BomRejectedFile(
+        user_id=user.id, tenant_id=user.tenant_id, project_id=project.id,
+        filename=(f.filename or "bom")[:200], file_sha256=digest,
+        size_bytes=len(content), content=content,
+        error=(request.form.get("error") or "").strip()[:2000] or None,
+        note=(request.form.get("note") or "").strip()[:2000] or None,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify(row.to_dict()), 201
+
+
+@bom_reject_admin_bp.route("", methods=["GET"])
+def list_rejects():
+    rows = (BomRejectedFile.query
+            .order_by(BomRejectedFile.created_at.desc()).limit(200).all())
+    return jsonify([r.to_dict() for r in rows])
+
+
+@bom_reject_admin_bp.route("/<int:reject_id>/file", methods=["GET"])
+def download_reject(reject_id):
+    row = db.session.get(BomRejectedFile, reject_id)
+    if row is None:
+        return jsonify({"error": "File not found"}), 404
+    safe = "".join(ch if ch.isalnum() or ch in "._- " else "_" for ch in row.filename) or "bom"
+    mime = XLSX_MIME if safe.lower().endswith(".xlsx") else "text/csv"
+    return send_file(io.BytesIO(row.content), as_attachment=True,
+                     download_name=safe, mimetype=mime)
+
+
+@bom_reject_admin_bp.route("/<int:reject_id>", methods=["DELETE"])
+def delete_reject(reject_id):
+    row = db.session.get(BomRejectedFile, reject_id)
+    if row is None:
+        return jsonify({"error": "File not found"}), 404
+    audit("bom_reject_delete", "rejected file #%d (%s)" % (row.id, row.filename))
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({"message": "File deleted"})

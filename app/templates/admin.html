@@ -571,6 +571,25 @@
                     <tbody id="bom-reviews-tbody"></tbody>
                 </table>
             </div>
+
+            <!-- Files users consented to share after the checker refused them:
+                 download to teach the parsers a new format, delete when done.
+                 Auto-purged after 90 days either way. -->
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.bomrej.title">Rejected uploads shared for inspection</h3>
+                    <p class="muted" data-i18n="admin.bomrej.desc">BOM files the checker could not read, kept with the uploader's consent so their format can be added. Deleted automatically after 90 days.</p>
+                </div>
+                <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                    <th data-i18n="admin.bom.col_when">When</th>
+                    <th data-i18n="admin.bom.col_project">Project</th>
+                    <th data-i18n="admin.bom.col_owner">Owner</th>
+                    <th data-i18n="admin.bom.col_file">File</th>
+                    <th data-i18n="admin.bomrej.col_size">Size</th>
+                    <th data-i18n="admin.bomrej.col_error">Checker said</th>
+                    <th class="col-actions" data-i18n="common.actions">Actions</th>
+                </tr></thead><tbody id="bom-rejects-tbody"></tbody></table></div>
+            </div>
         </div>
 
         <!-- ═══════════════════ USERS TAB (super admin) ═══════════════════ -->

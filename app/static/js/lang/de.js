@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Besitzer",
+  "admin.bomrej.title": "Abgelehnte Uploads zur Prüfung",
+  "admin.bomrej.desc": "BOM-Dateien, die die Prüfung nicht lesen konnte – mit Zustimmung des Hochladenden aufbewahrt, damit ihr Format ergänzt werden kann. Nach 90 Tagen automatisch gelöscht.",
+  "admin.bomrej.col_size": "Größe",
+  "admin.bomrej.col_error": "Meldung der Prüfung",
+  "admin.bomrej.download": "Herunterladen",
+  "admin.bomrej.none": "Keine geteilten Dateien.",
+  "admin.bomrej.delete_confirm": "Diese geteilte Datei endgültig löschen?",
+  "bom.retain.offer": "Die Prüfung konnte diese Datei nicht lesen. Dürfen wir eine Kopie behalten, damit Scale dieses Format hinzufügen kann? Sie wird nur zur Verbesserung der Erkennung verwendet und nach 90 Tagen gelöscht.",
+  "bom.retain.share": "Datei mit Scale teilen",
+  "bom.retain.no": "Nein, danke",
+  "bom.retain.thanks": "Vielen Dank – die Datei wurde zur Prüfung an Scale übermittelt."
 };

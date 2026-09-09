@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Proprietário",
+  "admin.bomrej.title": "Envios rejeitados partilhados para inspeção",
+  "admin.bomrej.desc": "Ficheiros BOM que a verificação não conseguiu ler, guardados com o consentimento de quem os enviou para que o formato possa ser adicionado. Eliminados automaticamente após 90 dias.",
+  "admin.bomrej.col_size": "Tamanho",
+  "admin.bomrej.col_error": "Resposta da verificação",
+  "admin.bomrej.download": "Transferir",
+  "admin.bomrej.none": "Nenhum ficheiro partilhado.",
+  "admin.bomrej.delete_confirm": "Eliminar definitivamente este ficheiro partilhado?",
+  "bom.retain.offer": "A verificação não conseguiu ler este ficheiro. Podemos guardar uma cópia para que a Scale possa adicionar este formato? É usada apenas para melhorar a análise e é eliminada após 90 dias.",
+  "bom.retain.share": "Partilhar o ficheiro com a Scale",
+  "bom.retain.no": "Não, obrigado",
+  "bom.retain.thanks": "Obrigado — o ficheiro foi partilhado com a Scale para inspeção."
 };

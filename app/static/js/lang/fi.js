@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Omistaja",
+  "admin.bomrej.title": "Hylätyt lataukset jaettu tarkastusta varten",
+  "admin.bomrej.desc": "BOM-tiedostot, joita tarkistus ei voinut lukea; säilytetään lähettäjän suostumuksella, jotta muoto voidaan lisätä. Poistetaan automaattisesti 90 päivän kuluttua.",
+  "admin.bomrej.col_size": "Koko",
+  "admin.bomrej.col_error": "Tarkistuksen vastaus",
+  "admin.bomrej.download": "Lataa",
+  "admin.bomrej.none": "Ei jaettuja tiedostoja.",
+  "admin.bomrej.delete_confirm": "Poistetaanko tämä jaettu tiedosto pysyvästi?",
+  "bom.retain.offer": "Tarkistus ei voinut lukea tätä tiedostoa. Saammeko säilyttää kopion, jotta Scale voi lisätä tämän muodon? Sitä käytetään vain jäsennyksen parantamiseen, ja se poistetaan 90 päivän kuluttua.",
+  "bom.retain.share": "Jaa tiedosto Scalen kanssa",
+  "bom.retain.no": "Ei kiitos",
+  "bom.retain.thanks": "Kiitos – tiedosto jaettiin Scalelle tarkastusta varten."
 };

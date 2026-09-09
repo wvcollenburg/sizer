@@ -1115,6 +1115,16 @@
                     <p id="bom-error-text"></p>
                     <ul id="bom-error-details" hidden></ul>
                 </div>
+                <!-- Consent offer after an unreadable upload: nothing is kept
+                     unless the user presses the share button (a second POST). -->
+                <div class="bom-retain-offer" id="bom-retain-offer" hidden>
+                    <p data-i18n="bom.retain.offer">The checker could not read this file. May we keep a copy so Scale can teach the checker this format? It is only used to improve parsing and is deleted after 90 days.</p>
+                    <div class="bom-retain-actions">
+                        <button class="btn btn-soft btn-xs" data-click='["bomShareRejected"]' data-i18n="bom.retain.share">Share the file with Scale</button>
+                        <button class="btn btn-ghost btn-xs" data-click='["bomDismissRetain"]' data-i18n="bom.retain.no">No thanks</button>
+                    </div>
+                    <p class="import-info muted" id="bom-retain-done" hidden></p>
+                </div>
 
                 <div id="bom-step-upload">
                     <p class="import-info" data-i18n="bom.upload.intro">Upload a vendor BOM to check every part against the Scale Computing HCL and, optionally, against one of this project's sizings.</p>

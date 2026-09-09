@@ -1510,5 +1510,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Owner",
+  "admin.bomrej.title": "Rejected uploads shared for inspection",
+  "admin.bomrej.desc": "BOM files the checker could not read, kept with the uploader's consent so their format can be added. Deleted automatically after 90 days.",
+  "admin.bomrej.col_size": "Size",
+  "admin.bomrej.col_error": "Checker said",
+  "admin.bomrej.download": "Download",
+  "admin.bomrej.none": "No shared files.",
+  "admin.bomrej.delete_confirm": "Delete this shared file permanently?",
+  "bom.retain.offer": "The checker could not read this file. May we keep a copy so Scale can teach the checker this format? It is only used to improve parsing and is deleted after 90 days.",
+  "bom.retain.share": "Share the file with Scale",
+  "bom.retain.no": "No thanks",
+  "bom.retain.thanks": "Thank you — the file was shared with Scale for inspection."
 };

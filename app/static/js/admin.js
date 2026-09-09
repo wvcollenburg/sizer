@@ -43,7 +43,7 @@ function switchTab(tab) {
     if (tab === 'tuning') loadTunables();
     else if (tab === 'pricebook') loadPricebook();
     else if (tab === 'hcl') loadHcl();
-    else if (tab === 'bomreviews') loadBomReviews();
+    else if (tab === 'bomreviews') { loadBomReviews(); loadBomRejects(); }
     else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
@@ -2449,4 +2449,44 @@ async function bomReviewSave(status) {
     toast((data && data.message) || t('admin.bom.saved'), 'success');
     bomReviewClose();
     loadBomReviews();
+}
+
+// ==================== SUPER-ADMIN: REJECTED BOM UPLOADS ====================
+// Consent-shared files the checker refused (bom_models.BomRejectedFile):
+// download to teach the parsers the format, delete once handled.
+
+function bomRejSize(bytes) {
+    if (bytes == null) return '';
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+async function loadBomRejects() {
+    const body = document.getElementById('bom-rejects-tbody');
+    if (!body) return;
+    const { ok, data } = await adminApi('/admin/api/bom-rejects');
+    if (!ok || !Array.isArray(data)) {
+        body.innerHTML = `<tr><td colspan="7">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        return;
+    }
+    body.innerHTML = data.map(r => `
+        <tr>
+            <td>${adminDate(r.created_at)}</td>
+            <td>${adminEsc(r.project_name || '')}</td>
+            <td>${adminEsc(r.owner_email || '')}<br><span class="muted">${adminEsc(r.tenant_domain || '')}</span></td>
+            <td>${adminEsc(r.filename)}</td>
+            <td>${bomRejSize(r.size_bytes)}</td>
+            <td title="${adminEsc(r.error || '')}">${adminEsc((r.error || '').slice(0, 70))}</td>
+            <td class="col-actions">
+                <a class="btn btn-sm btn-secondary" href="/admin/api/bom-rejects/${r.id}/file">${adminEsc(t('admin.bomrej.download'))}</a>
+                <button class="btn btn-sm btn-danger" data-click='["deleteBomReject",${r.id}]'>${adminEsc(t('common.delete'))}</button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.bomrej.none'))}</td></tr>`;
+}
+
+async function deleteBomReject(id) {
+    if (!confirm(t('admin.bomrej.delete_confirm'))) return;
+    const { ok, data } = await adminApi(`/admin/api/bom-rejects/${id}`, { method: 'DELETE' });
+    if (!ok) { setStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    loadBomRejects();
 }

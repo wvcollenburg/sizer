@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "所有者",
+  "admin.bomrej.title": "検査用に共有された拒否ファイル",
+  "admin.bomrej.desc": "チェッカーが読み取れなかったBOMファイル。形式を追加できるよう、アップロードした方の同意を得て保管されます。90日後に自動削除されます。",
+  "admin.bomrej.col_size": "サイズ",
+  "admin.bomrej.col_error": "チェッカーの応答",
+  "admin.bomrej.download": "ダウンロード",
+  "admin.bomrej.none": "共有されたファイルはありません。",
+  "admin.bomrej.delete_confirm": "この共有ファイルを完全に削除しますか？",
+  "bom.retain.offer": "チェッカーはこのファイルを読み取れませんでした。この形式を追加できるよう、コピーを保管してもよろしいですか？解析の改善のみに使用し、90日後に削除されます。",
+  "bom.retain.share": "ファイルをScaleと共有",
+  "bom.retain.no": "いいえ",
+  "bom.retain.thanks": "ありがとうございます。ファイルは検査のためScaleと共有されました。"
 };

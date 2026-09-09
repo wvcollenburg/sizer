@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Ägare",
+  "admin.bomrej.title": "Avvisade uppladdningar delade för granskning",
+  "admin.bomrej.desc": "BOM-filer som kontrollen inte kunde läsa, sparade med uppladdarens samtycke så att formatet kan läggas till. Raderas automatiskt efter 90 dagar.",
+  "admin.bomrej.col_size": "Storlek",
+  "admin.bomrej.col_error": "Kontrollens svar",
+  "admin.bomrej.download": "Ladda ner",
+  "admin.bomrej.none": "Inga delade filer.",
+  "admin.bomrej.delete_confirm": "Ta bort den delade filen permanent?",
+  "bom.retain.offer": "Kontrollen kunde inte läsa filen. Får vi behålla en kopia så att Scale kan lägga till detta format? Den används bara för att förbättra tolkningen och raderas efter 90 dagar.",
+  "bom.retain.share": "Dela filen med Scale",
+  "bom.retain.no": "Nej tack",
+  "bom.retain.thanks": "Tack – filen har delats med Scale för granskning."
 };

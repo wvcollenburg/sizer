@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Eigenaar",
+  "admin.bomrej.title": "Geweigerde uploads gedeeld voor inspectie",
+  "admin.bomrej.desc": "BOM-bestanden die de controle niet kon lezen, bewaard met toestemming van de uploader zodat het formaat kan worden toegevoegd. Na 90 dagen automatisch verwijderd.",
+  "admin.bomrej.col_size": "Grootte",
+  "admin.bomrej.col_error": "Melding van de controle",
+  "admin.bomrej.download": "Downloaden",
+  "admin.bomrej.none": "Geen gedeelde bestanden.",
+  "admin.bomrej.delete_confirm": "Dit gedeelde bestand definitief verwijderen?",
+  "bom.retain.offer": "De controle kon dit bestand niet lezen. Mogen we een kopie bewaren zodat Scale dit formaat kan toevoegen? Het wordt alleen gebruikt om de verwerking te verbeteren en na 90 dagen verwijderd.",
+  "bom.retain.share": "Bestand delen met Scale",
+  "bom.retain.no": "Nee, bedankt",
+  "bom.retain.thanks": "Bedankt — het bestand is met Scale gedeeld voor inspectie."
 };

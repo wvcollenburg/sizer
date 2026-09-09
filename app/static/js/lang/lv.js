@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Īpašnieks",
+  "admin.bomrej.title": "Noraidītās augšupielādes, kopīgotas pārbaudei",
+  "admin.bomrej.desc": "BOM faili, kurus pārbaude nevarēja nolasīt; tiek glabāti ar augšupielādētāja piekrišanu, lai formātu varētu pievienot. Automātiski dzēsti pēc 90 dienām.",
+  "admin.bomrej.col_size": "Izmērs",
+  "admin.bomrej.col_error": "Pārbaudes atbilde",
+  "admin.bomrej.download": "Lejupielādēt",
+  "admin.bomrej.none": "Nav kopīgotu failu.",
+  "admin.bomrej.delete_confirm": "Vai neatgriezeniski dzēst šo kopīgoto failu?",
+  "bom.retain.offer": "Pārbaude nevarēja nolasīt šo failu. Vai drīkstam paturēt kopiju, lai Scale varētu pievienot šo formātu? Tā tiek izmantota tikai analīzes uzlabošanai un tiek dzēsta pēc 90 dienām.",
+  "bom.retain.share": "Kopīgot failu ar Scale",
+  "bom.retain.no": "Nē, paldies",
+  "bom.retain.thanks": "Paldies — fails tika kopīgots ar Scale pārbaudei."
 };

@@ -398,3 +398,133 @@ def test_no_price_shaped_keys_in_check_responses(app):
     sizing = sized(c, project["id"])
     d = upload(c, project["id"], sizing_id=str(sizing["id"])).get_json()
     assert _offending_keys(d) == []
+
+
+# ── consent-based retention of rejected files ────────────────────────────────
+# The check route never stores an upload. When a file is refused as
+# unrecognisable the response carries retainable=true; only the user's second,
+# explicit POST lands the bytes, where the super admin can fetch them over
+# HTTP to teach the parsers the format. Rows age out after 90 days.
+
+def _random_workbook_bytes():
+    from openpyxl import Workbook
+    wb = Workbook()
+    wb.active.append(["random", "sheet", "nobody", "knows"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_unrecognised_upload_is_marked_retainable_and_stores_nothing(app):
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    r = c.post(f"/api/projects/{project['id']}/bom-checks",
+               data={"file": (io.BytesIO(_random_workbook_bytes()), "mystery.xlsx")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+    assert r.get_json()["retainable"] is True
+    with app.app_context():
+        from bom_models import BomRejectedFile
+        assert BomRejectedFile.query.count() == 0
+
+
+def test_template_row_errors_are_not_retainable(app):
+    """A fixable template mistake gets row errors, not a retention offer."""
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    from bom.parsers.template import build_template_bytes
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(build_template_bytes(bom=_bom())))
+    ws = wb["BOM"]
+    headers = [cell.value for cell in ws[1]]
+    ws.cell(row=2, column=headers.index("Category") + 1, value="widget")
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    r = c.post(f"/api/projects/{project['id']}/bom-checks",
+               data={"file": (buf, "bad.xlsx")}, content_type="multipart/form-data")
+    assert r.status_code == 400
+    assert "retainable" not in r.get_json()
+
+
+def test_consent_flow_share_download_delete(app):
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    payload = _random_workbook_bytes()
+    r = c.post(f"/api/projects/{project['id']}/bom-rejects",
+               data={"file": (io.BytesIO(payload), "mystery.xlsx"),
+                     "error": "This file is not a BOM format the checker recognises."},
+               content_type="multipart/form-data")
+    assert r.status_code == 201, r.get_data(as_text=True)
+    row = r.get_json()
+    assert row["filename"] == "mystery.xlsx"
+    assert row["size_bytes"] == len(payload)
+    assert "content" not in row
+
+    # the same file again: one copy is enough
+    r2 = c.post(f"/api/projects/{project['id']}/bom-rejects",
+                data={"file": (io.BytesIO(payload), "mystery.xlsx")},
+                content_type="multipart/form-data")
+    assert r2.status_code == 200 and r2.get_json()["id"] == row["id"]
+
+    # partners cannot reach the admin side
+    assert c.get("/admin/api/bom-rejects").status_code == 403
+    assert c.get(f"/admin/api/bom-rejects/{row['id']}/file").status_code == 403
+
+    admin = client_for(app, ADMIN)
+    promote(app, ADMIN)
+    listed = admin.get("/admin/api/bom-rejects").get_json()
+    assert [x["id"] for x in listed] == [row["id"]]
+    assert listed[0]["owner_email"] == PARTNER
+    assert listed[0]["project_name"] == "Acme"
+    got = admin.get(f"/admin/api/bom-rejects/{row['id']}/file")
+    assert got.status_code == 200 and got.data == payload
+    assert "mystery.xlsx" in got.headers["Content-Disposition"]
+
+    assert admin.delete(f"/admin/api/bom-rejects/{row['id']}").status_code == 200
+    assert admin.get("/admin/api/bom-rejects").get_json() == []
+    assert admin.get(f"/admin/api/bom-rejects/{row['id']}/file").status_code == 404
+
+
+def test_consent_post_respects_project_write_rights(app):
+    owner = client_for(app, PARTNER)
+    project = make_project(owner)
+    outsider = client_for(app, OTHER)
+    r = outsider.post(f"/api/projects/{project['id']}/bom-rejects",
+                      data={"file": (io.BytesIO(_random_workbook_bytes()), "x.xlsx")},
+                      content_type="multipart/form-data")
+    assert r.status_code in (403, 404)
+
+
+def test_consent_post_validates_the_file(app):
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    r = c.post(f"/api/projects/{project['id']}/bom-rejects",
+               data={"file": (io.BytesIO(b"not a zip"), "x.xlsx")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+    r = c.post(f"/api/projects/{project['id']}/bom-rejects",
+               data={"file": (io.BytesIO(b"%PDF-1.4"), "x.pdf")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400
+
+
+def test_rejected_files_age_out_after_retention(app):
+    from datetime import timedelta
+    c = client_for(app, PARTNER)
+    project = make_project(c)
+    c.post(f"/api/projects/{project['id']}/bom-rejects",
+           data={"file": (io.BytesIO(_random_workbook_bytes()), "old.xlsx")},
+           content_type="multipart/form-data")
+    with app.app_context():
+        from auth import _purge_expired_bom_rejects
+        from auth_models import _utcnow
+        from bom_models import BomRejectedFile
+        row = BomRejectedFile.query.one()
+        assert _purge_expired_bom_rejects() == 0          # fresh: kept
+        row = BomRejectedFile.query.one()
+        row.created_at = _utcnow() - timedelta(days=BomRejectedFile.RETENTION_DAYS + 1)
+        db.session.commit()
+        assert _purge_expired_bom_rejects() == 1
+        db.session.commit()
+        assert BomRejectedFile.query.count() == 0

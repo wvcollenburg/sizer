@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Eier",
+  "admin.bomrej.title": "Avviste opplastinger delt for inspeksjon",
+  "admin.bomrej.desc": "BOM-filer som kontrollen ikke kunne lese, lagret med opplasterens samtykke slik at formatet kan legges til. Slettes automatisk etter 90 dager.",
+  "admin.bomrej.col_size": "Størrelse",
+  "admin.bomrej.col_error": "Kontrollens svar",
+  "admin.bomrej.download": "Last ned",
+  "admin.bomrej.none": "Ingen delte filer.",
+  "admin.bomrej.delete_confirm": "Slette denne delte filen permanent?",
+  "bom.retain.offer": "Kontrollen kunne ikke lese filen. Kan vi beholde en kopi slik at Scale kan legge til dette formatet? Den brukes bare til å forbedre tolkingen og slettes etter 90 dager.",
+  "bom.retain.share": "Del filen med Scale",
+  "bom.retain.no": "Nei takk",
+  "bom.retain.thanks": "Takk – filen er delt med Scale for inspeksjon."
 };

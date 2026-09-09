@@ -1509,5 +1509,17 @@
   "admin.tab.hcl": "HCL",
   "bom.verdict.pass": "PASS",
   "bom.verdict.fail": "FAIL",
-  "bom.verdict.inconclusive": "INCONCLUSIVE"
+  "bom.verdict.inconclusive": "INCONCLUSIVE",
+  "admin.bom.col_owner": "Omanik",
+  "admin.bomrej.title": "Tagasilükatud üleslaadimised, jagatud kontrolliks",
+  "admin.bomrej.desc": "BOM-failid, mida kontroll ei suutnud lugeda; säilitatakse üleslaadija nõusolekul, et vormingut saaks lisada. Kustutatakse automaatselt 90 päeva pärast.",
+  "admin.bomrej.col_size": "Suurus",
+  "admin.bomrej.col_error": "Kontrolli vastus",
+  "admin.bomrej.download": "Laadi alla",
+  "admin.bomrej.none": "Jagatud faile pole.",
+  "admin.bomrej.delete_confirm": "Kas kustutada see jagatud fail jäädavalt?",
+  "bom.retain.offer": "Kontroll ei suutnud seda faili lugeda. Kas võime koopia alles hoida, et Scale saaks selle vormingu lisada? Seda kasutatakse ainult analüüsi parandamiseks ja see kustutatakse 90 päeva pärast.",
+  "bom.retain.share": "Jaga faili Scale'iga",
+  "bom.retain.no": "Ei, aitäh",
+  "bom.retain.thanks": "Aitäh – fail jagati Scale'iga kontrolliks."
 };

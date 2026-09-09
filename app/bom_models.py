@@ -96,3 +96,52 @@ class BomCheck(db.Model):
             d["result"] = self.result
             d["history"] = self.history or []
         return d
+
+
+class BomRejectedFile(db.Model):
+    """A BOM upload the parsers refused, kept WITH THE UPLOADER'S CONSENT so
+    the owner can teach the checker its format.
+
+    Nothing lands here automatically: the check route keeps its
+    delete-after-parsing rule, and the client re-submits the file to a
+    dedicated endpoint only after the user accepts the offer shown on the
+    rejection. The bytes live in the database, not on disk — the box has no
+    shell operator to fish files out of a container filesystem, retrieval
+    must work over HTTP, and the daily purge ages rows out after
+    ``RETENTION_DAYS`` so consented quotes don't accumulate forever.
+    """
+    __tablename__ = "bom_rejected_files"
+
+    RETENTION_DAYS = 90
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), index=True)
+    filename = db.Column(db.String(200), nullable=False)
+    file_sha256 = db.Column(db.String(64), nullable=False, index=True)
+    size_bytes = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.LargeBinary, nullable=False)
+    error = db.Column(db.Text)            # what the checker answered
+    note = db.Column(db.Text)             # optional word from the uploader
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, index=True)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    project = db.relationship("Project", foreign_keys=[project_id])
+
+    def to_dict(self):
+        """Metadata only — the bytes go through the download route."""
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "project_name": self.project.name if self.project else None,
+            "owner_email": self.user.email if self.user else None,
+            "tenant_domain": self.user.tenant.domain if (self.user and self.user.tenant) else None,
+            "filename": self.filename,
+            "file_sha256": self.file_sha256,
+            "size_bytes": self.size_bytes,
+            "error": self.error,
+            "note": self.note,
+            "created_at": _iso(self.created_at),
+        }

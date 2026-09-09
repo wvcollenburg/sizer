@@ -125,7 +125,51 @@
         box.hidden = !msg;
     }
 
-    function bomClearError() { bomShowError('', []); }
+    function bomClearError() { bomShowError('', []); bomShowRetainOffer(false); }
+
+    // ── rejected-file retention offer ────────────────────────────────────────
+    // Shown only when the server marked the failure retainable (unrecognised
+    // format / parse crash). Consent is the button press: it re-posts the file
+    // the user already picked to a dedicated endpoint; nothing is stored by
+    // the failed check itself.
+    function bomShowRetainOffer(on, errorText) {
+        const box = $('bom-retain-offer');
+        if (!box) return;
+        const done = $('bom-retain-done');
+        if (done) { done.hidden = true; done.textContent = ''; }
+        box.hidden = !on;
+        bomState.retainError = on ? (errorText || '') : '';
+    }
+
+    async function bomShareRejected() {
+        if (!currentProject || !bomState.file || bomState.busy) return;
+        const fd = new FormData();
+        fd.append('file', bomState.file);
+        if (bomState.retainError) fd.append('error', bomState.retainError);
+        setBusy(true);
+        let res;
+        try {
+            res = await api(`/api/projects/${currentProject.id}/bom-rejects`, { method: 'POST', body: fd });
+        } catch (e) {
+            res = { ok: false, data: { error: e.message || String(e) } };
+        }
+        setBusy(false);
+        const done = $('bom-retain-done');
+        if (res.ok) {
+            const box = $('bom-retain-offer');
+            if (box) {
+                box.querySelectorAll('button').forEach(b => { b.hidden = true; });
+                const p = box.querySelector('p[data-i18n="bom.retain.offer"]');
+                if (p) p.hidden = true;
+            }
+            if (done) { done.textContent = t('bom.retain.thanks'); done.hidden = false; }
+        } else if (done) {
+            done.textContent = (res.data && res.data.error) || t('bom.err.failed');
+            done.hidden = false;
+        }
+    }
+
+    function bomDismissRetain() { bomShowRetainOffer(false); }
 
     function setStatus(msg, isError) {
         const el = $('bom-upload-status');
@@ -308,6 +352,7 @@
             return;
         }
         bomState.file = file;
+        bomShowRetainOffer(false);
         setStatus('', false);
         bomClearError();
         showFileName();
@@ -424,6 +469,7 @@
         if (!res.ok || !res.data) {
             const d = res.data || {};
             bomShowError(d.error || t('bom.err.failed'), d.details || []);
+            if (d.retainable) bomShowRetainOffer(true, [d.error, d.hint].filter(Boolean).join(' — '));
             return;
         }
         bomState.current = res.data;
@@ -817,6 +863,7 @@
     Object.assign(window, {
         openBomChecker, closeBomChecker, bomBack,
         bomPickSizing, bomFileChosen, bomRunCheck,
+        bomShareRejected, bomDismissRetain,
         openBomCheckResult, bomRecheck, bomRecheckSizingChanged, bomDelete,
         bomPrefillFileChosen, bomRunPrefill,
         loadBomChecks,

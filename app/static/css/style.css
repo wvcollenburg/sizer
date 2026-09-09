@@ -3565,3 +3565,18 @@ textarea.text-input:focus {
     .bom-modal #bom-recheck-wrap, .bom-modal #bom-run-btn { margin-left: 0; }
     .bom-modal .fanout-row.bom-pick-row .fanout-meta { margin-left: 0; text-align: left; flex-basis: 100%; }
 }
+
+/* BOM checker: consent offer after a rejected upload (see bom.js). Compound
+   selector so the app-wide resets can't swallow it. */
+.bom-modal .bom-retain-offer {
+    margin: 0.6rem 0 0;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--info);
+    border-radius: 8px;
+    background: var(--info-bg);
+    color: var(--text);
+    font-size: 0.86rem;
+}
+.bom-modal .bom-retain-offer p { margin: 0 0 0.55rem; }
+.bom-modal .bom-retain-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
