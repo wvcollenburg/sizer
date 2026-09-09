@@ -110,28 +110,44 @@ def _blocks(rows, start: int) -> List[dict]:
     return blocks
 
 
-def _is_machine(block: dict) -> bool:
-    return bool(LENOVO_CTO.match(block['sku'])) and (
-        'ThinkSystem' in block['title'] or _MACHINE_HINT.search(block['title']) is not None)
+def _is_machine(block: dict, has_part_col: bool = True) -> bool:
+    """A machine block header. In the description-only export (some resellers
+    strip the part-number column — the Arrow Cura quote) column A is empty for
+    every row, so the CTO test must fall away; the ' : ' title with a
+    ThinkSystem/model hint is then the only, and sufficient, signature (the
+    terms-and-conditions paragraphs that follow the table carry neither)."""
+    titled = ('ThinkSystem' in block['title']
+              or _MACHINE_HINT.search(block['title']) is not None)
+    if has_part_col:
+        return bool(LENOVO_CTO.match(block['sku'])) and titled
+    return not block['sku'] and ' : ' in block['title'] and titled
 
 
-def _components(child_rows, drop_m2: bool = True) -> List[BOMComponent]:
+def _components(child_rows, drop_m2: bool = True,
+                has_part_col: bool = True) -> List[BOMComponent]:
     """Child rows → components, duplicates summed per feature code (the
-    Frazier export lists 'C1YK … OCP Cable Kit' twice)."""
+    Frazier export lists 'C1YK … OCP Cable Kit' twice). The description-only
+    export has no feature codes at all, so there the description is the dedup
+    key and part_number stays None (HCL matching falls back to the verbatim
+    DCSC description, which is what the scraper stored)."""
     order: List[str] = []
     acc: Dict[str, BOMComponent] = {}
     for _r, fc, desc, qty in child_rows:
-        if not fc or not desc or should_drop(desc):
+        if not desc or should_drop(desc):
+            continue
+        if has_part_col and not fc:
             continue
         cat = categorize(desc)
         if cat == 'storage' and drop_m2 and is_m2_media(desc):
             cat = 'other'
         q = to_int(qty, default=1)
-        if fc in acc:
-            acc[fc].quantity += q
+        key = fc if fc else desc
+        if key in acc:
+            acc[key].quantity += q
         else:
-            acc[fc] = BOMComponent(part_number=fc, description=desc, quantity=q, category=cat)
-            order.append(fc)
+            acc[key] = BOMComponent(part_number=fc or None, description=desc,
+                                    quantity=q, category=cat)
+            order.append(key)
     return [acc[k] for k in order]
 
 
@@ -149,8 +165,11 @@ def parse(path: str) -> NormalizedBOM:
         wb.close()
 
     hdr = _header_row(rows)
+    # Description-only variant: the part-number column is missing entirely
+    # (header cell A is blank instead of 'Part number'/'Número de peça').
+    has_part_col = cell(rows, hdr, 1) != ''
     blocks = _blocks(rows, hdr + 1)
-    machines = [b for b in blocks if _is_machine(b)]
+    machines = [b for b in blocks if _is_machine(b, has_part_col)]
     if not machines:
         raise UnrecognizedFormat('DCSC quote has no ThinkSystem machine block.')
 
@@ -159,7 +178,7 @@ def parse(path: str) -> NormalizedBOM:
     current: Optional[BOMConfig] = None
     pending: List[BOMComponent] = []      # software rows seen before the first machine
     for block in blocks:
-        if _is_machine(block):
+        if _is_machine(block, has_part_col):
             name, rest = _split_title(block['title'])
             if not name or name.lower() in _GENERIC_NAMES:
                 generic += 1
@@ -168,7 +187,8 @@ def parse(path: str) -> NormalizedBOM:
             current = BOMConfig(
                 name=name,
                 server_model=model,
-                components=pending + _components(block['rows']),
+                components=pending + _components(block['rows'],
+                                                 has_part_col=has_part_col),
                 node_count=to_int(block['qty'], default=1),
             )
             pending = []

@@ -794,3 +794,85 @@ def test_archive_accepted_deviations_all_name_real_files():
     for filename, entry in ACCEPTED_DEVIATIONS.items():
         assert entry["reason"], filename
         assert entry["extra"] or entry["missing"], filename
+
+
+# ── Lenovo DCSC description-only variant (Arrow Cura, 2026-09-09) ────────────
+# Some resellers export the DCSC quote without the part-number column: column A
+# is empty for every row, the machine header lives in column C alone, and the
+# service items are inline child rows rather than separate blocks. The parser
+# must fall back to descriptions as identity (part_number None) instead of
+# refusing with "no ThinkSystem machine block".
+
+def _write_dcsc_nopn(path):
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Quote'
+    ws.cell(1, 3, 'Data Center Solution Configurator Quote')
+    ws.cell(2, 3, 'Prepared for:')
+    ws.cell(6, 3, 'Product Description')
+    ws.cell(6, 5, 'Qty')
+    ws.cell(6, 6, 'Price')
+    ws.cell(6, 7, 'Total Part Price')
+    rows = [
+        ('Acme MSP : ThinkSystem SR650 V4-3yr Base Warranty', 4),
+        ('ThinkSystem SR650 V4 12x3.5" Chassis', 4),
+        ('Intel Xeon 6530P 32C 225W 2.3GHz Processor', 8),
+        ('ThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM', 64),
+        ('ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA', 4),
+        ('ThinkSystem 3.5" VA 7.68TB Read Intensive SATA 6Gb HS SSD v2', 12),
+        ('ThinkSystem 3.5" 16TB 7.2K SAS 12Gb Hot Swap 512e HDD v2', 36),
+        ('ThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter', 4),
+        ('SERVER PREMIER NBD RESP', 4),          # inline service rows, no blank
+        ('Months', 240),
+    ]
+    for i, (desc, qty) in enumerate(rows):
+        ws.cell(9 + i, 3, desc)
+        ws.cell(9 + i, 5, qty)
+    ws.cell(9 + len(rows) + 1, 6, 'Total')
+    ws.cell(9 + len(rows) + 3, 1, 'TERMS AND CONDITIONS:')
+    wb.save(path)
+
+
+def test_dcsc_description_only_variant(tmp_path):
+    path = str(tmp_path / 'nopn.xlsx')
+    _write_dcsc_nopn(path)
+    assert detect_format(path, 'nopn.xlsx') == 'lenovo_dcsc'
+    bom, fmt = parse_file(path, 'nopn.xlsx')
+    assert fmt == 'lenovo_dcsc' and bom.vendor == 'Lenovo'
+    cfg = bom.configs[0]
+    assert cfg.name == 'Acme MSP'
+    assert cfg.server_model == 'ThinkSystem SR650 V4'
+    assert cfg.node_count == 4
+    by_desc = {c.description: c for c in cfg.components}
+    assert all(c.part_number is None for c in cfg.components)
+    cpu = by_desc['Intel Xeon 6530P 32C 225W 2.3GHz Processor']
+    assert cpu.category == 'cpu' and cpu.quantity == 8
+    hba = by_desc['ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA']
+    assert hba.category == 'controller' and hba.quantity == 4
+    hdd = by_desc['ThinkSystem 3.5" 16TB 7.2K SAS 12Gb Hot Swap 512e HDD v2']
+    assert hdd.category == 'storage' and hdd.quantity == 36
+    assert 'Months' not in by_desc          # service noise dropped
+
+
+ARROW_CURA = os.path.join(
+    ROOT, '_archive',
+    'Arrow Cura IT SR650v4_2x6530P_16x64GB_3x7.68_9x16TB_ETH_5YNBD 200226_V2.xlsx')
+
+
+@pytest.mark.skipif(not os.path.exists(ARROW_CURA), reason='archive BOM not present')
+def test_arrow_cura_description_only_quote_parses():
+    bom, fmt = parse_file(ARROW_CURA, os.path.basename(ARROW_CURA))
+    assert fmt == 'lenovo_dcsc'
+    cfg = bom.configs[0]
+    assert cfg.node_count == 4
+    assert cfg.server_model == 'ThinkSystem SR650 V4'
+    totals = {}
+    for c in cfg.components:
+        totals[c.category] = totals.get(c.category, 0) + c.quantity
+    # 4 nodes x (2x6530P, 16x64GB, 3x7.68TB SSD + 9x16TB HDD, 440-16i, 57504)
+    assert totals['cpu'] == 8
+    assert totals['memory'] == 64
+    assert totals['storage'] == 48
+    assert totals['controller'] == 4
+    assert totals['nic'] == 4
