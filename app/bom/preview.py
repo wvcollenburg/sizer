@@ -194,11 +194,29 @@ def _norm_name(text: Optional[str]) -> str:
     return server_key(text or "")
 
 
+_DIGIT_RUN_RE = re.compile(r"\d+")
+
+
+def _model_number(text: str) -> Optional[str]:
+    """First digit run of a normalised name — 'sr650v4' -> '650'. That run is
+    the model number, the one part of the name that must not drift."""
+    m = _DIGIT_RUN_RE.search(text or "")
+    return m.group(0) if m else None
+
+
 def _similarity(a: str, b: str) -> float:
     if not a or not b:
         return 0.0
     if a == b:
         return 1.0
+    # Names one digit apart ('sr630v4' vs 'sr650v4', 'HE155' vs 'HE160') read
+    # as ~86% similar to a character-diff but are different machines. Found on
+    # the live catalog, where a warning for every neighbouring model number
+    # would train admins to ignore the warning. Spacing, vendor words and
+    # suffixes may differ; the model number may not.
+    na, nb = _model_number(a), _model_number(b)
+    if na is not None and nb is not None and na != nb:
+        return 0.0
     # One name contained in the other ("SE160" typed for an existing "SE160
     # Gen 1") scores below the plain ratio because of the length difference,
     # yet it is the likeliest duplicate of all. Five characters minimum so a

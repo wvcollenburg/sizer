@@ -906,3 +906,19 @@ def test_no_merge_when_the_server_differs(app):
         snap = _published_snapshot(server="ThinkEdge SE450 Gen 2")
         changes = sync.diff_snapshot(snap)
         assert not [c for c in changes if c["change_kind"] == "merge"]
+
+
+def test_near_matches_do_not_flag_a_neighbouring_model_number(app):
+    """Found on the live catalog: 'SR650 V4' vs 'SR630V4' is one digit apart
+    and ~86% similar to a character diff, but they are different servers. A
+    warning that fires on every neighbour is a warning people learn to skip."""
+    with app.app_context():
+        from bom.preview import _similarity, near_matches, _norm_name
+        assert _similarity(_norm_name("ThinkSystem SR650 V4"), _norm_name("ThinkSystem SR630V4")) == 0.0
+        assert _similarity(_norm_name("HE155"), _norm_name("HE160")) == 0.0
+        # …while spacing, vendor words and suffixes may still differ freely
+        assert _similarity(_norm_name("Lenovo ThinkEdge SE160 Gen 1"),
+                           _norm_name("ThinkEdge SE160 Gen1")) == 1.0
+        assert _similarity(_norm_name("SE160"), _norm_name("SE160 Gen 1")) >= 0.9
+        # the fixture platform is still found by its own name
+        assert [m["sc_model"] for m in near_matches("lenovo", "ThinkCentre M70q Tiny Gen 6")] == ["HE155"]
