@@ -408,6 +408,8 @@
   "auth.edit_name_title": "Click to set the name that goes on your proposals",
   "auth.email_failed_body": "Your account was created, but the verification link to {email} could not be sent, so it will not arrive. Please contact your administrator, who can check the mail settings and send it again.",
   "auth.email_failed_title": "We could not send the verification email",
+  "auth.email_rejected_body": "Your account was created, but the mail server rejected {email}, so the verification link could not be delivered. Check the address — the part after the @ especially — and sign up again with the correct one. If the address is right, ask your administrator to look into it.",
+  "auth.email_rejected_title": "That email address was rejected",
   "auth.forgot_need_email": "Enter your email above first, then click \"Forgot password?\"",
   "auth.forgot_sent_body": "If that account exists, a password reset email is on its way. The link is valid for a short time.",
   "auth.generic_error": "Something went wrong. Try again.",

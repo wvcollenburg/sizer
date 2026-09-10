@@ -955,3 +955,15 @@ body { padding-bottom: 64px; }
     white-space: pre;
     tab-size: 4;
 }
+
+/* The diagnosis lines between an audit summary and its trace. Wraps, unlike the
+   trace: this is the sentence that says whether the address or the mail server
+   is at fault, and it was the one getting clipped by the trace box's scroll. */
+.model-table td .audit-cause {
+    margin: 0.3rem 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text, #0f172b);
+}

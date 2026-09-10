@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Noklikšķiniet, lai iestatītu vārdu, kas parādās jūsu piedāvājumos",
   "auth.email_failed_body": "Jūsu konts tika izveidots, taču verifikācijas saiti uz {email} nevarēja nosūtīt, tāpēc tā nepienāks. Lūdzu, sazinieties ar savu administratoru, kas var pārbaudīt e-pasta iestatījumus un nosūtīt to atkārtoti.",
   "auth.email_failed_title": "Neizdevās nosūtīt verifikācijas e-pastu",
+  "auth.email_rejected_body": "Jūsu konts tika izveidots, taču pasta serveris atteica adresi {email}, tāpēc verifikācijas saiti nevarēja piegādāt. Pārbaudiet adresi, jo īpaši daļu pēc @, un reģistrējieties vēlreiz ar pareizo. Ja adrese ir pareiza, sazinieties ar savu administratoru.",
+  "auth.email_rejected_title": "Šī e-pasta adrese tika atteikta",
   "auth.forgot_need_email": "Vispirms ievadiet savu e-pastu augšā, tad noklikšķiniet uz \"Aizmirsāt paroli?\"",
   "auth.forgot_sent_body": "Ja šāds konts pastāv, paroles atiestatīšanas e-pasts ir ceļā. Saite ir derīga īsu laiku.",
   "auth.generic_error": "Kaut kas nogāja greizi. Mēģiniet vēlreiz.",

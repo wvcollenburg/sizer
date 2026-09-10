@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Spustelėkite, kad nustatytumėte vardą, rodomą jūsų pasiūlymuose",
   "auth.email_failed_body": "Jūsų paskyra buvo sukurta, tačiau patvirtinimo nuorodos adresu {email} išsiųsti nepavyko, todėl ji nepasieks jūsų. Susisiekite su administratoriumi, kuris gali patikrinti el. pašto nustatymus ir išsiųsti ją dar kartą.",
   "auth.email_failed_title": "Nepavyko išsiųsti patvirtinimo laiško",
+  "auth.email_rejected_body": "Jūsų paskyra buvo sukurta, tačiau pašto serveris atmetė adresą {email}, todėl patvirtinimo nuorodos nepavyko pateikti. Patikrinkite adresą, ypač dalį po @, ir užsiregistruokite dar kartą su teisingu. Jei adresas teisingas, susisiekite su administratoriumi.",
+  "auth.email_rejected_title": "Šis el. pašto adresas buvo atmestas",
   "auth.forgot_need_email": "Pirmiausia įveskite savo el. paštą aukščiau, tada spustelėkite \"Pamiršote slaptažodį?\"",
   "auth.forgot_sent_body": "Jei tokia paskyra egzistuoja, slaptažodžio atkūrimo laiškas jau siunčiamas. Nuoroda galioja trumpą laiką.",
   "auth.generic_error": "Kažkas nepavyko. Bandykite dar kartą.",

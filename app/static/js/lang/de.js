@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klicken, um den Namen festzulegen, der auf Ihren Angeboten erscheint",
   "auth.email_failed_body": "Ihr Konto wurde erstellt, aber der Verifizierungslink an {email} konnte nicht gesendet werden und wird daher nicht ankommen. Bitte wenden Sie sich an Ihren Administrator, der die E-Mail-Einstellungen prüfen und den Link erneut senden kann.",
   "auth.email_failed_title": "Die Verifizierungs-E-Mail konnte nicht gesendet werden",
+  "auth.email_rejected_body": "Ihr Konto wurde erstellt, aber der Mailserver hat {email} abgelehnt, sodass der Verifizierungslink nicht zugestellt werden konnte. Prüfen Sie die Adresse — insbesondere den Teil nach dem @ — und registrieren Sie sich erneut mit der korrekten Adresse. Ist die Adresse richtig, wenden Sie sich an Ihren Administrator.",
+  "auth.email_rejected_title": "Diese E-Mail-Adresse wurde abgelehnt",
   "auth.forgot_need_email": "Geben Sie zuerst oben Ihre E-Mail-Adresse ein, und klicken Sie dann auf „Passwort vergessen?“",
   "auth.forgot_sent_body": "Falls dieses Konto existiert, ist eine E-Mail zum Zurücksetzen des Passworts unterwegs. Der Link ist für kurze Zeit gültig.",
   "auth.generic_error": "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",

@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klik om de naam in te stellen die op je voorstellen komt",
   "auth.email_failed_body": "Uw account is aangemaakt, maar de verificatielink naar {email} kon niet worden verzonden en komt dus niet aan. Neem contact op met uw beheerder, die de e-mailinstellingen kan controleren en de link opnieuw kan verzenden.",
   "auth.email_failed_title": "We konden de verificatie-e-mail niet verzenden",
+  "auth.email_rejected_body": "Uw account is aangemaakt, maar de mailserver heeft {email} geweigerd, waardoor de verificatielink niet kon worden bezorgd. Controleer het adres — vooral het deel na de @ — en registreer u opnieuw met het juiste adres. Is het adres correct, neem dan contact op met uw beheerder.",
+  "auth.email_rejected_title": "Dit e-mailadres is geweigerd",
   "auth.forgot_need_email": "Voer eerst uw e-mailadres hierboven in en klik dan op \"Wachtwoord vergeten?\"",
   "auth.forgot_sent_body": "Als dat account bestaat, is er een e-mail voor het opnieuw instellen van het wachtwoord onderweg. De link is korte tijd geldig.",
   "auth.generic_error": "Er ging iets mis. Probeer het opnieuw.",

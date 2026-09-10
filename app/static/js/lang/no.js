@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klikk for å angi navnet som står på tilbudene dine",
   "auth.email_failed_body": "Kontoen din ble opprettet, men verifiseringslenken til {email} kunne ikke sendes og kommer derfor ikke fram. Kontakt administratoren din, som kan sjekke e-postinnstillingene og sende den på nytt.",
   "auth.email_failed_title": "Vi kunne ikke sende verifiseringse-posten",
+  "auth.email_rejected_body": "Kontoen din ble opprettet, men e-postserveren avviste {email}, så verifiseringslenken kunne ikke leveres. Kontroller adressen — særlig delen etter @ — og registrer deg på nytt med den riktige. Hvis adressen er riktig, kontakt administratoren din.",
+  "auth.email_rejected_title": "Denne e-postadressen ble avvist",
   "auth.forgot_need_email": "Skriv inn e-posten din ovenfor først, og klikk deretter «Glemt passord?»",
   "auth.forgot_sent_body": "Hvis den kontoen finnes, er en e-post for tilbakestilling av passord på vei. Lenken er gyldig i kort tid.",
   "auth.generic_error": "Noe gikk galt. Prøv igjen.",

@@ -274,6 +274,48 @@ def send_email(to_addr, subject, body):
 # renders any action starting with this prefix as a warning row.
 EMAIL_FAILED_ACTION = "email_failed"
 
+# Two different faults hide behind "the email did not go out", and they belong to
+# different people. A refused recipient is a wrong address — whoever typed it can
+# fix it, and the mail server is working correctly. Everything else is the relay
+# or its configuration, which is the administrator's. Reporting both as one sends
+# an admin to inspect a healthy server because somebody mistyped a domain.
+EMAIL_FAIL_RECIPIENT = "recipient_refused"
+EMAIL_FAIL_SERVER = "server"
+
+
+def _email_failure_cause(exc):
+    """Classify a send failure into (slug, human phrase).
+
+    The slug is deliberately coarse — the caller only needs to know whose
+    problem it is, and a finer contract would leak SMTP internals to the client.
+    The phrase is specific, because it is written to the audit log where a super
+    admin is trying to work out what to change.
+    """
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return EMAIL_FAIL_RECIPIENT, (
+            "The mail server rejected the recipient address. The address or its "
+            "domain is most likely wrong; the mail server itself is fine.")
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return EMAIL_FAIL_SERVER, (
+            "The mail server rejected our credentials — check the SMTP username "
+            "and password.")
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return EMAIL_FAIL_SERVER, (
+            "The mail server rejected the From address — it must be one your mail "
+            "provider authorises this account to send as.")
+    if isinstance(exc, ValueError):
+        # Raised by _validate_smtp_target: unresolvable host, blocked address, or
+        # a port outside the mail-submission set.
+        return EMAIL_FAIL_SERVER, (
+            "The configured SMTP host/port was rejected before connecting — "
+            "check the settings ({}).".format(exc))
+    if isinstance(exc, (smtplib.SMTPConnectError, socket.timeout, OSError)):
+        return EMAIL_FAIL_SERVER, (
+            "Could not reach the mail server — check the host, port and network.")
+    if isinstance(exc, smtplib.SMTPException):
+        return EMAIL_FAIL_SERVER, "The mail server refused the message."
+    return EMAIL_FAIL_SERVER, "The message could not be sent."
+
 
 def _record_email_failure(kind, to_addr, exc, actor=None):
     """Make a failed outbound email visible instead of silent.
@@ -293,14 +335,22 @@ def _record_email_failure(kind, to_addr, exc, actor=None):
 
     Records the recipient — the super admin needs to know who did not get their
     mail — the SMTP target, and the trace. Never the password.
+
+    Returns the failure slug from _email_failure_cause() so the caller can tell
+    the user whose problem it is.
     """
+    slug, phrase = _email_failure_cause(exc)
     trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    # Cause first, settings second: a refused recipient is not a reason to go
+    # looking at the SMTP configuration, and leading with the host invites
+    # exactly that.
     detail = (
         "{kind} email to {to} could not be sent.\n"
+        "Likely cause: {phrase}\n"
         "SMTP target: {host}:{port} (STARTTLS={tls}, username={user})\n"
         "Error: {etype}: {exc}\n\n{trace}"
     ).format(
-        kind=kind, to=to_addr or "(no recipient)",
+        kind=kind, to=to_addr or "(no recipient)", phrase=phrase,
         host=get_setting("smtp_host") or "(unset)",
         port=get_setting("smtp_port", "587") or "(unset)",
         tls=_setting_bool("smtp_use_tls"),
@@ -320,6 +370,7 @@ def _record_email_failure(kind, to_addr, exc, actor=None):
             db.session.rollback()
         except Exception:  # noqa: BLE001
             pass
+    return slug
 
 
 def _hash_token(token):
@@ -342,7 +393,12 @@ def app_base_url():
 
 
 def send_verification_email(user, base_url):
-    """Issue a fresh token and email a verification link. Returns True on success."""
+    """Issue a fresh token and email a verification link.
+
+    Returns ``(ok, cause)`` — cause is None on success, otherwise the slug from
+    _email_failure_cause() saying whether the address or the mail server is at
+    fault, so the caller can tell the user something actionable.
+    """
     token = secrets.token_urlsafe(32)[:64]
     user.verification_token = _hash_token(token)
     user.verification_sent_at = _utcnow()
@@ -356,14 +412,16 @@ def send_verification_email(user, base_url):
             "{}\n\n"
             "If you did not create this account, you can ignore this email.".format(link),
         )
-        return True
+        return True, None
     except Exception as e:  # noqa: BLE001 — caller decides how to surface failures
-        _record_email_failure("Verification", user.email, e, actor=user)
-        return False
+        return False, _record_email_failure("Verification", user.email, e, actor=user)
 
 
 def send_reset_email(user, base_url):
-    """Issue a fresh reset token and email a reset link. Returns True on success."""
+    """Issue a fresh reset token and email a reset link.
+
+    Returns ``(ok, cause)``, as send_verification_email does.
+    """
     token = secrets.token_urlsafe(32)[:64]
     user.reset_token = _hash_token(token)
     user.reset_sent_at = _utcnow()
@@ -377,10 +435,9 @@ def send_reset_email(user, base_url):
             "hours):\n\n{}\n\nIf you did not request this, you can ignore this "
             "email — your password will not change.".format(RESET_TOKEN_TTL_HOURS, link),
         )
-        return True
+        return True, None
     except Exception as e:  # noqa: BLE001
-        _record_email_failure("Password reset", user.email, e, actor=user)
-        return False
+        return False, _record_email_failure("Password reset", user.email, e, actor=user)
 
 
 # ── audit log ────────────────────────────────────────────────────────────────
@@ -916,13 +973,13 @@ def signup():
             # fresh signup reports False too. Where no send was attempted (the
             # address is already verified, or disabled) we still say True, so
             # that case stays indistinguishable from a successful signup.
-            sent = True
+            sent, cause = True, None
             if not existing.is_verified and not existing.is_disabled:
-                sent = send_verification_email(existing, app_base_url())
+                sent, cause = send_verification_email(existing, app_base_url())
             return jsonify({"pending_verification": True, "email": email,
-                            "email_sent": sent}), 201
+                            "email_sent": sent, "email_error": cause}), 201
         return jsonify({"pending_verification": True, "email": email,
-                        "email_sent": False}), 201
+                        "email_sent": False, "email_error": None}), 201
 
     if tenant is None:
         tenant = _get_or_create_tenant(domain)
@@ -954,12 +1011,15 @@ def signup():
     db.session.commit()
 
     if needs_verification:
-        sent = send_verification_email(user, app_base_url())
+        sent, cause = send_verification_email(user, app_base_url())
         # Do not log them in until verified.
         return jsonify({
             "pending_verification": True,
             "email": user.email,
             "email_sent": sent,
+            # Which of the two faults it was, so the dialog can say either
+            # "check that address" or "your administrator needs to look at it".
+            "email_error": cause,
         }), 201
 
     session.clear()  # rotate session on privilege change
@@ -1644,11 +1704,19 @@ def super_reset_password(user_id):
     if not smtp_configured():
         return jsonify({"error":
                         "Provide a new password, or configure SMTP to email a reset link."}), 400
-    sent = send_reset_email(target, app_base_url())
+    sent, cause = send_reset_email(target, app_base_url())
     audit("reset_password_email", target.email)
     db.session.commit()
-    return jsonify({"message": ("Reset link sent to {}.".format(target.email) if sent
-                                else "Could not send the reset email — check SMTP settings.")})
+    if sent:
+        return jsonify({"message": "Reset link sent to {}.".format(target.email)})
+    # Point the admin at the right thing: their own settings are not the problem
+    # when the relay rejected the address they are resetting.
+    if cause == EMAIL_FAIL_RECIPIENT:
+        return jsonify({"message": "The mail server rejected {} — check the "
+                                   "address. See the audit log for the full "
+                                   "error.".format(target.email)})
+    return jsonify({"message": "Could not send the reset email — check the SMTP "
+                                "settings, then the audit log for the full error."})
 
 
 @super_bp.route("/users/stale", methods=["GET"])

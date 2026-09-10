@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klik for at angive det navn, der står på dine tilbud",
   "auth.email_failed_body": "Din konto blev oprettet, men bekræftelseslinket til {email} kunne ikke sendes og kommer derfor ikke frem. Kontakt din administrator, som kan kontrollere mailindstillingerne og sende det igen.",
   "auth.email_failed_title": "Vi kunne ikke sende bekræftelsesmailen",
+  "auth.email_rejected_body": "Din konto blev oprettet, men mailserveren afviste {email}, så bekræftelseslinket kunne ikke leveres. Kontrollér adressen — især delen efter @ — og tilmeld dig igen med den rigtige. Hvis adressen er korrekt, kontakt din administrator.",
+  "auth.email_rejected_title": "Denne e-mailadresse blev afvist",
   "auth.forgot_need_email": "Indtast din e-mail ovenfor først, og klik derefter på \"Glemt adgangskode?\"",
   "auth.forgot_sent_body": "Hvis den konto findes, er en e-mail til nulstilling af adgangskode på vej. Linket er gyldigt i en kort periode.",
   "auth.generic_error": "Noget gik galt. Prøv igen.",

@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Cliquez pour définir le nom qui figure sur vos propositions",
   "auth.email_failed_body": "Votre compte a été créé, mais le lien de vérification vers {email} n'a pas pu être envoyé et n'arrivera donc pas. Veuillez contacter votre administrateur, qui peut vérifier les paramètres de messagerie et le renvoyer.",
   "auth.email_failed_title": "Nous n'avons pas pu envoyer l'e-mail de vérification",
+  "auth.email_rejected_body": "Votre compte a été créé, mais le serveur de messagerie a refusé {email}, si bien que le lien de vérification n'a pas pu être remis. Vérifiez l'adresse — en particulier la partie après le @ — et inscrivez-vous à nouveau avec la bonne adresse. Si l'adresse est correcte, contactez votre administrateur.",
+  "auth.email_rejected_title": "Cette adresse e-mail a été refusée",
   "auth.forgot_need_email": "Saisissez d'abord votre e-mail ci-dessus, puis cliquez sur « Mot de passe oublié ? »",
   "auth.forgot_sent_body": "Si ce compte existe, un e-mail de réinitialisation du mot de passe est en route. Le lien est valide pendant une courte durée.",
   "auth.generic_error": "Une erreur s'est produite. Réessayez.",

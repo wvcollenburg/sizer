@@ -339,9 +339,18 @@ async function submitAuth(event) {
             // email" would send the user to wait for something that is not
             // coming. Say so plainly, and colour it as a failure — the info
             // modal is neutral, so the toast carries the alarm.
-            showInfoModal(t('auth.email_failed_title'),
-                t('auth.email_failed_body', { email: data.email }));
-            if (window.toastError) toastError(t('auth.email_failed_title'));
+            //
+            // Which of the two failures it was decides who can act: a refused
+            // recipient is a wrong address, fixable by the person reading this;
+            // anything else is the mail server, and only an admin can fix that.
+            const badAddress = data.email_error === 'recipient_refused';
+            const title = badAddress ? t('auth.email_rejected_title')
+                                     : t('auth.email_failed_title');
+            const body = badAddress
+                ? t('auth.email_rejected_body', { email: data.email })
+                : t('auth.email_failed_body', { email: data.email });
+            showInfoModal(title, body);
+            if (window.toastError) toastError(title);
         } else {
             showInfoModal(t('auth.check_email_title'),
                 t('auth.check_email_body', { email: data.email }));

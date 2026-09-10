@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Napsauta asettaaksesi nimen, joka näkyy tarjouksissasi",
   "auth.email_failed_body": "Tilisi luotiin, mutta vahvistuslinkkiä osoitteeseen {email} ei voitu lähettää, joten se ei saavu. Ota yhteyttä ylläpitäjääsi, joka voi tarkistaa sähköpostiasetukset ja lähettää sen uudelleen.",
   "auth.email_failed_title": "Vahvistussähköpostin lähettäminen ei onnistunut",
+  "auth.email_rejected_body": "Tilisi luotiin, mutta sähköpostipalvelin hylkäsi osoitteen {email}, joten vahvistuslinkkiä ei voitu toimittaa. Tarkista osoite — erityisesti @-merkin jälkeinen osa — ja rekisteröidy uudelleen oikealla osoitteella. Jos osoite on oikea, ota yhteyttä ylläpitäjääsi.",
+  "auth.email_rejected_title": "Tämä sähköpostiosoite hylättiin",
   "auth.forgot_need_email": "Syötä ensin sähköpostisi yllä, napsauta sitten \"Unohditko salasanasi?\"",
   "auth.forgot_sent_body": "Jos kyseinen tili on olemassa, salasanan nollaussähköposti on matkalla. Linkki on voimassa lyhyen ajan.",
   "auth.generic_error": "Jokin meni pieleen. Yritä uudelleen.",

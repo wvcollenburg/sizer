@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Clicca per impostare il nome che compare sulle tue proposte",
   "auth.email_failed_body": "Il suo account è stato creato, ma il link di verifica a {email} non è stato inviato e quindi non arriverà. Contatti il suo amministratore, che può controllare le impostazioni di posta e inviarlo di nuovo.",
   "auth.email_failed_title": "Non è stato possibile inviare l'email di verifica",
+  "auth.email_rejected_body": "Il suo account è stato creato, ma il server di posta ha rifiutato {email}, quindi il link di verifica non è stato consegnato. Controlli l'indirizzo, in particolare la parte dopo la @, e si registri di nuovo con quello corretto. Se l'indirizzo è giusto, contatti il suo amministratore.",
+  "auth.email_rejected_title": "Questo indirizzo email è stato rifiutato",
   "auth.forgot_need_email": "Inserisca prima la sua email sopra, poi clicchi su \"Password dimenticata?\"",
   "auth.forgot_sent_body": "Se quell'account esiste, un'email di reimpostazione password è in arrivo. Il link è valido per un breve periodo.",
   "auth.generic_error": "Si è verificato un problema. Riprovi.",

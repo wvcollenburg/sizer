@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klicka för att ange namnet som visas på dina offerter",
   "auth.email_failed_body": "Ditt konto skapades, men verifieringslänken till {email} kunde inte skickas och kommer därför inte fram. Kontakta din administratör, som kan kontrollera e-postinställningarna och skicka den igen.",
   "auth.email_failed_title": "Vi kunde inte skicka verifieringsmejlet",
+  "auth.email_rejected_body": "Ditt konto skapades, men e-postservern avvisade {email}, så verifieringslänken kunde inte levereras. Kontrollera adressen — särskilt delen efter @ — och registrera dig igen med den rätta. Om adressen är korrekt, kontakta din administratör.",
+  "auth.email_rejected_title": "Den e-postadressen avvisades",
   "auth.forgot_need_email": "Ange din e-post ovan först och klicka sedan på \"Glömt lösenord?\"",
   "auth.forgot_sent_body": "Om det kontot finns är ett e-postmeddelande för lösenordsåterställning på väg. Länken är giltig en kort tid.",
   "auth.generic_error": "Något gick fel. Försök igen.",

@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Clique para definir o nome que aparece nas suas propostas",
   "auth.email_failed_body": "Sua conta foi criada, mas o link de verificação para {email} não pôde ser enviado e, portanto, não chegará. Entre em contato com seu administrador, que pode verificar as configurações de e-mail e enviá-lo novamente.",
   "auth.email_failed_title": "Não foi possível enviar o e-mail de verificação",
+  "auth.email_rejected_body": "Sua conta foi criada, mas o servidor de e-mail rejeitou {email}, portanto o link de verificação não pôde ser entregue. Verifique o endereço, especialmente a parte após o @, e cadastre-se novamente com o correto. Se o endereço estiver certo, entre em contato com seu administrador.",
+  "auth.email_rejected_title": "Esse endereço de e-mail foi rejeitado",
   "auth.forgot_need_email": "Insira seu e-mail acima primeiro e, em seguida, clique em \"Esqueceu a senha?\"",
   "auth.forgot_sent_body": "Se essa conta existir, um e-mail de redefinição de senha está a caminho. O link é válido por um curto período.",
   "auth.generic_error": "Algo deu errado. Tente novamente.",

@@ -407,6 +407,8 @@
   "auth.edit_name_title": "Klõpsa, et määrata nimi, mis läheb sinu pakkumistele",
   "auth.email_failed_body": "Teie konto loodi, kuid kinnituslinki aadressile {email} ei õnnestunud saata, seega see ei jõua kohale. Palun võtke ühendust oma administraatoriga, kes saab e-posti seaded üle vaadata ja selle uuesti saata.",
   "auth.email_failed_title": "Kinnituskirja ei õnnestunud saata",
+  "auth.email_rejected_body": "Teie konto loodi, kuid postiserver lükkas aadressi {email} tagasi, mistõttu kinnituslinki ei saanud kohale toimetada. Kontrollige aadressi, eriti @-märgi järel olevat osa, ja registreeruge uuesti õige aadressiga. Kui aadress on õige, võtke ühendust oma administraatoriga.",
+  "auth.email_rejected_title": "See e-posti aadress lükati tagasi",
   "auth.forgot_need_email": "Sisestage esmalt ülal oma e-post, seejärel klõpsake \"Unustasite parooli?\"",
   "auth.forgot_sent_body": "Kui see konto on olemas, on parooli lähtestamise kiri teel. Link kehtib lühikest aega.",
   "auth.generic_error": "Midagi läks valesti. Proovige uuesti.",

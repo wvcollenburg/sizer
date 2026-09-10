@@ -182,12 +182,26 @@ def _working_smtp(monkeypatch):
 
 
 def _break_smtp(monkeypatch):
+    """A server-side failure: the relay is unreachable."""
     import auth
 
     def boom(msg):
         raise OSError(SMTP_BOOM)
 
     monkeypatch.setattr(auth, "_smtp_send", boom)
+
+
+def _refuse_recipient(monkeypatch, addr):
+    """A recipient-side failure: the relay is healthy and rejects the address,
+    which is what a mistyped or non-existent domain actually looks like."""
+    import auth
+    import smtplib
+
+    def refuse(msg):
+        raise smtplib.SMTPRecipientsRefused(
+            {addr: (550, b"5.1.2 Host unknown; domain does not exist")})
+
+    monkeypatch.setattr(auth, "_smtp_send", refuse)
 
 
 def _email_failures():
@@ -278,6 +292,60 @@ def test_smtp_test_button_records_the_trace_without_echoing_it(client, monkeypat
         assert len(rows) == 1
         assert SMTP_BOOM in rows[0].detail
         assert "Traceback (most recent call last)" in rows[0].detail
+
+
+def test_refused_recipient_is_not_reported_as_a_server_problem(client, monkeypatch):
+    """A 550 on the address means the mail server is working and the address is
+    wrong. Blaming the SMTP settings sends an admin to inspect a healthy server
+    because somebody mistyped a domain."""
+    addr = "typo@nonexistent-domain.example"
+    with appmod.app.app_context():
+        _configure_smtp()
+        _refuse_recipient(monkeypatch, addr)
+
+        body = _signup(client, addr).get_json()
+        assert body["email_sent"] is False
+        assert body["email_error"] == "recipient_refused"
+
+        detail = _email_failures()[0].detail
+        # The cause leads, ahead of the SMTP target.
+        assert detail.index("Likely cause:") < detail.index("SMTP target:")
+        assert "rejected the recipient address" in detail
+        assert "the mail server itself is fine" in detail
+        assert "Traceback (most recent call last)" in detail
+
+
+def test_unreachable_server_is_reported_as_a_server_problem(client, monkeypatch):
+    with appmod.app.app_context():
+        _configure_smtp()
+        _break_smtp(monkeypatch)
+
+        body = _signup(client, "frank@examplecorp.com").get_json()
+        assert body["email_sent"] is False
+        assert body["email_error"] == "server"
+
+        detail = _email_failures()[0].detail
+        assert "Could not reach the mail server" in detail
+
+
+@pytest.mark.parametrize("exc_factory,expected", [
+    (lambda: __import__("smtplib").SMTPRecipientsRefused({"a@b.example": (550, b"no")}),
+     "recipient_refused"),
+    (lambda: __import__("smtplib").SMTPAuthenticationError(535, b"bad creds"), "server"),
+    (lambda: __import__("smtplib").SMTPSenderRefused(553, b"bad from", "a@b.example"),
+     "server"),
+    (lambda: ValueError("SMTP host could not be resolved"), "server"),
+    (lambda: OSError("connection refused"), "server"),
+    (lambda: __import__("smtplib").SMTPException("something else"), "server"),
+    (lambda: RuntimeError("unexpected"), "server"),
+])
+def test_email_failure_classification(exc_factory, expected):
+    """Only a refused recipient is the user's to fix; everything else, including
+    anything unforeseen, defaults to the administrator."""
+    from auth import _email_failure_cause
+    slug, phrase = _email_failure_cause(exc_factory())
+    assert slug == expected
+    assert phrase and phrase[0].isupper() and phrase.endswith((".", ")"))
 
 
 def test_import_rejects_non_zip(client):

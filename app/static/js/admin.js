@@ -1631,15 +1631,28 @@ async function sendTestEmail() {
 }
 
 // Audit details are one line for almost every action. The email-failure rows
-// carry a stack trace, which is the whole point of recording them — split the
-// summary from the trace so the table stays readable and the trace is still
-// there in full, selectable and scrollable.
+// carry three parts, separated by a blank line: a summary, a few lines of
+// diagnosis, and a stack trace.
+//
+// They are rendered differently on purpose. The diagnosis is the sentence that
+// decides who has to act, so it wraps as prose — inside the monospace trace box
+// it was the line getting clipped by the horizontal scroll. The trace keeps its
+// own formatting and scrolls, because reflowed tracebacks are unreadable.
 function auditDetailCell(detail) {
-    const text = String(detail || '');
-    const cut = text.indexOf('\n');
-    if (cut === -1) return adminEsc(text);
-    return `${adminEsc(text.slice(0, cut))}
-        <pre class="audit-trace">${adminEsc(text.slice(cut + 1).trim())}</pre>`;
+    const text = String(detail || '').trim();
+    const firstBreak = text.indexOf('\n');
+    if (firstBreak === -1) return adminEsc(text);
+
+    const summary = text.slice(0, firstBreak);
+    const rest = text.slice(firstBreak + 1);
+    const split = rest.indexOf('\n\n');
+    const cause = split === -1 ? '' : rest.slice(0, split).trim();
+    const trace = split === -1 ? rest.trim() : rest.slice(split + 2).trim();
+
+    let html = adminEsc(summary);
+    if (cause) html += `<div class="audit-cause">${adminEsc(cause)}</div>`;
+    if (trace) html += `<pre class="audit-trace">${adminEsc(trace)}</pre>`;
+    return html;
 }
 
 async function loadAuditLog() {
