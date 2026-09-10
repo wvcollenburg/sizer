@@ -154,6 +154,132 @@ def test_verification_temp_off_window(client):
         assert auth.verify_off_minutes_remaining() == 0
 
 
+# ── failed outbound email is recorded, not swallowed ─────────────────────────
+# Every mail send is best-effort so a broken relay can't take signup down with
+# it. That used to mean a failure left no trace anywhere: the account existed,
+# the link never arrived, and nothing said why. These pin the trace down.
+
+SMTP_BOOM = "smtp-refused-in-test"
+
+
+def _configure_smtp(password="s3cret-smtp-pw"):
+    """Turn verification on by configuring SMTP, with a password we can then
+    assert never reaches the audit log."""
+    import auth
+    auth.set_setting("smtp_host", "smtp.example.com")
+    auth.set_setting("smtp_from", "no-reply@example.com")
+    auth.set_setting("smtp_username", "mailer@example.com")
+    auth.set_setting("smtp_password", auth._encrypt_secret(password))
+    db.session.commit()
+
+
+def _working_smtp(monkeypatch):
+    """A send that succeeds. Needed explicitly: the configured host is not
+    resolvable from a test box, so without this the SSRF guard fails the send
+    and the 'mail was working' half of these tests is not what it claims."""
+    import auth
+    monkeypatch.setattr(auth, "_smtp_send", lambda msg: None)
+
+
+def _break_smtp(monkeypatch):
+    import auth
+
+    def boom(msg):
+        raise OSError(SMTP_BOOM)
+
+    monkeypatch.setattr(auth, "_smtp_send", boom)
+
+
+def _email_failures():
+    from auth_models import AdminAuditLog
+    return AdminAuditLog.query.filter_by(action="email_failed").all()
+
+
+def test_failed_verification_email_is_audited_with_a_full_trace(client, monkeypatch):
+    with appmod.app.app_context():
+        _configure_smtp()
+        _break_smtp(monkeypatch)
+
+        resp = _signup(client, "bob@examplecorp.com")
+        assert resp.status_code == 201
+        # The user is told, rather than being sent to wait for mail that is
+        # never coming.
+        assert resp.get_json()["email_sent"] is False
+
+        rows = _email_failures()
+        assert len(rows) == 1, "a failed verification email must leave one audit row"
+        detail = rows[0].detail
+        assert "bob@examplecorp.com" in detail          # who missed out
+        assert "smtp.example.com" in detail             # which server
+        assert "OSError" in detail and SMTP_BOOM in detail
+        assert "Traceback (most recent call last)" in detail   # the full trace
+        assert "s3cret-smtp-pw" not in detail           # never the password
+        assert rows[0].actor_email == "bob@examplecorp.com"
+
+
+def test_failed_email_is_recorded_even_when_the_caller_never_commits(client, monkeypatch):
+    """resend-verification returns a generic message and commits nothing, so the
+    audit row has to persist itself or it is lost with the session."""
+    with appmod.app.app_context():
+        _configure_smtp()
+        _working_smtp(monkeypatch)
+        _signup(client, "carol@examplecorp.com")        # sends fine, no row
+        assert _email_failures() == []
+
+        _break_smtp(monkeypatch)
+        resp = client.post("/api/auth/resend-verification",
+                           json={"email": "carol@examplecorp.com"})
+        assert resp.status_code == 200                  # still generic to the caller
+        rows = _email_failures()
+        assert len(rows) == 1
+        assert "carol@examplecorp.com" in rows[0].detail
+        assert "Traceback (most recent call last)" in rows[0].detail
+
+
+def test_repeat_signup_reports_the_real_send_failure(client, monkeypatch):
+    """Signing up again is what someone does when the first link never arrived.
+    That path used to answer 'sent' unconditionally, hiding the very failure the
+    user was reacting to."""
+    with appmod.app.app_context():
+        _configure_smtp()
+        _working_smtp(monkeypatch)
+        _signup(client, "dave@examplecorp.com")         # first signup, mail OK
+        assert _email_failures() == []
+
+        _break_smtp(monkeypatch)
+        again = _signup(client, "dave@examplecorp.com")
+        assert again.status_code == 201
+        assert again.get_json()["email_sent"] is False
+        assert len(_email_failures()) == 1
+
+
+def test_smtp_test_button_records_the_trace_without_echoing_it(client, monkeypatch):
+    """The response stays generic — a raw SMTP error can fingerprint a probed
+    service — but the super admin gets the trace in the audit log."""
+    from auth_models import ROLE_SUPER_ADMIN, User
+    with appmod.app.app_context():
+        _configure_smtp()
+        _working_smtp(monkeypatch)
+        _signup(client, "erin@examplecorp.com")
+        user = User.query.filter_by(email="erin@examplecorp.com").first()
+        user.role = ROLE_SUPER_ADMIN
+        user.is_verified = True
+        db.session.commit()
+        client.post("/api/auth/login", json={"email": "erin@examplecorp.com",
+                                             "password": "Abcdef1!xy"})
+
+        _break_smtp(monkeypatch)
+        resp = client.post("/api/admin/super/email-settings/test",
+                           json={"to": "erin@examplecorp.com"})
+        assert resp.status_code == 502
+        assert SMTP_BOOM not in resp.get_data(as_text=True)   # not echoed
+
+        rows = _email_failures()
+        assert len(rows) == 1
+        assert SMTP_BOOM in rows[0].detail
+        assert "Traceback (most recent call last)" in rows[0].detail
+
+
 def test_import_rejects_non_zip(client):
     _signup(client)
     r = client.post("/api/import-liveoptics",

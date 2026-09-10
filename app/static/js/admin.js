@@ -1630,17 +1630,34 @@ async function sendTestEmail() {
     setStatus('email-status', (data && (data.message || data.error)) || (ok ? t('admin.email.sent') : t('admin.msg.failed')), !ok);
 }
 
+// Audit details are one line for almost every action. The email-failure rows
+// carry a stack trace, which is the whole point of recording them — split the
+// summary from the trace so the table stays readable and the trace is still
+// there in full, selectable and scrollable.
+function auditDetailCell(detail) {
+    const text = String(detail || '');
+    const cut = text.indexOf('\n');
+    if (cut === -1) return adminEsc(text);
+    return `${adminEsc(text.slice(0, cut))}
+        <pre class="audit-trace">${adminEsc(text.slice(cut + 1).trim())}</pre>`;
+}
+
 async function loadAuditLog() {
     const { ok, data } = await adminApi('/api/admin/super/audit');
     const body = document.getElementById('admin-audit-tbody');
     if (!ok) { body.innerHTML = ''; return; }
-    body.innerHTML = data.map(e => `
-        <tr>
+    body.innerHTML = data.map(e => {
+        // A failed outbound email is not a routine admin action — it is
+        // something nobody asked for and nobody would otherwise see.
+        const warn = String(e.action || '').indexOf('email_failed') === 0;
+        return `
+        <tr${warn ? ' class="audit-row-warn"' : ''}>
             <td>${adminDate(e.created_at)}</td>
             <td>${adminEsc(e.actor_email || '')}</td>
             <td><code>${adminEsc(e.action)}</code></td>
-            <td>${adminEsc(e.detail || '')}</td>
-        </tr>`).join('') || `<tr><td colspan="4">${adminEsc(t('admin.audit.none'))}</td></tr>`;
+            <td>${auditDetailCell(e.detail)}</td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="4">${adminEsc(t('admin.audit.none'))}</td></tr>`;
 }
 
 

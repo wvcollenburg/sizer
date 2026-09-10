@@ -334,11 +334,18 @@ async function submitAuth(event) {
         document.getElementById('auth-password').value = '';
         document.getElementById('auth-confirm').value = '';
         document.getElementById('auth-accept-privacy').checked = false;
-        const note = data.email_sent === false
-            ? ' ' + t('auth.check_email_note')
-            : '';
-        showInfoModal(t('auth.check_email_title'),
-            t('auth.check_email_body', { email: data.email, note }));
+        if (data.email_sent === false) {
+            // The account exists but the link never went out, so "check your
+            // email" would send the user to wait for something that is not
+            // coming. Say so plainly, and colour it as a failure — the info
+            // modal is neutral, so the toast carries the alarm.
+            showInfoModal(t('auth.email_failed_title'),
+                t('auth.email_failed_body', { email: data.email }));
+            if (window.toastError) toastError(t('auth.email_failed_title'));
+        } else {
+            showInfoModal(t('auth.check_email_title'),
+                t('auth.check_email_body', { email: data.email }));
+        }
         return;
     }
 

@@ -920,3 +920,38 @@ body { padding-bottom: 64px; }
 .bom-prev-plat .bom-prev-near-list li { margin: 0.2rem 0; }
 .bom-prev-plat .bom-prev-near-list button,
 .bom-prev-plat .bom-prev-near-title button { margin-left: 0.4rem; }
+
+/* Failed-email rows in the audit log (admin.js loadAuditLog).
+   A failed outbound email is not a routine admin action, so it is coloured as a
+   warning. Compound selectors, and the :hover variant spelled out, because
+   `.model-table tbody tr:hover` sets its own background and would otherwise win
+   the moment the pointer crossed the row. */
+.model-table tbody tr.audit-row-warn,
+.model-table tbody tr.audit-row-warn:hover {
+    background: var(--orange-bg, #fef9c3);
+}
+.model-table tbody tr.audit-row-warn td:first-child {
+    box-shadow: inset 3px 0 0 var(--orange, #f0b429);
+}
+.model-table tbody tr.audit-row-warn code {
+    color: var(--orange, #854d0e);
+    font-weight: 600;
+}
+
+/* The stack trace behind a warning row. Scrolls in its own box rather than
+   stretching the table: these run to twenty-odd lines of paths. */
+.model-table td .audit-trace {
+    margin: 0.4rem 0 0;
+    padding: 0.5rem 0.6rem;
+    max-height: 15rem;
+    overflow: auto;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--surface, #fff);
+    color: var(--text-muted, #62748e);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    white-space: pre;
+    tab-size: 4;
+}

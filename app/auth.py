@@ -17,6 +17,7 @@ import smtplib
 import socket
 import ipaddress
 import secrets
+import traceback
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
@@ -269,6 +270,58 @@ def send_email(to_addr, subject, body):
     _smtp_send(_build_message(to_addr, subject, body))
 
 
+# Audit action for a failed outbound email. Read by the admin audit log, which
+# renders any action starting with this prefix as a warning row.
+EMAIL_FAILED_ACTION = "email_failed"
+
+
+def _record_email_failure(kind, to_addr, exc, actor=None):
+    """Make a failed outbound email visible instead of silent.
+
+    Every mail send here is best-effort — the caller returns False and carries
+    on, because a broken mail server must not take signup down with it. The cost
+    was that nothing anywhere recorded *why*: the account was created, the
+    verification link was never delivered, and the only evidence was an
+    ``email_sent: false`` field nobody surfaced. This writes the whole story to
+    the audit log, with the traceback, so a super admin can diagnose it after
+    the fact, and mirrors it to the application log for whoever is tailing it.
+
+    Commits on its own. Some callers (resend-verification) never commit again,
+    and a failure recorded in an uncommitted session is the same silence this
+    exists to end. Nothing it does may propagate: an audit write that fails must
+    not turn a soft mail failure into a 500.
+
+    Records the recipient — the super admin needs to know who did not get their
+    mail — the SMTP target, and the trace. Never the password.
+    """
+    trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    detail = (
+        "{kind} email to {to} could not be sent.\n"
+        "SMTP target: {host}:{port} (STARTTLS={tls}, username={user})\n"
+        "Error: {etype}: {exc}\n\n{trace}"
+    ).format(
+        kind=kind, to=to_addr or "(no recipient)",
+        host=get_setting("smtp_host") or "(unset)",
+        port=get_setting("smtp_port", "587") or "(unset)",
+        tls=_setting_bool("smtp_use_tls"),
+        user=get_setting("smtp_username") or "(none)",
+        etype=type(exc).__name__, exc=exc, trace=trace,
+    )
+    try:
+        current_app.logger.error("Outbound %s email to %s failed:\n%s",
+                                 kind, to_addr, trace)
+    except Exception:  # noqa: BLE001 — logging must never break the caller
+        pass
+    try:
+        audit(EMAIL_FAILED_ACTION, detail, actor=actor)
+        db.session.commit()
+    except Exception:  # noqa: BLE001 — nor may the audit write
+        try:
+            db.session.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _hash_token(token):
     """SHA-256 of a verification/reset token. The raw token is emailed to the
     user; only this hash is stored, so a DB read can't be used to verify accounts
@@ -304,7 +357,8 @@ def send_verification_email(user, base_url):
             "If you did not create this account, you can ignore this email.".format(link),
         )
         return True
-    except Exception:  # noqa: BLE001 — caller decides how to surface failures
+    except Exception as e:  # noqa: BLE001 — caller decides how to surface failures
+        _record_email_failure("Verification", user.email, e, actor=user)
         return False
 
 
@@ -324,7 +378,8 @@ def send_reset_email(user, base_url):
             "email — your password will not change.".format(RESET_TOKEN_TTL_HOURS, link),
         )
         return True
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
+        _record_email_failure("Password reset", user.email, e, actor=user)
         return False
 
 
@@ -853,10 +908,19 @@ def signup():
     existing = User.query.filter_by(email=email).first()
     if existing:
         if needs_verification:
+            # Report what actually happened when we tried to send. Hard-coding
+            # True used to hide a broken mail server from the very person most
+            # likely to meet it — someone signing up again because the first
+            # link never arrived. Enumeration parity is preserved either way:
+            # when mail works both branches say True, and when it is broken a
+            # fresh signup reports False too. Where no send was attempted (the
+            # address is already verified, or disabled) we still say True, so
+            # that case stays indistinguishable from a successful signup.
+            sent = True
             if not existing.is_verified and not existing.is_disabled:
-                send_verification_email(existing, app_base_url())
+                sent = send_verification_email(existing, app_base_url())
             return jsonify({"pending_verification": True, "email": email,
-                            "email_sent": True}), 201
+                            "email_sent": sent}), 201
         return jsonify({"pending_verification": True, "email": email,
                         "email_sent": False}), 201
 
@@ -1779,10 +1843,13 @@ def test_email_settings():
                        "be authorised by your mail provider.".format(to, msg["From"]),
         })
     except Exception as e:  # noqa: BLE001
-        # Log the detail server-side; don't echo it — the raw exception can leak
-        # a probed service's banner/error (SSRF fingerprinting).
-        current_app.logger.warning("SMTP test send failed: %s", e)
-        return jsonify({"error": "Send failed. Check the SMTP settings and server logs."}), 502
+        # Record the detail server-side (audit log + app log); don't echo it —
+        # the raw exception can leak a probed service's banner/error (SSRF
+        # fingerprinting). The admin who pressed the button can read the trace
+        # in the audit log, which is already super-admin only.
+        _record_email_failure("SMTP test", to, e)
+        return jsonify({"error": "Send failed. Check the SMTP settings, then the "
+                                 "audit log for the full error."}), 502
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────
