@@ -1,0 +1,395 @@
+{
+  "scraped_at": "2026-09-08T19:36:03.372210+00:00",
+  "pages": [
+    {
+      "file": "hcready_filter.html",
+      "url": "/hcready/filter",
+      "status": 200,
+      "bytes": 42114
+    },
+    {
+      "file": "hcl_devinfo.html",
+      "url": "/hcl/devinfo",
+      "status": 200,
+      "bytes": 30124
+    },
+    {
+      "file": "hcl_filter.html",
+      "url": "/hcl/filter",
+      "status": 200,
+      "bytes": 28509
+    },
+    {
+      "file": "detail/dell__HC3350F.html",
+      "url": "/hcready/detail?model=HC3350F&brand=dell",
+      "status": 200,
+      "bytes": 3717
+    },
+    {
+      "file": "detail/dell__HC3350DF.html",
+      "url": "/hcready/detail?model=HC3350DF&brand=dell",
+      "status": 200,
+      "bytes": 3719
+    },
+    {
+      "file": "detail/dell__HC5250D-V.html",
+      "url": "/hcready/detail?model=HC5250D-V&brand=dell",
+      "status": 200,
+      "bytes": 5330
+    },
+    {
+      "file": "detail/dell__HC5450D-V.html",
+      "url": "/hcready/detail?model=HC5450D-V&brand=dell",
+      "status": 200,
+      "bytes": 10121
+    },
+    {
+      "file": "detail/dell__HE501.html",
+      "url": "/hcready/detail?model=HE501&brand=dell",
+      "status": 200,
+      "bytes": 4266
+    },
+    {
+      "file": "detail/dell__HE551.html",
+      "url": "/hcready/detail?model=HE551&brand=dell",
+      "status": 200,
+      "bytes": 4830
+    },
+    {
+      "file": "detail/dell__HE551F.html",
+      "url": "/hcready/detail?model=HE551F&brand=dell",
+      "status": 200,
+      "bytes": 3564
+    },
+    {
+      "file": "detail/dell__HE502.html",
+      "url": "/hcready/detail?model=HE502&brand=dell",
+      "status": 200,
+      "bytes": 4370
+    },
+    {
+      "file": "detail/dell__HE552.html",
+      "url": "/hcready/detail?model=HE552&brand=dell",
+      "status": 200,
+      "bytes": 4934
+    },
+    {
+      "file": "detail/dell__HE552F.html",
+      "url": "/hcready/detail?model=HE552F&brand=dell",
+      "status": 200,
+      "bytes": 3668
+    },
+    {
+      "file": "detail/dell__HC1450D.html",
+      "url": "/hcready/detail?model=HC1450D&brand=dell",
+      "status": 200,
+      "bytes": 9659
+    },
+    {
+      "file": "detail/dell__HC3450F.html",
+      "url": "/hcready/detail?model=HC3450F&brand=dell",
+      "status": 200,
+      "bytes": 8332
+    },
+    {
+      "file": "detail/dell__HC3450DF.html",
+      "url": "/hcready/detail?model=HC3450DF&brand=dell",
+      "status": 200,
+      "bytes": 8334
+    },
+    {
+      "file": "detail/dell__HC3450FG.html",
+      "url": "/hcready/detail?model=HC3450FG&brand=dell",
+      "status": 200,
+      "bytes": 8333
+    },
+    {
+      "file": "detail/lenovo__HE500.html",
+      "url": "/hcready/detail?model=HE500&brand=lenovo",
+      "status": 200,
+      "bytes": 5887
+    },
+    {
+      "file": "detail/lenovo__HE550.html",
+      "url": "/hcready/detail?model=HE550&brand=lenovo",
+      "status": 200,
+      "bytes": 8259
+    },
+    {
+      "file": "detail/lenovo__HE550F.html",
+      "url": "/hcready/detail?model=HE550F&brand=lenovo",
+      "status": 200,
+      "bytes": 5686
+    },
+    {
+      "file": "detail/lenovo__HC1200.html",
+      "url": "/hcready/detail?model=HC1200&brand=lenovo",
+      "status": 200,
+      "bytes": 6140
+    },
+    {
+      "file": "detail/lenovo__HC1250.html",
+      "url": "/hcready/detail?model=HC1250&brand=lenovo",
+      "status": 200,
+      "bytes": 8512
+    },
+    {
+      "file": "detail/lenovo__HC1250D.html",
+      "url": "/hcready/detail?model=HC1250D&brand=lenovo",
+      "status": 200,
+      "bytes": 8513
+    },
+    {
+      "file": "detail/lenovo__HC1250DFG.html",
+      "url": "/hcready/detail?model=HC1250DFG&brand=lenovo",
+      "status": 200,
+      "bytes": 5941
+    },
+    {
+      "file": "detail/lenovo__HC3250DF.html",
+      "url": "/hcready/detail?model=HC3250DF&brand=lenovo",
+      "status": 200,
+      "bytes": 5692
+    },
+    {
+      "file": "detail/lenovo__HC5200.html",
+      "url": "/hcready/detail?model=HC5200&brand=lenovo",
+      "status": 200,
+      "bytes": 6250
+    },
+    {
+      "file": "detail/lenovo__HC5250D.html",
+      "url": "/hcready/detail?model=HC5250D&brand=lenovo",
+      "status": 200,
+      "bytes": 8622
+    },
+    {
+      "file": "detail/lenovo__HC5250DFG.html",
+      "url": "/hcready/detail?model=HC5250DFG&brand=lenovo",
+      "status": 200,
+      "bytes": 6050
+    },
+    {
+      "file": "detail/lenovo__HC1300.html",
+      "url": "/hcready/detail?model=HC1300&brand=lenovo",
+      "status": 200,
+      "bytes": 7687
+    },
+    {
+      "file": "detail/lenovo__HC1350.html",
+      "url": "/hcready/detail?model=HC1350&brand=lenovo",
+      "status": 200,
+      "bytes": 10059
+    },
+    {
+      "file": "detail/lenovo__HC3350F.html",
+      "url": "/hcready/detail?model=HC3350F&brand=lenovo",
+      "status": 200,
+      "bytes": 7119
+    },
+    {
+      "file": "detail/lenovo__HC3350DF.html",
+      "url": "/hcready/detail?model=HC3350DF&brand=lenovo",
+      "status": 200,
+      "bytes": 7121
+    },
+    {
+      "file": "detail/lenovo__HE501.html",
+      "url": "/hcready/detail?model=HE501&brand=lenovo",
+      "status": 200,
+      "bytes": 6304
+    },
+    {
+      "file": "detail/lenovo__HE551.html",
+      "url": "/hcready/detail?model=HE551&brand=lenovo",
+      "status": 200,
+      "bytes": 8676
+    },
+    {
+      "file": "detail/lenovo__HE551F.html",
+      "url": "/hcready/detail?model=HE551F&brand=lenovo",
+      "status": 200,
+      "bytes": 6103
+    },
+    {
+      "file": "detail/lenovo__HE502.html",
+      "url": "/hcready/detail?model=HE502&brand=lenovo",
+      "status": 200,
+      "bytes": 6646
+    },
+    {
+      "file": "detail/lenovo__HE552.html",
+      "url": "/hcready/detail?model=HE552&brand=lenovo",
+      "status": 200,
+      "bytes": 9018
+    },
+    {
+      "file": "detail/lenovo__HE552F.html",
+      "url": "/hcready/detail?model=HE552F&brand=lenovo",
+      "status": 200,
+      "bytes": 6445
+    },
+    {
+      "file": "detail/lenovo__HC1450D.html",
+      "url": "/hcready/detail?model=HC1450D&brand=lenovo",
+      "status": 200,
+      "bytes": 14138
+    },
+    {
+      "file": "detail/lenovo__HC3450F.html",
+      "url": "/hcready/detail?model=HC3450F&brand=lenovo",
+      "status": 200,
+      "bytes": 11770
+    },
+    {
+      "file": "detail/lenovo__HC3450DF.html",
+      "url": "/hcready/detail?model=HC3450DF&brand=lenovo",
+      "status": 200,
+      "bytes": 11772
+    },
+    {
+      "file": "detail/lenovo__HC3450FG.html",
+      "url": "/hcready/detail?model=HC3450FG&brand=lenovo",
+      "status": 200,
+      "bytes": 11771
+    },
+    {
+      "file": "detail/lenovo__HC5400.html",
+      "url": "/hcready/detail?model=HC5400&brand=lenovo",
+      "status": 200,
+      "bytes": 12490
+    },
+    {
+      "file": "detail/lenovo__HC5450D.html",
+      "url": "/hcready/detail?model=HC5450D&brand=lenovo",
+      "status": 200,
+      "bytes": 14397
+    },
+    {
+      "file": "detail/lenovo__HE250.html",
+      "url": "/hcready/detail?model=HE250&brand=lenovo",
+      "status": 200,
+      "bytes": 2842
+    },
+    {
+      "file": "detail/lenovo__HC1400.html",
+      "url": "/hcready/detail?model=HC1400&brand=lenovo",
+      "status": 200,
+      "bytes": 12230
+    },
+    {
+      "file": "detail/lenovo__HC1450.html",
+      "url": "/hcready/detail?model=HC1450&brand=lenovo",
+      "status": 200,
+      "bytes": 14602
+    },
+    {
+      "file": "detail/lenovo__HC1650.html",
+      "url": "/hcready/detail?model=HC1650&brand=lenovo",
+      "status": 200,
+      "bytes": 12901
+    },
+    {
+      "file": "detail/lenovo__HC3650F.html",
+      "url": "/hcready/detail?model=HC3650F&brand=lenovo",
+      "status": 200,
+      "bytes": 10534
+    },
+    {
+      "file": "detail/lenovo__HC3650DF.html",
+      "url": "/hcready/detail?model=HC3650DF&brand=lenovo",
+      "status": 200,
+      "bytes": 10536
+    },
+    {
+      "file": "detail/lenovo__HC5600.html",
+      "url": "/hcready/detail?model=HC5600&brand=lenovo",
+      "status": 200,
+      "bytes": 11277
+    },
+    {
+      "file": "detail/lenovo__HC5650D.html",
+      "url": "/hcready/detail?model=HC5650D&brand=lenovo",
+      "status": 200,
+      "bytes": 13184
+    },
+    {
+      "file": "detail/lenovo__HE155.html",
+      "url": "/hcready/detail?model=HE155&brand=lenovo",
+      "status": 200,
+      "bytes": 2522
+    },
+    {
+      "file": "detail/hpe__HC1400.html",
+      "url": "/hcready/detail?model=HC1400&brand=hpe",
+      "status": 200,
+      "bytes": 7865
+    },
+    {
+      "file": "detail/hpe__HC1450.html",
+      "url": "/hcready/detail?model=HC1450&brand=hpe",
+      "status": 200,
+      "bytes": 8081
+    },
+    {
+      "file": "detail/supermicro__HC1200.html",
+      "url": "/hcready/detail?model=HC1200&brand=supermicro",
+      "status": 200,
+      "bytes": 2794
+    },
+    {
+      "file": "detail/supermicro__HC1250.html",
+      "url": "/hcready/detail?model=HC1250&brand=supermicro",
+      "status": 200,
+      "bytes": 2794
+    },
+    {
+      "file": "detail/supermicro__HC1300.html",
+      "url": "/hcready/detail?model=HC1300&brand=supermicro",
+      "status": 200,
+      "bytes": 2870
+    },
+    {
+      "file": "detail/supermicro__HC1350.html",
+      "url": "/hcready/detail?model=HC1350&brand=supermicro",
+      "status": 200,
+      "bytes": 2870
+    },
+    {
+      "file": "detail/supermicro__HE502.html",
+      "url": "/hcready/detail?model=HE502&brand=supermicro",
+      "status": 200,
+      "bytes": 3414
+    },
+    {
+      "file": "detail/supermicro__HE552.html",
+      "url": "/hcready/detail?model=HE552&brand=supermicro",
+      "status": 200,
+      "bytes": 3414
+    },
+    {
+      "file": "detail/supermicro__HE552F.html",
+      "url": "/hcready/detail?model=HE552F&brand=supermicro",
+      "status": 200,
+      "bytes": 3415
+    },
+    {
+      "file": "detail/supermicro__HC1400.html",
+      "url": "/hcready/detail?model=HC1400&brand=supermicro",
+      "status": 200,
+      "bytes": 7644
+    },
+    {
+      "file": "detail/supermicro__HC1450.html",
+      "url": "/hcready/detail?model=HC1450&brand=supermicro",
+      "status": 200,
+      "bytes": 7644
+    },
+    {
+      "file": "detail/supermicro__HC1650.html",
+      "url": "/hcready/detail?model=HC1650&brand=supermicro",
+      "status": 200,
+      "bytes": 7170
+    }
+  ]
+}

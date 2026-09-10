@@ -1,0 +1,102 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=supermicro" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HE502 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [supermicro]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  SuperServer SYS-511R-M</ul>
+    <ul><b>POWER SUPPLY:</b>  2x 600W Redundant Titanium Level (96%) [PWS-602A-1R]</ul>
+    <ul><b>COOLING:</b> 4x 40x40x28mm, 22.5K RPM [FAN-0154L4]</ul>
+                        
+    <ul><b>TPM:</b>  AOM-TPM-9670H</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  SUMS</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b> (up to 1x FCLGA1700) </ul>
+      <select name="cpu" id="cpu">
+        
+          <option value="">[4C/4T @ GHz] Intel® Xeon® E-2414 Processor [] </option>
+        
+          <option value="">[4C/8T @ GHz] Intel® Xeon® E-2434 Processor [] </option>
+        
+          <option value="">[6C/12T @ GHz] Intel® Xeon® E-2436 Processor [] </option>
+        
+          <option value="">[8C/16T @ GHz] Intel® Xeon® E-2468 Processor [] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 4x  ECC DDR5 UDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="AOC-STG-i4T">Supermicro AOC-STG-i4T Quad-port Intel XL710/X557 10Gbe [AOC-STG-i4T] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="AOC-S3808L-L8IT">Supermicro 12Gb/s Eight-Port SAS PCIe 4.0 Internal [AOC-S3808L-L8IT] </option>
+        
+      </select>
+    
+    
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

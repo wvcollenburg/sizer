@@ -3422,3 +3422,161 @@ textarea.text-input:focus {
 
 /* Exports list: the download stays a button, not a full-width bar. */
 .export-list li .btn, .export-list li a.btn { flex: 0 0 auto; width: auto; margin: 0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOM checker (project page) — js/bom.js + #bom-modal in index.html.
+   docs/bom-checker-build.md §7. Everything is scoped under .bom-modal or a
+   bom-* class so the app-wide resets (.modal-body{padding:0}, .fanout-row,
+   .upload-area owned by app.js's #upload-area) never fight these rules.
+   Colours come from tokens.css only, so light and dark both hold.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Modal chrome: the cmp-modal padding rule already restores .modal-body; the
+   run/re-check buttons sit at the right of the footer like the other wizards. */
+.cmp-modal.bom-modal .modal-body { padding: 1.1rem 1.5rem 1.35rem; max-height: min(78vh, 900px); overflow-y: auto; }
+.bom-modal .modal-footer-actions.bom-footer { width: 100%; align-items: center; flex-wrap: wrap; }
+.bom-modal #bom-run-btn { margin-left: auto; }
+.bom-modal #bom-recheck-wrap { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; }
+.bom-modal #bom-recheck-wrap .inline-select { min-width: 12rem; }
+.bom-modal.bom-busy #bom-upload-area { opacity: 0.6; pointer-events: none; }
+
+/* Error block: message plus the template row errors as a list. */
+.bom-modal .bom-error {
+    background: var(--red-bg); color: var(--red);
+    border: 1px solid var(--red); border-left-width: 4px;
+    border-radius: var(--radius); padding: 0.6rem 0.9rem; margin: 0 0 0.9rem;
+    font-size: 0.85rem;
+}
+.bom-modal .bom-error p { margin: 0; font-weight: 500; }
+.bom-modal .bom-error ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.bom-modal .bom-error li { margin: 0.15rem 0; }
+
+/* Drop zone: a clone of the LiveOptics .upload-area rules under the modal so
+   app.js's #upload-area stays untouched. */
+.bom-modal .upload-area.bom-upload-area {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 1.6rem 1.2rem;
+    text-align: center; cursor: pointer; position: relative;
+    background: var(--surface);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.bom-modal .upload-area.bom-upload-area:hover,
+.bom-modal .upload-area.bom-upload-area.drag-over { border-color: var(--accent); background: var(--accent-tint); }
+.bom-modal .upload-area.bom-upload-area:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.bom-modal .upload-area.bom-upload-area .upload-icon { color: var(--accent); line-height: 0; margin-bottom: 0.4rem; }
+.bom-modal .upload-area.bom-upload-area .upload-text { color: var(--text-muted); font-size: 0.9rem; }
+.bom-modal .upload-area.bom-upload-area input[type="file"] {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0; pointer-events: none;
+}
+.bom-modal .bom-file-name {
+    display: inline-block; margin-top: 0.5rem; padding: 0.15rem 0.6rem;
+    border-radius: 999px; background: var(--accent-light); color: var(--accent-dark);
+    font-size: 0.8rem; font-weight: 500; word-break: break-all;
+}
+.bom-modal .upload-status { margin-top: 0.6rem; }
+.bom-modal .bom-field { margin-top: 0.9rem; }
+.bom-modal .bom-field .text-input { width: 100%; }
+
+/* Sizing picker: radio rows on the shared fanout card. Compound selector so
+   the late .fanout-row rule cannot re-style the disabled state. */
+.bom-modal .fanout-list.bom-pick-list { margin: 0.4rem 0 0.8rem; }
+.bom-modal .fanout-row.bom-pick-row input[type="radio"] { width: auto; height: auto; box-shadow: none; margin: 0; accent-color: var(--accent); }
+.bom-modal .fanout-row.bom-pick-row.bom-pick-disabled { opacity: 0.55; cursor: not-allowed; background: var(--surface2); }
+.bom-modal .fanout-row.bom-pick-row .fanout-meta { text-align: right; }
+
+/* Help block (accepted formats + template download). */
+.bom-modal .bom-help { margin: 0.8rem 0 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); }
+.bom-modal .bom-help summary { cursor: pointer; padding: 0.55rem 0.9rem; font-size: 0.85rem; font-weight: 500; color: var(--text); }
+.bom-modal .bom-help summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); border-radius: var(--radius); }
+.bom-modal .bom-help-body { padding: 0 0.9rem 0.8rem; font-size: 0.85rem; color: var(--text-muted); }
+.bom-modal .bom-help-body p { margin: 0.35rem 0; }
+.bom-modal .bom-help-actions .btn { width: auto; }
+
+/* AI pre-fill panel: boxed like the other .panel-section groups; the mandatory
+   review warning uses the orange callout. */
+.bom-modal .panel-section.bom-prefill { margin-top: 0.9rem; }
+.bom-modal .bom-prefill .rec-warning.bom-prefill-warning { margin: 0.5rem 0 0.7rem; }
+.bom-modal .bom-prefill-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.bom-modal .bom-file-btn { position: relative; overflow: hidden; }
+.bom-modal .bom-file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.bom-modal .bom-file-btn:focus-within { box-shadow: 0 0 0 3px var(--ring); }
+.bom-modal .bom-prefill-row .bom-file-name { margin-top: 0; }
+
+/* History list (past checks) — the Exports "Downloads" layout. */
+.bom-modal #bom-history { margin-top: 1.2rem; }
+.bom-modal .export-list.bom-history-list { margin: 0.4rem 0 0; }
+.bom-modal .bom-history-main { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+.bom-modal .bom-history-name { font-weight: 600; }
+
+/* Verdict chips: the shared .state-badge pill with the semantic fills. */
+.bom-modal .state-badge.bom-chip { font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.bom-modal .state-badge.bom-chip-sm { font-weight: 500; }
+.bom-modal .bom-chip-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.15rem; }
+
+/* Result header: name + meta left, verdict chips right. */
+.bom-modal .bom-result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border); }
+.bom-modal .bom-result-title h3 { margin: 0; font-size: var(--fs-base); font-weight: 600; }
+.bom-modal .bom-result-meta { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; }
+.bom-modal .bom-result-chips { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Per-config blocks. */
+.bom-modal .bom-section { margin-top: 1rem; }
+.bom-modal .bom-config-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.bom-modal .bom-config-name { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.bom-modal .bom-platform { display: block; margin: 0.25rem 0 0.5rem; font-size: 0.82rem; color: var(--text-muted); }
+.bom-modal .bom-platform-unknown { font-style: italic; }
+.bom-modal .bom-no-findings { margin: 0.3rem 0; }
+
+/* Findings table: severity column narrow, remediation muted. */
+.bom-modal .sizing-table.bom-findings th { white-space: nowrap; }
+.bom-modal .sizing-table.bom-findings td { vertical-align: top; }
+.bom-modal .sizing-table.bom-findings .bom-col-sev { width: 1%; white-space: nowrap; }
+.bom-modal .sizing-table.bom-findings .bom-col-comp { font-weight: 500; }
+.bom-modal .sizing-table.bom-findings .bom-col-fix { color: var(--text-muted); }
+
+/* Swap suggestion cards. */
+.bom-modal .bom-suggestions { margin-top: 0.6rem; }
+.bom-modal .bom-suggestions .rep-heading { margin-top: 0.6rem; }
+.bom-modal .bom-suggest-card { border: 1px solid var(--border); border-left: 4px solid var(--info); border-radius: var(--radius); background: var(--surface); padding: 0.55rem 0.8rem; margin-top: 0.4rem; }
+.bom-modal .bom-suggest-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+.bom-modal .bom-cand-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.bom-modal .bom-cand-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; font-size: 0.85rem; }
+.bom-modal .bom-cand-main { min-width: 0; }
+.bom-modal .bom-cand-tags { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
+
+/* Fit table: dimension rows carry the relation badge; numbers right-aligned. */
+.bom-modal .sizing-table.bom-dims .bom-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bom-modal .sizing-table.bom-dims .bom-num-empty { color: var(--text-subtle); }
+.bom-modal .sizing-table.bom-dims .bom-unit { color: var(--text-muted); font-size: 0.78rem; }
+.bom-modal .sizing-table.bom-dims .bom-col-dim { font-weight: 500; white-space: nowrap; }
+.bom-modal .sizing-table.bom-dims .bom-col-note { color: var(--text-muted); font-size: 0.82rem; }
+.bom-modal .sizing-table.bom-dims tr.bom-rel-smaller td { background: var(--red-bg); }
+.bom-modal .state-badge.bom-rel { white-space: normal; }
+.bom-modal .bom-fit-notes { margin: 0.5rem 0 0; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-muted); }
+
+/* Review line. */
+.bom-modal .bom-review { margin: 1rem 0 0; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+
+@media (max-width: 640px) {
+    .bom-modal .bom-result-head { flex-direction: column; }
+    .bom-modal #bom-recheck-wrap, .bom-modal #bom-run-btn { margin-left: 0; }
+    .bom-modal .fanout-row.bom-pick-row .fanout-meta { margin-left: 0; text-align: left; flex-basis: 100%; }
+}
+
+/* BOM checker: consent offer after a rejected upload (see bom.js). Compound
+   selector so the app-wide resets can't swallow it. */
+.bom-modal .bom-retain-offer {
+    margin: 0.6rem 0 0;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--info);
+    border-radius: 8px;
+    background: var(--info-bg);
+    color: var(--text);
+    font-size: 0.86rem;
+}
+.bom-modal .bom-retain-offer p { margin: 0 0 0.55rem; }
+.bom-modal .bom-retain-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }

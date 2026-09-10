@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/img/logo/sc_blue_icon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+
+  <script src="/vendor/htmx.min.js"></script>
+
+</head>
+
+<body>
+  <nav class="navBar">
+    <div class="nav-header">
+  <a href="/hcl/filter" class="nav-brand">
+    <img src="/img/logo/sc_blue_white_edge.svg" alt="Scale Computing" class="nav-logo">
+    <span class="nav-divider"></span>
+    <span class="nav-title">Hardware Compatibility List</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/hcready/filter">SC//HyperCore™-ready</a></li>
+    <li><a href="/hcl/filter">Certified</a></li>
+    <li><a href="/hcl/devinfo">Devices</a></li>
+    <li><a href="/submit">Submit</a></li>
+  </ul>
+</div>
+
+  </nav>
+
+  <main class="container" hx-indicator=".htmx-indicator">
+    
+<title>SC//HyperCore™ Compatible Devices</title>
+
+<!-- Provides the data table for the user-selected category -->
+
+<script src="/devinfo_listeners.js" type="text/javascript" defer></script>
+
+<div id="tableSearchDiv">
+  <input type="text" id="tableSearch" placeholder="Search devices..." autocomplete="off" />
+</div>
+<div id="tableOutputDiv" hx-swap="delete" hx-target="this">
+  
+
+<article>
+  <table id="tableOutput">
+    <thead>
+      <tr>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="0"
+              data-column-key="DevID"
+              data-sort-direction="none"
+              aria-label="Sort by DevID"
+            >
+              <span>DevID</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="1"
+              data-column-key="description"
+              data-sort-direction="none"
+              aria-label="Sort by description"
+            >
+              <span>description</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="2"
+              data-column-key="driver"
+              data-sort-direction="none"
+              aria-label="Sort by driver"
+            >
+              <span>driver</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="3"
+              data-column-key="type"
+              data-sort-direction="none"
+              aria-label="Sort by type"
+            >
+              <span>type</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="4"
+              data-column-key="VenID"
+              data-sort-direction="none"
+              aria-label="Sort by VenID"
+            >
+              <span>VenID</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="5"
+              data-column-key="supported"
+              data-sort-direction="none"
+              aria-label="Sort by supported"
+            >
+              <span>supported</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+          <th scope="col" class="sortable-column" aria-sort="none">
+            <button
+              type="button"
+              class="sortable-header"
+              data-column-index="6"
+              data-column-key="since"
+              data-sort-direction="none"
+              aria-label="Sort by since"
+            >
+              <span>since</span>
+              <span class="sort-indicator" aria-hidden="true">↕</span>
+            </button>
+          </th>
+        
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          
+            <td>a352</td>
+          
+            <td>Cannon Lake PCH SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>a0d3</td>
+          
+            <td>Tiger Lake-LP SATA Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>43d2</td>
+          
+            <td>500 Series Chipset Family SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>a182</td>
+          
+            <td>Lewisburg SATA Controller [AHCI mode]</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>a1d2</td>
+          
+            <td>Lewisburg SSATA Controller [AHCI mode]</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>9230</td>
+          
+            <td>88SE9230 PCIe 2.0 x2 4-port SATA 6 Gb/s RAID Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>9dd3</td>
+          
+            <td>Cannon Point-LP SATA Controller [AHCI Mode]</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>02d3</td>
+          
+            <td>Comet Lake SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>51d3</td>
+          
+            <td>Alder Lake-P SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>a102</td>
+          
+            <td>Sunrise Point-H SATA controller [AHCI mode]</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>06d2</td>
+          
+            <td>Intel Comet Lake SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1ba2</td>
+          
+            <td>Intel SATA Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>3b22</td>
+          
+            <td>5 Series/3400 Series Chipset 6 port SATA AHCI Controller</td>
+          
+            <td>ahci</td>
+          
+            <td>storage</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>10e6</td>
+          
+            <td>MegaRAID 12GSAS/PCIe Secure SAS38xx</td>
+          
+            <td>megaraid_sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>005f</td>
+          
+            <td>MegaRAID SAS-3 3008 [Fury]</td>
+          
+            <td>megaraid_sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0073</td>
+          
+            <td>MegaRAID SAS 2008 [Falcon]</td>
+          
+            <td>megaraid_sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>10e2</td>
+          
+            <td>MegaRAID 12GSAS/PCIe Secure SAS39xx</td>
+          
+            <td>megaraid_sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>005d</td>
+          
+            <td>MegaRAID SAS-3 3108 [Invader]</td>
+          
+            <td>megaraid_sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>00af</td>
+          
+            <td>SAS3408 Fusion-MPT Tri-Mode I/O Controller (IOC)</td>
+          
+            <td>mpt3sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>00ac</td>
+          
+            <td>SAS3416 Fusion-MPT Tri-Mode I/O Controller (IOC)</td>
+          
+            <td>mpt3sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>00e6</td>
+          
+            <td>Fusion-MPT 12GSAS/PCIe Secure SAS38xx</td>
+          
+            <td>mpt3sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0097</td>
+          
+            <td>SAS3008 PCI-Express Fusion-MPT SAS-3</td>
+          
+            <td>mpt3sas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0056</td>
+          
+            <td>SAS1064ET PCI-Express Fusion-MPT SAS</td>
+          
+            <td>mptsas</td>
+          
+            <td>storage</td>
+          
+            <td>1000</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>9755</td>
+          
+            <td>GL9755 SD Host Controller</td>
+          
+            <td>sdhci-pci</td>
+          
+            <td>storage</td>
+          
+            <td>17a0</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>522a</td>
+          
+            <td>RTS522A PCI Express Card Reader</td>
+          
+            <td>rtsx_pci</td>
+          
+            <td>storage</td>
+          
+            <td>10ec</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>8168</td>
+          
+            <td>RTL8111/8168/8411 PCIe Gigabit Ethernet Controller</td>
+          
+            <td>r8169</td>
+          
+            <td>network</td>
+          
+            <td>10ec</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>028f</td>
+          
+            <td>Smart Storage PQI 12G SAS/PCIe 3</td>
+          
+            <td>smartpqi</td>
+          
+            <td>storage</td>
+          
+            <td>9005</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15f2</td>
+          
+            <td>Ethernet Controller i225-LM</td>
+          
+            <td>igc</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15f3</td>
+          
+            <td>Ethernet Controller i225-V</td>
+          
+            <td>igc</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15fc</td>
+          
+            <td>Ethernet Controller i219-V</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>16d7</td>
+          
+            <td>BCM57414 NetXtreme-E 10Gb/25Gb RDMA Ethernet Controller</td>
+          
+            <td>bnxt_en</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>16d8</td>
+          
+            <td>BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller</td>
+          
+            <td>bnxt_en</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1572</td>
+          
+            <td>Ethernet Controller X710 for 10GbE SFP+</td>
+          
+            <td>i40e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15ff</td>
+          
+            <td>Ethernet Controller X710 for 10GBASE-T</td>
+          
+            <td>i40e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1593</td>
+          
+            <td>Ethernet Controller E810-C for SFP</td>
+          
+            <td>ice</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>159b</td>
+          
+            <td>Ethernet Controller E810-XXV for SFP</td>
+          
+            <td>ice</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1521</td>
+          
+            <td>Ethernet Controller i350</td>
+          
+            <td>igb</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>154d</td>
+          
+            <td>Ethernet 10G 2P X520 Adapter</td>
+          
+            <td>ixgbe</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>165f</td>
+          
+            <td>NetXtreme BCM5720 Gigabit Ethernet PCIe</td>
+          
+            <td>tg3</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15bb</td>
+          
+            <td>Ethernet Controller I219-LM</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15be</td>
+          
+            <td>Ethernet Controller I219-V</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0d4f</td>
+          
+            <td>Ethernet Controller I219-V</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>125b</td>
+          
+            <td>Ethernet Controller I226-LM</td>
+          
+            <td>igc</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1614</td>
+          
+            <td>BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet</td>
+          
+            <td>bnxt_en</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>15bc</td>
+          
+            <td>Ethernet Controller i219-V</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0d4c</td>
+          
+            <td>Ethernet Controller i219-LM</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>37d2</td>
+          
+            <td>Ethernet Connection X722 for 10GBASE-T</td>
+          
+            <td>i40e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>37d3</td>
+          
+            <td>Ethernet Connection X722 for 10GbE SFP+</td>
+          
+            <td>i40e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>37d1</td>
+          
+            <td>Ethernet Connection X722 for 1GbE</td>
+          
+            <td>igb</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1533</td>
+          
+            <td>Ethernet Controller i210</td>
+          
+            <td>igb</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1657</td>
+          
+            <td>NetXtreme BCM5719 Gigabit Ethernet PCIe</td>
+          
+            <td>tg3</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>125c</td>
+          
+            <td>Ethernet Controller I226-V</td>
+          
+            <td>igc</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>10d3</td>
+          
+            <td>82574L Gigabit Network Connection</td>
+          
+            <td>e1000e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>10fb</td>
+          
+            <td>82599ES 10GbE SFI/SFP+ Network Connection</td>
+          
+            <td>ixgbe</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1563</td>
+          
+            <td>Ethernet Controller X550T 10Gb</td>
+          
+            <td>ixgbe</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>2725</td>
+          
+            <td>Wi-Fi 6 AX210/AX211/AX411 160MHz</td>
+          
+            <td>iwlwifi</td>
+          
+            <td>wifi</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>0616</td>
+          
+            <td>MT7922 802.11ax PCIe Wireless Adapter</td>
+          
+            <td>mt7921e</td>
+          
+            <td>wifi</td>
+          
+            <td>14c3</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1eb8</td>
+          
+            <td>TU104GL Tesla T4</td>
+          
+            <td>nvidia</td>
+          
+            <td>gpu</td>
+          
+            <td>10de</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>27b8</td>
+          
+            <td>AD104GL Nvidia L4</td>
+          
+            <td>nvidia</td>
+          
+            <td>gpu</td>
+          
+            <td>10de</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>25b0</td>
+          
+            <td>GA107GLM RTX A1000</td>
+          
+            <td>nvidia</td>
+          
+            <td>gpu</td>
+          
+            <td>10de</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>9733</td>
+          
+            <td>PEX 9733 33-lane, 9-port PCI Express Gen 3 (8.0 GT/s) Switch</td>
+          
+            <td></td>
+          
+            <td>fabric</td>
+          
+            <td>10b5</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>57b0</td>
+          
+            <td>Intel Ethernet Controller E610 10GBASE-T</td>
+          
+            <td>ixgbe</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td>9.6.17</td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1751</td>
+          
+            <td>BCM57504 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb/200Gb Ethernet</td>
+          
+            <td>bnxt_en</td>
+          
+            <td>network</td>
+          
+            <td>14e4</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+        <tr>
+          
+            <td>1589</td>
+          
+            <td>Ethernet Controller X710/X557-AT 10GBASE-T</td>
+          
+            <td>i40e</td>
+          
+            <td>network</td>
+          
+            <td>8086</td>
+          
+            <td>true</td>
+          
+            <td></td>
+          
+        </tr>
+      
+    </tbody>
+  </table>
+</article>
+</div>
+
+
+<!-- User controls -->
+<aside class="sideSelector">
+  <!-- Primary course selection -->
+  <label id="sideSelectTitle" for="devType"><b>DEVICE</b></label>
+  <select id="devType" name="devType" hx-post="/hcl/devinfo" hx-target="#tableOutputDiv">
+    <option value="" selected disabled hidden>Select category</option>
+    <option value="storage">Storage media</option>
+    <option value="nic">Network devices</option>
+    <option value="hba">Storage controllers</option>
+    <option value="chassis">Chassis</option>
+    <option value="gpu">GPUs</option>
+    <option value="cpu">CPUs</option>
+    <option value="device">Generic Device ID</option>
+  </select>
+
+  <!-- Secondary selection based on primary -->
+  <label id="sideSelectTitle"><b>PROPERTIES</b></label>
+  <hr />
+  <div id="subTypeSelect" hx-trigger="subReload from:body" hx-include="#devType" hx-post="/hcl/devinfo/reload" hx-swap="innerHTML" hx-target="this">
+    <!-- User preference for displayed properties in devtable (all table columns) -->
+<form id="colsForm" hx-post="/hcl/devinfo" hx-include="#devType" hx-target="#tableOutputDiv" hx-trigger="change" hx-swap="innerHTML">
+  
+    <div>
+      <input type="checkbox" id="DevID" name="cols" value="DevID" />
+      <label for="DevID">DevID</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="description" name="cols" value="description" />
+      <label for="description">description</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="driver" name="cols" value="driver" />
+      <label for="driver">driver</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="type" name="cols" value="type" />
+      <label for="type">type</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="VenID" name="cols" value="VenID" />
+      <label for="VenID">VenID</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="supported" name="cols" value="supported" />
+      <label for="supported">supported</label>
+    </div>
+  
+    <div>
+      <input type="checkbox" id="since" name="cols" value="since" />
+      <label for="since">since</label>
+    </div>
+  
+</form>
+  </div>
+</aside>
+
+    <img class="htmx-indicator" width="20" src="/img/loading/puff.svg">
+  </main>
+
+  <footer class="tm-footer">
+    <p>Scale Computing, SC//HyperCore, and SC//Platform are trademarks of Scale Computing, Inc. Other marks are the property of their respective owners.</p>
+  </footer>
+</body>
+
+</html>

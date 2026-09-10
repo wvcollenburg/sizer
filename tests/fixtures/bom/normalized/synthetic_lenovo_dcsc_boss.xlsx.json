@@ -1,0 +1,67 @@
+{
+  "vendor": "Lenovo",
+  "configs": [
+    {
+      "name": "HC3650F-SYN",
+      "serverModel": "ThinkSystem SR650 V4",
+      "components": [
+        {
+          "partNumber": "Z201",
+          "description": "ThinkSystem SR650 V4 2.5\" Chassis",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "Z202",
+          "description": "Intel Xeon 6505P 12C 150W 2.2GHz Processor",
+          "quantity": 3,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "Z203",
+          "description": "ThinkSystem 16GB TruDDR5 6400MHz (1Rx8) RDIMM",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": "Z204",
+          "description": "ThinkSystem M.2 RAID B540p-2HS SATA/NVMe Adapter",
+          "quantity": 3,
+          "category": "boss"
+        },
+        {
+          "partNumber": "Z205",
+          "description": "ThinkSystem M.2 VA 480GB Read Intensive NVMe PCIe 4.0 x4 NHS SSD",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z206",
+          "description": "ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z207",
+          "description": "ThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "Z208",
+          "description": "ThinkSystem 2U V4 Standard Fan Module",
+          "quantity": 15,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z209",
+          "description": "ThinkSystem 750W 230V Titanium Hot-Swap Gen2 Power Supply",
+          "quantity": 6,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "\t\tData Center Solution Configurator Quote\n\t\tPrepared for:\tPrepared by:\tJane Partner\t\t\tQuote #:\n\t\t\tPrice Date:\t01-Sep-26\t\t\tConfig ID:\tCIDU00SYN-00\nPart number\t\tProduct Description\t\tQty\tPrice\tTotal Part Price\tExport Control\n\t\t\t\t\t(per unit)\nBritish Pound\t(quantity x unit price)\nBritish Pound\n7ZZ9CTO1WW\t\tHC3650F-SYN : ThinkSystem SR650 V4-3yr Base Warranty\t\t3\t0.009\nZ201\t\tThinkSystem SR650 V4 2.5\" Chassis\t\t3\t0.009\nZ202\t\tIntel Xeon 6505P 12C 150W 2.2GHz Processor\t\t3\t0.009\nZ203\t\tThinkSystem 16GB TruDDR5 6400MHz (1Rx8) RDIMM\t\t24\t0.009\nZ204\t\tThinkSystem M.2 RAID B540p-2HS SATA/NVMe Adapter\t\t3\t0.009\nZ205\t\tThinkSystem M.2 VA 480GB Read Intensive NVMe PCIe 4.0 x4 NHS SSD\t\t6\t0.009\nZ206\t\tThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD\t\t12\t0.009\nZ207\t\tThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter\t\t3\t0.009\nZ208\t\tThinkSystem 2U V4 Standard Fan Module\t\t15\t0.009\nZ209\t\tThinkSystem 750W 230V Titanium Hot-Swap Gen2 Power Supply\t\t6\t0.009\n\t\t\t\t\tTotal\t9876.54"
+}

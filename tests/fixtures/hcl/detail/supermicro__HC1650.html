@@ -1,0 +1,158 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=supermicro" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HC1650 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [supermicro]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  SuperServer SYS-512B-WR</ul>
+    <ul><b>POWER SUPPLY:</b>  2x 860W Redundant (1 + 1) Titanium Level (96%) [PWS-862A-1R]</ul>
+    <ul><b>COOLING:</b> 5x 40x40x56, 23.3K RPM [FAN-0163L4]</ul>
+                        
+    <ul><b>TPM:</b>  Included</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  SFT-DCMS-Single</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b> (up to 1x FCLGA4710) </ul>
+      <select name="cpu" id="cpu">
+        
+          <option value="PK8072006398700">[12C/24T @ 3.9GHz] Intel® Xeon® 6505P Processor [PK8072006398700] </option>
+        
+          <option value="PK8072006398500">[8C/16T @ 4.3GHz] Intel® Xeon® 6507P Processor [PK8072006398500] </option>
+        
+          <option value="PK8072006398601">[16C/32T @ 3.8GHz] Intel® Xeon® 6515P Processor [PK8072006398601] </option>
+        
+          <option value="PK8072006398400">[16C/32T @ 4GHz] Intel® Xeon® 6517P Processor [PK8072006398400] </option>
+        
+          <option value="PK8072006347500">[24C/48T @ 3.4GHz] Intel® Xeon® 6520P Processor [PK8072006347500] </option>
+        
+          <option value="PK8072006348300">[24C/48T @ 4.2GHz] Intel® Xeon® 6527P Processor [PK8072006348300] </option>
+        
+          <option value="PK8072006347400">[32C/64T @ 3.7GHz] Intel® Xeon® 6530P Processor [PK8072006347400] </option>
+        
+          <option value="PK8072006398801">[16C/32T @ 4.1GHz] Intel® Xeon® 6511P Processor [PK8072006398801] </option>
+        
+          <option value="PK8072006347700">[24C/48T @ 4.1GHz] Intel® Xeon® 6521P Processor [PK8072006347700] </option>
+        
+          <option value="PK8072006270900">[32C/64T @ 3.6GHz] Intel® Xeon® 6730P Processor [PK8072006270900] </option>
+        
+          <option value="PK8072006348500">[32C/64T @ 4.2GHz] Intel® Xeon® 6732P Processor [PK8072006348500] </option>
+        
+          <option value="PK8072006348100">[36C/72T @ 3.4GHz] Intel® Xeon® 6736P Processor [PK8072006348100] </option>
+        
+          <option value="PK8072006348400">[32C/64T @ 4GHz] Intel® Xeon® 6737P Processor [PK8072006348400] </option>
+        
+          <option value="PK8072006270100">[48C/96T @ 3.3GHz] Intel® Xeon® 6740P Processor [PK8072006270100] </option>
+        
+          <option value="PK8072006455200">[32C/64T @ 4.1GHz] Intel® Xeon® 6745P Processor [PK8072006455200] </option>
+        
+          <option value="PK8072006305000">[48C/96T @ 3.8GHz] Intel® Xeon® 6747P Processor [PK8072006305000] </option>
+        
+          <option value="PK8072006270000">[64C/128T @ 3.4GHz] Intel® Xeon® 6760P Processor [PK8072006270000] </option>
+        
+          <option value="PK8072006269900">[64C/128T @ 3.6GHz] Intel® Xeon® 6767P Processor [PK8072006269900] </option>
+        
+          <option value="PK8072006455400">[64C/128T @ 3.6GHz] Intel® Xeon® 6776P Processor [PK8072006455400] </option>
+        
+          <option value="PK8072006269800">[86C/172T @ 3.2GHz] Intel® Xeon® 6787P Processor [PK8072006269800] </option>
+        
+          <option value="PK8072006347600">[32C/64T @ 3.9GHz] Intel® Xeon® 6731P Processor [PK8072006347600] </option>
+        
+          <option value="PK8072006304900">[48C/96T @ 3.7GHz] Intel® Xeon® 6741P Processor [PK8072006304900] </option>
+        
+          <option value="PK8072006270400">[64C/128T @ 3.6GHz] Intel® Xeon® 6761P Processor [PK8072006270400] </option>
+        
+          <option value="PK8072006455300">[64C/128T @ 3.6GHz] Intel® Xeon® 6774P Processor [PK8072006455300] </option>
+        
+          <option value="PK8072006270200">[80C/160T @ 3.2GHz] Intel® Xeon® 6781P Processor [PK8072006270200] </option>
+        
+          <option value="PK8072006399000">[8C/16T @ 4.3GHz] Intel® Xeon® 6714P Processor [PK8072006399000] </option>
+        
+          <option value="PK8072006398900">[16C/32T @ 4.2GHz] Intel® Xeon® 6724P Processor [PK8072006398900] </option>
+        
+          <option value="PK8072006348601">[24C/48T @ 3.9GHz] Intel® Xeon® 6728P Processor [PK8072006348601] </option>
+        
+          <option value="PK8072006347900">[32C/64T @ 4.1GHz] Intel® Xeon® 6738P Processor [PK8072006347900] </option>
+        
+          <option value="PK8072006347800">[48C/96T @ 3.8GHz] Intel® Xeon® 6748P Processor [PK8072006347800] </option>
+        
+          <option value="PK8072006270700">[64C/128T @ 3.6GHz] Intel® Xeon® 6768P Processor [PK8072006270700] </option>
+        
+          <option value="PK8072006270600">[86C/172T @ 3.2GHz] Intel® Xeon® 6788P Processor [PK8072006270600] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 8x  ECC DDR5 RDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="AOC-S25GC-i4S">Supermicro AOC-S25GC-i4S Quad Port E810-CAM1 [AOC-S25GC-i4S] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="AOC-S3808L-L8IT">Supermicro 12Gb/s Eight-Port SAS PCIe 4.0 Internal [AOC-S3808L-L8IT] </option>
+        
+      </select>
+    
+    
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

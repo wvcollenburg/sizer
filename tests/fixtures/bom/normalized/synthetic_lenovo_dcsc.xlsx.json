@@ -1,0 +1,170 @@
+{
+  "vendor": "Lenovo",
+  "configs": [
+    {
+      "name": "Acme PROD",
+      "serverModel": "ThinkSystem SR650 V4",
+      "components": [
+        {
+          "partNumber": "Z001",
+          "description": "ThinkSystem SR650 V4 12x3.5\" Chassis",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "Z002",
+          "description": "Intel Xeon 6517P 16C 190W 3.2GHz Processor",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "Z003",
+          "description": "ThinkSystem 32GB TruDDR5 6400MHz (2Rx8) RDIMM",
+          "quantity": 48,
+          "category": "memory"
+        },
+        {
+          "partNumber": "5977",
+          "description": "Select Storage devices - no configured RAID required",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z004",
+          "description": "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "Z005",
+          "description": "ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z006",
+          "description": "ThinkSystem 3.5\" 12TB 7.2K SAS 12Gb Hot Swap 512e HDD v2",
+          "quantity": 27,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z007",
+          "description": "ThinkSystem SR650 V4 12x3.5\" SAS/SATA + 4x AnyBay Backplane",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "Z008",
+          "description": "SR650 V4/SR630 V4 x16 OCP Cable Kit",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z009",
+          "description": "ThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "Z010",
+          "description": "ThinkSystem 1100W 230V Titanium Hot-Swap Gen2 Power Supply v4",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z011",
+          "description": "ThinkSystem SR650 V4 Performance Fan Module",
+          "quantity": 18,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z012",
+          "description": "ThinkSystem Toolless Slide Rail Kit v2",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z013",
+          "description": "ThinkSystem Trusted Platform Module 2.0 V6",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z016",
+          "description": "ThinkSystem 2U V4 Performance Heatsink",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "SC7H",
+          "description": "SC//HyperCore - 1 Site, 1-5 Workloads, 5-year License",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "Acme DR",
+      "serverModel": "ThinkSystem SR650 V4",
+      "components": [
+        {
+          "partNumber": "Z001",
+          "description": "ThinkSystem SR650 V4 12x3.5\" Chassis",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "Z002",
+          "description": "Intel Xeon 6517P 16C 190W 3.2GHz Processor",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "Z003",
+          "description": "ThinkSystem 32GB TruDDR5 6400MHz (2Rx8) RDIMM",
+          "quantity": 16,
+          "category": "memory"
+        },
+        {
+          "partNumber": "Z004",
+          "description": "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "Z005",
+          "description": "ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z006",
+          "description": "ThinkSystem 3.5\" 12TB 7.2K SAS 12Gb Hot Swap 512e HDD v2",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z009",
+          "description": "ThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "Z010",
+          "description": "ThinkSystem 1100W 230V Titanium Hot-Swap Gen2 Power Supply v4",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z011",
+          "description": "ThinkSystem SR650 V4 Performance Fan Module",
+          "quantity": 6,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "\t\tData Center Solution Configurator Quote\n\t\tPrepared for:\tPrepared by:\tJane Partner\t\t\tQuote #:\n\t\t\tPrice Date:\t01-Sep-26\t\t\tConfig ID:\tCIDU00SYN-00\nPart number\t\tProduct Description\t\tQty\tPrice\tTotal Part Price\tExport Control\n\t\t\t\t\t(per unit)\nUS Dollar\t(quantity x unit price)\nUS Dollar\n7ZZ9CTO1WW\t\tAcme PROD : ThinkSystem SR650 V4-3yr Base Warranty\t\t3\t0.01\nZ001\t\tThinkSystem SR650 V4 12x3.5\" Chassis\t\t3\t0\nZ002\t\tIntel Xeon 6517P 16C 190W 3.2GHz Processor\t\t6\t0\nZ003\t\tThinkSystem 32GB TruDDR5 6400MHz (2Rx8) RDIMM\t\t48\t0\n5977\t\tSelect Storage devices - no configured RAID required\t\t3\t0\nZ004\t\tThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA\t\t3\t0\nZ005\t\tThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD\t\t9\t0\nZ006\t\tThinkSystem 3.5\" 12TB 7.2K SAS 12Gb Hot Swap 512e HDD v2\t\t27\t0\nZ007\t\tThinkSystem SR650 V4 12x3.5\" SAS/SATA + 4x AnyBay Backplane\t\t3\t0\nZ008\t\tSR650 V4/SR630 V4 x16 OCP Cable Kit\t\t3\t0\nZ008\t\tSR650 V4/SR630 V4 x16 OCP Cable Kit\t\t3\t0\nZ009\t\tThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter\t\t3\t0\nZ010\t\tThinkSystem 1100W 230V Titanium Hot-Swap Gen2 Power Supply v4\t\t6\t0\nZ011\t\tThinkSystem SR650 V4 Performance Fan Module\t\t18\t0\nZ012\t\tThinkSystem Toolless Slide Rail Kit v2\t\t3\t0\nZ013\t\tThinkSystem Trusted Platform Module 2.0 V6\t\t3\t0\nZ014\t\tThinkSystem Memory Dummy\t\t48\t0\nZ015\t\tThinkSystem 3.5\" HDD Filler\t\t9\t0\nZ016\t\tThinkSystem 2U V4 Performance Heatsink\t\t6\t0\nZ017\t\tXClarity Controller 3 Premier Upgrade - FOD\t\t3\t0\n7S0NCTO1WW\t\tScale Computing Software\t\t1\t0.01\nSC7H\t\tSC//HyperCore - 1 Site, 1-5 Workloads, 5-year License\t\t3\t0\n7Q01CTSAWW\t\tLenovo Services\t\t3\t0.01\nQAJY\t\tSR650 V4\t\t3\t0\nQA0Y\t\tMonths\t\t108\t0\n7ZZ9CTO1WW\t\tAcme DR : ThinkSystem SR650 V4-3yr Base Warranty\t\t1\t0.01\nZ001\t\tThinkSystem SR650 V4 12x3.5\" Chassis\t\t1\nZ002\t\tIntel Xeon 6517P 16C 190W 3.2GHz Processor\t\t2\nZ003\t\tThinkSystem 32GB TruDDR5 6400MHz (2Rx8) RDIMM\t\t16\nZ004\t\tThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA\t\t1\nZ005\t\tThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD\t\t3\nZ006\t\tThinkSystem 3.5\" 12TB 7.2K SAS 12Gb Hot Swap 512e HDD v2\t\t9\nZ009\t\tThinkSystem Broadcom 57504 10/25GbE SFP28 4-Port OCP Ethernet Adapter\t\t1\nZ010\t\tThinkSystem 1100W 230V Titanium Hot-Swap Gen2 Power Supply v4\t\t2\nZ011\t\tThinkSystem SR650 V4 Performance Fan Module\t\t6\n\t\t\t\t\tTotal\t12345.67"
+}

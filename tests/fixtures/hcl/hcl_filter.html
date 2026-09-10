@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/img/logo/sc_blue_icon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+
+  <script src="/vendor/htmx.min.js"></script>
+
+</head>
+
+<body>
+  <nav class="navBar">
+    <div class="nav-header">
+  <a href="/hcl/filter" class="nav-brand">
+    <img src="/img/logo/sc_blue_white_edge.svg" alt="Scale Computing" class="nav-logo">
+    <span class="nav-divider"></span>
+    <span class="nav-title">Hardware Compatibility List</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/hcready/filter">SC//HyperCore™-ready</a></li>
+    <li><a href="/hcl/filter">Certified</a></li>
+    <li><a href="/hcl/devinfo">Devices</a></li>
+    <li><a href="/submit">Submit</a></li>
+  </ul>
+</div>
+
+  </nav>
+
+  <main class="container" hx-indicator=".htmx-indicator">
+    
+<title>SC//HyperCore™ Hardware Compatibility</title>
+
+
+<script src="/hcl_listeners.js" type="text/javascript" defer></script>
+
+<aside>
+  <fieldset class="nodeSelections">
+
+    <!-- Chassis Type Dropdown -->
+    <label for="formFactor"><b>CHASSIS TYPE</b></label>
+    <select id="formFactor" name="formFactor">
+      <option value="any">Any</option>
+      <optgroup label="Rackmount">
+        <option value="1U">1U</option>
+        <option value="2U">2U</option>
+      </optgroup>
+      <optgroup label="Compact">
+        <option value="DT">Desktop/SFF</option>
+        <option value="NUC-K">NUC 'Slim'</option>
+        <option value="NUC-H">NUC 'Tall'</option>
+      </optgroup>
+    </select><br>
+
+    <!-- Model Dropdown -->
+    <label for="model"><b>MODEL</b></label>
+    <select id="model" name="model">
+      <option value="all">All</option>
+      
+        <option value="HE500">HE500</option>
+      
+        <option value="HE550">HE550</option>
+      
+        <option value="HE550F">HE550F</option>
+      
+        <option value="HC1200">HC1200</option>
+      
+        <option value="HC1250">HC1250</option>
+      
+        <option value="HC1250D">HC1250D</option>
+      
+        <option value="HC1250DFG">HC1250DFG</option>
+      
+        <option value="HC3250DF">HC3250DF</option>
+      
+        <option value="HC5200">HC5200</option>
+      
+        <option value="HC5250D">HC5250D</option>
+      
+        <option value="HC5250DFG">HC5250DFG</option>
+      
+        <option value="HC1300">HC1300</option>
+      
+        <option value="HC1350">HC1350</option>
+      
+        <option value="HC3350F">HC3350F</option>
+      
+        <option value="HC3350DF">HC3350DF</option>
+      
+        <option value="HC5250D-V">HC5250D-V</option>
+      
+        <option value="HC5450D-V">HC5450D-V</option>
+      
+        <option value="HE501">HE501</option>
+      
+        <option value="HE551">HE551</option>
+      
+        <option value="HE551F">HE551F</option>
+      
+        <option value="HE502">HE502</option>
+      
+        <option value="HE552">HE552</option>
+      
+        <option value="HE552F">HE552F</option>
+      
+        <option value="HC1450D">HC1450D</option>
+      
+        <option value="HC3450F">HC3450F</option>
+      
+        <option value="HC3450DF">HC3450DF</option>
+      
+        <option value="HC3450FG">HC3450FG</option>
+      
+        <option value="HC5400">HC5400</option>
+      
+        <option value="HC5450D">HC5450D</option>
+      
+        <option value="HE150">HE150</option>
+      
+        <option value="HE151">HE151</option>
+      
+        <option value="HE153">HE153</option>
+      
+        <option value="HE153s">HE153s</option>
+      
+        <option value="HE153P">HE153P</option>
+      
+        <option value="HE250">HE250</option>
+      
+        <option value="HC1400">HC1400</option>
+      
+        <option value="HC1450">HC1450</option>
+      
+        <option value="HC1650">HC1650</option>
+      
+        <option value="HC3650F">HC3650F</option>
+      
+        <option value="HC3650DF">HC3650DF</option>
+      
+        <option value="HC5600">HC5600</option>
+      
+        <option value="HC5650D">HC5650D</option>
+      
+        <option value="HE155">HE155</option>
+      
+    </select><br>
+
+    <!-- Chassis Dropdown -->
+    <label for="brand"><b>BRAND</b></label>
+    <select id="brand" name="brand">
+      <option value="any">Any</option>
+      
+        <option value="intel">Intel Corporation</option>
+      
+        <option value="supermicro">Supermicro</option>
+      
+        <option value="dell">Dell</option>
+      
+        <option value="lenovo">Lenovo</option>
+      
+        <option value="hpe">HPe</option>
+      
+        <option value="snuc">SimplyNUC</option>
+      
+        <option value="asrock">Asrock Industrial</option>
+      
+        <option value="asus">Asus Commercial</option>
+      
+    </select>
+
+  </fieldset>
+</aside>
+
+<!-- Display applicable platform types  -->
+<!--           v[[ON CLICK]]v           -->
+<!--      Changes to platformDetail     -->
+<div id="hclFilterDisplay" class="modelDisplay" hx-swap="delete" hx-target="this">
+  <!-- This generates the platform preview cards for /hcl/filter -->
+
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE500"
+      hx-get="/hcl/detail?model=HE500"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE500" data-brand="lenovo">
+      <h3>HE500</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1151</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE550"
+      hx-get="/hcl/detail?model=HE550"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE550" data-brand="lenovo">
+      <h3>HE550</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1151</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE550F"
+      hx-get="/hcl/detail?model=HE550F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE550F" data-brand="lenovo">
+      <h3>HE550F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1151</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1200"
+      hx-get="/hcl/detail?model=HC1200"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1200" data-brand="supermicro">
+      <h3>HC1200</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 1536GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1250"
+      hx-get="/hcl/detail?model=HC1250"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1250" data-brand="supermicro">
+      <h3>HC1250</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 1536GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1250D"
+      hx-get="/hcl/detail?model=HC1250D"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1250D" data-brand="lenovo">
+      <h3>HC1250D</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1250DFG"
+      hx-get="/hcl/detail?model=HC1250DFG"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1250DFG" data-brand="lenovo">
+      <h3>HC1250DFG</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3250DF"
+      hx-get="/hcl/detail?model=HC3250DF"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3250DF" data-brand="lenovo">
+      <h3>HC3250DF</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5200"
+      hx-get="/hcl/detail?model=HC5200"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5200" data-brand="lenovo">
+      <h3>HC5200</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5250D"
+      hx-get="/hcl/detail?model=HC5250D"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5250D" data-brand="lenovo">
+      <h3>HC5250D</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5250DFG"
+      hx-get="/hcl/detail?model=HC5250DFG"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5250DFG" data-brand="lenovo">
+      <h3>HC5250DFG</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 3072GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1300"
+      hx-get="/hcl/detail?model=HC1300"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1300" data-brand="supermicro">
+      <h3>HC1300</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4189</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 2048GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1350"
+      hx-get="/hcl/detail?model=HC1350"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1350" data-brand="supermicro">
+      <h3>HC1350</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4189</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 2048GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3350F"
+      hx-get="/hcl/detail?model=HC3350F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3350F" data-brand="dell">
+      <h3>HC3350F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4189</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3350DF"
+      hx-get="/hcl/detail?model=HC3350DF"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3350DF" data-brand="dell">
+      <h3>HC3350DF</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4189</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5250D-V"
+      hx-get="/hcl/detail?model=HC5250D-V"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5250D-V" data-brand="dell">
+      <h3>HC5250D-V</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA3647</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR4 RDIMM</p>
+      <p><strong>Max RAM:</strong> 1536GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5450D-V"
+      hx-get="/hcl/detail?model=HC5450D-V"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5450D-V" data-brand="dell">
+      <h3>HC5450D-V</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 1536GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE501"
+      hx-get="/hcl/detail?model=HE501"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE501" data-brand="dell">
+      <h3>HE501</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1200</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE551"
+      hx-get="/hcl/detail?model=HE551"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE551" data-brand="dell">
+      <h3>HE551</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1200</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE551F"
+      hx-get="/hcl/detail?model=HE551F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE551F" data-brand="dell">
+      <h3>HE551F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1200</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE502"
+      hx-get="/hcl/detail?model=HE502"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE502" data-brand="supermicro">
+      <h3>HE502</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1700</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE552"
+      hx-get="/hcl/detail?model=HE552"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE552" data-brand="supermicro">
+      <h3>HE552</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1700</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE552F"
+      hx-get="/hcl/detail?model=HE552F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HE552F" data-brand="supermicro">
+      <h3>HE552F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA1700</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 UDIMM</p>
+      <p><strong>Max RAM:</strong> 128GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1450D"
+      hx-get="/hcl/detail?model=HC1450D"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1450D" data-brand="lenovo">
+      <h3>HC1450D</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3450F"
+      hx-get="/hcl/detail?model=HC3450F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3450F" data-brand="lenovo">
+      <h3>HC3450F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3450DF"
+      hx-get="/hcl/detail?model=HC3450DF"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3450DF" data-brand="lenovo">
+      <h3>HC3450DF</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3450FG"
+      hx-get="/hcl/detail?model=HC3450FG"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3450FG" data-brand="lenovo">
+      <h3>HC3450FG</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5400"
+      hx-get="/hcl/detail?model=HC5400"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5400" data-brand="lenovo">
+      <h3>HC5400</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5450D"
+      hx-get="/hcl/detail?model=HC5450D"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5450D" data-brand="lenovo">
+      <h3>HC5450D</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE150"
+      hx-get="/hcl/detail?model=HE150"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-K" data-model="HE150" data-brand="intel">
+      <h3>HE150</h3>
+      <p><strong>Form Factor:</strong> NUC-K</p>
+      <p><strong>Socket:</strong> FCBGA1528</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 SODIMM</p>
+      <p><strong>Max RAM:</strong> 64GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE151"
+      hx-get="/hcl/detail?model=HE151"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-H" data-model="HE151" data-brand="intel">
+      <h3>HE151</h3>
+      <p><strong>Form Factor:</strong> NUC-H</p>
+      <p><strong>Socket:</strong> FCBGA1449</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 SODIMM</p>
+      <p><strong>Max RAM:</strong> 64GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE153"
+      hx-get="/hcl/detail?model=HE153"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-H" data-model="HE153" data-brand="intel">
+      <h3>HE153</h3>
+      <p><strong>Form Factor:</strong> NUC-H</p>
+      <p><strong>Socket:</strong> FCBGA1744</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 SODIMM</p>
+      <p><strong>Max RAM:</strong> 64GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE153s"
+      hx-get="/hcl/detail?model=HE153s"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-K" data-model="HE153s" data-brand="intel">
+      <h3>HE153s</h3>
+      <p><strong>Form Factor:</strong> NUC-K</p>
+      <p><strong>Socket:</strong> FCBGA1744</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR4 SODIMM</p>
+      <p><strong>Max RAM:</strong> 64GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE153P"
+      hx-get="/hcl/detail?model=HE153P"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-H" data-model="HE153P" data-brand="snuc">
+      <h3>HE153P</h3>
+      <p><strong>Form Factor:</strong> NUC-H</p>
+      <p><strong>Socket:</strong> FCBGA1744</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 SODIMM</p>
+      <p><strong>Max RAM:</strong> 96GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE250"
+      hx-get="/hcl/detail?model=HE250"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="DT" data-model="HE250" data-brand="snuc">
+      <h3>HE250</h3>
+      <p><strong>Form Factor:</strong> DT</p>
+      <p><strong>Socket:</strong> FCBGA1744</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 SODIMM</p>
+      <p><strong>Max RAM:</strong> 96GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1400"
+      hx-get="/hcl/detail?model=HC1400"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1400" data-brand="supermicro">
+      <h3>HC1400</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 2048GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1450"
+      hx-get="/hcl/detail?model=HC1450"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1450" data-brand="supermicro">
+      <h3>HC1450</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4677</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 2048GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC1650"
+      hx-get="/hcl/detail?model=HC1650"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC1650" data-brand="supermicro">
+      <h3>HC1650</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4710</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 2048GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3650F"
+      hx-get="/hcl/detail?model=HC3650F"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3650F" data-brand="lenovo">
+      <h3>HC3650F</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4710</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC3650DF"
+      hx-get="/hcl/detail?model=HC3650DF"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="1U" data-model="HC3650DF" data-brand="lenovo">
+      <h3>HC3650DF</h3>
+      <p><strong>Form Factor:</strong> 1U</p>
+      <p><strong>Socket:</strong> FCLGA4710</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5600"
+      hx-get="/hcl/detail?model=HC5600"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5600" data-brand="lenovo">
+      <h3>HC5600</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA4710</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HC5650D"
+      hx-get="/hcl/detail?model=HC5650D"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="2U" data-model="HC5650D" data-brand="lenovo">
+      <h3>HC5650D</h3>
+      <p><strong>Form Factor:</strong> 2U</p>
+      <p><strong>Socket:</strong> FCLGA4710</p>
+      <p><strong>CPU Count:</strong> 2</p>
+      <p><strong>Memory:</strong> DDR5 RDIMM</p>
+      <p><strong>Max RAM:</strong> 8192GB</p>
+    </div>
+  </a>
+
+  <a id="configLink"
+      href="/hcl/detail?model=HE155"
+      hx-get="/hcl/detail?model=HE155"
+      hx-target="#hclFilterDisplay"
+      hx-swap="innerHTML">
+    <div class="modelBox" data-ru="NUC-H" data-model="HE155" data-brand="asus">
+      <h3>HE155</h3>
+      <p><strong>Form Factor:</strong> NUC-H</p>
+      <p><strong>Socket:</strong> FCBGA2049</p>
+      <p><strong>CPU Count:</strong> 1</p>
+      <p><strong>Memory:</strong> DDR5 SODIMM</p>
+      <p><strong>Max RAM:</strong> 96GB</p>
+    </div>
+  </a>
+
+
+</div>
+
+    <img class="htmx-indicator" width="20" src="/img/loading/puff.svg">
+  </main>
+
+  <footer class="tm-footer">
+    <p>Scale Computing, SC//HyperCore, and SC//Platform are trademarks of Scale Computing, Inc. Other marks are the property of their respective owners.</p>
+  </footer>
+</body>
+
+</html>

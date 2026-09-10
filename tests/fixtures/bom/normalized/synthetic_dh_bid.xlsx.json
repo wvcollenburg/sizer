@@ -1,0 +1,134 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "Config 1",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 96,
+          "category": "memory"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 27,
+          "category": "storage"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AALV",
+          "description": "C13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "770-BCJI",
+          "description": "ReadyRails Sliding Rails With Cable Management Arm",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "Config 2",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 32,
+          "category": "memory"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AALV",
+          "description": "C13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord",
+          "quantity": 2,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "\tQuotation\t\t\t\t\t2026-09-01 12:00:00\n\tBid Number:\t611179-00000-00\n\tCurrency:\t\t\t\t\tUSD\n\tBid Line No.\tVendor Name\tD&H Part #\tManufacturer Part #\tPart Notes\tDescription\tUnit List Price\t% Discount\noff List\tReseller\nUnit Price\tQuantity\tReseller\nExtended Price\n\t1\tDELL\tS30009990000001\t210-BDZY\t\tPOWEREDGE R760, CHAMPION PE\t99999.99\t70.00%\t29999.99\t3\t89999.97\n\t2\tDELL\tS30009990000001\t210-BDZY\t\tPowerEdge R760 Server\t0\t100.00%\t0\t3\t0\n\t3\tDELL\tS30009990000001\t338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t0\t100.00%\t0\t3\t0\n\t4\tDELL\tS30009990000001\t338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t0\t100.00%\t0\t3\t0\n\t5\tDELL\tS30009990000001\t370-BBRY\t\t32GB RDIMM, 5600MT/s, Dual Rank\t0\t100.00%\t0\t96\t0\n\t6\tDELL\tS30009990000001\t405-AAZF\t\tDell HBA355i Adapter, Low Profile\t0\t100.00%\t0\t3\t0\n\t7\tDELL\tS30009990000001\t400-BKGJ\t\t3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay\t0\t100.00%\t0\t9\t0\n\t8\tDELL\tS30009990000001\t161-BCPX\t\t8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t0\t100.00%\t0\t27\t0\n\t9\tDELL\tS30009990000001\t540-BCXW\t\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t0\t100.00%\t0\t3\t0\n\t10\tDELL\tS30009990000001\t450-AKYB\t\tDual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U\t0\t100.00%\t0\t3\t0\n\t11\tDELL\tS30009990000001\t450-AALV\t\tC13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord\t0\t100.00%\t0\t6\t0\n\t12\tDELL\tS30009990000001\t770-BCJI\t\tReadyRails Sliding Rails With Cable Management Arm\t0\t100.00%\t0\t3\t0\n\t13\tDELL\tS30009990000001\t865-BBMY\t\tProSupport and Next Business Day Onsite Service Initial, 36 Month(s)\t0\t100.00%\t0\t3\t0\n\t14\tDELL\t\t\t\tNote: lead time 4 weeks after order\t\t\t\t1\n\t15\tDELL\tS30009990000002\t210-BDZY\t\tPOWEREDGE R760, CHAMPION PE\t99999.99\t70.00%\t29999.99\t1\t29999.99\n\t16\tDELL\tS30009990000002\t210-BDZY\t\tPowerEdge R760 Server\t0\t100.00%\t0\t1\t0\n\t17\tDELL\tS30009990000002\t338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t0\t100.00%\t0\t1\t0\n\t18\tDELL\tS30009990000002\t338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t0\t100.00%\t0\t1\t0\n\t19\tDELL\tS30009990000002\t370-BBRY\t\t32GB RDIMM, 5600MT/s, Dual Rank\t0\t100.00%\t0\t32\t0\n\t20\tDELL\tS30009990000002\t405-AAZF\t\tDell HBA355i Adapter, Low Profile\t0\t100.00%\t0\t1\t0\n\t21\tDELL\tS30009990000002\t400-BKGJ\t\t3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay\t0\t100.00%\t0\t3\t0\n\t22\tDELL\tS30009990000002\t161-BCPX\t\t8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t0\t100.00%\t0\t9\t0\n\t23\tDELL\tS30009990000002\t540-BCXW\t\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t0\t100.00%\t0\t1\t0\n\t24\tDELL\tS30009990000002\t450-AKYB\t\tDual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U\t0\t100.00%\t0\t1\t0\n\t25\tDELL\tS30009990000002\t450-AALV\t\tC13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord\t0\t100.00%\t0\t2\t0\n\t\t\t\t\t\t\t\t\t\tProduct Subtotal:\t119999.96\n\t\t\t\t\t\t\t\t\t\tTotal Price:\t119999.96\n\tPrices are valid for 30 days. Synthetic fixture, no legal meaning."
+}

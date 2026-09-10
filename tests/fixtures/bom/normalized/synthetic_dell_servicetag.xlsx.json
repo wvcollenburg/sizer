@@ -1,0 +1,85 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "ABC1234",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "780-BCDI",
+          "description": "No RAID",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "403-BCID",
+          "description": "No BOSS Card",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 16,
+          "category": "memory"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "329-BHOF",
+          "description": "PowerEdge R760 Motherboard with Broadcom 5720 Dual Port 1Gb On-Board LOM",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "321-BGZI",
+          "description": "2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 1,
+          "category": "chassis"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "Component\tPart Number\tDescription\tQuantity\n817-BBBB : Custom Configuration\tW21JJ\tINFO,GNRC,OEM,TRACKING,PN\t1\n800-BBDM : UEFI BIOS Boot Mode with GPT P artition\t0616F\tINFO,BOOT,GPT,OVERRIDE\t1\n\tXP9T9\tINFO,BOOT,CNTNR,GPT\t1\n780-BCDI : No RAID\t0M1FT\tINFO,NO RAID\t1\n540-BCXW : Intel E810-XXV Dual Port 10/25 GbE SFP28, OCP NIC 3.0\t4V7D7\tDSK PROG,DIAGS,E810,OCP\t1\n\t1KP0N\tCRD,NTWK,OCP,DP,25G,E810,LP\t1\n450-AKYB : Dual, Hot Plug, Power Supply ( 1+1) Redundant 1400W 2U\tCMPGM\tPWR SPLY,1400,RDNT,LTON\t2\n405-AAZF : Dell HBA355i Adapter, Low Prof ile\tT4FH6\tASSY,CRD,CTL,HBA355I,LP\t1\n\t9YKMY\tASSY,CBL,FPERC,C1,X8,NV,R760\t1\n403-BCID : No BOSS Card\t8RJ7X\tINFO,NO BOSS\t1\n400-BKGJ : 3.84TB Enterprise NVMe Read In tensive AG Drive U.2 Gen4 Flex  Bay\tDMF5Y\tSSDR,3.84T,NVME,RI,U.2,AG,EC\t3\n\tR9445\tScrew,M3X.05X4.5MM,Flat Head  Machine Screw,Zinc Plated     Steel\t12\n\tNTPP3\tAssembly,Carrier,Hard Drive, PLSTC, U.2, 2.5\t3\n\tFM833\tLBL,POD,HD,RECTANGULAR\t3\n161-BCPX : 8TB Hard Drive SAS 12Gbps 7.2K  512e 3.5in Hot-Plug, AG Drive\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\t4K8HW\tHD,8T,722E,IS12,3.5,T-MG,EC\t1\n\tWH5D2\tASSY,CARR,HD,3.5,V3\t9\n370-BBRY : 32GB RDIMM, 5600MT/s, Dual Ran k\tCPC7G\tDIMM,32GB,5600,2RX8,DDR5,R\t16\n370-ABWF : DIMM Blanks for System with 2 Processors\t21PJD\tFiller,Blank,Dual In-Line Memory Module,Processor,R760\t16\n338-CPBV : Intel Xeon Gold 6526Y 2.8G, 16 C/32T, 20GT/s, 37.5M Cache, Tu rbo, HT (195W) DDR5-5200\tC06J5\tPRC,6526Y,2.8G,EMR,16C,195W,M1\t2\n340-DCEP : PowerEdge R760 Shipping\t9C7YV\tSHP MTL,CTN,R760,2U,15G\t1\n\tYRD6N\tGDE,SETUP,R760,DAO\t1\n\tMVW0N\tPREP MTL,MOD,BOX,2U\t1\n\t8123\tINFO,NO DELL DIRECT CATALOG\t1\n329-BHOF : PowerEdge R760 Motherboard wit h Broadcom 5720 Dual Port 1Gb On-Board LOM\tP9WP6\tASSY,PWA,PLN,R760,LOM\t1\n321-BGZI : 2.5\" Chassis with up to 16 NVM e Drives, Dual Controller, RAI D Config\tRJ8J9\tAssembly,Filler,Blank,Hard Drive,2.5,14G\t13\n\tFYK80\tASSY,CHAS,0/16/24,L5, R76X,LTN\t1\n\tYD2C2\tASSY,PWA,BKPLN,2U,8X2.5,LL,15G\t1\n210-BDZY : PowerEdge R760 Server\t2WN6D\tINSTR,TRIG,SVC TAG,R760\t1\n\tC5V2M\tSRV,SW,BIOS,R760\t1"
+}

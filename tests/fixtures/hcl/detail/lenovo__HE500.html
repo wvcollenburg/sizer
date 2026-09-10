@@ -1,0 +1,140 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=lenovo" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HE500 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [lenovo]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  ThinkSystem SR250</ul>
+    <ul><b>POWER SUPPLY:</b>  2x ThinkSystem 450W 230V/115V Platinum Hot-Swap [4P57A12649]</ul>
+    <ul><b>COOLING:</b>  Unspecified</ul>
+                        
+    <ul><b>TPM:</b>  Included</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  XCC Advanced</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b>  1x FCLGA1151 (up to 8 cores)</ul>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 4x  ECC DDR4 UDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="7ZT7A00537">ThinkSystem Intel X710-DA2 PCIe 10Gb 2-Port SFP+ Ethernet Adapter [7ZT7A00537] </option>
+        
+          <option value="7XC7A05525">Intel X710-DA4 4x10Gb SFP+ Adapter [7XC7A05525] </option>
+        
+          <option value="7ZT7A00496">ThinkSystem Broadcom 57416 10GBASE-T 2-Port PCIe Ethernet Adapter [7ZT7A00496] </option>
+        
+          <option value="7ZT7A00484">ThinkSystem Broadcom 5719 1GbE RJ45 4-Port PCIe Ethernet Adapter [7ZT7A00484] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="7Y37A01088">ThinkSystem 430-8i SAS/SATA 12Gb HBA [7Y37A01088] </option>
+        
+      </select>
+    
+    
+      <ul><b>HDD: (up to 4) </b></ul>
+      <select name="hdd" id="hdd">
+        
+          <option value="4XB7B01233">ThinkSystem 3.5&#34; 2TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7B01233] </option>
+        
+          <option value="7XB7A00042">ThinkSystem 3.5&#34; 2TB 7.2K SAS 12Gb Hot Swap 512n HDD [7XB7A00042] </option>
+        
+          <option value="4XB7B01235">ThinkSystem 3.5&#34; 4TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7B01235] </option>
+        
+          <option value="7XB7A00043">ThinkSystem 3.5&#34; 4TB 7.2K SAS 12Gb Hot Swap 512n HDD [7XB7A00043] </option>
+        
+          <option value="4XB7B01237">ThinkSystem 3.5&#34; 6TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7B01237] </option>
+        
+          <option value="7XB7A00044">ThinkSystem 3.5&#34; 6TB 7.2K SAS 12Gb Hot Swap 512e HDD [7XB7A00044] </option>
+        
+          <option value="4XB7B01239">ThinkSystem 3.5&#34; 8TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7B01239] </option>
+        
+          <option value="7XB7A00045">ThinkSystem 3.5&#34; 8TB 7.2K SAS 12Gb Hot Swap 512e HDD [7XB7A00045] </option>
+        
+          <option value="4XB7B01241">ThinkSystem 3.5&#34; 10TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7B01241] </option>
+        
+          <option value="7XB7A00046">ThinkSystem 3.5&#34; 10TB 7.2K SAS 12Gb Hot Swap 512e HDD [7XB7A00046] </option>
+        
+          <option value="4XB7A93788">ThinkSystem 3.5&#34; 12TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7A93788] </option>
+        
+          <option value="7XB7A00067">ThinkSystem 3.5&#34; 12TB 7.2K SAS 12Gb Hot Swap 512e HDD [7XB7A00067] </option>
+        
+          <option value="4XB7A93786">ThinkSystem 3.5&#34; 16TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7A93786] </option>
+        
+          <option value="4XB7A13911">ThinkSystem 3.5&#34; 16TB 7.2K SAS 12Gb Hot Swap 512e HDD [4XB7A13911] </option>
+        
+          <option value="4XB7A93784">ThinkSystem 3.5&#34; 20TB 7.2K SAS 12Gb Hot Swap 512e HDD v2 [4XB7A93784] </option>
+        
+          <option value="4XB7A80353">ThinkSystem 3.5&#34; 20TB 7.2K SAS 12Gb Hot Swap 512e HDD [4XB7A80353] </option>
+        
+          <option value="4XB7A83766">ThinkSystem 3.5&#34; 22TB 7.2K SAS 12Gb Hot Swap 512e HDD [4XB7A83766] </option>
+        
+          <option value="4XB7A93007">ThinkSystem 3.5&#34; 24TB 7.2K SAS 12Gb Hot Swap 512e HDD [4XB7A93007] </option>
+        
+          <option value="4XB7A00041">ThinkSystem 3.5&#34; 1TB 7.2K SAS 12Gb Hot Swap 512n HDD [4XB7A00041] </option>
+        
+      </select>
+    
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

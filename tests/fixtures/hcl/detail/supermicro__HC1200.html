@@ -1,0 +1,88 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=supermicro" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HC1200 ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [supermicro]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  815TQC-R504WB + X11SPW-CTF</ul>
+    <ul><b>POWER SUPPLY:</b>  2x 1U 500W Redundant Single Output power supply W/PMbus [PWS-504P-1R]</ul>
+    <ul><b>COOLING:</b> 3x 40x40x56mm, 13K RPM [FAN-0156L4]</ul>
+                        
+    <ul><b>TPM:</b>  AOM-TPM-9670V</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  SUMS</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b>  1x FCLGA3647 (up to 28 cores)</ul>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 6x  ECC DDR4 RDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      
+        <ul><b>N/A</b></ul>
+      
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Storage Controller:</b></ul>
+      <select name="hba" id="hba">
+        
+          <option value="AOC-S3008L-L8i">Supermicro AOC-S3008L-L8i SAS HBA [AOC-S3008L-L8i] </option>
+        
+      </select>
+    
+    
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

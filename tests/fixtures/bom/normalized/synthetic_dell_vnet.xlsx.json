@@ -1,0 +1,139 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "Config 1",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "461-AAIG",
+          "description": "Trusted Platform Module 2.0 V3",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "321-BGZI",
+          "description": "2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "412-ABCP",
+          "description": "Heatsink for 2 CPU configuration (CPU greater than 165W)",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 12,
+          "category": "memory"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "No RAID",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "750-ADGJ",
+          "description": "Standard Fan x6 V3",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AALV",
+          "description": "C13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "330-BBXJ",
+          "description": "Riser Config 1, 2x16 LP",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BKCH",
+          "description": "PowerEdge R760 Motherboard with ONLY CPUs below 250W supported, MLK",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "540-BDOW",
+          "description": "LOM Blank",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "490-BJIT",
+          "description": "NVIDIA L4 24GB PCIe",
+          "quantity": 1,
+          "category": "gpu"
+        },
+        {
+          "partNumber": "321-BHMY",
+          "description": "PowerEdge 2U Standard Bezel",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BERC",
+          "description": "BOSS Blank",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "770-BDRQ",
+          "description": "ReadyRails Sliding Rails With Cable Management Arm",
+          "quantity": 1,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "Configuration Export\nCustomer:\tAcme Co\nConfiguration:\tAcmeCo_1\nModule Name\tOption ID\tOption Name\tSKUs\tQty\nBase\tGYF3001\tPowerEdge R760 Server\t210-BDZY\t1\nTrusted Platform Module\tGYF3002\tTrusted Platform Module 2.0 V3\t461-AAIG\t1\nChassis Configuration\tGYF3003\t2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config\t321-BGZI\t1\nProcessor\tGYF3004\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t338-CPBV\t1\nAdditional Processor\tGYF3005\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t338-CPBV\t1\nAdditional Processor Features\tGYF3006\tAdditional Processor Selected\t379-BDCO\t1\nProcessor Thermal Configuration\tGYF3007\tHeatsink for 2 CPU configuration (CPU greater than 165W)\t412-ABCP\t1\nMemory Configuration Type\tGYF3008\tPerformance Optimized\t370-AAIP\t1\nMemory DIMM Type and Speed\tGYF3009\t5600MT/s RDIMMs\t370-BBRX\t1\nMemory Capacity\tGYF3010\t32GB RDIMM, 5600MT/s, Dual Rank\t370-BBRY\t12\nRAID Configuration\tGYF3011\tNo RAID\t780-BCDI\t1\nRAID/Internal Storage Controllers\tGYF3012\tDell HBA355i Adapter, Low Profile\t405-AAZF\t1\nHard Drives\tGYF3013\t3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay\t400-BKGJ\t3\nHard Drives\tGYF3014\t8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t161-BCPX\t9\nBIOS and Advanced System Configuration Settings\tGYF3015\tPerformance BIOS Settings\t384-BBBL\t1\nAdvanced System Configurations\tGYF3016\tUEFI BIOS Boot Mode with GPT Partition\t800-BBDM\t1\nFans\tGYF3017\tStandard Fan x6 V3\t750-ADGJ\t1\nPower Supply\tGYF3018\tDual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U\t450-AKYB\t1\nPower Cords\tGYF3019\tC13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord\t450-AALV\t2\nPCIe Riser\tGYF3020\tRiser Config 1, 2x16 LP\t330-BBXJ\t1\nMotherboard\tGYF3021\tPowerEdge R760 Motherboard with ONLY CPUs below 250W supported, MLK\t329-BKCH\t1\nOCP 3.0 Network Adapters\tGYF3022\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t540-BCXW\t1\nAdditional Network Cards\tGYF3023\tLOM Blank\t540-BDOW\t1\nGPU\tGYF3024\tNVIDIA L4 24GB PCIe\t490-BJIT\t1\nBezel\tGYF3025\tPowerEdge 2U Standard Bezel\t321-BHMY, 325-BEVI\t1\nBoot Optimized Storage Cards\tGYF3026\tBOSS Blank\t329-BERC\t1\nQuick Sync\tGYF3027\tQuick Sync 2 (At-the-box mgmt)\t350-BCEL\t1\nPassword\tGYF3028\tiDRAC,Factory Generated Password\t379-BCQV\t1\nGroup Manager\tGYF3029\tiDRAC Group Manager, Disabled\t379-BCQY\t1\nOperating System\tGYF3030\tNo Operating System\t611-BBBF\t1\nOS Media Kits\tGYF3031\tNo Media Required\t605-BBFN\t1\niDRAC Systems Management Options\tGYF3032\tiDRAC9, Enterprise 16G\t528-CTIC\t1\nRack Rails\tGYF3033\tReadyRails Sliding Rails With Cable Management Arm\t770-BDRQ, 770-BEKK\t1\nSystem Documentation\tGYF3034\tNo Systems Documentation, No OpenManage DVD Kit\t631-ADAJ\t1\nSHIPPING\tGYF3035\tPowerEdge R760 Shipping\t340-DCEP\t1\nRegulatory\tGYF3036\tPowerEdge R760 CE, CCC, BIS Marking\t343-BBST, 343-BBSX\t1\nStandard Hardware Support Service\tGYF3037\tBasic Next Business Day 36 Months\t709-BBFM\t1\nHardware Support Services Upgrades\tGYF3038\tProSupport and Next Business Day Onsite Service Initial, 36 Month(s)\t865-BBMY, 865-BBMZ\t1"
+}

@@ -23,6 +23,10 @@ from project_models import (  # noqa: F401
     Project, ProjectTag, ConfigurationTag, ScaleProjectLink, ExportJob,
     ReplicationLink, ensure_scratch_project,
 )
+# HCL catalog + BOM checks (docs/bom-checker-build.md §2): new tables only, so
+# create_all() is the whole migration.
+import hcl_models  # noqa: F401,E402
+import bom_models  # noqa: F401,E402
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}
@@ -163,6 +167,18 @@ def _migrate_schema():
         # opened+saved by a person (feature/per-cluster-sizing).
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
         "untouched BOOLEAN NOT NULL DEFAULT false",
+        # HCL preview accepts (feature/bomchecker): origin marks components/
+        # links accepted ahead of HCL publication. The hcl_* tables ship on
+        # this same unmerged branch, but it was already deployed to testenv
+        # mid-development, so the ALTERs are needed there anyway.
+        "ALTER TABLE hcl_components ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
+        "ALTER TABLE hcl_platform_components ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
+        # Platforms created during a pre-publication accept carry the same
+        # provenance marker (delist immunity until a scrape lists them).
+        "ALTER TABLE hcl_platforms ADD COLUMN IF NOT EXISTS "
+        "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

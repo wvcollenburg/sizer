@@ -77,6 +77,13 @@ A full inventory of what the sizer does today.
 - **Utilization & benchmark charts** — utilization bars and benchmark visuals in the deck and document.
 - **Editable vs. read-only** — editable source files (PPTX / Word) for Scale users; read-only PDF for everyone else.
 
+### BOM checker (third-party hardware)
+- **Upload a vendor BOM on the project page** — Lenovo DCSC configurator exports, Dell quotes / service-tag exports / VNET exports / D&H bids / hand-made Dell lists are parsed deterministically; anything else goes through a strict downloadable xlsx template (never a best-effort guess).
+- **Technical verdict** — every part validated against a mirror of the SC//HyperCore-ready HCL: controllers, NICs, CPUs, GPUs, BOSS cards, drive endurance (DWPD), SED, memory rank, NIC topology; PASS / FAIL / INCONCLUSIVE with per-finding remediation, and swap suggestions drawn from the identified platform's own validated part list.
+- **Sizing fit** — optionally compare the BOM with one of the project's sizings: node count, usable cores, compute coverage, RAM at N-1, usable storage (RF2), largest-VM guards and NIC speed, each reported as equal / bigger / fits / smaller with deltas.
+- **Re-check & history** — checks are stored (normalised BOM + result, never the file) and can be re-run after a catalog update or against another sizing.
+- **AI-assisted template pre-fill (optional)** — with an API key configured, an unrecognised quote (PDF, DOCX, spreadsheet, text) is turned into a filled template for the user to review and upload; model output never enters validation directly.
+
 ### Localization
 - **15 languages, UI *and* documents** — EN, DE, FR, NL, ES, IT, PT, JA, SV, DA, NO, FI, ET, LV, LT. Every generated export is localized, with CJK-capable fonts bundled for Japanese.
 
@@ -95,6 +102,8 @@ A full inventory of what the sizer does today.
 - **Config oversight** — list and purge any saved sizing.
 - **Email/SMTP settings** — configure and test outbound mail.
 - **Audit log** — a super-admin audit trail of sensitive actions.
+- **HCL catalog** — scrape hcl.scalecomputing.com on demand (or import a snapshot file); every difference lands in an approval queue (add / update / delist / relist) and nothing reaches the live catalog unapproved. Delisted parts are kept with their date, never deleted.
+- **BOM review queue** — checks with uncertain outcomes (INCONCLUSIVE, parts not found in the HCL, delisted parts) wait for a super admin's confirmation, which the user sees on the check.
 
 ### Security, privacy & compliance
 - **Rate limiting** — per-client-IP limits (Redis-backed for exact cross-worker enforcement) on auth, export, and enumeration-prone endpoints.
@@ -165,6 +174,8 @@ the annotated list. The essentials:
 | `APP_BASE_URL` | Public base URL for links in verification/reset emails (avoids Host-header poisoning). |
 | `SESSION_COOKIE_SECURE` | Set `true` when served over HTTPS. |
 | `ENABLE_SCHEDULER` | Set `0` to disable the in-app daily retention/GDPR job (e.g. for CLI/one-off processes). |
+| `HCL_BASE_URL` | Base URL the HCL scraper fetches from (default `https://hcl.scalecomputing.com`). |
+| `ANTHROPIC_API_KEY` / `BOM_PREFILL_MODEL` | Optional: enables AI-assisted BOM template pre-fill (Tier 3). Unset = feature hidden. |
 
 ## Deployment
 

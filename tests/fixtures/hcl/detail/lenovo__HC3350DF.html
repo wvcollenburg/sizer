@@ -1,0 +1,145 @@
+<!-- Detail element for deep dive on a given platform -->
+
+<script src="/hcl_revert.js" type="text/javascript" defer></script>
+<script src="/detailExport.js" type="text/javascript" defer></script>
+
+<div class="detailBox" id="hcrDetailView">
+  <div class="detailBar">
+    <div class="detailButtonHeader">
+      <button class="backButton" id="hcrBackButton" href="/hcready/filter?action=back" hx-get="/hcready/filter?action=back&brand=lenovo" hx-target="#hcrFilterDisplay" hx-swap="innerHTML">< BACK</button>
+      <button class="exportButton" id="hcrExportButton">EXPORT</button>
+    </div>
+  </div>
+  <h2 id="detailPlatformTitle">   SC//HyperCore™-ready [ HC3350DF ]</h2>
+
+
+  <div class="detailBar">
+    <h3> CHASSIS [lenovo]</h3>
+    <img id="chassisImg" src="/img/icons/hard_drive_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>SERVER:</b>  ThinkSystem SR630V2</ul>
+    <ul><b>POWER SUPPLY:</b>  2x ThinkSystem 1100W 230V/115V Platinum Hot-Swap Gen2 v2 [4P57A75974]</ul>
+    <ul><b>COOLING:</b>  Unspecified</ul>
+                        
+    <ul><b>TPM:</b>  TPM 2.0 [B0MK]</ul>
+    <ul><b>RISER(S):</b>  Unspecified</ul>
+                        
+    <ul><b>OOB LICENSE:</b>  XCC2 Platinum</ul>
+  </div>
+
+  <div class="detailBar">
+    <h3> PROCESSOR</h3>
+    <img id="processorImg" src="/img/icons/memory_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>CPU:</b>  2x FCLGA4189 (up to 80 cores)</ul>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> MEMORY</h3>
+    <img id="memoryImg" src="/img/icons/memory_alt_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    <ul><b>RAM:</b>  (up to) 32x  ECC DDR4 RDIMM</ul>
+  </div>
+  
+  <div class="detailBar">
+    <h3> NETWORK</h3>
+    <img id="networkImg" src="/img/icons/settings_ethernet_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>NIC:</b> (up to ) </ul>
+      <select name="nic" id="nic">
+        
+          <option value="4XC7A08294">ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter [4XC7A08294] </option>
+        
+          <option value="4XC7A80269">ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter [4XC7A80269] </option>
+        
+          <option value="7ZT7A00537">ThinkSystem Intel X710-DA2 PCIe 10Gb 2-Port SFP+ Ethernet Adapter [7ZT7A00537] </option>
+        
+          <option value="4XC7A08295">ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter [4XC7A08295] </option>
+        
+          <option value="4XC7A79699">ThinkSystem Intel X710-T4L 10GBase-T 4-Port PCIe Ethernet Adapter [4XC7A79699] </option>
+        
+          <option value="7ZT7A00535">ThinkSystem I350-T4 PCIe 1Gb 4-Port RJ45 Ethernet Adapter [7ZT7A00535] </option>
+        
+          <option value="4XC7A80566">ThinkSystem Broadcom 57504 10/25GbE SFP28 4-port PCIe Ethernet Adapter [4XC7A80566]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XC7A08277">ThinkSystem Intel I350 1GbE RJ45 4-port OCP Ethernet Adapter [4XC7A08277] </option>
+        
+          <option value="4XC7A80567">ThinkSystem Broadcom 57504 10/25GbE SFP28 4-port OCP Ethernet Adapter [4XC7A80567] </option>
+        
+          <option value="4XC7A08242">ThinkSystem Broadcom 57454 10/25GbE SFP28 4-port OCP Ethernet Adapter [4XC7A08242] </option>
+        
+          <option value="4XC7A08316">ThinkSystem Broadcom 57454 10/25GbE SFP28 4-port PCIe Ethernet Adapter V2 [4XC7A08316] </option>
+        
+          <option value="4XC7A08236">ThinkSystem Broadcom 57416 10GBASE-T 2-port OCP Ethernet Adapter [4XC7A08236]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="7ZT7A00496">ThinkSystem Broadcom 57416 10GBASE-T 2-Port PCIe Ethernet Adapter [7ZT7A00496] </option>
+        
+          <option value="4XC7A08235">ThinkSystem Broadcom 5719 1GbE RJ45 4-port OCP Ethernet Adapter [4XC7A08235]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="7ZT7A00484">ThinkSystem Broadcom 5719 1GbE RJ45 4-Port PCIe Ethernet Adapter [7ZT7A00484] </option>
+        
+      </select>
+    
+  </div>
+  
+  <div class="detailBar">
+    <h3> STORAGE</h3>
+    <img id="storageImg" src="/img/icons/hard_disk_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+    
+    
+      <ul><b>SSD: (up to 10) </b></ul>
+      <select name="ssd" id="ssd">
+        
+          <option value="4XB7A93097">ThinkSystem 2.5&#34; U.2 PM9D5a 800GB Mixed Use NVMe NVMe PCIe 5.0 x4 HS SSD [4XB7A93097] </option>
+        
+          <option value="4XB7A93127">ThinkSystem 2.5&#34; U.2 VA 1.6TB Mixed Use NVMe PCIe 5.0 x4 HS SSD [4XB7A93127]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93128">ThinkSystem 2.5&#34; U.2 VA 3.2TB Mixed Use NVMe PCIe 5.0 x4 HS SSD [4XB7A93128]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93129">ThinkSystem 2.5&#34; U.2 VA 6.4TB Mixed Use NVMe PCIe 5.0 x4 HS SSD [4XB7A93129]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93130">ThinkSystem 2.5&#34; U.2 VA 12.8TB Mixed Use NVMe PCIe 5.0 x4 HS SSD [4XB7A93130] </option>
+        
+          <option value="4XB7B10396">ThinkSystem 2.5&#34; U.2 SN861 1.92TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7B10396] </option>
+        
+          <option value="4XB7B10397">ThinkSystem 2.5&#34; U.2 SN861 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7B10397] </option>
+        
+          <option value="4XB7B10398">ThinkSystem 2.5&#34; U.2 SN861 7.68TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7B10398] </option>
+        
+          <option value="4XB7B10399">ThinkSystem 2.5&#34; U.2 SN861 15.36TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7B10399] </option>
+        
+          <option value="4XB7A93122">ThinkSystem 2.5&#34; U.2 VA 1.92TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7A93122]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93123">ThinkSystem 2.5&#34; U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7A93123]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93124">ThinkSystem 2.5&#34; U.2 VA 7.68TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7A93124]  <span class="tce-badge">TCE</span></option>
+        
+          <option value="4XB7A93125">ThinkSystem 2.5&#34; U.2 VA 15.36TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7A93125] </option>
+        
+          <option value="4XB7A93126">ThinkSystem 2.5&#34; U.2 VA 30.72TB Read Intensive NVMe PCIe 5.0 x4 HS SSD [4XB7A93126] </option>
+        
+      </select>
+    
+  </div>
+
+  <div class="detailBar">
+    <h3> GPU</h3>
+    <img id="gpuImg" src="/img/icons/monitor_24dp_000000_FILL0_wght400_GRAD0_opsz24.svg">
+  </div>
+  <div class="detailHeader">
+    
+      <ul><b>Under Construction</b></ul>
+    
+  </div>
+</div>
+

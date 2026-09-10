@@ -1,0 +1,236 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "Production",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "461-AAIG",
+          "description": "Trusted Platform Module 2.0 V3",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "321-BGZI",
+          "description": "2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "412-ABCP",
+          "description": "Heatsink for 2 CPU configuration (CPU greater than 165W)",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "No RAID",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "750-ACFR",
+          "description": "Front PERC Mechanical Parts, left and right",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "750-ADGJ",
+          "description": "Standard Fan x6 V3",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AAGG",
+          "description": "No Power Cord",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "330-BBXJ",
+          "description": "Riser Config 1, 2x16 LP",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BKCH",
+          "description": "PowerEdge R760 Motherboard with ONLY CPUs below 250W supported, MLK",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "540-BDOW",
+          "description": "LOM Blank",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "470-AEYU",
+          "description": "No Cables Required",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "325-BEVH",
+          "description": "PowerEdge 2U Standard Bezel",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BERC",
+          "description": "Assembly BOSS Blank",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "528-CTIC",
+          "description": "iDRAC9, Enterprise 16G",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "770-BCJI",
+          "description": "ReadyRails Sliding Rails With Cable Management Arm",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 96,
+          "category": "memory"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 27,
+          "category": "storage"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "450-AALV",
+          "description": "C13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord",
+          "quantity": 6,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "Disaster Recovery",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "321-BGZI",
+          "description": "2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config",
+          "quantity": 1,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CPBV",
+          "description": "Intel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "No RAID",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "Dell HBA355i Adapter, Low Profile",
+          "quantity": 1,
+          "category": "controller"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "540-BCXW",
+          "description": "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+          "quantity": 1,
+          "category": "nic"
+        },
+        {
+          "partNumber": "329-BERC",
+          "description": "Assembly BOSS Blank",
+          "quantity": 1,
+          "category": "other"
+        },
+        {
+          "partNumber": "370-BBRY",
+          "description": "32GB RDIMM, 5600MT/s, Dual Rank",
+          "quantity": 32,
+          "category": "memory"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "400-BKGJ",
+          "description": "3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "450-AALV",
+          "description": "C13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord",
+          "quantity": 2,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 1
+    }
+  ],
+  "rawText": "SKU\t\tDescription\t\t\t\t\t\t\t\tQty\tUnit Price\t\t\t\tSubtotal\n\t\tPowerEdge R760 Smart Selection - [PE_R760_SYN] Production\t\t\t\t\t\t\t\t3\t30000\n\t\tEstimated delivery date: Sep. 23, 2026\n\t\tContract No: C000000000001\n210-BDZY\t\tPowerEdge R760 Server\t\t\t\t\t\t\t\t3\t-\n461-AAIG\t\tTrusted Platform Module 2.0 V3\t\t\t\t\t\t\t\t3\t-\n321-BGZI\t\t2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config\t\t\t\t\t\t\t\t3\t-\n338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t\t\t\t\t\t\t\t3\t-\n379-BDCO\t\tAdditional Processor Selected\t\t\t\t\t\t\t\t3\t-\n338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t\t\t\t\t\t\t\t3\t-\n379-BFFD\t\tNo HBM\t\t\t\t\t\t\t\t3\t-\n412-ABCP\t\tHeatsink for 2 CPU configuration (CPU greater than 165W)\t\t\t\t\t\t\t\t3\t-\n370-AAIP\t\tPerformance Optimized\t\t\t\t\t\t\t\t3\t-\n370-BCCX\t\t6400MT/s RDIMMs\t\t\t\t\t\t\t\t3\t-\n780-BCDI\t\tNo RAID\t\t\t\t\t\t\t\t3\t-\n405-AAZF\t\tDell HBA355i Adapter, Low Profile\t\t\t\t\t\t\t\t3\t-\n750-ACFR\t\tFront PERC Mechanical Parts, left and right\t\t\t\t\t\t\t\t3\t-\n384-BBBL\t\tPerformance BIOS Settings\t\t\t\t\t\t\t\t3\t-\n800-BBDM\t\tUEFI BIOS Boot Mode with GPT Partition\t\t\t\t\t\t\t\t3\t-\n750-ADGJ\t\tStandard Fan x6 V3\t\t\t\t\t\t\t\t3\t-\n450-AKYB\t\tDual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U\t\t\t\t\t\t\t\t3\t-\n450-AAGG\t\tNo Power Cord\t\t\t\t\t\t\t\t3\t-\n330-BBXJ\t\tRiser Config 1, 2x16 LP\t\t\t\t\t\t\t\t3\t-\n329-BKCH\t\tPowerEdge R760 Motherboard with ONLY CPUs below 250W supported, MLK\t\t\t\t\t\t\t\t3\t-\n540-BCXW\t\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t\t\t\t\t\t\t\t3\t-\n540-BDOW\t\tLOM Blank\t\t\t\t\t\t\t\t3\t-\n470-AEYU\t\tNo Cables Required\t\t\t\t\t\t\t\t3\t-\n321-BHMY\t\tLuggage Tag\t\t\t\t\t\t\t\t3\t-\n325-BEVH\t\tPowerEdge 2U Standard Bezel\t\t\t\t\t\t\t\t3\t-\n329-BERC\t\tAssembly BOSS Blank\t\t\t\t\t\t\t\t3\t-\n350-BCEL\t\tQuick Sync 2 (At-the-box mgmt)\t\t\t\t\t\t\t\t3\t-\n379-BCQV\t\tiDRAC,Factory Generated Password\t\t\t\t\t\t\t\t3\t-\n611-BBBF\t\tNo Operating System\t\t\t\t\t\t\t\t3\t-\n605-BBFN\t\tNo Media Required\t\t\t\t\t\t\t\t3\t-\n528-CTIC\t\tiDRAC9, Enterprise 16G\t\t\t\t\t\t\t\t3\t-\n770-BCJI\t\tReadyRails Sliding Rails With Cable Management Arm\t\t\t\t\t\t\t\t3\t-\n631-ADAJ\t\tNo Systems Documentation, No OpenManage DVD Kit\t\t\t\t\t\t\t\t3\t-\n340-DCEP\t\tPowerEdge R760 Shipping\t\t\t\t\t\t\t\t3\t-\n343-BBRR\t\tPowerEdge R760 CE, CCC, BIS Marking\t\t\t\t\t\t\t\t3\t-\n817-BBBB\t\tNone Required\t\t\t\t\t\t\t\t3\t-\n709-BBFM\t\tParts Only Warranty 12 Months\t\t\t\t\t\t\t\t3\t-\n865-BBMY\t\tProSupport and Next Business Day Onsite Service Initial, 36 Month(s)\t\t\t\t\t\t\t\t3\t-\n883-BBFN\t\tBasic Deployment, Dell Server\t\t\t\t\t\t\t\t3\t-\n370-BBRY\t\t32GB RDIMM, 5600MT/s, Dual Rank\t\t\t\t\t\t\t\t96\t-\n161-BCPX\t\t8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t\t\t\t\t\t\t\t27\t-\n400-BKGJ\t\t3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay\t\t\t\t\t\t\t\t9\t-\n450-AALV\t\tC13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord\t\t\t\t\t\t\t\t6\t-\nSKU\t\tDescription\t\t\t\t\t\t\t\tQty\tUnit Price\t\t\t\tSubtotal\n\t\tPowerEdge R760 Smart Selection - [PE_R760_SYN] Disaster Recovery\t\t\t\t\t\t\t\t1\t30000\n\t\tEstimated delivery date: Sep. 23, 2026\n210-BDZY\t\tPowerEdge R760 Server\t\t\t\t\t\t\t\t1\t-\n321-BGZI\t\t2.5\" Chassis with up to 16 NVMe Drives, Dual Controller, RAID Config\t\t\t\t\t\t\t\t1\t-\n338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t\t\t\t\t\t\t\t1\t-\n379-BDCO\t\tAdditional Processor Selected\t\t\t\t\t\t\t\t1\t-\n338-CPBV\t\tIntel Xeon Gold 6526Y 2.8G, 16C/32T, 20GT/s, 37.5M Cache, Turbo, HT (195W) DDR5-5200\t\t\t\t\t\t\t\t1\t-\n780-BCDI\t\tNo RAID\t\t\t\t\t\t\t\t1\t-\n405-AAZF\t\tDell HBA355i Adapter, Low Profile\t\t\t\t\t\t\t\t1\t-\n450-AKYB\t\tDual, Hot Plug, Power Supply (1+1) Redundant 1400W 2U\t\t\t\t\t\t\t\t1\t-\n540-BCXW\t\tIntel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0\t\t\t\t\t\t\t\t1\t-\n329-BERC\t\tAssembly BOSS Blank\t\t\t\t\t\t\t\t1\t-\n865-BBMY\t\tProSupport and Next Business Day Onsite Service Initial, 36 Month(s)\t\t\t\t\t\t\t\t1\t-\n370-BBRY\t\t32GB RDIMM, 5600MT/s, Dual Rank\t\t\t\t\t\t\t\t32\t-\n161-BCPX\t\t8TB Hard Drive SAS 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t\t\t\t\t\t\t\t9\t-\n400-BKGJ\t\t3.84TB Enterprise NVMe Read Intensive AG Drive U.2 Gen4 Flex Bay\t\t\t\t\t\t\t\t3\t-\n450-AALV\t\tC13 to C14, PDU Style, 10 AMP, 6.5 Feet (2m), Power Cord\t\t\t\t\t\t\t\t2\t-\n\t\t\t\t\t\t\t\t\t\tSubtotal:\t\t\t\t\t$120,000.00\n\t\t\t\t\t\t\t\t\t\tShipping:\t\t\t\t\t$0.00\n\t\t\t\t\t\t\t\t\t\tEnvironmental Fees:\t\t\t\t\t$0.00\n\t\t\t\t\t\t\t\t\t\tEstimated Tax:\t\t\t\t\t$0.00\n\t\t\t\t\t\t\t\t\t\tTotal:\t\t\t\t\t$120,000.00"
+}

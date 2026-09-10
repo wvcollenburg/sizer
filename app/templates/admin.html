@@ -56,6 +56,8 @@
             <button class="tab" data-tab="drives" data-click='["switchTab","drives"]' data-i18n="admin.tab.drives">Drives</button>
             <button class="tab" data-tab="tuning" data-click='["switchTab","tuning"]' data-i18n="admin.tab.tuning">Tuning</button>
             <button class="tab" data-tab="pricebook" data-click='["switchTab","pricebook"]' data-i18n="admin.tab.pricebook">Pricebook</button>
+            <button class="tab" data-tab="hcl" data-click='["switchTab","hcl"]' data-i18n="admin.tab.hcl">HCL</button>
+            <button class="tab" data-tab="bomreviews" data-click='["switchTab","bomreviews"]' data-i18n="admin.tab.bom_reviews">BOM reviews</button>
             <span class="tab-spacer"></span>
             <button class="tab" data-tab="users" data-click='["switchTab","users"]' data-i18n="admin.tab.users">Users</button>
             <button class="tab" data-tab="stale" data-click='["switchTab","stale"]' data-i18n="admin.tab.stale">Inactive 1yr+</button>
@@ -355,6 +357,278 @@
             </div>
         </div>
 
+        <!-- ═══════════════════ HCL TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-hcl">
+            <p class="muted hcl-stats" id="hcl-stats" aria-live="polite"></p>
+            <div id="hcl-status" class="admin-status" style="display:none" role="status"></div>
+
+            <!-- Scrape / import -->
+            <div class="iops-card hcl-card" id="hcl-scrape-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.hcl.scrape_title">HCL scrape</h3>
+                    <p class="muted hcl-card-desc" data-i18n="admin.hcl.scrape_desc">
+                        Fetches every HC-Ready platform, its validated parts and the PCI device
+                        table from hcl.scalecomputing.com. Nothing touches the live catalog:
+                        differences land in the pending-changes queue below for approval.
+                    </p>
+                </div>
+                <div class="iops-inputs">
+                    <button class="btn btn-primary" id="hcl-scrape-btn" data-click='["hclStartScrape"]'
+                            data-i18n="admin.hcl.scrape_btn">Scrape hcl.scalecomputing.com now</button>
+                    <div class="hcl-progress-wrap" id="hcl-progress-wrap" hidden>
+                        <div class="hcl-progress" id="hcl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+                        <span id="hcl-scrape-state" class="iops-status"></span>
+                    </div>
+                </div>
+                <div id="hcl-last-run" class="hcl-last-run"></div>
+                <div class="hcl-import">
+                    <div class="iops-inputs">
+                        <div class="form-group hcl-grow">
+                            <label for="hcl-snapshot-file" data-i18n="admin.hcl.import_label">Import snapshot file (.json)</label>
+                            <input type="file" id="hcl-snapshot-file" accept=".json,application/json">
+                        </div>
+                        <button class="btn btn-secondary" id="hcl-import-btn" data-click='["hclImportSnapshot"]'
+                                data-i18n="admin.hcl.import_btn">Import snapshot</button>
+                    </div>
+                    <p class="muted hcl-card-desc" data-i18n="admin.hcl.import_hint">
+                        For installations without internet access: upload a snapshot JSON produced by a
+                        scrape elsewhere. It is processed exactly like a live scrape, so its changes also
+                        wait in the queue for approval.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Pending changes -->
+            <div class="iops-card hcl-card" id="hcl-pending-card">
+                <div class="iops-card-header">
+                    <h3><span data-i18n="admin.hcl.pending_title">Pending changes</span>
+                        <span class="count-pill" id="hcl-pending-count" aria-live="polite">0</span></h3>
+                    <p class="muted hcl-card-desc" data-i18n="admin.hcl.pending_desc">
+                        Each row is one difference between the last scrape and the live catalog.
+                        Approving applies it; rejecting leaves the catalog as it is. Delisted parts
+                        are never deleted, only marked.
+                    </p>
+                </div>
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <button class="btn btn-primary btn-sm" data-click='["hclBulkPending","approve"]' data-i18n="admin.hcl.approve_selected">Approve selected</button>
+                        <button class="btn btn-danger btn-sm" data-click='["hclBulkPending","reject"]' data-i18n="admin.hcl.reject_selected">Reject selected</button>
+                        <button class="btn btn-secondary btn-sm" data-click='["hclApproveAllPending"]' data-i18n="admin.hcl.approve_all">Approve all pending</button>
+                        <span id="hcl-pending-selected" class="count-badge"></span>
+                    </div>
+                    <div class="toolbar-right hcl-filters">
+                        <label class="hcl-filter">
+                            <span data-i18n="admin.hcl.filter_entity">Type</span>
+                            <select id="hcl-pending-entity" data-change='["loadHclPending"]'>
+                                <option value="" data-i18n="admin.hcl.filter_all">All</option>
+                                <option value="platform" data-i18n="admin.hcl.entity_platform">Platform</option>
+                                <option value="component" data-i18n="admin.hcl.entity_component">Component</option>
+                                <option value="device" data-i18n="admin.hcl.entity_device">PCI device</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter">
+                            <span data-i18n="admin.hcl.filter_kind">Change</span>
+                            <select id="hcl-pending-kind" data-change='["loadHclPending"]'>
+                                <option value="" data-i18n="admin.hcl.filter_all">All</option>
+                                <option value="add" data-i18n="admin.hcl.kind_add">Added</option>
+                                <option value="update" data-i18n="admin.hcl.kind_update">Updated</option>
+                                <option value="delist" data-i18n="admin.hcl.kind_delist">Delisted</option>
+                                <option value="relist" data-i18n="admin.hcl.kind_relist">Relisted</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter">
+                            <span data-i18n="admin.hcl.filter_run">Run</span>
+                            <select id="hcl-pending-run" data-change='["loadHclPending"]'>
+                                <option value="latest" data-i18n="admin.hcl.run_latest">Latest run</option>
+                                <option value="all" data-i18n="admin.hcl.run_all">All runs</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <div class="catalog-table-wrap">
+                    <table class="model-table hcl-table">
+                        <thead><tr>
+                            <th style="width:36px"><input type="checkbox" id="hcl-pending-select-all" aria-label="Select all"
+                                data-i18n-aria="admin.hcl.select_all" data-click='["hclToggleSelectAllPending","$this"]'></th>
+                            <th data-i18n="admin.hcl.col_change">Change</th>
+                            <th data-i18n="admin.hcl.col_entity_type">Type</th>
+                            <th data-i18n="admin.hcl.col_label">Item</th>
+                            <th data-i18n="admin.hcl.col_field">Field</th>
+                            <th data-i18n="admin.pricebook.col_old">Current</th>
+                            <th data-i18n="admin.pricebook.col_new">New</th>
+                            <th data-i18n="admin.hcl.col_created">Created</th>
+                            <th class="col-actions hcl-col-actions" data-i18n="common.actions">Actions</th>
+                        </tr></thead>
+                        <tbody id="hcl-pending-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Catalog -->
+            <div class="iops-card hcl-card" id="hcl-catalog-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.hcl.catalog_title">HCL catalog</h3>
+                    <p class="muted hcl-card-desc" data-i18n="admin.hcl.catalog_desc">
+                        The approved mirror of the HCL that BOM checks validate against. Click a
+                        platform to see the parts validated for it.
+                    </p>
+                </div>
+                <div class="toolbar">
+                    <div class="toolbar-left hcl-filters">
+                        <label class="hcl-filter">
+                            <span data-i18n="admin.hcl.filter_catalog_kind">Show</span>
+                            <select id="hcl-catalog-kind" data-change='["hclCatalogKindChanged"]'>
+                                <option value="platforms" data-i18n="admin.hcl.kind_platforms">Platforms</option>
+                                <option value="components" data-i18n="admin.hcl.kind_components">Components</option>
+                                <option value="devices" data-i18n="admin.hcl.kind_devices">PCI devices</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter">
+                            <span data-i18n="common.status">Status</span>
+                            <select id="hcl-catalog-status" data-change='["loadHclCatalog"]'>
+                                <option value="active" selected data-i18n="admin.hcl.status_active">Active</option>
+                                <option value="delisted" data-i18n="admin.hcl.status_delisted">Delisted</option>
+                                <option value="all" data-i18n="admin.models.filter_all_statuses">All Statuses</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter" id="hcl-component-kind-wrap" hidden>
+                            <span data-i18n="admin.hcl.filter_component_kind">Kind</span>
+                            <select id="hcl-component-kind" data-change='["loadHclCatalog"]'>
+                                <option value="" data-i18n="admin.hcl.filter_all">All</option>
+                                <option value="cpu" data-i18n="admin.hcl.ckind_cpu">CPU</option>
+                                <option value="nic" data-i18n="admin.hcl.ckind_nic">NIC</option>
+                                <option value="hba" data-i18n="admin.hcl.ckind_hba">HBA</option>
+                                <option value="hdd" data-i18n="admin.hcl.ckind_hdd">HDD</option>
+                                <option value="ssd" data-i18n="admin.hcl.ckind_ssd">SSD</option>
+                                <option value="gpu" data-i18n="admin.hcl.ckind_gpu">GPU</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter" id="hcl-origin-wrap" hidden>
+                            <span data-i18n="admin.bomprev.origin_label">Origin</span>
+                            <select id="hcl-origin-filter" data-change='["loadHclCatalog"]'>
+                                <option value="" data-i18n="admin.bomprev.origin_all">All</option>
+                                <option value="scrape" data-i18n="admin.bomprev.origin_scrape">Scraped</option>
+                                <option value="preview" data-i18n="admin.bomprev.origin_preview">Pre-publication</option>
+                            </select>
+                        </label>
+                        <label class="hcl-filter" id="hcl-search-wrap" hidden>
+                            <span data-i18n="common.search">Search</span>
+                            <input type="search" id="hcl-catalog-search" placeholder="Part number or description"
+                                   data-i18n-ph="admin.hcl.search_ph" data-input='["hclCatalogSearchInput"]'>
+                        </label>
+                    </div>
+                    <div class="toolbar-right"><span class="count-badge" id="hcl-catalog-count" aria-live="polite"></span></div>
+                </div>
+                <div class="catalog-table-wrap">
+                    <table class="model-table hcl-table">
+                        <thead id="hcl-catalog-thead"></thead>
+                        <tbody id="hcl-catalog-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <div class="iops-card hcl-card" id="hcl-settings-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.hcl.settings_title">BOM check settings</h3>
+                </div>
+                <div class="iops-inputs">
+                    <div class="form-group hcl-grow">
+                        <label for="hcl-blocked-vendors" data-i18n="admin.hcl.blocked_label">Blocked vendors</label>
+                        <input type="text" id="hcl-blocked-vendors" placeholder="e.g. acme, contoso"
+                               data-i18n-ph="admin.hcl.blocked_ph" autocomplete="off">
+                    </div>
+                    <div class="form-group hcl-grow">
+                        <label for="hcl-feed-token" data-i18n="admin.hcl.feed_label">HCL team feed token</label>
+                        <input type="text" id="hcl-feed-token" placeholder="min. 16 characters"
+                               data-i18n-ph="admin.hcl.feed_ph" autocomplete="off">
+                    </div>
+                    <button class="btn btn-primary" id="hcl-settings-save" data-click='["hclSaveSettings"]' data-i18n="common.save">Save</button>
+                </div>
+                <p class="muted hcl-card-desc" data-i18n="admin.hcl.blocked_hint">
+                    Comma-separated vendor names. Every BOM from a blocked vendor fails its technical
+                    check outright, whatever parts it carries. Leave empty to block nobody.
+                </p>
+                <p class="muted hcl-card-desc">
+                    <span data-i18n="admin.hcl.feed_hint">The HCL team pulls accepted pre-publication parts from</span>
+                    <code>/api/hcl/preview-feed</code> · <code>Authorization: Bearer &lt;token&gt;</code>.
+                    <span data-i18n="admin.hcl.feed_hint2">A token must be at least 16 characters; save the field empty to disable the feed.</span>
+                </p>
+                <p class="muted hcl-card-desc" id="hcl-preview-count" aria-live="polite"></p>
+            </div>
+
+            <!-- Everything accepted ahead of HCL publication, and the only
+                 place it can be taken back: a scrape can never retract these,
+                 because their absence from the site is their normal state. -->
+            <div class="iops-card" id="hcl-preview-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.bomprev.list_title">Pre-publication entries</h3>
+                    <p class="muted hcl-card-desc" data-i18n="admin.bomprev.list_desc">Parts and platforms accepted before the HCL published them. They are delivered to the HCL team through the feed above. Withdraw one to take it back out of the catalog: BOM checks that relied on it report honestly again.</p>
+                </div>
+                <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                    <th data-i18n="admin.hcl.col_kind">Kind</th>
+                    <th data-i18n="admin.hcl.col_part_number">Part number</th>
+                    <th data-i18n="admin.hcl.col_description">Description</th>
+                    <th data-i18n="admin.bomprev.col_platforms">Platforms</th>
+                    <th data-i18n="admin.hcl.col_first_seen">Accepted</th>
+                    <th class="col-actions" data-i18n="common.actions">Actions</th>
+                </tr></thead><tbody id="hcl-preview-tbody"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ BOM REVIEWS TAB (super admin) ═══════════════════ -->
+        <div class="tab-content" id="tab-bomreviews">
+            <div class="toolbar">
+                <div class="toolbar-left hcl-filters">
+                    <label class="hcl-filter">
+                        <span data-i18n="admin.bom.filter_label">Show</span>
+                        <select id="bom-review-filter" data-change='["loadBomReviews"]'>
+                            <option value="open" selected data-i18n="admin.bom.filter_open">Open reviews</option>
+                            <option value="all" data-i18n="admin.bom.filter_all">All checks</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="toolbar-right"><span class="count-badge" id="bom-review-count" aria-live="polite"></span></div>
+            </div>
+            <div id="bom-review-status" class="admin-status" style="display:none" role="status"></div>
+            <div class="catalog-table-wrap">
+                <table class="model-table hcl-table">
+                    <thead><tr>
+                        <th data-i18n="admin.bom.col_when">When</th>
+                        <th data-i18n="admin.bom.col_project">Project</th>
+                        <th data-i18n="admin.sizings.col_owner">Owner</th>
+                        <th data-i18n="admin.bom.col_tenant">Tenant</th>
+                        <th data-i18n="admin.bom.col_file">File</th>
+                        <th data-i18n="admin.bom.col_technical">Technical</th>
+                        <th data-i18n="admin.bom.col_fit">Fit</th>
+                        <th data-i18n="admin.bom.col_reason">Flagged because</th>
+                        <th data-i18n="admin.bom.col_review">Review</th>
+                        <th class="col-actions hcl-col-actions" data-i18n="common.actions">Actions</th>
+                    </tr></thead>
+                    <tbody id="bom-reviews-tbody"></tbody>
+                </table>
+            </div>
+
+            <!-- Files users consented to share after the checker refused them:
+                 download to teach the parsers a new format, delete when done.
+                 Auto-purged after 90 days either way. -->
+            <div class="iops-card">
+                <div class="iops-card-header">
+                    <h3 data-i18n="admin.bomrej.title">Rejected uploads shared for inspection</h3>
+                    <p class="muted" data-i18n="admin.bomrej.desc">BOM files the checker could not read, kept with the uploader's consent so their format can be added. Deleted automatically after 90 days.</p>
+                </div>
+                <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                    <th data-i18n="admin.bom.col_when">When</th>
+                    <th data-i18n="admin.bom.col_project">Project</th>
+                    <th data-i18n="admin.bom.col_owner">Owner</th>
+                    <th data-i18n="admin.bom.col_file">File</th>
+                    <th data-i18n="admin.bomrej.col_size">Size</th>
+                    <th data-i18n="admin.bomrej.col_error">Checker said</th>
+                    <th class="col-actions" data-i18n="common.actions">Actions</th>
+                </tr></thead><tbody id="bom-rejects-tbody"></tbody></table></div>
+            </div>
+        </div>
+
         <!-- ═══════════════════ USERS TAB (super admin) ═══════════════════ -->
         <div class="tab-content" id="tab-users">
             <div class="toolbar">
@@ -594,6 +868,31 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-click='["closeCatalogModal"]' data-i18n="common.cancel">Cancel</button>
                     <button class="btn btn-primary" data-click='["saveCatalogItem"]' data-i18n="common.save">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════ BOM REVIEW MODAL (super admin) ═══════════════════ -->
+        <div class="modal-overlay centered bom-review-overlay" id="bom-review-modal" style="display:none"
+             role="dialog" aria-modal="true" aria-labelledby="bom-review-modal-title">
+            <div class="modal" style="max-width:720px">
+                <div class="modal-header">
+                    <h2 id="bom-review-modal-title" data-i18n="admin.bom.modal_title">Review BOM check</h2>
+                    <button class="modal-close" data-click='["bomReviewClose"]' aria-label="Close" data-i18n-aria="common.close">&times;</button>
+                </div>
+                <div class="modal-body" id="bom-review-modal-body">
+                    <div id="bom-review-summary" class="bom-review-summary"></div>
+                    <div id="bom-prev-accept" class="bom-prev-accept"></div>
+                    <div class="form-group">
+                        <label for="bom-review-note" data-i18n="admin.bom.note_label">Reviewer note (shown to the user)</label>
+                        <textarea id="bom-review-note" rows="4" maxlength="4000"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-click='["bomReviewClose"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-secondary" data-click='["bomReviewSave","open"]' data-i18n="admin.bom.reopen">Reopen</button>
+                    <button class="btn btn-danger" data-click='["bomReviewSave","incorrect"]' data-i18n="admin.bom.mark_incorrect">Mark incorrect</button>
+                    <button class="btn btn-primary" data-click='["bomReviewSave","confirmed"]' data-i18n="admin.bom.confirm">Confirm findings</button>
                 </div>
             </div>
         </div>

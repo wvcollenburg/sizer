@@ -1,0 +1,61 @@
+{
+  "vendor": "Supermicro",
+  "configs": [
+    {
+      "name": "Acme Edge",
+      "serverModel": "SYS-511R-M",
+      "components": [
+        {
+          "partNumber": "511R-M-OTO-17",
+          "description": "UP 1U X13SCH-SYS, CSE-813MF2TS-R0RCNBP, PWS-602A-1R Optimized System",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "P4X-UPE2434-SRMXC",
+          "description": "Intel Xeon E-2434 3.4GHz 4C/8T 55W",
+          "quantity": 3,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "MEM-DR532MD-EU56",
+          "description": "32GB DDR5-5600 ECC UDIMM",
+          "quantity": 12,
+          "category": "memory"
+        },
+        {
+          "partNumber": "AOC-S3808L-L8IT-P",
+          "description": "8-port 12Gb/s SAS3 HBA, PCIe x8 Gen4, Low Profile",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "HDS-25T0-001T9-M1-TXE-NON-007",
+          "description": "SSD 2.5\" SATA 1.9TB >1DWPD TLC, 7mm",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": "AOC-STG-I4T-P",
+          "description": "Intel XL710/X557 4-port 10GBase-T NIC",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "AOM-TPM-9672H-P",
+          "description": "TPM 2.0 module",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "PWS-602A-1R",
+          "description": "600W 1U redundant power supply",
+          "quantity": 6,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "Config\tServer model\tVendor\tPart number\tDescription\tQuantity\tCategory\tNodes\nAcme Edge\tSYS-511R-M\tSupermicro\t511R-M-OTO-17\tUP 1U X13SCH-SYS, CSE-813MF2TS-R0RCNBP, PWS-602A-1R Optimized System\t3\tchassis\t3\nAcme Edge\tSYS-511R-M\tSupermicro\tP4X-UPE2434-SRMXC\tIntel Xeon E-2434 3.4GHz 4C/8T 55W\t3\tcpu\nAcme Edge\tSYS-511R-M\tSupermicro\tMEM-DR532MD-EU56\t32GB DDR5-5600 ECC UDIMM\t12\tmemory\nAcme Edge\tSYS-511R-M\tSupermicro\tAOC-S3808L-L8IT-P\t8-port 12Gb/s SAS3 HBA, PCIe x8 Gen4, Low Profile\t3\tcontroller\nAcme Edge\tSYS-511R-M\tSupermicro\tHDS-25T0-001T9-M1-TXE-NON-007\tSSD 2.5\" SATA 1.9TB >1DWPD TLC, 7mm\t12\tstorage\nAcme Edge\tSYS-511R-M\tSupermicro\tAOC-STG-I4T-P\tIntel XL710/X557 4-port 10GBase-T NIC\t3\tnic\nAcme Edge\tSYS-511R-M\tSupermicro\tAOM-TPM-9672H-P\tTPM 2.0 module\t3\tother\nAcme Edge\tSYS-511R-M\tSupermicro\tPWS-602A-1R\t600W 1U redundant power supply\t6\tother"
+}

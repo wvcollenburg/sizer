@@ -1,0 +1,85 @@
+{
+  "vendor": "Lenovo",
+  "configs": [
+    {
+      "name": "Config 1",
+      "serverModel": "ThinkSystem SR650 V4",
+      "components": [
+        {
+          "partNumber": "Z101",
+          "description": "Chassi ThinkSystem SR650 V4 de 2,5\" 24 compartimentos",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "Z102",
+          "description": "Processador Intel Xeon 6505P 12C 150 W 2,2 GHz",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "Z103",
+          "description": "RDIMM ThinkSystem de 16 GB TruDDR5 6.400 MHz (1Rx8)",
+          "quantity": 48,
+          "category": "memory"
+        },
+        {
+          "partNumber": "Z104",
+          "description": "HBA ThinkSystem 440-16i SAS/SATA PCIe Gen4 12 Gb",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "Z105",
+          "description": "Unidade de estado sólido HS ThinkSystem 2,5\" U.2 VA 3,84 TB de uso intenso de leitura NVMe PCIe 5.0 x4",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z106",
+          "description": "Unidade de disco rígido hot-swap 512e ThinkSystem 3,5 pol. 12 TB 7,2K SAS 12 Gb v2",
+          "quantity": 27,
+          "category": "storage"
+        },
+        {
+          "partNumber": "Z107",
+          "description": "Adaptador Ethernet ThinkSystem Broadcom 57504 10/25 GbE SFP28 de 4 Portas PCIe",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "Z108",
+          "description": "Fonte de alimentação hot-swap ThinkSystem 1100 W 230 V Titanium v4",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z109",
+          "description": "Ventilador de desempenho ThinkSystem SR650 V4",
+          "quantity": 18,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z110",
+          "description": "Cabo SAS ThinkSystem SR650 V4",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z114",
+          "description": "Dispositivos de armazenamento - nenhum RAID configurado necessário",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "Z115",
+          "description": "Kit de trilho deslizante sem ferramentas ThinkSystem v2",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "\t\tData Center Solution Configurator Quote\n\t\tPrepared for:\tPrepared by:\tJane Partner\t\t\tQuote #:\n\t\t\tPrice Date:\t01-set-26\t\t\tConfig ID:\tCIDU00SYN-00\nNúmero de peça\t\tDescrição do Produto\t\tQtd\tPreço\tPreço total da peça\tControlo das exportações\n\t\t\t\t\t(per unit)\nReal brasileiro\t(quantity x unit price)\nReal brasileiro\n7ZZ9CTO1WW\t\tServidor : ThinkSystem SR650 V4-3yr Base Warranty\t\t3\t645266.8169\nZ101\t\tChassi ThinkSystem SR650 V4 de 2,5\" 24 compartimentos\t\t3\nZ102\t\tProcessador Intel Xeon 6505P 12C 150 W 2,2 GHz\t\t6\nZ103\t\tRDIMM ThinkSystem de 16 GB TruDDR5 6.400 MHz (1Rx8)\t\t48\nZ104\t\tHBA ThinkSystem 440-16i SAS/SATA PCIe Gen4 12 Gb\t\t3\nZ105\t\tUnidade de estado sólido HS ThinkSystem 2,5\" U.2 VA 3,84 TB de uso intenso de leitura NVMe PCIe 5.0 x4\t\t9\nZ106\t\tUnidade de disco rígido hot-swap 512e ThinkSystem 3,5 pol. 12 TB 7,2K SAS 12 Gb v2\t\t27\nZ107\t\tAdaptador Ethernet ThinkSystem Broadcom 57504 10/25 GbE SFP28 de 4 Portas PCIe\t\t3\nZ108\t\tFonte de alimentação hot-swap ThinkSystem 1100 W 230 V Titanium v4\t\t6\nZ109\t\tVentilador de desempenho ThinkSystem SR650 V4\t\t18\nZ110\t\tCabo SAS ThinkSystem SR650 V4\t\t3\nZ111\t\tPreenchimento de HDD ThinkSystem de 3,5\"\t\t9\nZ112\t\tEtiqueta de tipo de HDD\t\t3\nZ113\t\tApenas registro\t\t3\nZ114\t\tDispositivos de armazenamento - nenhum RAID configurado necessário\t\t3\nZ115\t\tKit de trilho deslizante sem ferramentas ThinkSystem v2\t\t3\n\t\t\t\t\tTotal\t645266.8169"
+}
