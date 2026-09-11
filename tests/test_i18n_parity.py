@@ -149,11 +149,25 @@ def test_js_referenced_gui_keys_exist():
 
 
 def test_template_referenced_gui_keys_exist():
+    """Every template, and every form of the attribute.
+
+    This used to check index.html and plain `data-i18n=` only, which left the
+    privacy policy — the one page with legal weight — entirely unguarded, along
+    with the -html/-title/-placeholder variants that carry most of its prose.
+    A key referenced but undefined renders as the raw key to the reader.
+    """
     base = _gui_catalog(BASE)
-    with open(os.path.join(APP, "templates", "index.html"), encoding="utf-8") as f:
-        keys = set(re.findall(r'data-i18n="([^"]+)"', f.read()))
-    assert not keys - set(base), (
-        f"index.html references GUI keys not in en.js: {sorted(keys - set(base))}")
+    attr = re.compile(r'data-i18n(?:-html|-title|-placeholder)?="([^"]+)"')
+    missing = {}
+    for path in _source_files(os.path.join(APP, "templates"), ".html"):
+        with open(path, encoding="utf-8") as f:
+            # A key built by concatenation leaves a trailing dot; skip those,
+            # as the JS scan above does.
+            keys = {k for k in attr.findall(f.read()) if not k.endswith(".")}
+        absent = sorted(keys - set(base))
+        if absent:
+            missing[os.path.basename(path)] = absent
+    assert not missing, f"templates reference GUI keys not in en.js: {missing}"
 
 
 def test_every_supported_language_ships_both_catalogs():

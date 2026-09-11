@@ -134,6 +134,13 @@ main {
     padding: 1.75rem 2rem;
 }
 
+/* Opt-in escape from that cap, toggled per browser from the recommendation
+   list's toolbar. The parity width is right for most screens, but on a 21:9 or
+   32:9 it leaves two thirds of the monitor empty AND holds the output column
+   under the width at which the list earns its extra columns. Capped at 2400px
+   so a 5120px monitor does not stretch running text to an unreadable measure. */
+body.sizer-wide main { max-width: min(2400px, 96vw); }
+
 .mode-selector {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -3639,6 +3646,11 @@ textarea.text-input:focus {
 .rec-toolbar .rec-view-btn:hover:not([aria-pressed="true"]) { background: var(--surface2); color: var(--text); }
 .rec-toolbar .rec-view-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .rec-toolbar .rec-view-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.rec-toolbar .rec-wide-btn {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.rec-toolbar .rec-wide-btn:hover:not([aria-pressed="true"]) { border-color: var(--border-strong); }
 
 /* Save carries a dot while anything about the sizing is unstored — the pick
    included. That dot is what replaces the old select-also-saves guarantee. */

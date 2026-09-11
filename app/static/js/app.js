@@ -1878,6 +1878,30 @@ function recViewPref() {
 }
 let recView = recViewPref();
 
+// Full-width escape from `main`'s 80rem cap (SC//Design's max-w-7xl, kept for
+// look parity). At 80rem the output column lands around 930px — under the
+// 1150px threshold — so on a wide monitor the extra column groups above could
+// never appear and most of the screen sat empty. A preference rather than a
+// change to the cap: the parity width is right for most screens, and this is
+// the person's monitor, not the app's opinion.
+const REC_WIDE_KEY = 'sizer.wideLayout';
+
+function recWidePref() {
+    try { return localStorage.getItem(REC_WIDE_KEY) === '1'; } catch (e) { return false; }
+}
+function applyWideLayout(on) {
+    document.body.classList.toggle('sizer-wide', !!on);
+}
+window.toggleWideLayout = function () {
+    const on = !recWidePref();
+    try { localStorage.setItem(REC_WIDE_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+    applyWideLayout(on);
+    // The column set is chosen from the container width, so the list has to be
+    // rebuilt once the new width has been laid out.
+    requestAnimationFrame(() => { _recLastGroups = null; rerenderRecommendations(); });
+};
+applyWideLayout(recWidePref());
+
 // Per-mode view state that must live outside the DOM. renderRecommendationsTo()
 // rebuilds the list wholesale on every recalculation, so anything kept in the
 // markup — which row is folded open, which row the pane is reading — would be
@@ -1948,6 +1972,9 @@ const ICON_ROWS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" s
 const ICON_SPLIT = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     + '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="10" y1="4" x2="10" y2="20"/></svg>';
+const ICON_WIDE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<polyline points="7 8 3 12 7 16"/><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg>';
 
 function renderRecToolbar() {
     const host = document.getElementById('rec-toolbar');
@@ -1962,6 +1989,9 @@ function renderRecToolbar() {
         + viewBtn('rows', ICON_ROWS, 'results.view.rows', 'results.view.rows_title')
         + viewBtn('split', ICON_SPLIT, 'results.view.split', 'results.view.split_title')
         + `</div>`
+        + `<button type="button" class="rec-view-btn rec-wide-btn" data-click='["toggleWideLayout"]'`
+        + ` aria-pressed="${recWidePref()}" title="${esc(window.t('results.view.wide_title'))}">`
+        + `${ICON_WIDE}<span>${esc(window.t('results.view.wide'))}</span></button>`
         + `<button type="button" id="rec-save-btn" class="btn btn-sm rec-save${dirty ? ' is-dirty' : ''}"`
         + ` data-click='["saveRecSelection"]'${dirty ? '' : ' disabled'}`
         + ` title="${esc(window.t(dirty ? 'results.save_title' : 'results.saved_title'))}">`
