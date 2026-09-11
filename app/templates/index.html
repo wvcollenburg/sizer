@@ -855,8 +855,17 @@
 
             <div class="sizing-output">
                 <div id="primary-recommendations" class="import-recommendations">
-                    <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
-                    <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                    <!-- Heading left, the two controls that act on the whole list
+                         right: the view preference (Rows / Split) and Save. Save
+                         lives here rather than on a card because it acts on the
+                         sizing, not on the option you happen to be looking at. -->
+                    <div class="rec-head">
+                        <div class="rec-head-text">
+                            <h3 data-i18n="results.sc_recommendations">SC// Recommendations</h3>
+                            <p class="rec-desc" data-i18n="results.rec_desc">Top configurations that meet your workload requirements with N-1 redundancy</p>
+                        </div>
+                        <div id="rec-toolbar" class="rec-toolbar"></div>
+                    </div>
                     <!-- Inbound replication reserve from project links targeting
                          this sizing (populated by JS when present). -->
                     <div id="inbound-reserve-note" class="info-bar" style="display:none"></div>

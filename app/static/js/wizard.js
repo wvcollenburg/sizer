@@ -198,9 +198,10 @@
         renderOptionsChrome();
     };
 
-    // The flow ends on the recommendations step: picking an option on a card
-    // already saves-and-returns, and this button is the explicit way out for a
-    // user who is done without changing the pick.
+    // The flow ends on the recommendations step. Picking an option no longer
+    // saves (Select and Save were split — see selectRec in app.js); the list's
+    // own Save button stores in place, and this button is the way out of the
+    // wizard for a user who is done.
     function renderSaveClose(pane) {
         if (!pane || typeof window.saveAndReturnToProject !== 'function') return;
         var host = $('wiz-save-close');

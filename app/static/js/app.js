@@ -1849,16 +1849,359 @@ function formatComputeFloorLine(r) {
     return `<div class="rec-compute-floor">${window.t('results.compute_floor_line', {pct: cf.coverage_pct})}${detail}</div>`;
 }
 
-// Single-sizing picker: record the choice, then save and go back to the
-// project. The snapshot stored on save reads selectedRec, so the pick has to
-// land before the save runs — hence setting it here rather than inside the
-// save path.
-async function selectRecAndSave(i) {
+// ── Recommendation list: two views, one preference ──────────────────────────
+// Eight full cards stacked vertically was about eight screens of scrolling, and
+// nothing was ever side by side. Both replacements keep the card — they only
+// change how you get to it:
+//
+//   rows  — eight collapsed rows, single-open fold-out. Column groups are added
+//           as the container earns them, so a wide monitor buys more columns
+//           rather than more whitespace.
+//   split — a list beside a reading pane, which only starts to pay off past
+//           roughly 1100px of pane (the 420px parameter rail is spent first).
+//
+// Neither is right for everyone, so it is a preference. It rides in
+// localStorage, not in the saved payload: it is a property of the person
+// looking, not of the sizing.
+const REC_VIEW_KEY = 'sizer.recView';
+const REC_VIEWS = ['rows', 'split'];
+
+function recViewPref() {
+    try {
+        const v = localStorage.getItem(REC_VIEW_KEY);
+        return REC_VIEWS.indexOf(v) >= 0 ? v : 'rows';
+    } catch (e) {
+        // Private mode / storage disabled. Rows is the safe default: it is the
+        // only one of the two still correct on a laptop-width screen.
+        return 'rows';
+    }
+}
+let recView = recViewPref();
+
+// Per-mode view state that must live outside the DOM. renderRecommendationsTo()
+// rebuilds the list wholesale on every recalculation, so anything kept in the
+// markup — which row is folded open, which row the pane is reading — would be
+// thrown away with it.
+const recOpenRow = {};   // mode -> index folded open in Rows (-1 = all shut)
+const recReadRow = {};   // mode -> index shown in the Split reading pane
+
+window.setRecView = function (v) {
+    if (REC_VIEWS.indexOf(v) < 0 || v === recView) return;
+    recView = v;
+    try { localStorage.setItem(REC_VIEW_KEY, v); } catch (e) { /* ignore */ }
+    rerenderRecommendations();
+};
+
+function rerenderRecommendations() {
+    const recs = lastRecommendations[currentMode];
+    if (!recs || !recs.length) return;
+    renderRecommendationsTo(recs, 'rec-list', 'ratio-slider', currentMode, []);
+}
+
+// Picking an option is now ONLY a pick: it re-bases the deltas and leaves you
+// where you are. Storing it is the Save control's job.
+//
+// These used to be one button. That made choosing an option in order to compare
+// it against another save the sizing and drop you back on the project, which is
+// why the two are split here. The guarantee the old behaviour bought — that a
+// chosen option cannot quietly go unexported — now rides on the Save control's
+// unsaved dot instead, which is driven by hasUnsavedWork() and so also catches
+// every other unsaved change, not just the pick.
+window.selectRec = function (i) {
     if (currentMode !== 'import' && currentMode !== 'manual') return;
     selectedRec[currentMode] = i;
-    renderRecommendationsTo(lastRecommendations[currentMode], 'rec-list',
-                            'ratio-slider', currentMode, []);
-    if (window.saveAndReturnToProject) await window.saveAndReturnToProject();
+    if (recView === 'split') recReadRow[currentMode] = i;
+    rerenderRecommendations();
+};
+
+// Fold a row open, or shut it if it already is. Single-open on purpose: there
+// should be exactly one detailed thing on screen while you are deciding.
+window.toggleRecRow = function (i) {
+    recOpenRow[currentMode] = (recOpenRow[currentMode] === i) ? -1 : i;
+    rerenderRecommendations();
+};
+
+window.readRecRow = function (i) {
+    recReadRow[currentMode] = i;
+    rerenderRecommendations();
+};
+
+// Save in place — deliberately NOT saveAndReturnToProject(). Leaving the screen
+// is a separate decision, and the wizard's "Save & close" already offers it.
+window.saveRecSelection = async function () {
+    if (!window.saveCurrentSizing) return;
+    const btn = document.getElementById('rec-save-btn');
+    if (btn) btn.disabled = true;
+    try {
+        await window.saveCurrentSizing();
+    } finally {
+        rerenderRecommendations();
+    }
+};
+
+// ── the list toolbar ────────────────────────────────────────────────────────
+// View switch and Save, above both views. Save sits here rather than on a card
+// because it acts on the sizing, not on the option you happen to be looking at.
+const ICON_ROWS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/>'
+    + '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+const ICON_SPLIT = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="10" y1="4" x2="10" y2="20"/></svg>';
+
+function renderRecToolbar() {
+    const host = document.getElementById('rec-toolbar');
+    if (!host) return;
+    const dirty = hasUnsavedWork();
+    const viewBtn = (id, icon, label, title) =>
+        `<button type="button" class="rec-view-btn" data-click='["setRecView","${id}"]'`
+        + ` aria-pressed="${recView === id}" title="${esc(window.t(title))}">`
+        + `${icon}<span>${esc(window.t(label))}</span></button>`;
+    host.innerHTML =
+        `<div class="rec-view-switch" role="group" aria-label="${esc(window.t('results.view.label'))}">`
+        + viewBtn('rows', ICON_ROWS, 'results.view.rows', 'results.view.rows_title')
+        + viewBtn('split', ICON_SPLIT, 'results.view.split', 'results.view.split_title')
+        + `</div>`
+        + `<button type="button" id="rec-save-btn" class="btn btn-sm rec-save${dirty ? ' is-dirty' : ''}"`
+        + ` data-click='["saveRecSelection"]'${dirty ? '' : ' disabled'}`
+        + ` title="${esc(window.t(dirty ? 'results.save_title' : 'results.saved_title'))}">`
+        + (dirty ? '<span class="rec-dirty-dot" aria-hidden="true"></span>' : '')
+        + esc(window.t(dirty ? 'results.save' : 'results.saved')) + `</button>`;
+}
+
+// ── deltas against the selected option ──────────────────────────────────────
+// The point of the collapsed row: what does moving to this option cost or buy,
+// measured against the one currently chosen. Per node by default — it is the
+// box being ordered, and the magnitudes stay readable.
+function recDeltas(r, base) {
+    if (!base || r === base) return null;
+    const g = x => ({ cores: x.cores_per_node, ram: x.ram_per_node_gb,
+                      st: x.totals.usable_storage_tb / recNodeCount(x) });
+    const a = g(r), z = g(base);
+    return {
+        nodes: recSigned(recNodeCount(r) - recNodeCount(base)),
+        cores: recSigned(a.cores - z.cores),
+        ram: recSignedRam(a.ram - z.ram),
+        storage: recSigned(+(a.st - z.st).toFixed(1), ' TB')
+    };
+}
+const REC_DELTA_KEYS = [['nodes', 'results.col.nodes'], ['cores', 'results.row.cores'],
+                        ['ram', 'results.row.ram'], ['storage', 'results.row.storage']];
+
+function recNodeCount(r) {
+    return r.storage_only ? (r.hci_node_count || r.node_count) + r.storage_only.count : r.node_count;
+}
+// Direction is carried by ink, not by the app's green/amber/red: those mean
+// good / caution / bad everywhere else, and "+8 cores" is neither good nor bad.
+function recSigned(v, unit) {
+    if (!v) return '<span class="rec-d same">&mdash;</span>';
+    const cls = v > 0 ? 'up' : 'down';
+    const txt = (v > 0 ? '+' : '−') + Math.abs(v)
+        + (unit ? `<span class="rec-d-u">${unit}</span>` : '');
+    return `<span class="rec-d ${cls}">${txt}</span>`;
+}
+function recSignedRam(v) {
+    if (!v) return '<span class="rec-d same">&mdash;</span>';
+    const a = Math.abs(v);
+    const t = a >= 1024 ? (a / 1024).toFixed(1) + ' TB' : a + ' GB';
+    const parts = t.split(' ');
+    return `<span class="rec-d ${v > 0 ? 'up' : 'down'}">${v > 0 ? '+' : '−'}${parts[0]}`
+        + `<span class="rec-d-u"> ${parts[1]}</span></span>`;
+}
+
+// ── Rows view ───────────────────────────────────────────────────────────────
+// Column groups earned by container width. Deliberately measured off the list
+// element rather than the viewport: the rail can be collapsed and the wizard
+// portals this list into a different width, so a media query would be answering
+// the wrong question.
+const REC_GROUP_ADD_AT = [1150, 1500, 1900];
+
+function recGroupsFor(width) {
+    const on = ['shape'];
+    ['fit', 'totals', 'iops'].forEach((g, i) => { if (width >= REC_GROUP_ADD_AT[i]) on.push(g); });
+    return ['shape', 'totals', 'fit', 'iops'].filter(g => on.indexOf(g) >= 0);
+}
+function recGroupLabel(g) {
+    return g === 'shape' ? window.t('results.per_node')
+        : g === 'totals' ? window.t('results.cluster_total')
+        : g === 'fit' ? window.t('results.group.util') : '';
+}
+function recGroupCols(g) {
+    // Shows what the config is sized to, coloured by today's load — the same
+    // pair the full bars in the card body use, so the number here and the bar
+    // there can never disagree.
+    const fit = (r, k, label) => {
+        const val = r.utilization && r.utilization[k];
+        if (!val) return '<span class="rec-v">&mdash;</span>';
+        const cur = Math.max(0, Math.round(val.current || 0));
+        const tot = Math.max(cur, Math.round(val.total || 0));
+        const cls = cur > 90 ? 'high' : (cur >= 70 ? 'mid' : 'low');
+        const bind = (r.determinant && r.determinant.resource) === label
+            ? `<span class="util-bind">${esc(window.t('results.util.limiting'))}</span>` : '';
+        return `<span class="rec-fit"><span class="rec-v">${tot}<span class="rec-u">%</span>${bind}</span>`
+            + `<span class="rec-fit-bar ${cls}"><i style="width:${Math.min(tot, 100)}%"></i></span></span>`;
+    };
+    if (g === 'shape') return [
+        { head: window.t('results.col.cores_node'), w: '5.2rem', d: 'cores',
+          v: r => `<span class="rec-v">${r.cores_per_node}</span>` },
+        { head: window.t('results.col.ram_node'), w: '5.6rem', d: 'ram',
+          v: r => `<span class="rec-v">${recUnit(formatRam(r.ram_per_node_gb))}</span>` },
+        { head: window.t('results.col.storage_node'), w: '6rem', d: 'storage',
+          v: r => `<span class="rec-v">${(r.totals.usable_storage_tb / recNodeCount(r)).toFixed(1)}<span class="rec-u"> TB</span></span>` }];
+    if (g === 'totals') return [
+        { head: window.t('results.row.cores'), w: '4.8rem',
+          v: r => `<span class="rec-v">${r.totals.cores}</span>` },
+        { head: window.t('results.row.ram'), w: '5.2rem',
+          v: r => `<span class="rec-v">${recUnit(formatRam(r.totals.ram_gb))}</span>` },
+        { head: window.t('results.row.usable_storage'), w: '5.8rem',
+          v: r => `<span class="rec-v">${r.totals.usable_storage_tb}<span class="rec-u"> TB</span></span>` }];
+    if (g === 'fit') return [
+        { head: 'CPU', w: '4.8rem', v: r => fit(r, 'cpu', 'CPU') },
+        { head: window.t('results.row.ram'), w: '4.8rem', v: r => fit(r, 'ram', 'RAM') },
+        { head: window.t('results.util.storage'), w: '5.6rem', v: r => fit(r, 'storage', 'Storage') }];
+    return [{ head: window.t('results.col.net_iops_n1'), w: '6.8rem',
+              v: r => `<span class="rec-v">${r.iops ? Math.round(r.iops.n_minus_1).toLocaleString() : '—'}</span>` }];
+}
+function recUnit(t) {
+    const parts = String(t).split(' ');
+    return parts.length > 1 ? `${parts[0]}<span class="rec-u"> ${parts[1]}</span>` : t;
+}
+
+function recRowsHtml(recs, mode, demand, selIdx, width) {
+    const groups = recGroupsFor(width);
+    const cols = [{ head: window.t('results.col.nodes'), w: '4.2rem', d: 'nodes',
+                    v: r => `<span class="rec-v">${recNodeCount(r)}</span>` }];
+    groups.forEach(g => recGroupCols(g).forEach(c => cols.push(c)));
+    // The ratio is a column like any other, and the first to go: it is repeated
+    // in the fold-out, and keeping it at laptop width pushed the picker off the
+    // right edge of the row.
+    const showRatio = width >= 820;
+    if (showRatio) {
+        cols.push({ head: window.t('results.col.ratio'), w: '5.4rem',
+                    v: r => `<span class="rec-ratio-cell">${recRatioBadge(r)}</span>` });
+    }
+    const pickWide = width >= 900;
+    const nameCol = width >= 1500 ? 'minmax(6rem, 0.7fr)'
+        : width >= 900 ? 'minmax(6rem, 1.4fr)' : 'minmax(4.5rem, 1fr)';
+    // minmax(0, …) rather than a bare width: a fixed track cannot shrink, so on
+    // a narrow output column the row overflowed instead of tightening up.
+    const tpl = `26px ${nameCol} ${cols.map(c => `minmax(0, ${c.w})`).join(' ')} `
+        + `${pickWide ? '5rem' : '2.1rem'} 1.1rem`;
+    const gs = ` style="grid-template-columns:${tpl}"`;
+    const open = recOpenRow[mode] === undefined ? -1 : recOpenRow[mode];
+    const base = recs[selIdx];
+    const blanks = n => new Array(n).fill('<span></span>').join('');
+
+    // Trailing cells after the grouped columns: the ratio column (when shown),
+    // the picker and the chevron.
+    const tailCells = (showRatio ? 1 : 0) + 2;
+
+    let head = '';
+    if (groups.length > 1) {
+        head += `<div class="rec-grouphead rec-grid"${gs}>${blanks(3)}`
+            + groups.map(g => `<span class="${recGroupLabel(g) ? 'g' : ''}"`
+                + ` style="grid-column:span ${recGroupCols(g).length}">${esc(recGroupLabel(g))}</span>`).join('')
+            + `${blanks(tailCells)}</div>`;
+    }
+    head += `<div class="rec-colhead rec-grid"${gs}><span></span>`
+        + `<span>${esc(window.t('results.col.model'))}</span>`
+        + cols.map(c => `<span class="n">${esc(c.head)}</span>`).join('')
+        + `${blanks(2)}</div>`;
+
+    const rows = recs.map((r, i) => {
+        const isOpen = open === i, isSel = i === selIdx;
+        const d = recDeltas(r, base);
+        const deltaRow = !d
+            ? `<div class="rec-delta rec-grid"${gs}><span></span>`
+              + `<span class="rec-baseline">${esc(window.t('results.delta.baseline'))}</span>`
+              + `${blanks(cols.length + 2)}</div>`
+            : `<div class="rec-delta rec-grid"${gs}><span></span>`
+              + `<span class="rec-dk">${esc(window.t('results.delta.per_node'))}</span>`
+              + cols.map(c => (c.d && d[c.d]) ? d[c.d] : '<span></span>').join('')
+              + `${blanks(2)}</div>`;
+        const pick = isSel
+            ? `<span class="rec-select selected${pickWide ? '' : ' compact'}">`
+              + `${pickWide ? esc(window.t('results.selected')) : '✓'}</span>`
+            : `<button type="button" class="rec-select${pickWide ? '' : ' compact'}"`
+              + ` data-click='["selectRec",${i}]'`
+              + ` title="${esc(window.t('cluster.select_for_sizing_title'))}">`
+              + `${pickWide ? esc(window.t('results.select')) : '✓'}</button>`;
+        return `<div class="rec-row${i === 0 ? ' rec-best' : ''}${isSel ? ' rec-selected' : ''}`
+            + `${isOpen ? ' is-open' : ''}">`
+            + `<div class="rec-row-head rec-grid"${gs}>`
+            + `<span class="rec-rank">#${i + 1}</span>`
+            + `<button type="button" class="rec-row-name" data-click='["toggleRecRow",${i}]'`
+            + ` aria-expanded="${isOpen}">`
+            + `<span class="rec-model">${esc(r.model)}</span>`
+            + `<span class="rec-sub" title="${esc(r.storage_config.desc)}">${esc(r.category)} · ${esc(r.storage_config.desc)}</span>`
+            + `</button>`
+            + cols.map(c => c.v(r)).join('')
+            + `<span class="rec-pick">${pick}</span>`
+            + `<button type="button" class="rec-chev" data-click='["toggleRecRow",${i}]'`
+            + ` aria-expanded="${isOpen}" aria-label="${esc(window.t('results.view.expand'))}">▾</button>`
+            + `</div>`
+            + deltaRow
+            + (isOpen ? `<div class="rec-row-body">${recCardHtml(r, i, mode, demand, { bodyOnly: true })}</div>` : '')
+            + `</div>`;
+    }).join('');
+    return `<div class="rec-rows">${head}${rows}</div>`;
+}
+
+function recRatioBadge(r) {
+    const rises = r.sized_full_cluster && r.vcpu_ratio_degraded > r.vcpu_ratio + 0.005;
+    return rises
+        ? `<span class="rec-ratio-badge degraded" title="${window.t('results.ratio_badge_degraded_tooltip', {ratio: r.vcpu_ratio_degraded.toFixed(2)})}">${r.vcpu_ratio.toFixed(2)} → ${r.vcpu_ratio_degraded.toFixed(2)}:1</span>`
+        : `<span class="rec-ratio-badge" title="${window.t('results.ratio_badge_tooltip')}">${r.vcpu_ratio.toFixed(2)}:1</span>`;
+}
+
+// ── Split view ──────────────────────────────────────────────────────────────
+function recSplitHtml(recs, mode, demand, selIdx, width) {
+    let cur = recReadRow[mode];
+    if (cur === undefined || cur < 0 || cur >= recs.length) cur = selIdx;
+    const listW = Math.max(272, Math.min(470, Math.round(width * 0.20)));
+    const base = recs[selIdx];
+
+    const items = recs.map((r, i) => {
+        const d = recDeltas(r, base);
+        const dl = !d
+            ? `<span class="rec-item-delta"><span class="k">${esc(window.t('results.delta.baseline_short'))}</span></span>`
+            : `<span class="rec-item-delta">${REC_DELTA_KEYS.map(([k, lk]) =>
+                `<span><span class="k">${esc(window.t(lk))}</span> ${d[k]}</span>`).join('')}</span>`;
+        return `<button type="button" class="rec-item${i === cur ? ' is-active' : ''}"`
+            + ` data-click='["readRecRow",${i}]'>`
+            + `<span class="rec-item-top"><span class="rec-rank">#${i + 1}</span>`
+            + `<span class="rec-model">${esc(r.model)}</span>`
+            + (i === selIdx ? `<span class="rec-item-pin">✓ ${esc(window.t('results.selected'))}</span>` : '')
+            + `</span>`
+            + `<span class="rec-item-meta"><span>${esc(window.t('results.nodes_count', {count: recNodeCount(r)}))}</span>`
+            + `<span>${r.cores_per_node}c</span><span>${formatRam(r.ram_per_node_gb)}</span>`
+            + `<span>${(r.totals.usable_storage_tb / recNodeCount(r)).toFixed(1)} TB</span></span>`
+            + dl + `</button>`;
+    }).join('');
+
+    const r = recs[cur];
+    const d = recDeltas(r, base);
+    const paneDelta = !d
+        ? `<div class="rec-pane-delta"><span class="k">${esc(window.t('results.delta.baseline'))}</span></div>`
+        : `<div class="rec-pane-delta"><span class="k">${esc(window.t('results.delta.per_node'))}</span>`
+          + REC_DELTA_KEYS.map(([k, lk]) =>
+              `<span><span class="k">${esc(window.t(lk))}</span> ${d[k]}</span>`).join('')
+          + `</div>`;
+    const pick = cur === selIdx
+        ? `<span class="rec-select selected">${esc(window.t('results.selected'))}</span>`
+        : `<button type="button" class="rec-select" data-click='["selectRec",${cur}]'`
+          + ` title="${esc(window.t('cluster.select_for_sizing_title'))}">${esc(window.t('results.select'))}</button>`;
+
+    return `<div class="rec-split">`
+        + `<div class="rec-split-list" style="flex:0 0 ${listW}px">${items}</div>`
+        + `<div class="rec-split-pane">`
+        + `<div class="rec-pane-head"><div class="rec-pane-title">`
+        + `<span class="rec-rank">#${cur + 1}</span><span class="rec-model">${esc(r.model)}</span>`
+        + `<span class="rec-category">${esc(r.category)}</span>${recRatioBadge(r)}`
+        + `<span class="rec-nodes">${esc(window.t('results.nodes_count', {count: recNodeCount(r)}))}</span>`
+        + pick + `</div>${paneDelta}</div>`
+        + recCardHtml(r, cur, mode, demand, { bodyOnly: true })
+        + `</div></div>`;
 }
 
 function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnings) {
@@ -1897,11 +2240,45 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     // chosen option has to be recorded rather than implied by which export
     // button was clicked.
     const perSizing = mode === 'import' || mode === 'manual';
-    const selIdx = perSizing ? (selectedRec[mode] ?? 0) : -1;
+    const selIdx = perSizing ? Math.min(selectedRec[mode] ?? 0, recommendations.length - 1) : -1;
 
-    recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
-        recCardHtml(r, i, mode, demand, { showPicker: perSizing, selIdx })
-    ).join('') + buildAssumptions(targetRatio);
+    // Only the per-sizing list gets the two views and the toolbar. The
+    // per-cluster list is a review surface — there is no pick to make on it, so
+    // it keeps the plain stack of cards.
+    if (!perSizing) {
+        recList.innerHTML = warningsHtml + recommendations.map((r, i) =>
+            recCardHtml(r, i, mode, demand, { showPicker: false, selIdx })
+        ).join('') + buildAssumptions(targetRatio);
+        return;
+    }
+
+    renderRecToolbar();
+    // The list element is already in the document, so its width is known before
+    // anything is written into it — no measure-then-reflow pass needed.
+    const width = recList.clientWidth || 900;
+    recWatchWidth(recList);
+    const body = recView === 'split'
+        ? recSplitHtml(recommendations, mode, demand, selIdx, width)
+        : recRowsHtml(recommendations, mode, demand, selIdx, width);
+    recList.innerHTML = warningsHtml + body + buildAssumptions(targetRatio);
+}
+
+// Re-render when the container crosses a threshold that changes the column set.
+// Width-only, and only on an actual group change: the rail collapsing or the
+// window being dragged must not rebuild the list on every animation frame.
+let _recWidthObserver = null;
+let _recLastGroups = null;
+function recWatchWidth(el) {
+    if (_recWidthObserver || typeof ResizeObserver === 'undefined') return;
+    _recWidthObserver = new ResizeObserver(() => {
+        if (recView !== 'rows') return;
+        const groups = recGroupsFor(el.clientWidth || 900).join(',');
+        if (groups === _recLastGroups) return;
+        _recLastGroups = groups;
+        rerenderRecommendations();
+    });
+    _recWidthObserver.observe(el);
+    _recLastGroups = recGroupsFor(el.clientWidth || 900).join(',');
 }
 
 // The inputs this sizing run actually used, spelled out under the results.
@@ -1970,13 +2347,14 @@ function recCardHtml(r, i, mode, demand, opts) {
     // the previous one.
     const pickerTitle = window.t('cluster.select_for_sizing_title');
     const pickerLabel = isSelected
-        ? (opts.selectedLabel || window.t('cluster.selected_for_export'))
-        : (opts.pickerLabel || window.t('cluster.select_and_save'));
-    // Callers can override the picker action (the DR-target view selects an
-    // option without the import/manual save-and-return behaviour).
+        ? (opts.selectedLabel || window.t('results.selected'))
+        : (opts.pickerLabel || window.t('results.select'));
+    // Callers can override the picker action (the DR-target view has its own
+    // select-and-save). The default is a plain pick: saving is the list
+    // toolbar's Save button, not a side effect of choosing.
     const pickerAction = opts.pickerAction
         ? opts.pickerAction
-        : `["selectRecAndSave",${i}]`;
+        : `["selectRec",${i}]`;
     const recPicker = showRecPicker
         ? `<button class="rec-select ${isSelected ? 'selected' : ''}" data-click='${pickerAction}'
                 title="${pickerTitle}">${pickerLabel}</button>`
@@ -2024,8 +2402,7 @@ function recCardHtml(r, i, mode, demand, opts) {
                 <div class="rec-footer-actions">
                     <button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>
                 </div>` : '';
-    return `
-        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
+    const header = `
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
                 <span class="rec-model">${modelLabel}</span>
@@ -2034,7 +2411,9 @@ function recCardHtml(r, i, mode, demand, opts) {
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
                 ${recPicker}
-            </div>
+            </div>`;
+
+    const body = `
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
             ${formatComputeFloorLine(r)}
@@ -2081,7 +2460,14 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${singleNodeNote}
             <div class="rec-footer">
                 <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
-            </div>
+            </div>`;
+
+    // The Rows fold-out and the Split reading pane supply their own frame and
+    // their own header, so they take the body alone.
+    if (opts.bodyOnly) return body;
+    return `
+        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
+            ${header}${body}
         </div>
     `;
 }

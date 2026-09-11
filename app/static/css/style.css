@@ -3580,3 +3580,319 @@ textarea.text-input:focus {
 }
 .bom-modal .bom-retain-offer p { margin: 0 0 0.55rem; }
 .bom-modal .bom-retain-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── Recommendation list: Rows and Split views (backlog §2) ──────────────────
+   Eight full cards stacked was about eight screens of scrolling. Both views
+   below keep the card body verbatim — they only change how you reach it.
+
+   Selectors are compounded against .rec-rows / .rec-split on purpose: the
+   generic resets earlier in this file (.rec-select margin-left:auto,
+   .rec-model font-size, input/button normalisation) would otherwise win, and
+   this file is long enough that source order is not a safe bet. */
+
+/* Heading left, the whole-list controls right. The h3 rule above carries a
+   border-bottom meant to span the column, so it moves to the flex row. */
+.import-recommendations .rec-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.import-recommendations .rec-head h3 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.rec-head-text { min-width: 0; }
+.rec-head-text .rec-desc { margin: 0.15rem 0 0; }
+.rec-toolbar {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.rec-view-switch {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.rec-toolbar .rec-view-btn {
+    font: inherit;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 0;
+    border-right: 1px solid var(--border);
+}
+.rec-toolbar .rec-view-btn:last-child { border-right: 0; }
+.rec-toolbar .rec-view-btn:hover:not([aria-pressed="true"]) { background: var(--surface2); color: var(--text); }
+.rec-toolbar .rec-view-btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.rec-toolbar .rec-view-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* Save carries a dot while anything about the sizing is unstored — the pick
+   included. That dot is what replaces the old select-also-saves guarantee. */
+.rec-toolbar .rec-save { height: 1.95rem; gap: 0.4rem; }
+.rec-toolbar .rec-save:disabled {
+    background: var(--surface);
+    color: var(--text-subtle);
+    border-color: var(--border);
+    opacity: 1;
+    cursor: default;
+}
+.rec-dirty-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────────────
+   The group header, the column header, every collapsed row and every delta
+   line share one grid template, set inline per render from the container
+   width. That shared template is what lets a Δ sit directly under the figure
+   it is a delta of — the alignment is the feature, not the decoration. */
+.rec-grid {
+    display: grid;
+    align-items: center;
+    gap: 0.5rem;
+}
+/* Grid items default to min-width:auto — never smaller than their content —
+   so shrinking has to be granted explicitly or a narrow row overflows instead
+   of tightening. Same guard the sizing rail carries. */
+.rec-grid > * { min-width: 0; }
+.rec-grouphead {
+    padding: 0.3rem 0.85rem 0.1rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+}
+.rec-grouphead span { text-align: center; }
+.rec-grouphead span.g {
+    border-bottom: 1px solid var(--border-strong);
+    padding-bottom: 2px;
+    color: var(--accent);
+}
+.rec-colhead {
+    padding: 0.25rem 0.85rem 0.3rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+.rec-colhead span.n { text-align: right; }
+
+.rec-rows { display: flex; flex-direction: column; }
+.rec-rows .rec-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 0.38rem;
+}
+.rec-rows .rec-row.rec-best { border-color: var(--sc-300); }
+.rec-rows .rec-row.rec-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
+.rec-rows .rec-row.is-open { box-shadow: var(--shadow-md); }
+.rec-row-head { padding: 0.48rem 0.85rem; }
+.rec-rows .rec-row.is-open .rec-row-head { background: var(--surface2); }
+
+/* The name is the way into the detail, as it is on the project's sizing rows. */
+.rec-rows .rec-row-name {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+}
+.rec-rows .rec-row-name:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring); border-radius: 4px; }
+.rec-rows .rec-row-name .rec-model { font-size: 0.95rem; line-height: 1.2; }
+.rec-rows .rec-sub {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.rec-rows .rec-rank { width: 26px; height: 26px; font-size: 0.7rem; }
+
+.rec-v {
+    display: block;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+.rec-u { font-weight: 400; color: var(--text-muted); font-size: 0.72rem; }
+
+/* A percentage is not a feeling — each one carries a 3px bar of itself. */
+.rec-fit { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.rec-fit-bar {
+    width: 100%;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+}
+.rec-fit-bar i { display: block; height: 100%; background: var(--sc-700); }
+.rec-fit-bar.mid i { background: #c2410c; }
+.rec-fit-bar.high i { background: #b91c1c; }
+
+.rec-ratio-cell { text-align: right; }
+.rec-pick { justify-self: end; }
+.rec-rows .rec-select, .rec-split .rec-select { margin-left: 0; }
+.rec-select.compact { padding: 0.2rem 0.35rem; }
+.rec-rows .rec-chev {
+    justify-self: center;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 0.7rem;
+    line-height: 1;
+    color: var(--text-subtle);
+    cursor: pointer;
+    transition: transform 0.18s ease;
+}
+.rec-rows .rec-row.is-open .rec-chev { transform: rotate(180deg); }
+.rec-rows .rec-chev:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring); border-radius: 4px; }
+
+.rec-delta {
+    padding: 0.02rem 0.85rem 0.4rem;
+    border-top: 1px dashed var(--border);
+}
+.rec-dk {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    text-align: right;
+    white-space: nowrap;
+}
+.rec-baseline {
+    font-size: 0.68rem;
+    font-style: italic;
+    color: var(--text-subtle);
+    white-space: nowrap;
+}
+.rec-d {
+    display: block;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.rec-d.up { color: var(--delta-up); }
+.rec-d.down { color: var(--delta-down); }
+.rec-d.same { color: var(--delta-same); font-weight: 400; }
+.rec-d-u { font-weight: 400; font-size: 0.68rem; opacity: 0.8; }
+
+.rec-row-body { border-top: 1px solid var(--border); }
+
+/* ── Split ────────────────────────────────────────────────────────────────
+   Only pays off past roughly 1100px of pane; below that the 420px parameter
+   rail has already spent the screen. Offered as a preference, never forced. */
+.rec-split {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    min-height: 32rem;
+}
+.rec-split-list { overflow-y: auto; border-right: 1px solid var(--border); }
+.rec-split .rec-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid transparent;
+    padding: 0.5rem 0.7rem;
+    cursor: pointer;
+}
+.rec-split .rec-item:hover { background: var(--surface2); }
+.rec-split .rec-item.is-active { background: var(--accent-tint); border-left-color: var(--accent); }
+.rec-split .rec-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.rec-item-top { display: flex; align-items: center; gap: 0.4rem; }
+.rec-split .rec-item-top .rec-model { font-size: 0.9rem; }
+.rec-split .rec-item .rec-rank { width: 24px; height: 24px; font-size: 0.66rem; }
+.rec-item-pin { margin-left: auto; font-size: 0.68rem; font-weight: 700; color: var(--accent); }
+.rec-item-meta {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.rec-item-delta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.5rem;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+}
+.rec-item-delta .k, .rec-pane-delta .k { color: var(--text-subtle); }
+.rec-item-delta .rec-d, .rec-pane-delta .rec-d { display: inline; }
+
+.rec-split-pane { flex: 1 1 auto; min-width: 0; overflow-y: auto; }
+.rec-pane-head {
+    padding: 0.7rem 1rem 0.5rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+}
+.rec-pane-title { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.rec-pane-title .rec-nodes { margin-left: auto; }
+.rec-pane-delta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.1rem;
+    margin-top: 0.45rem;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+}
+.rec-pane-delta > .k:first-child {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+}
+
+/* Narrow output column: the rail leaves little, so the row sheds its picker
+   label before it sheds a figure. */
+@media (max-width: 900px) {
+    .import-recommendations .rec-head { flex-wrap: wrap; }
+    .rec-toolbar { margin-left: 0; }
+    .rec-split { flex-direction: column; }
+    .rec-split-list { flex: 0 0 auto !important; max-height: 16rem; border-right: 0; border-bottom: 1px solid var(--border); }
+}
