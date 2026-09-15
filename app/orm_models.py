@@ -228,6 +228,11 @@ class Model(db.Model):
     # Software-only platform with no certified equivalent: hidden from Certified
     # recommendations, shown (disk-flexed, plain-named) only in Validated mode.
     validated_only = db.Column(db.Boolean, nullable=False, default=False)
+    # Vendor (lower-case HCL brand key, e.g. "dell") a validated-only model is
+    # built on. Validated sizing runs against one vendor; HCL-listed models get
+    # theirs from the HCL, but a validated-only model is not on the HCL, so it
+    # needs its own — without one it is never recommended (hcl_vendor).
+    vendor = db.Column(db.String(20))
     notes = db.Column(db.Text)
 
     cpu_links = db.relationship(
@@ -300,6 +305,7 @@ class Model(db.Model):
             "ram_slots": self.ram_slots,
             "min_nodes": self.min_nodes,
             "validated_only": self.validated_only,
+            "vendor": self.vendor,
             "notes": self.notes,
             "cpu_options": cpu_options,
             # Certified storage-only CPU choices (real SKUs only — see above).

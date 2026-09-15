@@ -308,3 +308,65 @@ def test_exports_and_comparison_name_the_vendor_chassis(app, fmt):
     assert "Supermicro SuperServer SYS-511E-WR" in text
     assert "based off" not in text
     assert not any(sc in text for sc in SC_NAMES), [sc for sc in SC_NAMES if sc in text]
+
+
+def _validated_only(name, chassis, vendor):
+    """A validated-only model (no SC model, not on the HCL) with a vendor."""
+    cpu = om.CpuCatalog.query.first()
+    nvme = om.DriveCatalog.query.first()
+    nic = om.NicCatalog.query.first()
+    _model(name, cpu, nvme, nic)
+    m = om.Model.query.filter_by(name=name).one()
+    m.validated_only, m.chassis, m.vendor = True, chassis, vendor
+    m.form_factor = "2U"
+
+
+def test_validated_only_models_join_their_vendor(app):
+    with app.app_context():
+        _validated_only("VxRAIL01", "Dell-VxRAIL", "dell")
+        _validated_only("UCS01", "UCS C240 M7", "cisco")
+        _validated_only("NoVendor01", "Mystery box", None)
+        # Named like an HCL model Dell lists (HC5250D-V), but it is a Lenovo
+        # validated-only box: the HCL name match must never apply to it.
+        _validated_only("HC5250D-X", "ThinkSystem SR650 V3", "lenovo")
+        db.session.commit()
+        vendors = [v["brand"] for v in hcl_vendor.list_vendors()]
+    # Cisco exists only through a validated-only model and is still offered.
+    assert vendors == ["lenovo", "cisco", "dell", "supermicro"]
+
+    dell = _rec(app, sizing_mode="validated", vendor="dell")
+    # The chassis text already names the vendor, so it is not prefixed again.
+    assert _chassis(dell) == {"Dell PowerEdge R740XD", "Dell-VxRAIL"}
+    vx = [r for r in dell["recommendations"] if r["model"] == "VxRAIL01"]
+    assert vx and all(r["validated_only"] and r["category"] == "2U" for r in vx)
+    assert all("hcl_platform" not in r["refs"] for r in vx)
+
+    assert _chassis(_rec(app, sizing_mode="validated", vendor="cisco")) == {"Cisco UCS C240 M7"}
+    lenovo = _rec(app, sizing_mode="validated", vendor="lenovo")
+    assert "Lenovo ThinkSystem SR650 V3" in _chassis(lenovo)
+    assert not any(r["model"] in ("VxRAIL01", "NoVendor01") for r in lenovo["recommendations"])
+    assert not any(r["model"] == "HC5250D-X" for r in dell["recommendations"])
+
+    c = _signed_in(app)
+    picker = c.get("/api/models?mode=appliance&status=active&sizing=validated&vendor=dell").get_json()
+    assert picker["dell/vo-vxrail"]["vendor_chassis"] == "Dell-VxRAIL"
+    # Targeting the validated-only chassis sizes that model alone.
+    only = _rec(app, sizing_mode="validated", vendor="dell", target_model="dell/vo-vxrail")
+    assert {r["model"] for r in only["recommendations"]} == {"VxRAIL01"}
+
+
+def test_admin_saves_a_validated_only_vendor(app):
+    from auth_models import ROLE_SUPER_ADMIN, User
+    c = _signed_in(app, "admin@scalecomputing.com")
+    with app.app_context():
+        u = User.query.filter_by(email="admin@scalecomputing.com").one()
+        u.role = ROLE_SUPER_ADMIN
+        db.session.commit()
+        model_id = om.Model.query.filter_by(name="HC1650D").one().id
+    resp = c.put(f"/admin/api/models/{model_id}",
+                 json={"validated_only": True, "vendor": " Dell "})
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    with app.app_context():
+        m = db.session.get(om.Model, model_id)
+        assert (m.validated_only, m.vendor) == (True, "dell")
+    assert "edit-vendor" in c.get("/admin/").get_data(as_text=True)

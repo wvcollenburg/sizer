@@ -392,7 +392,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                 # product line ("3XXX Core"); a Validated build is neither.
                 f["chassis"] = chassis["label"]
                 f["category"] = md.get("form_factor") or ""
-                f["refs"]["hcl_platform"] = chassis["platform"].key
+                if chassis["platform"] is not None:     # validated-only: no HCL row
+                    f["refs"]["hcl_platform"] = chassis["platform"].key
         candidates.extend(fits)
 
     # Ranking: a single right-sizing score (lower = better) that trades total

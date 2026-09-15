@@ -188,7 +188,7 @@
   "admin.modal.model_edit.storage_type": "Type",
   "admin.modal.model_edit.title": "Add Model",
   "admin.modal.model_edit.validated_only": "Validated-only (no certified equivalent)",
-  "admin.modal.model_edit.validated_only_hint": "Hidden from Certified recommendations; shown only in Validated mode, labeled by its own name.",
+  "admin.modal.model_edit.validated_only_hint": "Hidden from Certified recommendations; shown only in Validated mode when its vendor is selected, named after its chassis.",
   "admin.modal.select_all": "Select all",
   "admin.modal.tunable_info.beware": "Beware",
   "admin.modal.tunable_info.how": "How",
@@ -1599,5 +1599,8 @@
   "results.vendor_info": "Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.",
   "results.vendor_none": "No HCL vendors listed",
   "results.platform": "Platform",
-  "results.sc_equivalent": "{model} equivalent"
+  "results.sc_equivalent": "{model} equivalent",
+  "admin.modal.model_edit.vendor_label": "Vendor",
+  "admin.modal.model_edit.vendor_ph": "e.g. dell",
+  "admin.modal.model_edit.vendor_hint": "Required for Validated recommendations: the model is offered only when this vendor is selected."
 };

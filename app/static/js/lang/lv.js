@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Tips",
   "admin.modal.model_edit.title": "Pievienot modeli",
   "admin.modal.model_edit.validated_only": "Tikai validēts (nav sertificēta ekvivalenta)",
-  "admin.modal.model_edit.validated_only_hint": "Paslēpts no sertificētajiem ieteikumiem; rādīts tikai validētajā režīmā, apzīmēts ar savu nosaukumu.",
+  "admin.modal.model_edit.validated_only_hint": "Paslēpts no sertificētajiem ieteikumiem; rādīts tikai validētajā režīmā, kad izvēlēts tā ražotājs, nosaukts pēc korpusa.",
   "admin.modal.select_all": "Atlasīt visus",
   "admin.modal.tunable_info.beware": "Uzmanību",
   "admin.modal.tunable_info.how": "Kā",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated konfigurācijas tiek veidotas uz ražotāja servera. Tiek ieteikti tikai modeļi, kurus HCL norāda šim ražotājam, nosaukti pēc ražotāja korpusa.",
   "results.vendor_none": "HCL nav norādīts neviens ražotājs",
   "results.platform": "Platforma",
-  "results.sc_equivalent": "atbilst {model}"
+  "results.sc_equivalent": "atbilst {model}",
+  "admin.modal.model_edit.vendor_label": "Ražotājs",
+  "admin.modal.model_edit.vendor_ph": "piem. dell",
+  "admin.modal.model_edit.vendor_hint": "Nepieciešams Validated ieteikumiem: modelis tiek piedāvāts tikai tad, kad izvēlēts šis ražotājs."
 };

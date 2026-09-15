@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Type",
   "admin.modal.model_edit.title": "Model toevoegen",
   "admin.modal.model_edit.validated_only": "Alleen gevalideerd (geen gecertificeerd equivalent)",
-  "admin.modal.model_edit.validated_only_hint": "Verborgen voor gecertificeerde aanbevelingen; alleen getoond in gevalideerde modus, aangeduid met eigen naam.",
+  "admin.modal.model_edit.validated_only_hint": "Verborgen voor gecertificeerde aanbevelingen; alleen getoond in gevalideerde modus als de leverancier is gekozen, benoemd naar het chassis.",
   "admin.modal.select_all": "Alles selecteren",
   "admin.modal.tunable_info.beware": "Let op",
   "admin.modal.tunable_info.how": "Hoe",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated-configuraties worden gebouwd op de server van een leverancier. Alleen modellen die de HCL voor deze leverancier vermeldt worden aanbevolen, benoemd naar het chassis van de leverancier.",
   "results.vendor_none": "Geen HCL-leveranciers vermeld",
   "results.platform": "Platform",
-  "results.sc_equivalent": "{model}-equivalent"
+  "results.sc_equivalent": "{model}-equivalent",
+  "admin.modal.model_edit.vendor_label": "Leverancier",
+  "admin.modal.model_edit.vendor_ph": "bijv. dell",
+  "admin.modal.model_edit.vendor_hint": "Vereist voor Validated-aanbevelingen: het model wordt alleen aangeboden als deze leverancier is gekozen."
 };

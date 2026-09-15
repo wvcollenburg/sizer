@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Tipas",
   "admin.modal.model_edit.title": "Pridėti modelį",
   "admin.modal.model_edit.validated_only": "Tik patvirtintas (nėra sertifikuoto atitikmens)",
-  "admin.modal.model_edit.validated_only_hint": "Paslėptas nuo sertifikuotų rekomendacijų; rodomas tik patvirtintuoju režimu, pažymėtas savo pavadinimu.",
+  "admin.modal.model_edit.validated_only_hint": "Paslėptas nuo sertifikuotų rekomendacijų; rodomas tik patvirtintuoju režimu, kai pasirinktas jo gamintojas, pavadintas pagal korpusą.",
   "admin.modal.select_all": "Pasirinkti visus",
   "admin.modal.tunable_info.beware": "Atsargiai",
   "admin.modal.tunable_info.how": "Kaip",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated konfigūracijos kuriamos gamintojo serveryje. Rekomenduojami tik tie modeliai, kuriuos HCL nurodo šiam gamintojui, pavadinti pagal gamintojo korpusą.",
   "results.vendor_none": "HCL nenurodyta jokių gamintojų",
   "results.platform": "Platforma",
-  "results.sc_equivalent": "atitinka {model}"
+  "results.sc_equivalent": "atitinka {model}",
+  "admin.modal.model_edit.vendor_label": "Gamintojas",
+  "admin.modal.model_edit.vendor_ph": "pvz. dell",
+  "admin.modal.model_edit.vendor_hint": "Būtina Validated rekomendacijoms: modelis siūlomas tik tada, kai pasirinktas šis gamintojas."
 };

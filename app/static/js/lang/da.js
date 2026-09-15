@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Type",
   "admin.modal.model_edit.title": "Tilføj model",
   "admin.modal.model_edit.validated_only": "Kun valideret (ingen certificeret ækvivalent)",
-  "admin.modal.model_edit.validated_only_hint": "Skjult fra certificerede anbefalinger; vises kun i valideret tilstand, mærket med sit eget navn.",
+  "admin.modal.model_edit.validated_only_hint": "Skjult fra certificerede anbefalinger; vises kun i valideret tilstand, når dens leverandør er valgt, navngivet efter sit chassis.",
   "admin.modal.select_all": "Vælg alle",
   "admin.modal.tunable_info.beware": "Vær opmærksom",
   "admin.modal.tunable_info.how": "Hvordan",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated-konfigurationer bygges på en leverandørs server. Kun modeller, som HCL'en angiver for denne leverandør, anbefales og navngives efter leverandørens chassis.",
   "results.vendor_none": "Ingen HCL-leverandører angivet",
   "results.platform": "Platform",
-  "results.sc_equivalent": "svarer til {model}"
+  "results.sc_equivalent": "svarer til {model}",
+  "admin.modal.model_edit.vendor_label": "Leverandør",
+  "admin.modal.model_edit.vendor_ph": "f.eks. dell",
+  "admin.modal.model_edit.vendor_hint": "Påkrævet for Validated-anbefalinger: modellen tilbydes kun, når denne leverandør er valgt."
 };

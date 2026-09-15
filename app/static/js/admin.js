@@ -349,6 +349,12 @@ function renderModelTable() {
     });
 }
 
+// The Vendor field belongs to validated-only models; show it only for them.
+function syncModelVendorField() {
+    const group = document.getElementById('edit-vendor-group');
+    if (group) group.hidden = !document.getElementById('edit-validated-only').checked;
+}
+
 function esc(s) {
     if (s == null) return '';
     const d = document.createElement('div');
@@ -851,6 +857,8 @@ function openAddModel() {
     document.getElementById('edit-min-nodes').value = '1';
     document.getElementById('edit-cost-tier').value = '5';
     document.getElementById('edit-validated-only').checked = false;
+    document.getElementById('edit-vendor').value = '';
+    syncModelVendorField();
     document.getElementById('edit-notes').value = '';
 
     selectedCpus = [];
@@ -891,6 +899,8 @@ async function openEditModel(id) {
     document.getElementById('edit-cost-tier').value =
         (m.cost_tier !== undefined && m.cost_tier !== null) ? m.cost_tier : 5;
     document.getElementById('edit-validated-only').checked = !!m.validated_only;
+    document.getElementById('edit-vendor').value = m.vendor || '';
+    syncModelVendorField();
     document.getElementById('edit-notes').value = m.notes || '';
 
     selectedCpus = (m.cpu_options || []).map(c => {
@@ -1340,6 +1350,11 @@ async function saveModel() {
         min_nodes: parseInt(document.getElementById('edit-min-nodes').value) || 1,
         cost_tier: parseFloat(document.getElementById('edit-cost-tier').value) || 5,
         validated_only: document.getElementById('edit-validated-only').checked,
+        // Only a validated-only model carries its own vendor (HCL models get
+        // theirs from the HCL); clear it otherwise so it cannot linger.
+        vendor: document.getElementById('edit-validated-only').checked
+            ? (document.getElementById('edit-vendor').value.trim().toLowerCase() || null)
+            : null,
         notes: document.getElementById('edit-notes').value.trim() || null,
         cpu_options: cpuOptions,
         ram_options_gb: ramOptions,

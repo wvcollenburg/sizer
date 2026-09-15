@@ -51,7 +51,12 @@ def _model_query():
 
 @admin_bp.route("/")
 def admin_page():
-    return render_template("admin.html")
+    import hcl_vendor
+    # Vendor suggestions for the validated-only model field: the known brand
+    # keys plus any the HCL or existing models already use.
+    brands = set(hcl_vendor.BRAND_LABELS) | {v["brand"] for v in hcl_vendor.list_vendors()}
+    return render_template("admin.html", vendor_options=[
+        {"brand": b, "label": hcl_vendor.brand_label(b)} for b in sorted(brands)])
 
 
 # ── Catalog endpoints ────────────────────────────────────────────────────────
@@ -495,6 +500,8 @@ def update_model(model_id):
         model.cost_tier = float(data["cost_tier"])
     if "validated_only" in data:
         model.validated_only = bool(data["validated_only"])
+    if "vendor" in data:
+        model.vendor = _clean_vendor(data["vendor"])
     model.notes = data.get("notes", model.notes)
 
     if "cpu_options" in data:
@@ -617,7 +624,7 @@ def export_models():
 
     ws = sheet("Models", ["Name", "Status", "Category", "Form Factor", "Chassis",
                           "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
-                          "Validated Only", "Notes"], first=True)
+                          "Validated Only", "Vendor", "Notes"], first=True)
     ws_cpu_cat = sheet("CPUs", [h for _, h in CPU_SHEET_COLUMNS])
     ws_nic_cat = sheet("NICs", ["Description", "Ports", "Speed"])
     ws_drv_cat = sheet("Drives", ["Type", "Size TB"])
@@ -646,7 +653,7 @@ def export_models():
     for m in models:
         ws.append([m.name, m.status, m.category, m.form_factor, m.chassis,
                    m.socket, m.psu, m.ram_slots, m.min_nodes, m.cost_tier,
-                   "Yes" if m.validated_only else "No", m.notes])
+                   "Yes" if m.validated_only else "No", m.vendor, m.notes])
 
         for link in sorted(m.cpu_links, key=lambda l: l.sort_order):
             ws_cpu.append([m.name, link.quantity, link.cpu.description,
@@ -979,6 +986,7 @@ def _import_catalog_from_excel(file_path, mode="add"):
                 "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
                 "validated_only": str(r.get("Validated Only", "")).strip().lower()
                                   in ("yes", "true", "1"),
+                "vendor": _clean_vendor(r.get("Vendor")),
                 "notes": str(r.get("Notes", "") or "").strip() or None,
                 "cpu_options": cpus_by_model.get(name, []),
                 "ram_options_gb": ram_by_model.get(name, []),
@@ -1100,11 +1108,11 @@ def catalog_template():
     ws_mod = wb.create_sheet("Models")
     ws_mod.append(["Name", "Status", "Category", "Form Factor", "Chassis",
                    "Socket", "PSU", "RAM Slots", "Min Nodes", "Cost",
-                   "Validated Only", "Notes"])
+                   "Validated Only", "Vendor", "Notes"])
     style_headers(ws_mod)
     example_rows(ws_mod, [
         [ex, "Active", "1U All-Flash", "1U Rack", "Dell PowerEdge R660",
-         "single", "2x 800W", 16, 3, 28, "No", None],
+         "single", "2x 800W", 16, 3, 28, "No", None, None],
     ])
 
     ws_mcpu = wb.create_sheet("Model CPU Options")
@@ -1198,6 +1206,13 @@ def _get_or_create_drive(drive_type, size_tb):
     return drive
 
 
+def _clean_vendor(value):
+    """Vendor keys are stored the way the HCL scrape stores brands: lower-case,
+    trimmed, None when blank ("Dell " and "dell" are one vendor)."""
+    value = str(value or "").strip().lower()
+    return value[:20] or None
+
+
 def _build_model(data):
     model = Model(
         name=data["name"],
@@ -1211,6 +1226,7 @@ def _build_model(data):
         min_nodes=data.get("min_nodes", 1),
         cost_tier=float(data["cost_tier"]) if data.get("cost_tier") not in (None, "") else 5.0,
         validated_only=bool(data.get("validated_only", False)),
+        vendor=_clean_vendor(data.get("vendor")),
         notes=data.get("notes"),
     )
     db.session.add(model)
@@ -1326,6 +1342,7 @@ def _import_from_excel(file_path, mode):
             "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
             "validated_only": str(r.get("Validated Only", "")).strip().lower()
                               in ("yes", "true", "1"),
+            "vendor": _clean_vendor(r.get("Vendor")),
             "notes": str(r.get("Notes", "") or "").strip() or None,
             "cpu_options": cpus_by_model.get(name, []),
             "ram_options_gb": ram_by_model.get(name, []),

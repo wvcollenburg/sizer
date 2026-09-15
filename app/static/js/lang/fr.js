@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Type",
   "admin.modal.model_edit.title": "Ajouter un modèle",
   "admin.modal.model_edit.validated_only": "Validé uniquement (aucun équivalent certifié)",
-  "admin.modal.model_edit.validated_only_hint": "Masqué des recommandations Certifiées ; affiché uniquement en mode Validé, sous son propre nom.",
+  "admin.modal.model_edit.validated_only_hint": "Masqué des recommandations Certifiées ; affiché uniquement en mode Validé lorsque son fournisseur est sélectionné, nommé d'après son châssis.",
   "admin.modal.select_all": "Tout sélectionner",
   "admin.modal.tunable_info.beware": "Attention",
   "admin.modal.tunable_info.how": "Comment",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Les configurations Validated reposent sur le serveur d'un fournisseur. Seuls les modèles que la HCL référence pour ce fournisseur sont recommandés, nommés d'après le châssis du fournisseur.",
   "results.vendor_none": "Aucun fournisseur HCL référencé",
   "results.platform": "Plateforme",
-  "results.sc_equivalent": "équivalent {model}"
+  "results.sc_equivalent": "équivalent {model}",
+  "admin.modal.model_edit.vendor_label": "Fournisseur",
+  "admin.modal.model_edit.vendor_ph": "p. ex. dell",
+  "admin.modal.model_edit.vendor_hint": "Requis pour les recommandations Validated : le modèle n'est proposé que lorsque ce fournisseur est sélectionné."
 };

@@ -2539,7 +2539,7 @@ function recCardHtml(r, i, mode, demand, opts) {
                 </div>` : '';
     // A Validated card is named after its vendor chassis; the SC model it was
     // sized from is still worth knowing, so it sits quietly in the footer.
-    const scEquivalent = (r.vendor_chassis && r.model)
+    const scEquivalent = (r.vendor_chassis && r.model && !r.validated_only)
         ? ` &mdash; ${esc(window.t('results.sc_equivalent', {model: r.model}))}`
         : '';
     const header = `

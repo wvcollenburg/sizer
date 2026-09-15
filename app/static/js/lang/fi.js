@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Tyyppi",
   "admin.modal.model_edit.title": "Lisää malli",
   "admin.modal.model_edit.validated_only": "Vain validoitu (ei sertifioitua vastinetta)",
-  "admin.modal.model_edit.validated_only_hint": "Piilotettu sertifioiduista suosituksista; näytetään vain Validoitu-tilassa, merkitty omalla nimellään.",
+  "admin.modal.model_edit.validated_only_hint": "Piilotettu sertifioiduista suosituksista; näytetään vain Validoitu-tilassa, kun sen valmistaja on valittu, nimettynä kotelonsa mukaan.",
   "admin.modal.select_all": "Valitse kaikki",
   "admin.modal.tunable_info.beware": "Varoitus",
   "admin.modal.tunable_info.how": "Miten",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated-kokoonpanot rakennetaan valmistajan palvelimelle. Vain mallit, jotka HCL listaa tälle valmistajalle, suositellaan, ja ne nimetään valmistajan kotelon mukaan.",
   "results.vendor_none": "HCL:ssä ei ole valmistajia",
   "results.platform": "Alusta",
-  "results.sc_equivalent": "vastaa mallia {model}"
+  "results.sc_equivalent": "vastaa mallia {model}",
+  "admin.modal.model_edit.vendor_label": "Valmistaja",
+  "admin.modal.model_edit.vendor_ph": "esim. dell",
+  "admin.modal.model_edit.vendor_hint": "Pakollinen Validated-suosituksille: mallia tarjotaan vain, kun tämä valmistaja on valittu."
 };

@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Typ",
   "admin.modal.model_edit.title": "Lägg till modell",
   "admin.modal.model_edit.validated_only": "Endast validerad (ingen certifierad motsvarighet)",
-  "admin.modal.model_edit.validated_only_hint": "Dold från certifierade rekommendationer; visas endast i validerat läge, märkt med sitt eget namn.",
+  "admin.modal.model_edit.validated_only_hint": "Dold från certifierade rekommendationer; visas endast i validerat läge när dess leverantör är vald, namngiven efter sitt chassi.",
   "admin.modal.select_all": "Välj alla",
   "admin.modal.tunable_info.beware": "Observera",
   "admin.modal.tunable_info.how": "Hur",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated-konfigurationer byggs på en leverantörs server. Endast modeller som HCL listar för denna leverantör rekommenderas, namngivna efter leverantörens chassi.",
   "results.vendor_none": "Inga HCL-leverantörer listade",
   "results.platform": "Plattform",
-  "results.sc_equivalent": "motsvarar {model}"
+  "results.sc_equivalent": "motsvarar {model}",
+  "admin.modal.model_edit.vendor_label": "Leverantör",
+  "admin.modal.model_edit.vendor_ph": "t.ex. dell",
+  "admin.modal.model_edit.vendor_hint": "Krävs för Validated-rekommendationer: modellen erbjuds endast när denna leverantör är vald."
 };

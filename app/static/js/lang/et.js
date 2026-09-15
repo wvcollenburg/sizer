@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Tüüp",
   "admin.modal.model_edit.title": "Lisa mudel",
   "admin.modal.model_edit.validated_only": "Ainult valideeritud (sertifitseeritud vastet pole)",
-  "admin.modal.model_edit.validated_only_hint": "Peidetud sertifitseeritud soovitustest; kuvatakse ainult valideeritud režiimis, tähistatud omaenda nimega.",
+  "admin.modal.model_edit.validated_only_hint": "Peidetud sertifitseeritud soovitustest; kuvatakse ainult valideeritud režiimis, kui selle tootja on valitud, nimetatud korpuse järgi.",
   "admin.modal.select_all": "Vali kõik",
   "admin.modal.tunable_info.beware": "Ettevaatust",
   "admin.modal.tunable_info.how": "Kuidas",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated-konfiguratsioonid ehitatakse tootja serverile. Soovitatakse ainult mudeleid, mille HCL selle tootja jaoks loetleb, ja need nimetatakse tootja korpuse järgi.",
   "results.vendor_none": "HCL-is pole tootjaid",
   "results.platform": "Platvorm",
-  "results.sc_equivalent": "vastab mudelile {model}"
+  "results.sc_equivalent": "vastab mudelile {model}",
+  "admin.modal.model_edit.vendor_label": "Tootja",
+  "admin.modal.model_edit.vendor_ph": "nt dell",
+  "admin.modal.model_edit.vendor_hint": "Nõutav Validated-soovituste jaoks: mudelit pakutakse ainult siis, kui see tootja on valitud."
 };

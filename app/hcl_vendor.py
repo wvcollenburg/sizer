@@ -16,6 +16,11 @@ carries which SC model, so Validated sizing picks ONE vendor and:
   "HCxxxx equivalent" in the result card's footer — never as the product name
   and never in an export.
 
+Validated-only models (admin-defined boxes with no SC model and no HCL entry,
+e.g. a repurposed Dell VxRail) carry their own ``Model.vendor`` instead. They
+join that vendor's chassis set under their own chassis text, and a vendor that
+exists only through such models still appears in the Vendor list.
+
 The recommendation keeps ``model`` = the SC model internally: it is the catalog
 identity that refs, the fingerprint and the BOM fit key on. The chassis travels
 alongside as ``vendor_chassis`` / ``vendor_chassis_key`` and every display site
@@ -67,6 +72,22 @@ def chassis_label(platform):
     return "%s %s" % (brand_label(platform.brand), server)
 
 
+def validated_only_label(model):
+    """A validated-only model is named after its own chassis text, prefixed
+    with the vendor unless the text already starts with it ('Dell-VxRAIL'
+    stays as is, 'VxRail P670F' becomes 'Dell VxRail P670F')."""
+    brand = brand_label(model.vendor)
+    text = (model.chassis or "").strip() or model.name
+    if text.lower().startswith(brand.lower()):
+        return text
+    return "%s %s" % (brand, text)
+
+
+def validated_only_key(model):
+    from hcl_models import server_key
+    return "%s/vo-%s" % (model.vendor, server_key(model.chassis) or model.name.lower())
+
+
 def list_vendors():
     """Vendors with at least one active HCL platform, default first.
 
@@ -76,9 +97,14 @@ def list_vendors():
     try:
         from database import db
         from hcl_models import HclPlatform, STATUS_ACTIVE
+        from orm_models import Model
         brands = [b for (b,) in db.session.query(HclPlatform.brand)
                   .filter(HclPlatform.status == STATUS_ACTIVE)
                   .distinct().all() if b]
+        brands += [b for (b,) in db.session.query(Model.vendor)
+                   .filter(Model.validated_only == True,   # noqa: E712
+                           Model.vendor.isnot(None))
+                   .distinct().all() if b]
     except Exception:                                   # noqa: BLE001
         return []
     brands = sorted(set(b.lower() for b in brands),
@@ -109,8 +135,21 @@ class VendorChassis:
     def __init__(self, vendor):
         self.vendor = vendor
         self._by_model = {}
+        # Validated-only models, by exact model name. The HCL name match never
+        # applies to them: one for another vendor (or with no vendor set) is
+        # simply not buildable here, even if its name looks like an SC model.
+        self._validated_only = {}
+        self._other_validated_only = set()
         if not vendor:
             return
+        from orm_models import Model
+        for m in Model.query.filter(Model.validated_only == True).all():   # noqa: E712
+            if (m.vendor or "") == vendor.lower():
+                self._validated_only[m.name] = {
+                    "key": validated_only_key(m), "label": validated_only_label(m),
+                    "platform": None}
+            else:
+                self._other_validated_only.add(m.name)
         from hcl_models import HclPlatform, STATUS_ACTIVE
         rows = (HclPlatform.query
                 .filter(HclPlatform.brand == vendor.lower(),
@@ -131,9 +170,13 @@ class VendorChassis:
             self._by_model[model_key] = {"key": key, "label": labels[key], "platform": p}
 
     def __bool__(self):
-        return bool(self._by_model)
+        return bool(self._by_model or self._validated_only)
 
     def for_model(self, model_name):
+        if model_name in self._validated_only:
+            return self._validated_only[model_name]
+        if model_name in self._other_validated_only:
+            return None
         return self._by_model.get(sc_model_key(model_name))
 
     def resolve_target(self, target):
@@ -143,7 +186,7 @@ class VendorChassis:
         target = (target or "").strip()
         if not target:
             return None, None
-        for entry in self._by_model.values():
+        for entry in list(self._by_model.values()) + list(self._validated_only.values()):
             if entry["key"] == target:
                 return entry["key"], entry["label"]
         entry = self.for_model(target)

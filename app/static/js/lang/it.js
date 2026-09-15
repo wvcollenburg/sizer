@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "Tipo",
   "admin.modal.model_edit.title": "Aggiungi modello",
   "admin.modal.model_edit.validated_only": "Solo Validated (nessun equivalente certificato)",
-  "admin.modal.model_edit.validated_only_hint": "Nascosto dalle raccomandazioni Certified; mostrato solo in modalità Validated, etichettato con il proprio nome.",
+  "admin.modal.model_edit.validated_only_hint": "Nascosto dalle raccomandazioni Certified; mostrato solo in modalità Validated quando è selezionato il suo produttore, con il nome del suo chassis.",
   "admin.modal.select_all": "Seleziona tutto",
   "admin.modal.tunable_info.beware": "Attenzione",
   "admin.modal.tunable_info.how": "Come",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Le configurazioni Validated si basano sul server di un produttore. Vengono consigliati solo i modelli che la HCL elenca per questo produttore, indicati con il nome del suo chassis.",
   "results.vendor_none": "Nessun produttore HCL elencato",
   "results.platform": "Piattaforma",
-  "results.sc_equivalent": "equivalente a {model}"
+  "results.sc_equivalent": "equivalente a {model}",
+  "admin.modal.model_edit.vendor_label": "Produttore",
+  "admin.modal.model_edit.vendor_ph": "es. dell",
+  "admin.modal.model_edit.vendor_hint": "Obbligatorio per le raccomandazioni Validated: il modello viene proposto solo quando è selezionato questo produttore."
 };

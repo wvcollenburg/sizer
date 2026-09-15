@@ -187,7 +187,7 @@
   "admin.modal.model_edit.storage_type": "種類",
   "admin.modal.model_edit.title": "モデルを追加",
   "admin.modal.model_edit.validated_only": "Validated専用 (Certified相当なし)",
-  "admin.modal.model_edit.validated_only_hint": "Certified推奨からは非表示になり、Validatedモードでのみ独自の名称で表示されます。",
+  "admin.modal.model_edit.validated_only_hint": "Certified推奨からは非表示になり、Validatedモードでそのベンダーが選択されている場合のみ、シャーシ名で表示されます。",
   "admin.modal.select_all": "すべて選択",
   "admin.modal.tunable_info.beware": "注意",
   "admin.modal.tunable_info.how": "方法",
@@ -1598,5 +1598,8 @@
   "results.vendor_info": "Validated 構成はベンダーのサーバー上に構築されます。HCL がこのベンダー向けに掲載しているモデルのみが推奨され、ベンダーのシャーシ名で表示されます。",
   "results.vendor_none": "HCL に掲載されたベンダーがありません",
   "results.platform": "プラットフォーム",
-  "results.sc_equivalent": "{model} 相当"
+  "results.sc_equivalent": "{model} 相当",
+  "admin.modal.model_edit.vendor_label": "ベンダー",
+  "admin.modal.model_edit.vendor_ph": "例: dell",
+  "admin.modal.model_edit.vendor_hint": "Validated推奨に必須: このベンダーが選択されている場合のみ、このモデルが提案されます。"
 };
