@@ -30,6 +30,7 @@ from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
 from recommend import _rec_network_svg
+from hcl_vendor import rec_display_model
 from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for, is_cjk
 
@@ -469,7 +470,7 @@ def _append_site_sizing(doc, cl, lang, cw):
     # Recommended configuration
     _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=2)
     spec_rows = [
-        (t9n("export.docx.recommended_platform"), f"{r['model']} · {nodes_label} · {cl_label}"),
+        (t9n("export.docx.recommended_platform"), f"{rec_display_model(r)} · {nodes_label} · {cl_label}"),
         (t9n("export.docx.per_node_cpu"), r["cpu"]),
         (t9n("export.docx.per_node_cores_threads"),
          t9n("export.docx.cores_threads_val", cores=r["cores_per_node"], threads=r["threads_per_node"])),
@@ -688,7 +689,7 @@ def build_bundle_proposal_docx(clusters, lang="en"):
         r = cl.get("recommendation")
         if r:
             tot = r.get("totals", {})
-            model = r.get("model", "")
+            model = rec_display_model(r)
             nodes = r.get("node_count", "")
             # ACTUAL installed cores/RAM, not usable: installed cores are the
             # licensing basis; the usable story comes later in the document.
@@ -810,7 +811,7 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
               platform=s.get("current_platform", "virtualization"),
               hosts=s.get("host_count", 0), vms=s.get("active_vms", 0),
               used_tb=s.get("datastore_used_tb", 0), nodes=nodes_label,
-              model=r["model"], usable_tb=t["usable_storage_tb"], cores=t["cores"],
+              model=rec_display_model(r), usable_tb=t["usable_storage_tb"], cores=t["cores"],
               years=p["years"], growth=p["growth_pct"],
               ratio=f"{r['vcpu_ratio']:.2f}"),
           lang=lang)
@@ -821,7 +822,7 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     proj_fits = (t9n("export.docx.proj_fits_within") if fits
                  else t9n("export.docx.proj_fits_approaching"))
     _spec_table(doc, [
-        (t9n("export.docx.recommended_platform"), f"{r['model']} · {nodes_label} · {cl_label}"),
+        (t9n("export.docx.recommended_platform"), f"{rec_display_model(r)} · {nodes_label} · {cl_label}"),
         (t9n("export.docx.usable_capacity"),
          t9n("export.docx.usable_capacity_val",
              usable_tb=t["usable_storage_tb"], n1_tb=n1["usable_storage_tb"])),
@@ -837,7 +838,7 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     # ── Recommended configuration ────────────────────────────────────────────
     _add_heading(t9n("export.docx.recommended_configuration"), level=1)
     _para(doc, t9n("export.docx.recommended_config_intro",
-                   model=r["model"], nodes=nodes_label, clusters=cl_label,
+                   model=rec_display_model(r), nodes=nodes_label, clusters=cl_label,
                    form_factor=r["form_factor"], chassis=r["chassis"]),
           lang=lang)
     # Required licence — between the heading/intro and the resources table.

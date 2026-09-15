@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % vækstreserve",
   "results.util.tip_snapshot": "+{pct} % snapshot-reserve",
   "results.util.title": "Udnyttelse mod fuldt cluster — nu / dimensioneret",
-  "results.validated_based_off": "Valideret – baseret på {model}",
   "results.view.expand": "Vis detaljer",
   "results.view.label": "Resultatvisning",
   "results.view.rows": "Rækker",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "ikke koblet",
   "admin.bomprev.withdraw": "Træk tilbage",
   "admin.bomprev.withdraw_confirm": "Trække {name} tilbage fra kataloget? BOM-kontroller, der bestod på grund af den, rapporterer deres fund igen efter en ny kontrol.",
-  "admin.bomprev.withdraw_done": "{name} trukket tilbage."
+  "admin.bomprev.withdraw_done": "{name} trukket tilbage.",
+  "results.vendor": "Leverandør",
+  "results.vendor_info": "Validated-konfigurationer bygges på en leverandørs server. Kun modeller, som HCL'en angiver for denne leverandør, anbefales og navngives efter leverandørens chassis.",
+  "results.vendor_none": "Ingen HCL-leverandører angivet"
 };

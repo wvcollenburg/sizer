@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % de reserva de crecimiento",
   "results.util.tip_snapshot": "+{pct} % de reserva de instantáneas",
   "results.util.title": "Utilización frente al clúster completo: ahora / dimensionado",
-  "results.validated_based_off": "Validado – basado en {model}",
   "results.view.expand": "Mostrar detalles",
   "results.view.label": "Vista de resultados",
   "results.view.rows": "Filas",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "sin vincular",
   "admin.bomprev.withdraw": "Retirar",
   "admin.bomprev.withdraw_confirm": "¿Retirar {name} del catálogo? Las comprobaciones de BOM que aprobaron gracias a ella volverán a informar de sus hallazgos tras una nueva comprobación.",
-  "admin.bomprev.withdraw_done": "{name} retirada."
+  "admin.bomprev.withdraw_done": "{name} retirada.",
+  "results.vendor": "Fabricante",
+  "results.vendor_info": "Las configuraciones Validated se construyen sobre el servidor de un fabricante. Solo se recomiendan los modelos que la HCL incluye para este fabricante, con el nombre de su chasis.",
+  "results.vendor_none": "No hay fabricantes en la HCL"
 };

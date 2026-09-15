@@ -611,9 +611,17 @@
                 </div>
                 <div class="form-group">
                     <label data-i18n="dr.sizing_mode">Sizing mode</label>
-                    <select id="dr-sizing-mode" data-change='["sizeDrTarget"]'>
+                    <select id="dr-sizing-mode" data-change='["onDrSizingModeChange"]'>
                         <option value="certified" data-i18n="dr.mode_certified">Certified (appliance)</option>
                         <option value="validated" data-i18n="dr.mode_validated">Validated (software-only)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="dr-vendor-group" hidden>
+                    <label data-i18n="results.vendor">Vendor</label>
+                    <select id="dr-vendor" data-change='["onDrVendorChange"]'>
+                        {% if hcl_vendors %}{% for v in hcl_vendors %}
+                        <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}{% else %}
+                        <option value="" data-i18n="results.vendor_none">No HCL vendors listed</option>{% endif %}
                     </select>
                 </div>
                 <div class="form-group">
@@ -746,6 +754,20 @@
                             <select id="sizing-mode" data-change='["onSizingModeChange"]'>
                                 <option value="certified" selected data-i18n="results.mode_certified">Certified</option>
                                 <option value="validated" data-i18n="results.mode_validated">Validated (Software-Only)</option>
+                            </select>
+                        </div>
+                        <!-- Validated only: which vendor's HCL-listed servers to size
+                             on. Options are server-rendered (see app.index). -->
+                        <div class="form-group wiz-adv" id="sizing-vendor-group" hidden>
+                            <label><span data-i18n="results.vendor">Vendor</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.vendor_info"
+                                      title="Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.">i</span>
+                            </label>
+                            <select id="sizing-vendor" data-change='["onSizingVendorChange"]'>
+                                {% if hcl_vendors %}{% for v in hcl_vendors %}
+                                <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}{% else %}
+                                <option value="" data-i18n="results.vendor_none">No HCL vendors listed</option>{% endif %}
                             </select>
                         </div>
                         <div class="form-group wiz-adv">

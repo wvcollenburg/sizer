@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % Wachstumsreserve",
   "results.util.tip_snapshot": "+{pct} % Snapshot-Reserve",
   "results.util.title": "Auslastung vs. voller Cluster — jetzt / dimensioniert",
-  "results.validated_based_off": "Validiert – basierend auf {model}",
   "results.view.expand": "Details anzeigen",
   "results.view.label": "Ergebnisansicht",
   "results.view.rows": "Zeilen",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "nicht verknüpft",
   "admin.bomprev.withdraw": "Zurückziehen",
   "admin.bomprev.withdraw_confirm": "{name} aus dem Katalog zurückziehen? BOM-Prüfungen, die dadurch bestanden haben, melden ihre Befunde nach einer erneuten Prüfung wieder.",
-  "admin.bomprev.withdraw_done": "{name} zurückgezogen."
+  "admin.bomprev.withdraw_done": "{name} zurückgezogen.",
+  "results.vendor": "Hersteller",
+  "results.vendor_info": "Validated-Konfigurationen werden auf dem Server eines Herstellers aufgebaut. Empfohlen werden nur Modelle, die die HCL für diesen Hersteller führt, benannt nach dem Gehäuse des Herstellers.",
+  "results.vendor_none": "Keine HCL-Hersteller gelistet"
 };

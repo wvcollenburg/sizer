@@ -5,6 +5,7 @@ from orm_models import (
     DriveTypeIops, SizingSetting,
 )
 from storage_only import single_cpu_options
+import hcl_vendor
 import licensing
 import parser_common
 from cluster_diagram import network_svg_for
@@ -112,7 +113,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              replication_reserve=None, replication_compute_mode="reserved",
                              allow_single_node=False,
                              license_term_years=None, guest_licensing=None,
-                             region=None):
+                             region=None, vendor=None):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -178,6 +179,20 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # lets the engine fit FEWER disks per node than the certified (fully-populated)
     # count — sizing storage to need instead of to the fixed appliance config.
     validated = (sizing_mode == "validated")
+    # A Validated box is a vendor server the HCL lists for that SC model, so
+    # Validated sizing runs against ONE vendor: models without an active HCL
+    # platform for it are not buildable and drop out, and the sizing speaks in
+    # vendor chassis only — listing, targeting and de-duplicating on the
+    # chassis, never the SC model (hcl_vendor module docstring).
+    chassis_target = chassis_target_label = None
+    if validated:
+        vendor = hcl_vendor.resolve_vendor(vendor)
+        vendor_chassis = hcl_vendor.VendorChassis(vendor)
+        # "Size for" names a chassis here, which spans several SC models.
+        chassis_target, chassis_target_label = vendor_chassis.resolve_target(target_model)
+    else:
+        vendor = None
+        vendor_chassis = None
     growth = growth_pct / 100
     snap_base = snapshot_pct / 100
 
@@ -319,7 +334,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             .joinedload(StorageConfig.drive_links)
             .joinedload(StorageConfigDrive.drive),
     )
-    if target_model:
+    if target_model and not validated:
         # Explicit model selection sizes against exactly that model, regardless
         # of its lifecycle status.
         model_q = model_q.filter(Model.name == target_model)
@@ -347,6 +362,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         # software-only "1 or 3+ disks" rule and cannot be flexed lower.
         if validated and stype == "nvme_and_ssd":
             continue
+        chassis = vendor_chassis.for_model(m.name) if validated else None
+        if validated and (chassis is None or
+                          (chassis_target and chassis["key"] != chassis_target)):
+            continue
         if storage_pref and STORAGE_CATEGORIES.get(stype) != storage_pref:
             continue
         matched_storage += 1
@@ -363,6 +382,17 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                           iops_cfg=iops_cfg,
                           allow_storage_only=allow_storage_only,
                           license_ctx=license_ctx)
+        if chassis is not None:
+            for f in fits:
+                f["vendor"] = vendor
+                f["vendor_chassis"] = chassis["label"]
+                f["vendor_chassis_key"] = chassis["key"]
+                # The catalog's chassis text describes the certified appliance
+                # build (often another vendor's box) and its category is the SC
+                # product line ("3XXX Core"); a Validated build is neither.
+                f["chassis"] = chassis["label"]
+                f["category"] = md.get("form_factor") or ""
+                f["refs"]["hcl_platform"] = chassis["platform"].key
         candidates.extend(fits)
 
     # Ranking: a single right-sizing score (lower = better) that trades total
@@ -379,7 +409,10 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     seen = set()
     deduped = []
     for c in candidates:
-        key = (c["model"], c["node_count"])
+        # One result per product per node count. In Validated mode the product
+        # is the vendor chassis: its all-flash and hybrid SC models are just
+        # configurations of the same box, so only the best-ranked one shows.
+        key = (c.get("vendor_chassis_key") or c["model"], c["node_count"])
         if key not in seen:
             seen.add(key)
             deduped.append(c)
@@ -389,9 +422,26 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # cap, return no recommendations and explain why (naming the smallest
     # feasible count so the user knows how high to raise the target).
     warnings = []
-    if target_model and not candidates:
+    if validated and not vendor_chassis:
         warnings.append(
-            f"{target_model} cannot meet this workload. Try “All models”, "
+            "No HCL-listed platforms are available for Validated sizing. A super "
+            "admin must run and approve an HCL scrape before Validated "
+            "configurations can be recommended."
+            if vendor is None else
+            f"The HCL lists no active platforms for {hcl_vendor.brand_label(vendor)}. "
+            f"Choose another vendor."
+        )
+    elif chassis_target and not any(
+            (vendor_chassis.for_model(m.name) or {}).get("key") == chassis_target
+            for m in models):
+        warnings.append(
+            f"{chassis_target_label} is not listed on the HCL for "
+            f"{hcl_vendor.brand_label(vendor)}. Choose another vendor or "
+            f"“All models”."
+        )
+    if target_model and not candidates and not warnings:
+        warnings.append(
+            f"{chassis_target_label or target_model} cannot meet this workload. Try “All models”, "
             f"a higher vCPU:core ratio, or relaxing the storage/node constraints."
         )
     if storage_pref and matched_storage == 0:
@@ -561,14 +611,17 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
             "source_type": (source_perf_type or "specrate").lower(),
             "source_index_specrate": round(src, 1),
             "target_index": tgt,
-            "target_model": top[0].get("model"),
+            "target_model": hcl_vendor.rec_display_model(top[0]),
             "ratio": round(tgt / src, 2) if src else None,
             "note": "Throughput on the SPECrate2017_int scale; PassMark inputs "
                     "converted at 0.00386/mark (~20% approximate).",
         }
 
     return {"recommendations": top, "projection": projection,
-            "warnings": warnings, "perf_comparison": perf_comparison}
+            "warnings": warnings, "perf_comparison": perf_comparison,
+            # The vendor the Validated sizing actually ran against (the
+            # request's, or the default when it named none / an unlisted one).
+            "vendor": vendor}
 
 
 def _license_context(term_years, guest_licensing, summary, region=None):

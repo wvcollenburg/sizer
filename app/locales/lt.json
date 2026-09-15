@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Iš viso gijų",
   "export.pptx.total_vcpus": "Iš viso vCPU",
   "export.pptx.used_ram": "Naudojama RAM",
-  "export.pptx.validated_based_off": "Patvirtinta – remiantis {model}",
   "export.pptx.vcpu_basis": "{cores} branduoliai @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU : branduolys santykis",
   "export.pptx.vcpu_core_ratio_n1": "vCPU : branduolys santykis prie N-1",

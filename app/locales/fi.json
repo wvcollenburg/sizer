@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Säikeitä yhteensä",
   "export.pptx.total_vcpus": "vCPU:ita yhteensä",
   "export.pptx.used_ram": "Käytetty RAM",
-  "export.pptx.validated_based_off": "Validoitu – perustuu malliin {model}",
   "export.pptx.vcpu_basis": "{cores} ydintä @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU : ydin -suhde",
   "export.pptx.vcpu_core_ratio_n1": "vCPU : ydin -suhde N-1:llä",

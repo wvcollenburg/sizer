@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % de réserve de croissance",
   "results.util.tip_snapshot": "+{pct} % de réserve d'instantanés",
   "results.util.title": "Utilisation vs cluster complet — actuel / dimensionné",
-  "results.validated_based_off": "Validé – basé sur {model}",
   "results.view.expand": "Afficher les détails",
   "results.view.label": "Vue des résultats",
   "results.view.rows": "Lignes",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "non liée",
   "admin.bomprev.withdraw": "Retirer",
   "admin.bomprev.withdraw_confirm": "Retirer {name} du catalogue ? Les vérifications de BOM qui réussissaient grâce à cet élément signaleront de nouveau leurs constats après une revérification.",
-  "admin.bomprev.withdraw_done": "{name} retiré."
+  "admin.bomprev.withdraw_done": "{name} retiré.",
+  "results.vendor": "Fournisseur",
+  "results.vendor_info": "Les configurations Validated reposent sur le serveur d'un fournisseur. Seuls les modèles que la HCL référence pour ce fournisseur sont recommandés, nommés d'après le châssis du fournisseur.",
+  "results.vendor_none": "Aucun fournisseur HCL référencé"
 };

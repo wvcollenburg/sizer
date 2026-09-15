@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Totalt antal trådar",
   "export.pptx.total_vcpus": "Totalt antal vCPU:er",
   "export.pptx.used_ram": "Använt RAM",
-  "export.pptx.validated_based_off": "Validerad – baserad på {model}",
   "export.pptx.vcpu_basis": "{cores} kärnor @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU:kärna-förhållande",
   "export.pptx.vcpu_core_ratio_n1": "vCPU:kärna-förhållande vid N-1",

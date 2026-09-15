@@ -41,6 +41,7 @@ ENGINE_MODULES = (
     "storage_only.py",
     "tunables.py",
     "cpu_benchmarks.py",
+    "hcl_vendor.py",
 )
 
 # Parsers are NOT part of the engine hash. A parser fix cannot be repaired by
@@ -133,7 +134,22 @@ def catalog_digest(refs):
         # drive sizes must not share a digest.
         "selection": refs.get("selection"),
     }
+    if refs.get("hcl_platform"):
+        # Validated recommendation: the vendor chassis it is named and
+        # filtered by comes from the HCL catalog, so a delist or a changed
+        # SERVER line must show as staleness. Added only when present, so
+        # every Certified digest stays exactly what it was.
+        material["hcl_platform"] = _hcl_platform_material(refs["hcl_platform"])
     return hashlib.sha256(_canonical(material).encode("utf-8")).hexdigest()[:16]
+
+
+def _hcl_platform_material(key):
+    from hcl_models import HclPlatform
+    brand, _, sc_model = str(key).partition("/")
+    p = HclPlatform.query.filter_by(brand=brand, sc_model=sc_model).first()
+    if p is None:
+        return "missing:" + str(key)
+    return {"server": p.server, "status": p.status}
 
 
 def _matching_option(options, desc):

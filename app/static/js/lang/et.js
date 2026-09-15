@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% kasvureserv",
   "results.util.tip_snapshot": "+{pct}% hetktõmmiste reserv",
   "results.util.title": "Kasutus vs täisklaster — praegu / mõõdetud",
-  "results.validated_based_off": "Valideeritud – põhineb mudelil {model}",
   "results.view.expand": "Näita üksikasju",
   "results.view.label": "Tulemuste vaade",
   "results.view.rows": "Read",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "sidumata",
   "admin.bomprev.withdraw": "Võta tagasi",
   "admin.bomprev.withdraw_confirm": "Kas võtta {name} kataloogist tagasi? Selle tõttu läbinud BOM-i kontrollid teatavad pärast uut kontrolli taas oma leidudest.",
-  "admin.bomprev.withdraw_done": "{name} tagasi võetud."
+  "admin.bomprev.withdraw_done": "{name} tagasi võetud.",
+  "results.vendor": "Tootja",
+  "results.vendor_info": "Validated-konfiguratsioonid ehitatakse tootja serverile. Soovitatakse ainult mudeleid, mille HCL selle tootja jaoks loetleb, ja need nimetatakse tootja korpuse järgi.",
+  "results.vendor_none": "HCL-is pole tootjaid"
 };

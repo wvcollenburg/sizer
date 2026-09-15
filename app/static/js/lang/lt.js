@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% augimo rezervas",
   "results.util.tip_snapshot": "+{pct}% momentinių kopijų rezervas",
   "results.util.title": "Naudojimas viso klasterio atžvilgiu — dabar / parinktas dydis",
-  "results.validated_based_off": "Patvirtintas – pagal {model}",
   "results.view.expand": "Rodyti išsamiau",
   "results.view.label": "Rezultatų rodinys",
   "results.view.rows": "Eilutės",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "nesusieta",
   "admin.bomprev.withdraw": "Atšaukti",
   "admin.bomprev.withdraw_confirm": "Atšaukti {name} iš katalogo? BOM patikros, praėjusios dėl šio įrašo, po pakartotinės patikros vėl praneš savo pastebėjimus.",
-  "admin.bomprev.withdraw_done": "{name} atšauktas."
+  "admin.bomprev.withdraw_done": "{name} atšauktas.",
+  "results.vendor": "Gamintojas",
+  "results.vendor_info": "Validated konfigūracijos kuriamos gamintojo serveryje. Rekomenduojami tik tie modeliai, kuriuos HCL nurodo šiam gamintojui, pavadinti pagal gamintojo korpusą.",
+  "results.vendor_none": "HCL nenurodyta jokių gamintojų"
 };

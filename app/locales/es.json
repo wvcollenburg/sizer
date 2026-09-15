@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Subprocesos totales",
   "export.pptx.total_vcpus": "Total de vCPUs",
   "export.pptx.used_ram": "RAM usada",
-  "export.pptx.validated_based_off": "Validado – basado en {model}",
   "export.pptx.vcpu_basis": "{cores} núcleos @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "Relación vCPU : núcleo",
   "export.pptx.vcpu_core_ratio_n1": "Relación vCPU : núcleo en N-1",

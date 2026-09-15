@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % tillväxtreserv",
   "results.util.tip_snapshot": "+{pct} % ögonblicksbildsreserv",
   "results.util.title": "Utnyttjande mot fullt kluster — nu / dimensionerat",
-  "results.validated_based_off": "Validerad – baserad på {model}",
   "results.view.expand": "Visa detaljer",
   "results.view.label": "Resultatvy",
   "results.view.rows": "Rader",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "inte kopplad",
   "admin.bomprev.withdraw": "Dra tillbaka",
   "admin.bomprev.withdraw_confirm": "Dra tillbaka {name} ur katalogen? BOM-kontroller som godkändes tack vare den rapporterar sina fynd igen efter en ny kontroll.",
-  "admin.bomprev.withdraw_done": "{name} tillbakadragen."
+  "admin.bomprev.withdraw_done": "{name} tillbakadragen.",
+  "results.vendor": "Leverantör",
+  "results.vendor_info": "Validated-konfigurationer byggs på en leverantörs server. Endast modeller som HCL listar för denna leverantör rekommenderas, namngivna efter leverantörens chassi.",
+  "results.vendor_none": "Inga HCL-leverantörer listade"
 };

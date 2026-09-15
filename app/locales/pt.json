@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Total de Threads",
   "export.pptx.total_vcpus": "Total de vCPUs",
   "export.pptx.used_ram": "RAM Utilizada",
-  "export.pptx.validated_based_off": "Validado – baseado em {model}",
   "export.pptx.vcpu_basis": "{cores} núcleos @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "Proporção vCPU : Núcleo",
   "export.pptx.vcpu_core_ratio_n1": "Proporção vCPU : Núcleo em N-1",

@@ -18,6 +18,7 @@ from sqlalchemy.orm import defer
 from auth import current_user, login_required
 from auth_models import Configuration, ScaleConfigLink, _utcnow
 from database import db
+from hcl_vendor import rec_display_model
 from extensions import limiter
 from project_models import (
     Project, ProjectTag, ConfigurationTag, ReplicationLink, ROLE_ADDITIVE,
@@ -618,7 +619,7 @@ def _metrics_from_snapshot(snapshot):
         n1 = rec.get("n_minus_1") or {}
         row = {
             "name": cluster.get("name"),
-            "model": rec.get("model"),
+            "model": rec_display_model(rec) or None,
             "nodes": rec.get("node_count") or rec.get("total_node_count") or 0,
             "clusters": rec.get("num_clusters") or (1 if rec else 0),
             "cores": totals.get("cores") or 0,
@@ -628,7 +629,7 @@ def _metrics_from_snapshot(snapshot):
             "n1_ram_gb": n1.get("ram_gb") or 0,
         }
         if rec.get("model"):
-            models.append(rec["model"])
+            models.append(rec_display_model(rec))
         elif rec.get("mode") == "validated" or rec.get("validated"):
             # A software-only cluster has no appliance model by definition —
             # flag it so the comparison can label it instead of showing "—".
@@ -1479,6 +1480,7 @@ def dr_recommend(config_id):
         target_model=target_model,
         include_eol_eos=bool(data.get("include_eol_eos")),
         allow_single_node=bool(data.get("allow_single_node")),
+        vendor=data.get("vendor"),
     )
     return jsonify({
         "reserve": {k: round(v, 2) for k, v in reserve.items()},
@@ -1487,6 +1489,7 @@ def dr_recommend(config_id):
         "recommendations": result["recommendations"],
         "projection": result["projection"],
         "warnings": result.get("warnings", []),
+        "vendor": result.get("vendor"),
         # Handed back so the client stores exactly the summary the engine sized
         # against — the DR reserve as the "current environment" in exports.
         "summary": summary,

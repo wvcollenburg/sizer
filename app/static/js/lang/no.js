@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % vekstreserve",
   "results.util.tip_snapshot": "+{pct} % øyeblikksbilde-reserve",
   "results.util.title": "Utnyttelse mot full klynge — nå / dimensjonert",
-  "results.validated_based_off": "Validert – basert på {model}",
   "results.view.expand": "Vis detaljer",
   "results.view.label": "Resultatvisning",
   "results.view.rows": "Rader",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "ikke koblet",
   "admin.bomprev.withdraw": "Trekk tilbake",
   "admin.bomprev.withdraw_confirm": "Trekke {name} tilbake fra katalogen? BOM-kontroller som besto på grunn av den, rapporterer funnene sine igjen etter en ny kontroll.",
-  "admin.bomprev.withdraw_done": "{name} trukket tilbake."
+  "admin.bomprev.withdraw_done": "{name} trukket tilbake.",
+  "results.vendor": "Leverandør",
+  "results.vendor_info": "Validated-konfigurasjoner bygges på en leverandørs server. Bare modeller som HCL-en oppgir for denne leverandøren anbefales, navngitt etter leverandørens chassis.",
+  "results.vendor_none": "Ingen HCL-leverandører oppført"
 };

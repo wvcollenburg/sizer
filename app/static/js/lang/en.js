@@ -1119,7 +1119,6 @@
   "results.util.tip_reserve": "+{pct}% growth reserve",
   "results.util.tip_snapshot": "+{pct}% snapshot reserve",
   "results.util.title": "Utilization vs full cluster — now / sized",
-  "results.validated_based_off": "Validated – based off {model}",
   "results.view.expand": "Show details",
   "results.view.label": "Result view",
   "results.view.rows": "Rows",
@@ -1595,5 +1594,8 @@
   "admin.bomprev.unlinked": "not linked",
   "admin.bomprev.withdraw": "Withdraw",
   "admin.bomprev.withdraw_confirm": "Withdraw {name} from the catalog? BOM checks that passed because of it will report their findings again after a re-check.",
-  "admin.bomprev.withdraw_done": "{name} withdrawn."
+  "admin.bomprev.withdraw_done": "{name} withdrawn.",
+  "results.vendor": "Vendor",
+  "results.vendor_info": "Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.",
+  "results.vendor_none": "No HCL vendors listed"
 };

@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Kopējie pavedieni",
   "export.pptx.total_vcpus": "Kopējie vCPU",
   "export.pptx.used_ram": "Izmantotā RAM",
-  "export.pptx.validated_based_off": "Validēts – balstīts uz {model}",
   "export.pptx.vcpu_basis": "{cores} kodoli @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU : kodola attiecība",
   "export.pptx.vcpu_core_ratio_n1": "vCPU : kodola attiecība pie N-1",

@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% groeireserve",
   "results.util.tip_snapshot": "+{pct}% snapshotreserve",
   "results.util.title": "Benutting versus volledig cluster — nu / bemeten",
-  "results.validated_based_off": "Gevalideerd – gebaseerd op {model}",
   "results.view.expand": "Details tonen",
   "results.view.label": "Resultaatweergave",
   "results.view.rows": "Rijen",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "niet gekoppeld",
   "admin.bomprev.withdraw": "Intrekken",
   "admin.bomprev.withdraw_confirm": "{name} uit de catalogus intrekken? BOM-controles die hierdoor slaagden melden hun bevindingen na een hercontrole opnieuw.",
-  "admin.bomprev.withdraw_done": "{name} ingetrokken."
+  "admin.bomprev.withdraw_done": "{name} ingetrokken.",
+  "results.vendor": "Leverancier",
+  "results.vendor_info": "Validated-configuraties worden gebouwd op de server van een leverancier. Alleen modellen die de HCL voor deze leverancier vermeldt worden aanbevolen, benoemd naar het chassis van de leverancier.",
+  "results.vendor_none": "Geen HCL-leveranciers vermeld"
 };

@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "合計スレッド数",
   "export.pptx.total_vcpus": "合計vCPU",
   "export.pptx.used_ram": "使用済みRAM",
-  "export.pptx.validated_based_off": "Validated – {model} に基づく",
   "export.pptx.vcpu_basis": "{cores} コア @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU : コア比",
   "export.pptx.vcpu_core_ratio_n1": "N-1 時の vCPU : コア比",

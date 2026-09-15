@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% pieauguma rezerve",
   "results.util.tip_snapshot": "+{pct}% momentuzņēmumu rezerve",
   "results.util.title": "Noslodze pret pilnu klasteri — tagad / izmērots",
-  "results.validated_based_off": "Validēts – balstīts uz {model}",
   "results.view.expand": "Rādīt detaļas",
   "results.view.label": "Rezultātu skats",
   "results.view.rows": "Rindas",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "nav piesaistīta",
   "admin.bomprev.withdraw": "Atsaukt",
   "admin.bomprev.withdraw_confirm": "Vai atsaukt {name} no kataloga? BOM pārbaudes, kas tā dēļ izturēja, pēc atkārtotas pārbaudes atkal ziņos par konstatējumiem.",
-  "admin.bomprev.withdraw_done": "{name} atsaukts."
+  "admin.bomprev.withdraw_done": "{name} atsaukts.",
+  "results.vendor": "Ražotājs",
+  "results.vendor_info": "Validated konfigurācijas tiek veidotas uz ražotāja servera. Tiek ieteikti tikai modeļi, kurus HCL norāda šim ražotājam, nosaukti pēc ražotāja korpusa.",
+  "results.vendor_none": "HCL nav norādīts neviens ražotājs"
 };

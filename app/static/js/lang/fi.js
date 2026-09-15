@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct} % kasvuvaraus",
   "results.util.tip_snapshot": "+{pct} % tilannevedosvaraus",
   "results.util.title": "Käyttöaste vs. täysi klusteri — nyt / mitoitettu",
-  "results.validated_based_off": "Validoitu – perustuu malliin {model}",
   "results.view.expand": "Näytä tiedot",
   "results.view.label": "Tulosnäkymä",
   "results.view.rows": "Rivit",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "ei linkitetty",
   "admin.bomprev.withdraw": "Peruuta",
   "admin.bomprev.withdraw_confirm": "Peruutetaanko {name} luettelosta? Sen ansiosta läpäisseet BOM-tarkistukset raportoivat havaintonsa uudelleen tarkistuksen jälkeen.",
-  "admin.bomprev.withdraw_done": "{name} peruutettu."
+  "admin.bomprev.withdraw_done": "{name} peruutettu.",
+  "results.vendor": "Valmistaja",
+  "results.vendor_info": "Validated-kokoonpanot rakennetaan valmistajan palvelimelle. Vain mallit, jotka HCL listaa tälle valmistajalle, suositellaan, ja ne nimetään valmistajan kotelon mukaan.",
+  "results.vendor_none": "HCL:ssä ei ole valmistajia"
 };

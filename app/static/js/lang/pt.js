@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% de reserva para crescimento",
   "results.util.tip_snapshot": "+{pct}% de reserva para snapshot",
   "results.util.title": "Utilização vs cluster completo — agora / dimensionado",
-  "results.validated_based_off": "Validado – baseado em {model}",
   "results.view.expand": "Mostrar detalhes",
   "results.view.label": "Vista de resultados",
   "results.view.rows": "Linhas",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "sem associação",
   "admin.bomprev.withdraw": "Retirar",
   "admin.bomprev.withdraw_confirm": "Retirar {name} do catálogo? As verificações de BOM que passaram graças a esta entrada voltarão a comunicar os seus resultados após nova verificação.",
-  "admin.bomprev.withdraw_done": "{name} retirada."
+  "admin.bomprev.withdraw_done": "{name} retirada.",
+  "results.vendor": "Fabricante",
+  "results.vendor_info": "As configurações Validated são construídas no servidor de um fabricante. Só são recomendados os modelos que a HCL lista para este fabricante, com o nome do chassis do fabricante.",
+  "results.vendor_none": "Nenhum fabricante listado na HCL"
 };

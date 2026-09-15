@@ -1118,7 +1118,6 @@
   "results.util.tip_reserve": "+{pct}% の成長予備",
   "results.util.tip_snapshot": "+{pct}% のスナップショット予備",
   "results.util.title": "完全クラスターに対する使用率 — 現在 / サイジング後",
-  "results.validated_based_off": "Validated – {model} をベース",
   "results.view.expand": "詳細を表示",
   "results.view.label": "結果の表示",
   "results.view.rows": "行",
@@ -1594,5 +1593,8 @@
   "admin.bomprev.unlinked": "リンクなし",
   "admin.bomprev.withdraw": "取り消す",
   "admin.bomprev.withdraw_confirm": "{name} をカタログから取り消しますか？これにより合格していたBOMチェックは、再チェック後に再び指摘を報告します。",
-  "admin.bomprev.withdraw_done": "{name} を取り消しました。"
+  "admin.bomprev.withdraw_done": "{name} を取り消しました。",
+  "results.vendor": "ベンダー",
+  "results.vendor_info": "Validated 構成はベンダーのサーバー上に構築されます。HCL がこのベンダー向けに掲載しているモデルのみが推奨され、ベンダーのシャーシ名で表示されます。",
+  "results.vendor_none": "HCL に掲載されたベンダーがありません"
 };

@@ -22,6 +22,7 @@ from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
 from recommend import _rec_network_svg
+from hcl_vendor import rec_display_model
 from cluster_diagram import render_replication_topology_svg
 from i18n import translator, font_for
 
@@ -139,7 +140,7 @@ def _slide_network(prs, recommendation, t, lang="en"):
     if not png:
         return
     slide = _add_slide(prs)
-    _add_title(slide, t("export.pptx.cluster_network"), recommendation.get("model", ""),
+    _add_title(slide, t("export.pptx.cluster_network"), rec_display_model(recommendation),
                lang=lang)
     m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
     vw, vh = (float(m.group(1)), float(m.group(2))) if m else (1200.0, 800.0)
@@ -210,7 +211,7 @@ def _slide_bundle_overview(prs, clusters, t, lang="en"):
         r = cl.get("recommendation")
         if r:
             tot = r.get("totals", {})
-            model = r.get("model", "")
+            model = rec_display_model(r)
             nodes = r.get("node_count", "")
             # ACTUAL installed cores/RAM, not usable: installed cores are the
             # licensing basis, and the usable story comes later in the deck.
@@ -771,21 +772,20 @@ def _slide_proposal(prs, r, projection=None, t=None, lang="en"):
     else:
         cluster_desc = t("export.pptx.cluster_desc_single")
 
-    if r.get("validated_only"):
-        model_label = r["model"]
-    elif r.get("validated"):
-        model_label = t("export.pptx.validated_based_off", model=r['model'])
-    else:
-        model_label = r["model"]
+    # A Validated recommendation is named after its vendor chassis.
+    model_label = rec_display_model(r)
     so = r.get("storage_only")
     if so:
         nodes_label = t("export.pptx.nodes_hci_plus_so",
                         hci=r.get('hci_node_count', r['node_count']), so=so['count'])
     else:
         nodes_label = t("export.pptx.nodes_plain", count=r['node_count'])
+    subtitle = [nodes_label, cluster_desc, r['form_factor']]
+    if r.get('chassis') and r['chassis'] != model_label:
+        # A Validated title already IS the vendor chassis; don't repeat it.
+        subtitle.append(r['chassis'])
     _add_title(slide, t("export.pptx.proposed_model", model=model_label),
-               f"{nodes_label}  —  {cluster_desc}  —  {r['form_factor']}  —  {r['chassis']}",
-               lang=lang)
+               "  —  ".join(subtitle), lang=lang)
 
     # Required licence — between the heading and the resource tables.
     lic_sentence = license_required_sentence(r, lang)
@@ -909,7 +909,7 @@ def _slide_sizing(prs, r, s, t=None, lang="en"):
     if not u:
         return
     slide = _add_slide(prs)
-    _add_title(slide, t("export.pptx.sizing_rationale"), r.get("model", ""), lang=lang)
+    _add_title(slide, t("export.pptx.sizing_rationale"), rec_display_model(r), lang=lang)
 
     det = r.get("determinant") or {}
     binding = det.get("resource", "")
@@ -974,7 +974,7 @@ def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
     if not source_perf or not source_perf.get("total_specrate") or not tgt:
         return
     slide = _add_slide(prs)
-    _add_title(slide, t("export.pptx.performance_vs_current"), r.get("model", ""), lang=lang)
+    _add_title(slide, t("export.pptx.performance_vs_current"), rec_display_model(r), lang=lang)
 
     src_total = source_perf["total_specrate"]
     ratio = tgt / src_total if src_total else 0
