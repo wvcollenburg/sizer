@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} zurückgezogen.",
   "results.vendor": "Hersteller",
   "results.vendor_info": "Validated-Konfigurationen werden auf dem Server eines Herstellers aufgebaut. Empfohlen werden nur Modelle, die die HCL für diesen Hersteller führt, benannt nach dem Gehäuse des Herstellers.",
-  "results.vendor_none": "Keine HCL-Hersteller gelistet"
+  "results.vendor_none": "Keine HCL-Hersteller gelistet",
+  "results.platform": "Plattform"
 };

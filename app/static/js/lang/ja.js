@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} を取り消しました。",
   "results.vendor": "ベンダー",
   "results.vendor_info": "Validated 構成はベンダーのサーバー上に構築されます。HCL がこのベンダー向けに掲載しているモデルのみが推奨され、ベンダーのシャーシ名で表示されます。",
-  "results.vendor_none": "HCL に掲載されたベンダーがありません"
+  "results.vendor_none": "HCL に掲載されたベンダーがありません",
+  "results.platform": "プラットフォーム"
 };

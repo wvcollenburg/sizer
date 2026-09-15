@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} atšauktas.",
   "results.vendor": "Gamintojas",
   "results.vendor_info": "Validated konfigūracijos kuriamos gamintojo serveryje. Rekomenduojami tik tie modeliai, kuriuos HCL nurodo šiam gamintojui, pavadinti pagal gamintojo korpusą.",
-  "results.vendor_none": "HCL nenurodyta jokių gamintojų"
+  "results.vendor_none": "HCL nenurodyta jokių gamintojų",
+  "results.platform": "Platforma"
 };

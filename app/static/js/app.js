@@ -81,11 +81,19 @@ window.setInboundReserve = function (d) {
 // Only the rail panels are touched. Elsewhere (dense tables, modals) a tooltip
 // is still the right density.
 function inlineRailDescriptions() {
-    document.querySelectorAll('.ratio-control, .growth-control').forEach(panel => {
+    document.querySelectorAll('.platform-control, .ratio-control, .growth-control').forEach(panel => {
         panel.querySelectorAll('.info-icon[data-i18n-title]').forEach(icon => {
             const host = icon.closest('.form-group, .toggle-item, .checkbox-inline');
             if (!host || host.querySelector('.field-desc')) return;
-            const text = window.t(icon.getAttribute('data-i18n-title'));
+            const key = icon.getAttribute('data-i18n-title');
+            // The sizing-mode copy names the admin-tuned validated limits; the
+            // tooltip pass below fills them in, but this runs first and removes
+            // the icon, so the inline text needs the same values.
+            const vars = key === 'results.sizing_mode_info'
+                ? { min: VALIDATED_LIMITS.flashMinPct, max: VALIDATED_LIMITS.flashMaxPct,
+                    disks: VALIDATED_LIMITS.maxClusterDisks }
+                : undefined;
+            const text = window.t(key, vars);
             // t() returns the key back when a string is missing; don't print that.
             if (!text || text === icon.getAttribute('data-i18n-title')) return;
             const p = document.createElement('p');

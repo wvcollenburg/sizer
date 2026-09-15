@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} trukket tilbage.",
   "results.vendor": "Leverandør",
   "results.vendor_info": "Validated-konfigurationer bygges på en leverandørs server. Kun modeller, som HCL'en angiver for denne leverandør, anbefales og navngives efter leverandørens chassis.",
-  "results.vendor_none": "Ingen HCL-leverandører angivet"
+  "results.vendor_none": "Ingen HCL-leverandører angivet",
+  "results.platform": "Platform"
 };

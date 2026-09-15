@@ -1597,5 +1597,6 @@
   "admin.bomprev.withdraw_done": "{name} withdrawn.",
   "results.vendor": "Vendor",
   "results.vendor_info": "Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.",
-  "results.vendor_none": "No HCL vendors listed"
+  "results.vendor_none": "No HCL vendors listed",
+  "results.platform": "Platform"
 };

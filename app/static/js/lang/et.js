@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} tagasi võetud.",
   "results.vendor": "Tootja",
   "results.vendor_info": "Validated-konfiguratsioonid ehitatakse tootja serverile. Soovitatakse ainult mudeleid, mille HCL selle tootja jaoks loetleb, ja need nimetatakse tootja korpuse järgi.",
-  "results.vendor_none": "HCL-is pole tootjaid"
+  "results.vendor_none": "HCL-is pole tootjaid",
+  "results.platform": "Platvorm"
 };

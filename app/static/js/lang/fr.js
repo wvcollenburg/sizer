@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} retiré.",
   "results.vendor": "Fournisseur",
   "results.vendor_info": "Les configurations Validated reposent sur le serveur d'un fournisseur. Seuls les modèles que la HCL référence pour ce fournisseur sont recommandés, nommés d'après le châssis du fournisseur.",
-  "results.vendor_none": "Aucun fournisseur HCL référencé"
+  "results.vendor_none": "Aucun fournisseur HCL référencé",
+  "results.platform": "Plateforme"
 };

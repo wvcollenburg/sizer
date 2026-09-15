@@ -667,13 +667,70 @@
            overwrite a `display: grid` set here.
 
            .sizing-rail / .sizing-output are also the seam the guided wizard
-           already splits on — it portals .ratio-control + .growth-control into
+           already splits on — it portals .platform-control, .ratio-control and
+           .growth-control into
            its parameters step and the recommendation blocks into its results
            step. Portals restore to whatever parent they were captured under, so
            these wrappers are transparent to it. #}
         <section id="sizing-results" class="config-form" style="display:none">
           <div class="sizing-inner">
             <div class="sizing-rail">
+                {# Platform: what the sizing is built on. Its own always-open card
+                   at the top of the rail, never behind the wizard's advanced
+                   toggle — Certified vs Validated, the vendor and the model are
+                   the first decision of a sizing, not a tuning knob. #}
+                <div class="platform-control">
+                    <div class="ratio-header panel-head">
+                        <h3 data-i18n="results.platform">Platform</h3>
+                    </div>
+                    <div class="sizing-options-grid">
+                        <div class="form-group">
+                            <label><span data-i18n="results.sizing_mode">Sizing Mode</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.sizing_mode_info"
+                                      title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid {{ hybrid_flash_min_pct }}–{{ hybrid_flash_max_pct }}% flash band and the {{ max_cluster_disks }}-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
+                            </label>
+                            <select id="sizing-mode" data-change='["onSizingModeChange"]'>
+                                <option value="certified" selected data-i18n="results.mode_certified">Certified</option>
+                                <option value="validated" data-i18n="results.mode_validated">Validated (Software-Only)</option>
+                            </select>
+                        </div>
+                        <!-- Validated only: which vendor's HCL-listed servers to size
+                             on. Options are server-rendered (see app.index). -->
+                        <div class="form-group" id="sizing-vendor-group" hidden>
+                            <label><span data-i18n="results.vendor">Vendor</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.vendor_info"
+                                      title="Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.">i</span>
+                            </label>
+                            <select id="sizing-vendor" data-change='["onSizingVendorChange"]'>
+                                {% if hcl_vendors %}{% for v in hcl_vendors %}
+                                <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}{% else %}
+                                <option value="" data-i18n="results.vendor_none">No HCL vendors listed</option>{% endif %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><span data-i18n="results.size_for_model">Size For Model</span>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.size_for_model_info"
+                                      title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
+                            </label>
+                            <select id="sizing-model-select" data-change='["recalcRecommendations"]'>
+                                <option value="" data-i18n="results.all_models">All models (best fit)</option>
+                            </select>
+                            <!-- Tied to model selection, so it sits under this dropdown. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="sizing-include-eol" data-change='["onEolToggle"]'>
+                                    <span data-i18n="results.include_eol">Include EOL / EOS systems</span>
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.include_eol_info"
+                                      title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="ratio-control is-collapsed">
                     {# Collapsible, like SC//Design's Sizing Parameters card. Starts
                        collapsed so the screen opens on the recommendations; the
@@ -744,51 +801,6 @@
                                       title="When storage needs more nodes than compute, the extra nodes (beyond 2 full HCI per cluster) become storage-only: no VMs, single low CPU and minimal RAM, but full storage and IOPS contribution. Lowers compute licensing for storage-heavy workloads.">i</span>
                             </div>
                             <div id="local-storage-option" class="wiz-adv"></div>
-                        </div>
-                        <div class="form-group wiz-adv">
-                            <label><span data-i18n="results.sizing_mode">Sizing Mode</span>
-                                <span class="info-icon" tabindex="0"
-                                      data-i18n-title="results.sizing_mode_info"
-                                      title="Certified: fixed SC// appliance hardware. Validated (software-only): same models but disk counts can be reduced (never increased) to size storage to need — respects the hybrid {{ hybrid_flash_min_pct }}–{{ hybrid_flash_max_pct }}% flash band and the {{ max_cluster_disks }}-disks-per-cluster limit, and excludes NVMe+SSD models.">i</span>
-                            </label>
-                            <select id="sizing-mode" data-change='["onSizingModeChange"]'>
-                                <option value="certified" selected data-i18n="results.mode_certified">Certified</option>
-                                <option value="validated" data-i18n="results.mode_validated">Validated (Software-Only)</option>
-                            </select>
-                        </div>
-                        <!-- Validated only: which vendor's HCL-listed servers to size
-                             on. Options are server-rendered (see app.index). -->
-                        <div class="form-group wiz-adv" id="sizing-vendor-group" hidden>
-                            <label><span data-i18n="results.vendor">Vendor</span>
-                                <span class="info-icon" tabindex="0"
-                                      data-i18n-title="results.vendor_info"
-                                      title="Validated configurations are built on a vendor's server. Only models the HCL lists for this vendor are recommended, named after the vendor's chassis.">i</span>
-                            </label>
-                            <select id="sizing-vendor" data-change='["onSizingVendorChange"]'>
-                                {% if hcl_vendors %}{% for v in hcl_vendors %}
-                                <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}{% else %}
-                                <option value="" data-i18n="results.vendor_none">No HCL vendors listed</option>{% endif %}
-                            </select>
-                        </div>
-                        <div class="form-group wiz-adv">
-                            <label><span data-i18n="results.size_for_model">Size For Model</span>
-                                <span class="info-icon" tabindex="0"
-                                      data-i18n-title="results.size_for_model_info"
-                                      title="Restrict recommendations to a single model. Leave on 'All models' to let the engine pick the best fit.">i</span>
-                            </label>
-                            <select id="sizing-model-select" data-change='["recalcRecommendations"]'>
-                                <option value="" data-i18n="results.all_models">All models (best fit)</option>
-                            </select>
-                            <!-- Tied to model selection, so it sits under this dropdown. -->
-                            <div class="toggle-item">
-                                <label class="checkbox-inline">
-                                    <input type="checkbox" id="sizing-include-eol" data-change='["onEolToggle"]'>
-                                    <span data-i18n="results.include_eol">Include EOL / EOS systems</span>
-                                </label>
-                                <span class="info-icon" tabindex="0"
-                                      data-i18n-title="results.include_eol_info"
-                                      title="By default only Active models are considered. Enable to also size against end-of-life and end-of-support systems.">i</span>
-                            </div>
                         </div>
                     </div>
 

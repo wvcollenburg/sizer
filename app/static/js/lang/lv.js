@@ -1596,5 +1596,6 @@
   "admin.bomprev.withdraw_done": "{name} atsaukts.",
   "results.vendor": "Ražotājs",
   "results.vendor_info": "Validated konfigurācijas tiek veidotas uz ražotāja servera. Tiek ieteikti tikai modeļi, kurus HCL norāda šim ražotājam, nosaukti pēc ražotāja korpusa.",
-  "results.vendor_none": "HCL nav norādīts neviens ražotājs"
+  "results.vendor_none": "HCL nav norādīts neviens ražotājs",
+  "results.platform": "Platforma"
 };
