@@ -460,8 +460,13 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         else:
             larger = [c for c in deduped if c["node_count"] > target_nodes]
             if larger:
+                # The ratio hint must see every CPU option, not just the one
+                # that won the de-dup at each larger node count: a bigger CPU
+                # that ranked lower there can be the one that fits the target.
                 warnings.append(
-                    _target_infeasible_warning(larger, target_nodes, vcpu_ratio, needs)
+                    _target_infeasible_warning(
+                        larger, target_nodes, vcpu_ratio, needs,
+                        options=[c for c in candidates if c["node_count"] > target_nodes])
                 )
             else:
                 warnings.append(
@@ -761,10 +766,12 @@ def _rank_key(c, needs, required_cores, iops_demand_val):
     )
 
 
-def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
+def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs, options=None):
     """Explain why the exact node-count target can't be met, naming the limiting
     resource(s) and — when CPU is the fixable constraint — a vCPU:core ratio that
-    would make it fit. `deduped` here is the set of feasible (larger) configs."""
+    would make it fit. `deduped` here is the set of feasible (larger) configs;
+    `options` is every feasible larger candidate before de-duplication (all CPU
+    options), which the ratio hint searches. Defaults to `deduped`."""
     plural = "s" if target_nodes != 1 else ""
     best = min(deduped, key=lambda c: c["node_count"])
     mf = best["node_count"]
@@ -794,7 +801,7 @@ def _target_infeasible_warning(deduped, target_nodes, vcpu_ratio, needs):
     layout = _cluster_layout(target_nodes)
     n1_pool = target_nodes if needs.get("size_full_cluster") else target_nodes - len(layout)
     if n1_pool > 0:
-        fixable = [c for c in deduped
+        fixable = [c for c in (options if options is not None else deduped)
                    if c["_nodes_for_cpu"] > target_nodes
                    and c["_nodes_for_ram"] <= target_nodes
                    and c["_nodes_for_storage"] <= target_nodes]
@@ -1154,8 +1161,10 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             #               CPU/RAM never carry a snapshot reserve,
             #   ha_reserve  capacity held for HA failover = the (full - N-1) gap.
             # For CPU/RAM the failover node(s) make ha_reserve > 0; storage usable
-            # is the same at N-1 and full, so its ha_reserve is 0. When sizing for
-            # the full cluster the failover node isn't held back, so ha_reserve is 0.
+            # is the same at N-1 and full, so its ha_reserve is 0. "Size CPU for
+            # full cluster" releases the failover node for CPU only (its CPU
+            # ha_reserve is 0); RAM is still gated at N-1 (_pick_ram), so the RAM
+            # bar keeps its failover band either way.
             n1_ram = usable_ram_per_node * compute_n1_nodes
             full_ram = usable_ram_per_node * hci_nodes
             full_cores = usable_cores * hci_nodes
@@ -1165,8 +1174,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             def _u(demand, cap):
                 return round(demand / cap * 100) if cap > 0 else 0
 
-            def _ha(full, n1):
-                return 0 if full_cluster else (round((full - n1) / full * 100) if full > 0 else 0)
+            def _ha(full, n1, released=False):
+                return 0 if released else (round((full - n1) / full * 100) if full > 0 else 0)
 
             # Replication reserve band (dark yellow in the UI): capacity held for
             # inbound DR replicas. RAM/storage totals already include it (folded
@@ -1179,7 +1188,7 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                         "total": _u(required_cores + rep_cores, full_cores),
                         "replication": _u(rep_cores, full_cores),
                         "snapshot": 0,
-                        "ha_reserve": _ha(full_cores, n1_usable_cores),
+                        "ha_reserve": _ha(full_cores, n1_usable_cores, released=full_cluster),
                         "abs": {"current": base_required_cores,
                                 "total": required_cores + rep_cores,
                                 "snapshot": 0,
