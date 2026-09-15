@@ -166,6 +166,14 @@ window.markSizingClean = function () {
     } catch (e) {
         _cleanSnapshotJSON = null;
     }
+    // The recommendation list's Save button shows an unsaved dot, but only
+    // re-evaluates when the list renders. A save from the top bar, or a load
+    // whose recalc landed before this ran, would otherwise leave a stale dot.
+    const toolbar = document.getElementById('rec-toolbar');
+    if (toolbar && toolbar.childElementCount
+            && (currentMode === 'import' || currentMode === 'manual')) {
+        renderRecToolbar('rec-toolbar', recSaveSpec());
+    }
 };
 
 // Is there entered or loaded work that a page switch would throw away?
