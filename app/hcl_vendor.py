@@ -12,7 +12,9 @@ carries which SC model, so Validated sizing picks ONE vendor and:
   split into all-flash / hybrid / GPU variants is Scale's product line, not the
   vendor's: HC1450, HC3450F and HC3450FG are all one SR630V3 in different
   configurations. So a chassis is the unit a Validated sizing lists, targets
-  and de-duplicates on, and no SC model name reaches the screen or an export.
+  and de-duplicates on. The SC model is named in one place only — quietly, as
+  "HCxxxx equivalent" in the result card's footer — never as the product name
+  and never in an export.
 
 The recommendation keeps ``model`` = the SC model internally: it is the catalog
 identity that refs, the fingerprint and the BOM fit key on. The chassis travels

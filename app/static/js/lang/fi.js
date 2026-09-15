@@ -1597,5 +1597,6 @@
   "results.vendor": "Valmistaja",
   "results.vendor_info": "Validated-kokoonpanot rakennetaan valmistajan palvelimelle. Vain mallit, jotka HCL listaa tälle valmistajalle, suositellaan, ja ne nimetään valmistajan kotelon mukaan.",
   "results.vendor_none": "HCL:ssä ei ole valmistajia",
-  "results.platform": "Alusta"
+  "results.platform": "Alusta",
+  "results.sc_equivalent": "vastaa mallia {model}"
 };

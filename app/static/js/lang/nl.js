@@ -1597,5 +1597,6 @@
   "results.vendor": "Leverancier",
   "results.vendor_info": "Validated-configuraties worden gebouwd op de server van een leverancier. Alleen modellen die de HCL voor deze leverancier vermeldt worden aanbevolen, benoemd naar het chassis van de leverancier.",
   "results.vendor_none": "Geen HCL-leveranciers vermeld",
-  "results.platform": "Platform"
+  "results.platform": "Platform",
+  "results.sc_equivalent": "{model}-equivalent"
 };

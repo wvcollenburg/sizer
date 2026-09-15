@@ -3,8 +3,8 @@
 A Validated recommendation is built on a vendor's server, so the engine sizes
 against ONE vendor's HCL platforms: a sizer model without an active platform
 for that vendor drops out, and the recommendation is named after the vendor
-chassis instead of "Validated – based off <SC model>". The SC model never
-shows: a chassis is the product, so its SC variants (all-flash, hybrid, ...)
+chassis instead of "Validated – based off <SC model>". The SC model is
+only a footnote on the card ("HCxxxx equivalent"), never a name: a chassis is the product, so its SC variants (all-flash, hybrid, ...)
 are listed, targeted and de-duplicated as one. Certified sizing is untouched.
 
 Run: .venv/bin/python -m pytest tests/test_vendor_choice.py -q

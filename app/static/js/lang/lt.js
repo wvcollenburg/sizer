@@ -1597,5 +1597,6 @@
   "results.vendor": "Gamintojas",
   "results.vendor_info": "Validated konfigūracijos kuriamos gamintojo serveryje. Rekomenduojami tik tie modeliai, kuriuos HCL nurodo šiam gamintojui, pavadinti pagal gamintojo korpusą.",
   "results.vendor_none": "HCL nenurodyta jokių gamintojų",
-  "results.platform": "Platforma"
+  "results.platform": "Platforma",
+  "results.sc_equivalent": "atitinka {model}"
 };

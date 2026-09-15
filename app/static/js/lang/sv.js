@@ -1597,5 +1597,6 @@
   "results.vendor": "Leverantör",
   "results.vendor_info": "Validated-konfigurationer byggs på en leverantörs server. Endast modeller som HCL listar för denna leverantör rekommenderas, namngivna efter leverantörens chassi.",
   "results.vendor_none": "Inga HCL-leverantörer listade",
-  "results.platform": "Plattform"
+  "results.platform": "Plattform",
+  "results.sc_equivalent": "motsvarar {model}"
 };

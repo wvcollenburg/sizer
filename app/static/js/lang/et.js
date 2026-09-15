@@ -1597,5 +1597,6 @@
   "results.vendor": "Tootja",
   "results.vendor_info": "Validated-konfiguratsioonid ehitatakse tootja serverile. Soovitatakse ainult mudeleid, mille HCL selle tootja jaoks loetleb, ja need nimetatakse tootja korpuse järgi.",
   "results.vendor_none": "HCL-is pole tootjaid",
-  "results.platform": "Platvorm"
+  "results.platform": "Platvorm",
+  "results.sc_equivalent": "vastab mudelile {model}"
 };

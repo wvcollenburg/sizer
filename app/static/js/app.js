@@ -2537,6 +2537,11 @@ function recCardHtml(r, i, mode, demand, opts) {
                 <div class="rec-footer-actions">
                     <button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>
                 </div>` : '';
+    // A Validated card is named after its vendor chassis; the SC model it was
+    // sized from is still worth knowing, so it sits quietly in the footer.
+    const scEquivalent = (r.vendor_chassis && r.model)
+        ? ` &mdash; ${esc(window.t('results.sc_equivalent', {model: r.model}))}`
+        : '';
     const header = `
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
@@ -2594,7 +2599,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${witnessNote}
             ${singleNodeNote}
             <div class="rec-footer">
-                <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
+                <span>${r.form_factor} &mdash; ${r.chassis}${scEquivalent}</span>${footerActionsHtml}
             </div>`;
 
     // The Rows fold-out and the Split reading pane supply their own frame and

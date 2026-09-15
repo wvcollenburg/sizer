@@ -1597,5 +1597,6 @@
   "results.vendor": "Fabricante",
   "results.vendor_info": "Las configuraciones Validated se construyen sobre el servidor de un fabricante. Solo se recomiendan los modelos que la HCL incluye para este fabricante, con el nombre de su chasis.",
   "results.vendor_none": "No hay fabricantes en la HCL",
-  "results.platform": "Plataforma"
+  "results.platform": "Plataforma",
+  "results.sc_equivalent": "equivalente a {model}"
 };
