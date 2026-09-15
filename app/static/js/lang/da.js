@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "svarer til {model}",
   "admin.modal.model_edit.vendor_label": "Leverandør",
   "admin.modal.model_edit.vendor_ph": "f.eks. dell",
-  "admin.modal.model_edit.vendor_hint": "Påkrævet for Validated-anbefalinger: modellen tilbydes kun, når denne leverandør er valgt."
+  "admin.modal.model_edit.vendor_hint": "Påkrævet for Validated-anbefalinger: modellen tilbydes kun, når denne leverandør er valgt.",
+  "admin.models.col_no_recommend": "Anbefal ikke",
+  "admin.models.col_no_recommend_title": "Brug ikke i anbefalinger",
+  "admin.models.no_recommend_failed": "Anbefalingsindstillingen kunne ikke gemmes. Prøv igen.",
+  "admin.modal.model_edit.exclude_recommend": "Brug ikke i anbefalinger",
+  "admin.modal.model_edit.exclude_recommend_hint": "Bevares i kataloget og Appliance-beregneren, men tilbydes aldrig i dimensioneringsanbefalinger eller vises under Dimensionér til model."
 };

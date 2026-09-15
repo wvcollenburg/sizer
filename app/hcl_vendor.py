@@ -103,6 +103,7 @@ def list_vendors():
                   .distinct().all() if b]
         brands += [b for (b,) in db.session.query(Model.vendor)
                    .filter(Model.validated_only == True,   # noqa: E712
+                           Model.exclude_from_recommendations == False,  # noqa: E712
                            Model.vendor.isnot(None))
                    .distinct().all() if b]
     except Exception:                                   # noqa: BLE001

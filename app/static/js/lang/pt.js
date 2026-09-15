@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "equivalente a {model}",
   "admin.modal.model_edit.vendor_label": "Fabricante",
   "admin.modal.model_edit.vendor_ph": "ex. dell",
-  "admin.modal.model_edit.vendor_hint": "Obrigatório para recomendações Validated: o modelo só é oferecido quando este fabricante está selecionado."
+  "admin.modal.model_edit.vendor_hint": "Obrigatório para recomendações Validated: o modelo só é oferecido quando este fabricante está selecionado.",
+  "admin.models.col_no_recommend": "Não recomendar",
+  "admin.models.col_no_recommend_title": "Não usar nas recomendações",
+  "admin.models.no_recommend_failed": "Não foi possível guardar a definição de recomendação. Tente novamente.",
+  "admin.modal.model_edit.exclude_recommend": "Não usar nas recomendações",
+  "admin.modal.model_edit.exclude_recommend_hint": "Mantém-se no catálogo e na calculadora Appliance, mas nunca é oferecido nas recomendações de dimensionamento nem listado em Dimensionar para modelo."
 };

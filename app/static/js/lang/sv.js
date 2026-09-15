@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "motsvarar {model}",
   "admin.modal.model_edit.vendor_label": "Leverantör",
   "admin.modal.model_edit.vendor_ph": "t.ex. dell",
-  "admin.modal.model_edit.vendor_hint": "Krävs för Validated-rekommendationer: modellen erbjuds endast när denna leverantör är vald."
+  "admin.modal.model_edit.vendor_hint": "Krävs för Validated-rekommendationer: modellen erbjuds endast när denna leverantör är vald.",
+  "admin.models.col_no_recommend": "Rekommendera inte",
+  "admin.models.col_no_recommend_title": "Använd inte i rekommendationer",
+  "admin.models.no_recommend_failed": "Rekommendationsinställningen kunde inte sparas. Försök igen.",
+  "admin.modal.model_edit.exclude_recommend": "Använd inte i rekommendationer",
+  "admin.modal.model_edit.exclude_recommend_hint": "Finns kvar i katalogen och Appliance-kalkylatorn, men erbjuds aldrig i dimensioneringsrekommendationer eller listas under Dimensionera för modell."
 };

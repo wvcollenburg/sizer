@@ -70,7 +70,7 @@ def _seed():
                      form_factor="1U Rack", chassis="Dell R660", socket="dual",
                      psu="2x 800W", ram_slots=16, min_nodes=3,
                      cost_tier=27.5, validated_only=True, vendor="dell",
-                     notes="test unit")
+                     exclude_from_recommendations=True, notes="test unit")
     db.session.add(model)
     db.session.flush()
     db.session.add(om.ModelCpuOption(model_id=model.id, cpu_id=cpu.id,
@@ -139,6 +139,8 @@ def test_round_trip_preserves_cost_and_validated_only(app):
     assert m.validated_only is True
     # A validated-only model without its vendor is never recommended.
     assert m.vendor == "dell"
+    # A restore must not quietly put an excluded model back into rankings.
+    assert m.exclude_from_recommendations is True
 
 
 def test_round_trip_preserves_every_cpu_spec_column(app):

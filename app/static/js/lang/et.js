@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "vastab mudelile {model}",
   "admin.modal.model_edit.vendor_label": "Tootja",
   "admin.modal.model_edit.vendor_ph": "nt dell",
-  "admin.modal.model_edit.vendor_hint": "Nõutav Validated-soovituste jaoks: mudelit pakutakse ainult siis, kui see tootja on valitud."
+  "admin.modal.model_edit.vendor_hint": "Nõutav Validated-soovituste jaoks: mudelit pakutakse ainult siis, kui see tootja on valitud.",
+  "admin.models.col_no_recommend": "Ära soovita",
+  "admin.models.col_no_recommend_title": "Ära kasuta soovitustes",
+  "admin.models.no_recommend_failed": "Soovitusseadet ei õnnestunud salvestada. Proovige uuesti.",
+  "admin.modal.model_edit.exclude_recommend": "Ära kasuta soovitustes",
+  "admin.modal.model_edit.exclude_recommend_hint": "Jääb kataloogi ja Appliance'i kalkulaatorisse, kuid seda ei pakuta kunagi mõõtmissoovitustes ega loetleta jaotises Mõõda mudeli jaoks."
 };

@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "{model}-equivalent",
   "admin.modal.model_edit.vendor_label": "Leverancier",
   "admin.modal.model_edit.vendor_ph": "bijv. dell",
-  "admin.modal.model_edit.vendor_hint": "Vereist voor Validated-aanbevelingen: het model wordt alleen aangeboden als deze leverancier is gekozen."
+  "admin.modal.model_edit.vendor_hint": "Vereist voor Validated-aanbevelingen: het model wordt alleen aangeboden als deze leverancier is gekozen.",
+  "admin.models.col_no_recommend": "Niet aanbevelen",
+  "admin.models.col_no_recommend_title": "Niet gebruiken in aanbevelingen",
+  "admin.models.no_recommend_failed": "De aanbevelingsinstelling kon niet worden opgeslagen. Probeer het opnieuw.",
+  "admin.modal.model_edit.exclude_recommend": "Niet gebruiken in aanbevelingen",
+  "admin.modal.model_edit.exclude_recommend_hint": "Blijft in de catalogus en de Appliance-calculator, maar wordt nooit aangeboden in sizing-aanbevelingen of getoond onder Size For Model."
 };

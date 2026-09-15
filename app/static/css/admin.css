@@ -239,6 +239,7 @@ hr {
 .model-table tbody tr:last-child td { border-bottom: none; }
 
 .col-actions { width: 90px; text-align: center; }
+.col-no-recommend { width: 90px; text-align: center; }
 
 .badge {
     display: inline-block;

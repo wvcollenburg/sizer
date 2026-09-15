@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "entspricht {model}",
   "admin.modal.model_edit.vendor_label": "Hersteller",
   "admin.modal.model_edit.vendor_ph": "z. B. dell",
-  "admin.modal.model_edit.vendor_hint": "Erforderlich für Validated-Empfehlungen: Das Modell wird nur angeboten, wenn dieser Hersteller ausgewählt ist."
+  "admin.modal.model_edit.vendor_hint": "Erforderlich für Validated-Empfehlungen: Das Modell wird nur angeboten, wenn dieser Hersteller ausgewählt ist.",
+  "admin.models.col_no_recommend": "Nicht empfehlen",
+  "admin.models.col_no_recommend_title": "Nicht in Empfehlungen verwenden",
+  "admin.models.no_recommend_failed": "Die Empfehlungseinstellung konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "admin.modal.model_edit.exclude_recommend": "Nicht in Empfehlungen verwenden",
+  "admin.modal.model_edit.exclude_recommend_hint": "Bleibt im Katalog und im Appliance-Rechner, wird aber nie in Sizing-Empfehlungen angeboten oder unter „Für Modell dimensionieren“ aufgeführt."
 };

@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "equivalente a {model}",
   "admin.modal.model_edit.vendor_label": "Produttore",
   "admin.modal.model_edit.vendor_ph": "es. dell",
-  "admin.modal.model_edit.vendor_hint": "Obbligatorio per le raccomandazioni Validated: il modello viene proposto solo quando è selezionato questo produttore."
+  "admin.modal.model_edit.vendor_hint": "Obbligatorio per le raccomandazioni Validated: il modello viene proposto solo quando è selezionato questo produttore.",
+  "admin.models.col_no_recommend": "Non consigliare",
+  "admin.models.col_no_recommend_title": "Non usare nelle raccomandazioni",
+  "admin.models.no_recommend_failed": "Impossibile salvare l'impostazione di raccomandazione. Riprova.",
+  "admin.modal.model_edit.exclude_recommend": "Non usare nelle raccomandazioni",
+  "admin.modal.model_edit.exclude_recommend_hint": "Resta nel catalogo e nel calcolatore Appliance, ma non viene mai proposto nelle raccomandazioni di dimensionamento né elencato in Dimensiona per modello."
 };

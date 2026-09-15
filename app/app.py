@@ -274,6 +274,12 @@ def create_app():
                 # Validated-only platforms have no certified equivalent, so they
                 # don't belong in the certified appliance picker.
                 query = query.filter(Model.validated_only == False)  # noqa: E712
+            if "sizing" in request.args:
+                # The "Size For Model" pickers always pass `sizing`; they list
+                # what the recommendation engine may offer, so admin-excluded
+                # models drop out. The Appliance calculator (no `sizing`) still
+                # lists them — building one by hand is not a recommendation.
+                query = query.filter(Model.exclude_from_recommendations == False)  # noqa: E712
 
             # Validated mode sizes against one vendor's HCL platforms and
             # speaks in chassis only: the picker lists each chassis that vendor

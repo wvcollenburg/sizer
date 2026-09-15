@@ -370,3 +370,47 @@ def test_admin_saves_a_validated_only_vendor(app):
         m = db.session.get(om.Model, model_id)
         assert (m.validated_only, m.vendor) == (True, "dell")
     assert "edit-vendor" in c.get("/admin/").get_data(as_text=True)
+
+
+def test_do_not_recommend_keeps_a_model_out_of_every_ranking(app):
+    with app.app_context():
+        _validated_only("VxRAIL01", "Dell-VxRAIL", "cisco")
+        for name in ("VxRAIL01", "HC5250D"):
+            om.Model.query.filter_by(name=name).one().exclude_from_recommendations = True
+        db.session.commit()
+        # A vendor that only existed through the excluded model is gone too.
+        assert "cisco" not in [v["brand"] for v in hcl_vendor.list_vendors()]
+
+    certified = _rec(app, sizing_mode="certified")["recommendations"]
+    assert "HC5250D" not in {r["model"] for r in certified}
+    assert "HC1450" in {r["model"] for r in certified}
+    # Not even as an explicit target, in either mode.
+    assert _rec(app, sizing_mode="certified", target_model="HC5250D")["recommendations"] == []
+    assert _rec(app, sizing_mode="validated", vendor="dell")["recommendations"] == []
+
+    c = _signed_in(app)
+    picker = c.get("/api/models?mode=appliance&status=active&sizing=certified").get_json()
+    assert "HC5250D" not in picker and "HC1450" in picker
+    # The Appliance calculator's list (no `sizing`) still offers it.
+    calculator = c.get("/api/models?mode=appliance&status=active").get_json()
+    assert "HC5250D" in calculator
+
+
+def test_admin_list_toggle_saves_only_the_flag(app):
+    from auth_models import ROLE_SUPER_ADMIN, User
+    c = _signed_in(app, "admin@scalecomputing.com")
+    with app.app_context():
+        u = User.query.filter_by(email="admin@scalecomputing.com").one()
+        u.role = ROLE_SUPER_ADMIN
+        db.session.commit()
+        m = om.Model.query.filter_by(name="HC1450").one()
+        model_id, before = m.id, m.to_dict()
+    assert c.put(f"/admin/api/models/{model_id}",
+                 json={"exclude_from_recommendations": True}).status_code == 200
+    listed = next(x for x in c.get("/admin/api/models").get_json() if x["id"] == model_id)
+    assert listed["exclude_from_recommendations"] is True
+    with app.app_context():
+        after = db.session.get(om.Model, model_id).to_dict()
+    assert {k: v for k, v in after.items() if k != "exclude_from_recommendations"} == \
+        {k: v for k, v in before.items() if k != "exclude_from_recommendations"}
+    assert 'data-i18n="admin.models.col_no_recommend"' in c.get("/admin/").get_data(as_text=True)

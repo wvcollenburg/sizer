@@ -1602,5 +1602,10 @@
   "results.sc_equivalent": "{model} equivalent",
   "admin.modal.model_edit.vendor_label": "Vendor",
   "admin.modal.model_edit.vendor_ph": "e.g. dell",
-  "admin.modal.model_edit.vendor_hint": "Required for Validated recommendations: the model is offered only when this vendor is selected."
+  "admin.modal.model_edit.vendor_hint": "Required for Validated recommendations: the model is offered only when this vendor is selected.",
+  "admin.models.col_no_recommend": "Do not recommend",
+  "admin.models.col_no_recommend_title": "Do not use in recommendations",
+  "admin.models.no_recommend_failed": "Could not save the recommendation setting. Please try again.",
+  "admin.modal.model_edit.exclude_recommend": "Do not use in recommendations",
+  "admin.modal.model_edit.exclude_recommend_hint": "Stays in the catalog and the Appliance calculator, but is never offered by the sizing recommendations or listed under Size For Model."
 };

@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "équivalent {model}",
   "admin.modal.model_edit.vendor_label": "Fournisseur",
   "admin.modal.model_edit.vendor_ph": "p. ex. dell",
-  "admin.modal.model_edit.vendor_hint": "Requis pour les recommandations Validated : le modèle n'est proposé que lorsque ce fournisseur est sélectionné."
+  "admin.modal.model_edit.vendor_hint": "Requis pour les recommandations Validated : le modèle n'est proposé que lorsque ce fournisseur est sélectionné.",
+  "admin.models.col_no_recommend": "Ne pas recommander",
+  "admin.models.col_no_recommend_title": "Ne pas utiliser dans les recommandations",
+  "admin.models.no_recommend_failed": "Impossible d'enregistrer le paramètre de recommandation. Veuillez réessayer.",
+  "admin.modal.model_edit.exclude_recommend": "Ne pas utiliser dans les recommandations",
+  "admin.modal.model_edit.exclude_recommend_hint": "Reste dans le catalogue et le calculateur Appliance, mais n'est jamais proposé par les recommandations de dimensionnement ni listé sous Dimensionner pour le modèle."
 };

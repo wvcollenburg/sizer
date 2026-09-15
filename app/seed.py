@@ -100,6 +100,9 @@ def _migrate_schema():
         # Vendor a validated-only model is built on (hcl_vendor). Nullable:
         # HCL-listed models take their vendor from the HCL instead.
         "ALTER TABLE models ADD COLUMN IF NOT EXISTS vendor VARCHAR(20)",
+        # Catalog models the recommendation engine must never offer.
+        "ALTER TABLE models ADD COLUMN IF NOT EXISTS "
+        "exclude_from_recommendations BOOLEAN NOT NULL DEFAULT false",
         # Per-model relative cost weight. Nullable on purpose: freshly added rows
         # start NULL and get back-filled from MODEL_COSTS just below, but only
         # while NULL — so an admin's later per-model cost edit is never clobbered

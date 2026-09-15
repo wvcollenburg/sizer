@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "vastaa mallia {model}",
   "admin.modal.model_edit.vendor_label": "Valmistaja",
   "admin.modal.model_edit.vendor_ph": "esim. dell",
-  "admin.modal.model_edit.vendor_hint": "Pakollinen Validated-suosituksille: mallia tarjotaan vain, kun tämä valmistaja on valittu."
+  "admin.modal.model_edit.vendor_hint": "Pakollinen Validated-suosituksille: mallia tarjotaan vain, kun tämä valmistaja on valittu.",
+  "admin.models.col_no_recommend": "Älä suosittele",
+  "admin.models.col_no_recommend_title": "Älä käytä suosituksissa",
+  "admin.models.no_recommend_failed": "Suositusasetusta ei voitu tallentaa. Yritä uudelleen.",
+  "admin.modal.model_edit.exclude_recommend": "Älä käytä suosituksissa",
+  "admin.modal.model_edit.exclude_recommend_hint": "Säilyy luettelossa ja Appliance-laskurissa, mutta sitä ei koskaan tarjota mitoitussuosituksissa eikä listata kohdassa Mitoita mallille."
 };

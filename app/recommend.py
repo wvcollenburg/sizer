@@ -340,6 +340,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         model_q = model_q.filter(Model.name == target_model)
     elif not include_eol_eos:
         model_q = model_q.filter(Model.status == "Active")
+    # Admin-flagged catalog entries are never offered, not even when targeted.
+    model_q = model_q.filter(Model.exclude_from_recommendations == False)  # noqa: E712
     # Validated-only models have no certified equivalent: exclude them from
     # Certified recommendations; include them only in Validated mode.
     if not validated:

@@ -314,7 +314,7 @@ function renderModelTable() {
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted)">${esc(t('admin.models.none'))}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:2rem;color:var(--text-muted)">${esc(t('admin.models.none'))}</td></tr>`;
         return;
     }
 
@@ -336,6 +336,12 @@ function renderModelTable() {
             <td>${esc(storType)}</td>
             <td>${m.min_nodes}</td>
             <td>${m.cost_tier ?? '-'}</td>
+            <td class="col-no-recommend">
+                <input type="checkbox" ${m.exclude_from_recommendations ? 'checked' : ''}
+                       title="${esc(t('admin.models.col_no_recommend_title'))}"
+                       aria-label="${esc(t('admin.models.col_no_recommend_title'))}"
+                       data-change='["toggleModelRecommend",${m.id},"$checked"]'>
+            </td>
             <td class="col-actions">
                 <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditModel",${m.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -633,6 +639,25 @@ async function deleteCatalogItem(type, id, label) {
 
 // ── Delete Model ───────────────────────────────────────────────────────────
 
+// The list's "Do not recommend" checkbox saves on its own — only that flag is
+// sent, so the rest of the model is untouched. On failure the box snaps back.
+async function toggleModelRecommend(id, excluded) {
+    const box = this;
+    try {
+        const resp = await fetch(`/admin/api/models/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exclude_from_recommendations: !!excluded }),
+        });
+        if (!resp.ok) throw new Error(String(resp.status));
+        const m = allModels.find(x => x.id === id);
+        if (m) m.exclude_from_recommendations = !!excluded;
+    } catch (e) {
+        if (box) box.checked = !excluded;
+        alert(t('admin.models.no_recommend_failed'));
+    }
+}
+
 async function deleteModel(id, name) {
     if (!confirm(t('admin.confirm.delete_model', {name: name}))) return;
     await fetch(`/admin/api/models/${id}`, { method: 'DELETE' });
@@ -859,6 +884,7 @@ function openAddModel() {
     document.getElementById('edit-validated-only').checked = false;
     document.getElementById('edit-vendor').value = '';
     syncModelVendorField();
+    document.getElementById('edit-exclude-recommend').checked = false;
     document.getElementById('edit-notes').value = '';
 
     selectedCpus = [];
@@ -901,6 +927,7 @@ async function openEditModel(id) {
     document.getElementById('edit-validated-only').checked = !!m.validated_only;
     document.getElementById('edit-vendor').value = m.vendor || '';
     syncModelVendorField();
+    document.getElementById('edit-exclude-recommend').checked = !!m.exclude_from_recommendations;
     document.getElementById('edit-notes').value = m.notes || '';
 
     selectedCpus = (m.cpu_options || []).map(c => {
@@ -1355,6 +1382,7 @@ async function saveModel() {
         vendor: document.getElementById('edit-validated-only').checked
             ? (document.getElementById('edit-vendor').value.trim().toLowerCase() || null)
             : null,
+        exclude_from_recommendations: document.getElementById('edit-exclude-recommend').checked,
         notes: document.getElementById('edit-notes').value.trim() || null,
         cpu_options: cpuOptions,
         ram_options_gb: ramOptions,

@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "atbilst {model}",
   "admin.modal.model_edit.vendor_label": "Ražotājs",
   "admin.modal.model_edit.vendor_ph": "piem. dell",
-  "admin.modal.model_edit.vendor_hint": "Nepieciešams Validated ieteikumiem: modelis tiek piedāvāts tikai tad, kad izvēlēts šis ražotājs."
+  "admin.modal.model_edit.vendor_hint": "Nepieciešams Validated ieteikumiem: modelis tiek piedāvāts tikai tad, kad izvēlēts šis ražotājs.",
+  "admin.models.col_no_recommend": "Neieteikt",
+  "admin.models.col_no_recommend_title": "Neizmantot ieteikumos",
+  "admin.models.no_recommend_failed": "Neizdevās saglabāt ieteikumu iestatījumu. Lūdzu, mēģiniet vēlreiz.",
+  "admin.modal.model_edit.exclude_recommend": "Neizmantot ieteikumos",
+  "admin.modal.model_edit.exclude_recommend_hint": "Paliek katalogā un Appliance kalkulatorā, taču nekad netiek piedāvāts izmēra ieteikumos vai norādīts sadaļā Izmērīt modelim."
 };

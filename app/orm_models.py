@@ -233,6 +233,11 @@ class Model(db.Model):
     # theirs from the HCL, but a validated-only model is not on the HCL, so it
     # needs its own — without one it is never recommended (hcl_vendor).
     vendor = db.Column(db.String(20))
+    # Kept in the catalog (the Appliance calculator can still build it) but
+    # never offered by the recommendation engine — e.g. a VxRail
+    # entry that exists to re-use existing hardware at a near-zero cost weight,
+    # which would otherwise win every ranking.
+    exclude_from_recommendations = db.Column(db.Boolean, nullable=False, default=False)
     notes = db.Column(db.Text)
 
     cpu_links = db.relationship(
@@ -306,6 +311,7 @@ class Model(db.Model):
             "min_nodes": self.min_nodes,
             "validated_only": self.validated_only,
             "vendor": self.vendor,
+            "exclude_from_recommendations": self.exclude_from_recommendations,
             "notes": self.notes,
             "cpu_options": cpu_options,
             # Certified storage-only CPU choices (real SKUs only — see above).

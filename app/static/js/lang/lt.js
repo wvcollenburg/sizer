@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "atitinka {model}",
   "admin.modal.model_edit.vendor_label": "Gamintojas",
   "admin.modal.model_edit.vendor_ph": "pvz. dell",
-  "admin.modal.model_edit.vendor_hint": "Būtina Validated rekomendacijoms: modelis siūlomas tik tada, kai pasirinktas šis gamintojas."
+  "admin.modal.model_edit.vendor_hint": "Būtina Validated rekomendacijoms: modelis siūlomas tik tada, kai pasirinktas šis gamintojas.",
+  "admin.models.col_no_recommend": "Nerekomenduoti",
+  "admin.models.col_no_recommend_title": "Nenaudoti rekomendacijose",
+  "admin.models.no_recommend_failed": "Nepavyko išsaugoti rekomendacijų nustatymo. Bandykite dar kartą.",
+  "admin.modal.model_edit.exclude_recommend": "Nenaudoti rekomendacijose",
+  "admin.modal.model_edit.exclude_recommend_hint": "Lieka kataloge ir Appliance skaičiuoklėje, tačiau niekada nesiūlomas dydžio rekomendacijose ir nerodomas skiltyje Dydis modeliui."
 };

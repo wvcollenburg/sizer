@@ -1601,5 +1601,10 @@
   "results.sc_equivalent": "{model} 相当",
   "admin.modal.model_edit.vendor_label": "ベンダー",
   "admin.modal.model_edit.vendor_ph": "例: dell",
-  "admin.modal.model_edit.vendor_hint": "Validated推奨に必須: このベンダーが選択されている場合のみ、このモデルが提案されます。"
+  "admin.modal.model_edit.vendor_hint": "Validated推奨に必須: このベンダーが選択されている場合のみ、このモデルが提案されます。",
+  "admin.models.col_no_recommend": "推奨しない",
+  "admin.models.col_no_recommend_title": "推奨に使用しない",
+  "admin.models.no_recommend_failed": "推奨設定を保存できませんでした。もう一度お試しください。",
+  "admin.modal.model_edit.exclude_recommend": "推奨に使用しない",
+  "admin.modal.model_edit.exclude_recommend_hint": "カタログと Appliance カリキュレーターには残りますが、サイジングの推奨には提示されず、「モデル指定サイジング」にも表示されません。"
 };

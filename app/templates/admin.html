@@ -115,6 +115,9 @@
                             <th data-i18n="admin.models.col_storage">Storage</th>
                             <th data-i18n="admin.models.col_min_nodes">Min Nodes</th>
                             <th data-i18n="admin.models.col_cost">Cost</th>
+                            <th class="col-no-recommend" data-i18n="admin.models.col_no_recommend"
+                                data-i18n-title="admin.models.col_no_recommend_title"
+                                title="Do not use in recommendations">Do not recommend</th>
                             <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
@@ -989,6 +992,16 @@
                                 <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}
                             </datalist>
                             <small class="field-hint" data-i18n="admin.modal.model_edit.vendor_hint">Required for Validated recommendations: the model is offered only when this vendor is selected.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="edit-exclude-recommend">
+                                <span data-i18n="admin.modal.model_edit.exclude_recommend">Do not use in recommendations</span>
+                            </label>
+                            <small class="field-hint" data-i18n="admin.modal.model_edit.exclude_recommend_hint">Stays in the catalog and the Appliance calculator, but is never offered by the sizing recommendations or listed under Size For Model.</small>
                         </div>
                     </div>
 
