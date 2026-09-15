@@ -110,6 +110,15 @@
     --info: #1d4ed8;
     --info-bg: #dbeafe;
 
+
+    /* Delta ink on the recommendation rows. Deliberately NOT the state colours:
+       green/amber/red mean good/caution/bad everywhere else in the app, and a
+       delta carries no such verdict — "+8 cores" is not good news and "−256 GB"
+       is not bad news, they are differences and the judgement is the reader's.
+       Direction is carried by weight of ink instead. */
+    --delta-up: var(--sc-700);
+    --delta-down: var(--text-muted);
+    --delta-same: var(--text-subtle);
     /* Geometry — their --radius: 0.625rem, with shadcn's derived steps */
     --radius: 0.625rem;                        /* cards, modals             */
     --radius-sm: calc(var(--radius) - 4px);    /* buttons, inputs, badges   */
@@ -192,6 +201,10 @@
     --info: #93c5fd;
     --info-bg: #172554;
 
+
+    --delta-up: var(--sc-700);
+    --delta-down: var(--text-muted);
+    --delta-same: var(--text-subtle);
     /* Shadows need more weight on a dark ground to read at all. */
     --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
     --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
