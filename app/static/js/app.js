@@ -81,11 +81,19 @@ window.setInboundReserve = function (d) {
 // Only the rail panels are touched. Elsewhere (dense tables, modals) a tooltip
 // is still the right density.
 function inlineRailDescriptions() {
-    document.querySelectorAll('.ratio-control, .growth-control').forEach(panel => {
+    document.querySelectorAll('.platform-control, .ratio-control, .growth-control').forEach(panel => {
         panel.querySelectorAll('.info-icon[data-i18n-title]').forEach(icon => {
             const host = icon.closest('.form-group, .toggle-item, .checkbox-inline');
             if (!host || host.querySelector('.field-desc')) return;
-            const text = window.t(icon.getAttribute('data-i18n-title'));
+            const key = icon.getAttribute('data-i18n-title');
+            // The sizing-mode copy names the admin-tuned validated limits; the
+            // tooltip pass below fills them in, but this runs first and removes
+            // the icon, so the inline text needs the same values.
+            const vars = key === 'results.sizing_mode_info'
+                ? { min: VALIDATED_LIMITS.flashMinPct, max: VALIDATED_LIMITS.flashMaxPct,
+                    disks: VALIDATED_LIMITS.maxClusterDisks }
+                : undefined;
+            const text = window.t(key, vars);
             // t() returns the key back when a string is missing; don't print that.
             if (!text || text === icon.getAttribute('data-i18n-title')) return;
             const p = document.createElement('p');
@@ -102,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     // Seed the tier defaults only after the disk-size catalog has loaded.
     loadValidatedNics().then(initDiskTiers);
+    syncVendorControl('sizing-mode', 'sizing-vendor-group', 'sizing-vendor');
     populateSizingModelDropdown('sizing-model-select', false);
     // A page switch with unsaved data reloads to a clean slate; resume on the
     // page the user was switching to.
@@ -271,17 +280,23 @@ async function loadModels() {
 // Populate a "Size For Model" dropdown (import/manual). Lists the models grouped
 // by category; status shown for non-Active. EOL/EOS models appear only when
 // includeEolEos is set. The candidate set tracks the current Sizing Mode so it
-// matches what the engine will size (validated mode adds validated-only models
-// and drops NVMe+SSD). Preserves the current selection when still valid.
-async function populateSizingModelDropdown(selectId, includeEolEos) {
+// matches what the engine will size (validated mode adds validated-only models,
+// drops NVMe+SSD and lists each chassis the chosen vendor builds once, by name —
+// never the SC models behind it). Preserves the current selection when still
+// valid. `sizing` and `vendor` default to the main Sizing Options panel; the DR
+// panel passes its own.
+async function populateSizingModelDropdown(selectId, includeEolEos, sizing, vendor) {
     const select = document.getElementById(selectId);
     if (!select) return;
     const prev = select.value;
     const status = includeEolEos ? 'all' : 'active';
-    const sizing = document.getElementById('sizing-mode')?.value || 'certified';
+    if (sizing === undefined) sizing = document.getElementById('sizing-mode')?.value || 'certified';
+    if (vendor === undefined) vendor = document.getElementById('sizing-vendor')?.value || '';
+    let url = `/api/models?mode=appliance&status=${status}&sizing=${sizing}`;
+    if (sizing === 'validated' && vendor) url += `&vendor=${encodeURIComponent(vendor)}`;
     let models;
     try {
-        const resp = await fetch(`/api/models?mode=appliance&status=${status}&sizing=${sizing}`);
+        const resp = await fetch(url);
         if (!resp.ok) return;
         models = await resp.json();
     } catch (e) {
@@ -293,11 +308,13 @@ async function populateSizingModelDropdown(selectId, includeEolEos) {
     }
     let html = `<option value="">${window.t('results.all_models_option')}</option>`;
     for (const [cat, names] of Object.entries(categories)) {
-        html += `<optgroup label="${cat}">`;
+        html += `<optgroup label="${esc(cat)}">`;
         names.forEach(m => {
             const st = models[m].status;
-            const label = st !== 'Active' ? `${m} (${st})` : m;
-            html += `<option value="${m}">${label}</option>`;
+            // Validated entries are keyed by chassis and carry its label.
+            const name = models[m].vendor_chassis || m;
+            const label = st !== 'Active' ? `${name} (${st})` : name;
+            html += `<option value="${esc(m)}">${esc(label)}</option>`;
         });
         html += '</optgroup>';
     }
@@ -314,8 +331,32 @@ function onEolToggle() {
 // so rebuild the "Size For Model" list (dropping a now-invalid selection) before
 // recalculating.
 function onSizingModeChange() {
+    syncVendorControl('sizing-mode', 'sizing-vendor-group', 'sizing-vendor');
     const include = document.getElementById('sizing-include-eol').checked;
     populateSizingModelDropdown('sizing-model-select', include).then(recalcRecommendations);
+}
+
+// A different vendor builds a different set of models, so the picker is rebuilt
+// the same way as for a mode switch.
+function onSizingVendorChange() {
+    onSizingModeChange();
+}
+
+// The Vendor select only means something in Validated mode. Shown/hidden to
+// match the mode select; a saved vendor the HCL no longer lists (value blank
+// after a restore) falls back to the first listed one, which is the default.
+function syncVendorControl(modeId, groupId, vendorId) {
+    const mode = document.getElementById(modeId);
+    const group = document.getElementById(groupId);
+    const vendor = document.getElementById(vendorId);
+    if (group) group.hidden = !mode || mode.value !== 'validated';
+    if (vendor && vendor.selectedIndex < 0 && vendor.options.length) vendor.selectedIndex = 0;
+}
+
+// Display name of a recommendation: the vendor chassis for Validated sizing
+// (hcl_vendor.rec_display_model on the server), the SC model otherwise.
+function recDisplayModel(r) {
+    return (r && (r.vendor_chassis || r.model)) || '';
 }
 
 function loadModelDetails() {
@@ -1479,6 +1520,7 @@ async function recalcRecommendations() {
     const storagePref = document.getElementById('storage-pref').value;
     const sizeFullCluster = document.getElementById('size-full-cluster').checked;
     const sizingMode = document.getElementById('sizing-mode').value;
+    const sizingVendor = document.getElementById('sizing-vendor')?.value || null;
     const allowStorageOnly = document.getElementById('allow-storage-only').checked;
     const targetModel = document.getElementById('sizing-model-select').value || null;
     const includeEolEos = document.getElementById('sizing-include-eol').checked;
@@ -1506,6 +1548,7 @@ async function recalcRecommendations() {
                 storage_pref: storagePref,
                 size_full_cluster: sizeFullCluster,
                 sizing_mode: sizingMode,
+                vendor: sizingVendor,
                 allow_storage_only: allowStorageOnly,
                 target_model: targetModel,
                 include_eol_eos: includeEolEos,
@@ -2203,7 +2246,7 @@ function recRowsHtml(recs, mode, demand, selIdx, width, ctx) {
             + `<span class="rec-rank">#${i + 1}</span>`
             + `<button type="button" class="rec-row-name" data-click='["toggleRecRow",${i}]'`
             + ` aria-expanded="${isOpen}">`
-            + `<span class="rec-model">${esc(r.model)}</span>`
+            + `<span class="rec-model">${esc(recDisplayModel(r))}</span>`
             + `<span class="rec-sub" title="${esc(r.storage_config.desc)}">${esc(r.category)} · ${esc(r.storage_config.desc)}</span>`
             + `</button>`
             + cols.map(c => c.v(r)).join('')
@@ -2242,7 +2285,7 @@ function recSplitHtml(recs, mode, demand, selIdx, width, ctx) {
         return `<button type="button" class="rec-item${i === cur ? ' is-active' : ''}"`
             + ` data-click='["readRecRow",${i}]'>`
             + `<span class="rec-item-top"><span class="rec-rank">#${i + 1}</span>`
-            + `<span class="rec-model">${esc(r.model)}</span>`
+            + `<span class="rec-model">${esc(recDisplayModel(r))}</span>`
             + (i === selIdx ? `<span class="rec-item-pin">✓ ${esc(ctx.pickedLabel)}</span>` : '')
             + `</span>`
             + `<span class="rec-item-meta"><span>${esc(window.t('results.nodes_count', {count: recNodeCount(r)}))}</span>`
@@ -2268,7 +2311,7 @@ function recSplitHtml(recs, mode, demand, selIdx, width, ctx) {
         + `<div class="rec-split-list" style="flex:0 0 ${listW}px">${items}</div>`
         + `<div class="rec-split-pane">`
         + `<div class="rec-pane-head"><div class="rec-pane-title">`
-        + `<span class="rec-rank">#${cur + 1}</span><span class="rec-model">${esc(r.model)}</span>`
+        + `<span class="rec-rank">#${cur + 1}</span><span class="rec-model">${esc(recDisplayModel(r))}</span>`
         + `<span class="rec-category">${esc(r.category)}</span>${recRatioBadge(r)}`
         + `<span class="rec-nodes">${esc(window.t('results.nodes_count', {count: recNodeCount(r)}))}</span>`
         + pick + `</div>${paneDelta}</div>`
@@ -2408,6 +2451,10 @@ function buildAssumptions(targetRatio) {
     if (storageSel) add('results.storage_type', storageSel.textContent.trim());
     const modeSel = document.querySelector('#sizing-mode option:checked');
     if (modeSel) add('results.sizing_mode', modeSel.textContent.trim());
+    const vendorSel = document.querySelector('#sizing-vendor option:checked');
+    if (vendorSel && modeSel && modeSel.value === 'validated') {
+        add('results.vendor', vendorSel.textContent.trim());
+    }
 
     if (!rows.length) return '';
     return `<section class="rec-assumptions">
@@ -2455,9 +2502,7 @@ function recCardHtml(r, i, mode, demand, opts) {
     const n1Label = r.num_clusters > 1
         ? window.t('results.n1_per_cluster', {spares: r.num_clusters})
         : window.t('results.n1_available');
-    const modelLabel = r.validated_only
-        ? r.model
-        : (r.validated ? window.t('results.validated_based_off', {model: r.model}) : r.model);
+    const modelLabel = esc(recDisplayModel(r));
     // The "X:1 → Y:1" degraded badge only makes sense when a node failure
     // actually RAISES the ratio. With a failover-mode replication reserve the
     // normal ratio (which counts the replicas against the full cluster) can
@@ -2492,6 +2537,11 @@ function recCardHtml(r, i, mode, demand, opts) {
                 <div class="rec-footer-actions">
                     <button class="btn btn-muted btn-sm" data-click='["openClusterDiagram","${mode}",${i}]' title="${window.t('results.btn_network_title')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="8" y="14" width="8" height="8" rx="1"/><path d="M6 10v2a2 2 0 0 0 2 2h0M18 10v2a2 2 0 0 1-2 2h0M12 14v-2"/></svg>${window.t('results.btn_network')}</button>
                 </div>` : '';
+    // A Validated card is named after its vendor chassis; the SC model it was
+    // sized from is still worth knowing, so it sits quietly in the footer.
+    const scEquivalent = (r.vendor_chassis && r.model && !r.validated_only)
+        ? ` &mdash; ${esc(window.t('results.sc_equivalent', {model: r.model}))}`
+        : '';
     const header = `
             <div class="rec-header">
                 <span class="rec-rank">#${i + 1}</span>
@@ -2549,7 +2599,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${witnessNote}
             ${singleNodeNote}
             <div class="rec-footer">
-                <span>${r.form_factor} &mdash; ${r.chassis}</span>${footerActionsHtml}
+                <span>${r.form_factor} &mdash; ${r.chassis}${scEquivalent}</span>${footerActionsHtml}
             </div>`;
 
     // The Rows fold-out and the Split reading pane supply their own frame and
@@ -3062,11 +3112,11 @@ function openClusterDiagram(mode, recIndex) {
     if (!rec || !rec.network_svg) return;
     const nodes = rec.node_count;
     document.getElementById('diagram-modal-title').textContent =
-        window.t('results.diagram_title', {model: rec.model, nodes: nodes});
+        window.t('results.diagram_title', {model: recDisplayModel(rec), nodes: nodes});
     const body = document.getElementById('diagram-modal-body');
     body.innerHTML = rec.network_svg;
     body.dataset.filename =
-        `SC_Network_${String(rec.model).replace(/[^A-Za-z0-9]+/g, '')}_${nodes}node`;
+        `SC_Network_${String(recDisplayModel(rec)).replace(/[^A-Za-z0-9]+/g, '')}_${nodes}node`;
     document.getElementById('diagram-modal').style.display = 'flex';
 }
 
@@ -3113,6 +3163,7 @@ function _recommendBodyFromOpts(summary, opts) {
         storage_pref: _optVal(opts, 'storage-pref', 'auto'),
         size_full_cluster: !!_optVal(opts, 'size-full-cluster', false),
         sizing_mode: _optVal(opts, 'sizing-mode', 'certified'),
+        vendor: _optVal(opts, 'sizing-vendor', '') || null,
         allow_storage_only: !!_optVal(opts, 'allow-storage-only', false),
         target_model: _optVal(opts, 'sizing-model-select', '') || null,
         include_eol_eos: !!_optVal(opts, 'sizing-include-eol', false),
@@ -3586,8 +3637,8 @@ const SNAPSHOT_VERSION = 3;
 // import and manual flows (single source of truth, so they stay in lock-step).
 const _SHARED_SIZING_FIELDS = ['ratio-slider', 'growth-years', 'growth-pct',
     'snapshot-pct', 'max-day-one-storage', 'max-day-one-ram', 'target-nodes',
-    'storage-pref', 'sizing-mode', 'size-full-cluster', 'allow-storage-only',
-    'sizing-model-select', 'sizing-include-eol'];
+    'storage-pref', 'sizing-mode', 'sizing-vendor', 'size-full-cluster',
+    'allow-storage-only', 'sizing-model-select', 'sizing-include-eol'];
 
 const SNAP_FIELDS = {
     appliance: ['status-filter', 'model-select', 'node-count', 'cpu-select',
@@ -3741,7 +3792,7 @@ async function restoreSizingState(snap) {
         displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
         (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
         updateRatioDisplay();
-        recalcRecommendations();
+        _restoreModelPicker(f).then(recalcRecommendations);
         // Resume the guided wizard on the step the user saved from (default 2
         // for older snapshots with no wizard step). v2 snapshots used the old
         // 7-step numbering (3 = cluster layout, 7 = combined export) — map
@@ -3766,9 +3817,18 @@ async function restoreSizingState(snap) {
         // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
         _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
         updateRatioDisplay();
-        recalcRecommendations();
+        _restoreModelPicker(f).then(recalcRecommendations);
         return;
     }
+}
+
+// The model picker's options depend on the restored sizing mode and vendor, so
+// rebuild it for those first and only then re-apply the saved model — writing
+// the value before the option exists would silently clear it.
+async function _restoreModelPicker(f) {
+    syncVendorControl('sizing-mode', 'sizing-vendor-group', 'sizing-vendor');
+    await populateSizingModelDropdown('sizing-model-select', !!f['sizing-include-eol']);
+    _writeField('sizing-model-select', f['sizing-model-select'] || '');
 }
 
 window.captureSizingState = captureSizingState;
@@ -3863,10 +3923,13 @@ async function enterDrTarget(config) {
     _writeField('dr-growth-pct', dr.growth_pct != null ? dr.growth_pct : 10);
     _writeField('dr-snapshot-pct', dr.snapshot_pct != null ? dr.snapshot_pct : 20);
     _writeField('dr-sizing-mode', dr.sizing_mode || 'certified');
+    _writeField('dr-vendor', dr.vendor || '');
+    syncVendorControl('dr-sizing-mode', 'dr-vendor-group', 'dr-vendor');
     _writeField('dr-allow-single-node', !!dr.allow_single_node);
     _writeField('dr-allow-storage-only', !!dr.allow_storage_only);
     _writeField('dr-include-eol', !!dr.include_eol_eos);
-    await populateSizingModelDropdown('dr-target-model', !!dr.include_eol_eos);
+    await populateSizingModelDropdown('dr-target-model', !!dr.include_eol_eos,
+        _drOptions().sizing_mode, _drOptions().vendor);
     _writeField('dr-target-model', dr.target_model || '');
     if (dr.selectedRec != null) selectedRec['dr'] = dr.selectedRec;
 
@@ -3885,11 +3948,24 @@ function _drOptions() {
         growth_pct: parseFloat(val('dr-growth-pct', 10)) || 0,
         snapshot_pct: parseFloat(val('dr-snapshot-pct', 20)) || 0,
         sizing_mode: val('dr-sizing-mode', 'certified') || 'certified',
+        vendor: val('dr-vendor', '') || '',
         target_model: val('dr-target-model', '') || '',
         allow_single_node: !!val('dr-allow-single-node', false),
         allow_storage_only: !!val('dr-allow-storage-only', false),
         include_eol_eos: !!val('dr-include-eol', false),
     };
+}
+
+// Mode or vendor changed on the DR panel: the model list is specific to both.
+async function onDrSizingModeChange() {
+    syncVendorControl('dr-sizing-mode', 'dr-vendor-group', 'dr-vendor');
+    const o = _drOptions();
+    await populateSizingModelDropdown('dr-target-model', o.include_eol_eos, o.sizing_mode, o.vendor);
+    await sizeDrTarget();
+}
+
+function onDrVendorChange() {
+    return onDrSizingModeChange();
 }
 
 async function sizeDrTarget() {

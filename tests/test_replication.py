@@ -327,6 +327,10 @@ def test_reserved_replicas_count_in_the_achieved_ratio():
     with application.app_context():
         db.create_all()
         e2e._seed_catalog()
+        # Validated sizing only recommends what the HCL lists for a vendor.
+        from hcl_models import HclPlatform
+        db.session.add(HclPlatform(brand="lenovo", sc_model="TEST-HCI", server="Test"))
+        db.session.commit()
 
         small_own = dict(e2e._summary(), total_vcpus=8,
                          total_vm_provisioned_memory_gb=32, datastore_used_tb=0.5)

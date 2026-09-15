@@ -957,8 +957,9 @@ body { padding-bottom: 64px; }
 }
 .field-clamped { animation: field-clamp-flash 1.2s ease; }
 
-/* Virtualization Ratio Controls */
+/* Virtualization Ratio Controls (and the Platform card, which shares the look) */
 
+.platform-control,
 .ratio-control {
     background: var(--surface);
     border: 1px solid var(--border);

@@ -20,6 +20,7 @@ from models import RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from import_checks import build_import_warnings
+import hcl_vendor
 from recommend import generate_recommendations
 from tunables import T, refresh_from_db
 # NOTE: exports are project-level only (export_worker + the project export
@@ -226,7 +227,11 @@ def create_app():
                                max_cluster_disks=T.max_cluster_disks,
                                hybrid_flash_min_pct=T.hybrid_flash_min_pct,
                                hybrid_flash_max_pct=T.hybrid_flash_max_pct,
-                               hybrid_min_hdd_per_flash=T.hybrid_min_hdd_per_flash)
+                               hybrid_min_hdd_per_flash=T.hybrid_min_hdd_per_flash,
+                               # Rendered into the Vendor selects rather than
+                               # fetched, so a restored sizing can set its saved
+                               # vendor without racing an async option load.
+                               hcl_vendors=hcl_vendor.list_vendors())
 
     @app.route("/favicon.ico")
     def favicon():
@@ -269,6 +274,20 @@ def create_app():
                 # Validated-only platforms have no certified equivalent, so they
                 # don't belong in the certified appliance picker.
                 query = query.filter(Model.validated_only == False)  # noqa: E712
+            if "sizing" in request.args:
+                # The "Size For Model" pickers always pass `sizing`; they list
+                # what the recommendation engine may offer, so admin-excluded
+                # models drop out. The Appliance calculator (no `sizing`) still
+                # lists them — building one by hand is not a recommendation.
+                query = query.filter(Model.exclude_from_recommendations == False)  # noqa: E712
+
+            # Validated mode sizes against one vendor's HCL platforms and
+            # speaks in chassis only: the picker lists each chassis that vendor
+            # builds ONCE, keyed by chassis — never the SC models behind it.
+            vendor_chassis = None
+            if validated:
+                vendor_chassis = hcl_vendor.VendorChassis(
+                    hcl_vendor.resolve_vendor(request.args.get("vendor")))
 
             models = {}
             for m in query.order_by(Model.category, Model.name).all():
@@ -276,6 +295,19 @@ def create_app():
                 # so exclude them to match what the engine will actually size.
                 if validated and m.storage_config \
                         and m.storage_config.storage_type == "nvme_and_ssd":
+                    continue
+                if validated:
+                    chassis = vendor_chassis.for_model(m.name)
+                    if chassis is None:
+                        continue
+                    entry = models.setdefault(chassis["key"], {
+                        "category": m.form_factor or "",
+                        "status": m.status,
+                        "vendor_chassis": chassis["label"],
+                    })
+                    # A chassis is current while any configuration on it is.
+                    if m.status == "Active":
+                        entry["status"] = "Active"
                     continue
                 models[m.name] = m.to_dict()
             return jsonify(models)
@@ -424,6 +456,8 @@ def create_app():
         # guest OS string and can only be declared (§5.6).
         license_term_years = data.get("license_term_years")
         guest_licensing = data.get("guest_licensing")
+        # Validated sizing only: which vendor's HCL platforms to size against.
+        vendor = data.get("vendor")
         try:
             result = generate_recommendations(summary, vcpu_ratio,
                                               growth_pct, snapshot_pct, years,
@@ -442,7 +476,8 @@ def create_app():
                                               replication_compute_mode=replication_compute_mode,
                                               allow_single_node=allow_single_node,
                                               license_term_years=license_term_years,
-                                              guest_licensing=guest_licensing)
+                                              guest_licensing=guest_licensing,
+                                              vendor=vendor)
         except (TypeError, ValueError, KeyError):
             # Malformed numeric fields in the client-supplied summary/params
             # (e.g. a non-numeric vCPU count). A bad request, not a server fault.

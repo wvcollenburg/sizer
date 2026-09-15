@@ -115,6 +115,9 @@
                             <th data-i18n="admin.models.col_storage">Storage</th>
                             <th data-i18n="admin.models.col_min_nodes">Min Nodes</th>
                             <th data-i18n="admin.models.col_cost">Cost</th>
+                            <th class="col-no-recommend" data-i18n="admin.models.col_no_recommend"
+                                data-i18n-title="admin.models.col_no_recommend_title"
+                                title="Do not use in recommendations">Do not recommend</th>
                             <th class="col-actions" data-i18n="common.actions">Actions</th>
                         </tr>
                     </thead>
@@ -975,10 +978,30 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label class="checkbox-inline">
-                                <input type="checkbox" id="edit-validated-only">
+                                <input type="checkbox" id="edit-validated-only" data-change='["syncModelVendorField"]'>
                                 <span data-i18n="admin.modal.model_edit.validated_only">Validated-only (no certified equivalent)</span>
                             </label>
-                            <small class="field-hint" data-i18n="admin.modal.model_edit.validated_only_hint">Hidden from Certified recommendations; shown only in Validated mode, labeled by its own name.</small>
+                            <small class="field-hint" data-i18n="admin.modal.model_edit.validated_only_hint">Hidden from Certified recommendations; shown only in Validated mode when its vendor is selected, named after its chassis.</small>
+                        </div>
+                        <!-- A validated-only model is not on the HCL, so it names its own
+                             vendor (stored as the lower-case brand key, like the HCL). -->
+                        <div class="form-group" id="edit-vendor-group" hidden>
+                            <label for="edit-vendor" data-i18n="admin.modal.model_edit.vendor_label">Vendor</label>
+                            <input type="text" id="edit-vendor" list="edit-vendor-options" placeholder="e.g. dell" data-i18n-ph="admin.modal.model_edit.vendor_ph">
+                            <datalist id="edit-vendor-options">{% for v in vendor_options %}
+                                <option value="{{ v.brand }}">{{ v.label }}</option>{% endfor %}
+                            </datalist>
+                            <small class="field-hint" data-i18n="admin.modal.model_edit.vendor_hint">Required for Validated recommendations: the model is offered only when this vendor is selected.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="edit-exclude-recommend">
+                                <span data-i18n="admin.modal.model_edit.exclude_recommend">Do not use in recommendations</span>
+                            </label>
+                            <small class="field-hint" data-i18n="admin.modal.model_edit.exclude_recommend_hint">Stays in the catalog and the Appliance calculator, but is never offered by the sizing recommendations or listed under Size For Model.</small>
                         </div>
                     </div>
 

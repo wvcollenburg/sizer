@@ -254,7 +254,6 @@
   "export.pptx.total_threads": "Lõimesid kokku",
   "export.pptx.total_vcpus": "vCPU-d kokku",
   "export.pptx.used_ram": "Kasutatud RAM",
-  "export.pptx.validated_based_off": "Valideeritud – põhineb mudelil {model}",
   "export.pptx.vcpu_basis": "{cores} tuuma @ {ratio}:1",
   "export.pptx.vcpu_core_ratio": "vCPU : tuum-suhe",
   "export.pptx.vcpu_core_ratio_n1": "vCPU : tuum-suhe N-1 puhul",

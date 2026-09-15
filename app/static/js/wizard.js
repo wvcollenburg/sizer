@@ -143,6 +143,7 @@
         portalInto('#env-summary', 'wiz-body-2');
         portalInto('.import-workload', 'wiz-body-2');
         portalInto('#vm-triage-panel', 'wiz-body-3');
+        portalInto('.platform-control', 'wiz-body-4');
         portalInto('.ratio-control', 'wiz-body-4');
         portalInto('.growth-control', 'wiz-body-4');
         // In the rail these panels start collapsed; as a wizard step they ARE
