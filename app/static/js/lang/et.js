@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Luba ühe sõlmega sihtmärk (ilma tõrkesiirdeta — DR-klaster on juba liiasuse tasand)",
   "dr.allow_storage_only": "Luba ainult salvestussõlmed",
   "dr.include_eol": "Kaasa EOL/EOS mudelid",
-  "dr.select_option": "Vali ja salvesta",
-  "dr.selected_option": "Valitud",
   "dr.source_unsized": "mõõtmata",
   "dr.source_unsized_hint": "Sellel lähtel pole veel salvestatud tulemust, seega see ei anna nõudlust. Ava ja salvesta see esmalt.",
   "dr.mode_reserved_note": "Reserveeritud: arvutusvõimsust hoitakse ühe sõlme väljalangemisel (N-1).",

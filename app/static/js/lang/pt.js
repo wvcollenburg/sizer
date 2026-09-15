@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Permitir um destino de nó único (sem failover — um cluster de DR já é um nível de redundância)",
   "dr.allow_storage_only": "Permitir nós apenas de armazenamento",
   "dr.include_eol": "Incluir modelos EOL/EOS",
-  "dr.select_option": "Selecionar e guardar",
-  "dr.selected_option": "Selecionado",
   "dr.source_unsized": "não dimensionado",
   "dr.source_unsized_hint": "Esta origem ainda não tem resultado guardado, por isso não contribui com procura. Abra-a e guarde-a primeiro.",
   "dr.mode_reserved_note": "Reservado: a computação é mantida com um nó em baixo (N-1).",

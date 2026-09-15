@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Permitir un destino de un solo nodo (sin conmutación — un clúster de DR ya es un nivel de redundancia)",
   "dr.allow_storage_only": "Permitir nodos solo de almacenamiento",
   "dr.include_eol": "Incluir modelos EOL/EOS",
-  "dr.select_option": "Seleccionar y guardar",
-  "dr.selected_option": "Seleccionado",
   "dr.source_unsized": "sin dimensionar",
   "dr.source_unsized_hint": "Este origen aún no tiene resultado guardado, por lo que no aporta demanda. Ábrelo y guárdalo primero.",
   "dr.mode_reserved_note": "Reservado: el cómputo se mantiene con un nodo caído (N-1).",

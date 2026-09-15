@@ -1090,8 +1090,6 @@
   "dr.allow_single_node": "Allow a single-node target (no failover — a DR cluster is already a redundancy tier)",
   "dr.allow_storage_only": "Allow storage-only nodes",
   "dr.include_eol": "Include EOL/EOS models",
-  "dr.select_option": "Select and save",
-  "dr.selected_option": "Selected",
   "dr.source_unsized": "not sized",
   "dr.source_unsized_hint": "This source has no saved result yet, so it contributes no demand. Open and save it first.",
   "dr.mode_reserved_note": "Reserved: compute is held with one node down (N-1).",

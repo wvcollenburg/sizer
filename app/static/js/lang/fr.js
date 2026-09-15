@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Autoriser une cible à nœud unique (pas de bascule — un cluster DR est déjà un niveau de redondance)",
   "dr.allow_storage_only": "Autoriser les nœuds de stockage seul",
   "dr.include_eol": "Inclure les modèles EOL/EOS",
-  "dr.select_option": "Sélectionner et enregistrer",
-  "dr.selected_option": "Sélectionné",
   "dr.source_unsized": "non dimensionné",
   "dr.source_unsized_hint": "Cette source n'a pas encore de résultat enregistré, elle ne contribue donc à aucune demande. Ouvrez-la et enregistrez-la d'abord.",
   "dr.mode_reserved_note": "Réservé : le calcul est maintenu avec un nœud en panne (N-1).",

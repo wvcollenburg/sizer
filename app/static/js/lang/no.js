@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Tillat et mål med én node (ingen failover — en DR-klynge er allerede et redundanslag)",
   "dr.allow_storage_only": "Tillat lagringsnoder",
   "dr.include_eol": "Inkluder EOL/EOS-modeller",
-  "dr.select_option": "Velg og lagre",
-  "dr.selected_option": "Valgt",
   "dr.source_unsized": "ikke dimensjonert",
   "dr.source_unsized_hint": "Denne kilden har ennå ikke et lagret resultat og bidrar derfor ikke med etterspørsel. Åpne og lagre den først.",
   "dr.mode_reserved_note": "Reservert: databehandling holdes med én node nede (N-1).",

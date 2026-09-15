@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Tillad et mål med én node (ingen failover — en DR-klynge er allerede et redundanslag)",
   "dr.allow_storage_only": "Tillad kun-lager-noder",
   "dr.include_eol": "Inkludér EOL/EOS-modeller",
-  "dr.select_option": "Vælg og gem",
-  "dr.selected_option": "Valgt",
   "dr.source_unsized": "ikke dimensioneret",
   "dr.source_unsized_hint": "Denne kilde har endnu ikke et gemt resultat og bidrager derfor ikke med efterspørgsel. Åbn og gem den først.",
   "dr.mode_reserved_note": "Reserveret: compute holdes med én node nede (N-1).",

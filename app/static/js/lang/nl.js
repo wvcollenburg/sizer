@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Sta een doel met één node toe (geen failover — een DR-cluster is al een redundantielaag)",
   "dr.allow_storage_only": "Sta storage-only nodes toe",
   "dr.include_eol": "EOL/EOS-modellen meenemen",
-  "dr.select_option": "Selecteren en opslaan",
-  "dr.selected_option": "Geselecteerd",
   "dr.source_unsized": "niet gedimensioneerd",
   "dr.source_unsized_hint": "Deze bron heeft nog geen opgeslagen resultaat en levert dus geen vraag. Open en bewaar hem eerst.",
   "dr.mode_reserved_note": "Gereserveerd: compute blijft beschikbaar met één node uit (N-1).",

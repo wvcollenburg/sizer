@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Salli yhden solmun kohde (ei vikasietoa — DR-klusteri on jo redundanssitaso)",
   "dr.allow_storage_only": "Salli vain tallennussolmut",
   "dr.include_eol": "Sisällytä EOL/EOS-mallit",
-  "dr.select_option": "Valitse ja tallenna",
-  "dr.selected_option": "Valittu",
   "dr.source_unsized": "ei mitoitettu",
   "dr.source_unsized_hint": "Tällä lähteellä ei ole vielä tallennettua tulosta, joten se ei tuota kysyntää. Avaa ja tallenna se ensin.",
   "dr.mode_reserved_note": "Varattu: laskenta pidetään yhden solmun ollessa poissa (N-1).",

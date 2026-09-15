@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Tillåt ett mål med en enda nod (ingen failover — ett DR-kluster är redan ett redundanslager)",
   "dr.allow_storage_only": "Tillåt lagringsnoder",
   "dr.include_eol": "Inkludera EOL/EOS-modeller",
-  "dr.select_option": "Välj och spara",
-  "dr.selected_option": "Vald",
   "dr.source_unsized": "ej dimensionerad",
   "dr.source_unsized_hint": "Den här källan har ännu inget sparat resultat och bidrar därför inte med någon efterfrågan. Öppna och spara den först.",
   "dr.mode_reserved_note": "Reserverad: beräkning hålls med en nod nere (N-1).",

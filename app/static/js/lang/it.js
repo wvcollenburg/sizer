@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Consenti una destinazione a nodo singolo (nessun failover — un cluster DR è già un livello di ridondanza)",
   "dr.allow_storage_only": "Consenti nodi solo storage",
   "dr.include_eol": "Includi modelli EOL/EOS",
-  "dr.select_option": "Seleziona e salva",
-  "dr.selected_option": "Selezionato",
   "dr.source_unsized": "non dimensionato",
   "dr.source_unsized_hint": "Questa origine non ha ancora un risultato salvato, quindi non contribuisce alcuna domanda. Aprila e salvala prima.",
   "dr.mode_reserved_note": "Riservato: il calcolo è mantenuto con un nodo in meno (N-1).",

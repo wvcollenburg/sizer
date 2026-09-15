@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Einzelknoten-Ziel zulassen (kein Failover — ein DR-Cluster ist bereits eine Redundanzebene)",
   "dr.allow_storage_only": "Nur-Storage-Knoten zulassen",
   "dr.include_eol": "EOL/EOS-Modelle einbeziehen",
-  "dr.select_option": "Auswählen und speichern",
-  "dr.selected_option": "Ausgewählt",
   "dr.source_unsized": "nicht dimensioniert",
   "dr.source_unsized_hint": "Diese Quelle hat noch kein gespeichertes Ergebnis und liefert daher keinen Bedarf. Öffnen und speichern Sie sie zuerst.",
   "dr.mode_reserved_note": "Reserviert: Compute wird bei einem ausgefallenen Knoten gehalten (N-1).",

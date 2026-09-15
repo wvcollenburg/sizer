@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Leisti vieno mazgo paskirtį (be perjungimo — DR klasteris jau yra pertekliškumo lygmuo)",
   "dr.allow_storage_only": "Leisti tik saugyklos mazgus",
   "dr.include_eol": "Įtraukti EOL/EOS modelius",
-  "dr.select_option": "Pasirinkti ir išsaugoti",
-  "dr.selected_option": "Pasirinkta",
   "dr.source_unsized": "nematuota",
   "dr.source_unsized_hint": "Šis šaltinis dar neturi išsaugoto rezultato, todėl neprisideda prie poreikio. Pirmiausia jį atidarykite ir išsaugokite.",
   "dr.mode_reserved_note": "Rezervuota: skaičiavimas išlaikomas išjungus vieną mazgą (N-1).",

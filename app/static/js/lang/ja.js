@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "シングルノードのターゲットを許可（フェイルオーバーなし — DRクラスター自体が冗長性の層です）",
   "dr.allow_storage_only": "ストレージ専用ノードを許可",
   "dr.include_eol": "EOL/EOSモデルを含める",
-  "dr.select_option": "選択して保存",
-  "dr.selected_option": "選択済み",
   "dr.source_unsized": "未サイジング",
   "dr.source_unsized_hint": "このソースにはまだ保存された結果がないため、需要に寄与しません。先に開いて保存してください。",
   "dr.mode_reserved_note": "予約済み：1ノード停止時（N-1）でも計算能力を確保します。",

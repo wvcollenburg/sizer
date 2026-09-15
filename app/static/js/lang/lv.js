@@ -1089,8 +1089,6 @@
   "dr.allow_single_node": "Atļaut viena mezgla mērķi (bez pārslēgšanās — DR klasteris jau ir liekuma slānis)",
   "dr.allow_storage_only": "Atļaut tikai krātuves mezglus",
   "dr.include_eol": "Iekļaut EOL/EOS modeļus",
-  "dr.select_option": "Atlasīt un saglabāt",
-  "dr.selected_option": "Atlasīts",
   "dr.source_unsized": "nav izmērīts",
   "dr.source_unsized_hint": "Šim avotam vēl nav saglabāta rezultāta, tāpēc tas nedod pieprasījumu. Vispirms atveriet un saglabājiet to.",
   "dr.mode_reserved_note": "Rezervēts: skaitļošana tiek saglabāta ar vienu izslēgtu mezglu (N-1).",
