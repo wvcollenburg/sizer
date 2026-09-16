@@ -188,6 +188,26 @@ def test_synthetic_details_that_matter():
     assert v["770-BDRQ"]["category"] == "other" and "770-BEKK" not in v
     assert "370-BBRX" not in v and "343-BBST" not in v
 
+    # Dell solution export, German. The quantity convention is what separates
+    # it from the VNET sheet above: the node count is on the group row and each
+    # option's Menge is PER NODE, so 4 DIMMs on a 3-node group is 12.
+    sol = _load(os.path.join(NORMALIZED, "synthetic_dell_solution_de.xlsx.json"))["configs"][0]
+    assert (sol["nodeCount"], sol["serverModel"]) == (3, "PowerEdge R760")
+    d = {c["partNumber"]: c for c in sol["components"]}
+    assert d["370-BCGJ"]["quantity"] == 12                  # 4 DIMMs per node x 3
+    assert d["338-CHSC"]["quantity"] == 6                   # both sockets, x3
+    assert d["161-BCPX"]["quantity"] == 9                   # 3 HDDs per node x 3
+    assert d["161-BCPX"]["category"] == "storage"
+    # German absence wording is kept and neutralised, never read as hardware:
+    # 'Keine BOSS-Karte' as a BOSS card failed an otherwise clean BOM.
+    assert d["403-BCID"]["category"] == "other"             # Keine BOSS-Karte
+    assert d["540-BDOW"]["category"] == "other"             # LOM-Platzhalter
+    assert d["780-BCDI"]["category"] == "other"             # C1 – kein RAID
+    assert d["407-BCBE"]["category"] == "other"             # NIC cabling is not a NIC
+    assert d["540-BFPV"]["category"] == "nic"
+    # settings/services carry no hardware: BIOS, DIMM speed, shipping, support
+    assert not {"384-BBBL", "370-BBRX", "340-DCEP", "709-BBIM"} & set(d)
+
 
 # ─── template ─────────────────────────────────────────────────────────────────
 

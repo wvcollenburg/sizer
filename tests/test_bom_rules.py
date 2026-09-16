@@ -46,6 +46,7 @@ from bom.rules import (  # noqa: E402
     get_drive_count,
     is_absence_indicator,
     is_boss_card,
+    is_controller,
     is_clearly_old_cpu,
     is_hardware_config,
     is_hdd,
@@ -212,6 +213,25 @@ def test_absence_indicators():
     assert not is_absence_indicator(comp("other", "Nominal riser"))
     assert not is_boss_card(comp("boss", "No BOSS card"))
     assert is_boss_card(comp("other", "Boot Optimized Server Storage S2"))
+
+
+def test_german_absence_indicators():
+    """German Dell exports say 'Keine BOSS-Karte' / 'LOM-Platzhalter'. Read as
+    hardware, they failed a clean BOM on a BOSS card nobody had quoted."""
+    assert is_absence_indicator(comp("boss", "Keine BOSS-Karte"))
+    assert is_absence_indicator(comp("boss", "Ohne BOSS-Karte, Leermodul hinten"))
+    assert is_absence_indicator(comp("boss", "BOSS-Platzhalter"))
+    assert is_absence_indicator(comp("storage", "Ohne Festplatte"))
+    assert is_absence_indicator(comp("controller", "Kein Controller"))
+    assert is_absence_indicator(comp("nic", "LOM-Platzhalter"))
+    assert not is_boss_card(comp("boss", "Keine BOSS-Karte"))
+    assert not is_controller(comp("controller", "Kein Controller"))
+    # Real German hardware must still read as hardware.
+    assert not is_absence_indicator(comp("controller", "HBA355i-Adapter, flaches Profil"))
+    assert not is_absence_indicator(
+        comp("storage", '8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5"'))
+    assert not is_absence_indicator(
+        comp("nic", "Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter"))
 
 
 def test_dwpd_threshold_heuristic_and_override():

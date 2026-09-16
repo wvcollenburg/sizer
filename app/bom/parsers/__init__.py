@@ -13,7 +13,8 @@ and the ladder returns the first match, in an order where the more specific
 signatures come first: our own template marker, then the Lenovo DCSC title
 cell, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
 header AND a 'Quote number:' cell), the D&H bid sheet, the VNET module
-export, and finally the three hand-typed Dell list layouts. Anything else —
+export, the Dell solution export (grouped module/option rows, localised
+headers), and finally the three hand-typed Dell list layouts. Anything else —
 including a PDF — raises UnrecognizedFormat with a hint for the UI.
 
 Both files types are checked by magic before openpyxl/csv see them: an xlsx
@@ -43,6 +44,7 @@ FORMAT_LABELS = {
     'dell_quote': 'Dell quote export',
     'dh_bid': 'D&H bid quotation',
     'dell_vnet': 'Dell VNET configurator export',
+    'dell_solution': 'Dell Solution (Smart Selection) export',
     'dell_list_sku': 'Dell configuration list (QTY / Config / Available SKUs)',
     'dell_list_qty_desc_pn': 'Dell configuration list (QTY / Description / Part Number)',
     'dell_list_columns': 'Dell configuration list (one column per config)',
@@ -66,7 +68,8 @@ def _is_xlsx(path: str) -> bool:
 
 
 def _detect_xlsx(path: str) -> Optional[str]:
-    from bom.parsers import dell_lists, dell_quote, dell_service_tag, lenovo_dcsc, template
+    from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
+                             dell_solution, lenovo_dcsc, template)
     from bom.parsers.common import load_workbook_safe
     from xlsx_utils import SheetTooLargeError
     try:
@@ -88,6 +91,11 @@ def _detect_xlsx(path: str) -> Optional[str]:
             return dell_quote.FORMAT_DH
         if dell_quote.detect_vnet(wb):
             return dell_quote.FORMAT_VNET
+        # After VNET: the same module/option idea, but grouped under a product
+        # row that carries the node count (and localised headers).
+        solution = dell_solution.detect(wb)
+        if solution:
+            return solution
         return dell_lists.detect(wb)
     finally:
         wb.close()
@@ -109,7 +117,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     """Detect and parse. Raises UnrecognizedFormat (nothing matched),
     template.TemplateError (our template, but invalid) or
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
-    from bom.parsers import dell_lists, dell_quote, dell_service_tag, lenovo_dcsc, template
+    from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
+                             dell_solution, lenovo_dcsc, template)
     fmt = detect_format(path, filename)
     if fmt is None:
         ext = _extension(filename, path)
@@ -135,6 +144,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
         bom = dell_quote.parse_dh(path)
     elif fmt == dell_quote.FORMAT_VNET:
         bom = dell_quote.parse_vnet(path)
+    elif fmt == dell_solution.FORMAT_SOLUTION:
+        bom = dell_solution.parse(path)
     else:
         bom = dell_lists.parse(path)
     return bom, fmt

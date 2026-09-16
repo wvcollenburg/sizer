@@ -700,3 +700,46 @@ def test_requirements_without_replication_band_are_unchanged():
     assert req["ram_required_gb"] == pytest.approx(400.0)   # floor 200 / 50 %
     assert req["storage_required_tb"] == pytest.approx(16.0)  # floor 8 / 50 %
     assert not any("Replication" in n for n in req["notes"])
+
+
+# ─── German BOM wording (Dell solution exports) ──────────────────────────────
+# Three German "Smart Selection" solutions arrived unrecognised. Getting them
+# through the parser was only half of it: the capacity, drive-kind and port
+# parsing here all read the description text, which Dell localises.
+
+def test_german_capacity_wording_is_read():
+    """'8-TB-Festplatte' (compound hyphen) and '7,68 TB' (decimal comma). The
+    hyphen form parsed as nothing, so a hybrid node lost every spindle and was
+    sized as an all-flash cluster."""
+    assert fit._parse_capacity_tb('8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K') == 8.0
+    assert fit._parse_capacity_tb('7,68 TB Rechenzentrum NVMe, leseoptimiert') == 7.68
+    assert fit._parse_capacity_tb('3.84TB NVMe') == 3.84          # unchanged
+    assert fit._parse_dimm_gb('128 GB, RDIMM, 6.400 MT/s, Dual-Rank') == 128
+
+
+def test_german_nic_ports_are_read():
+    assert fit._parse_nic_ports('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28') == 2
+    assert fit._parse_nic_ports('Broadcom 57414 Dual Port 10/25GbE') == 2   # unchanged
+    assert fit._parse_nic_speed('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28') == 25.0
+
+
+def test_german_hybrid_config_derives_both_tiers():
+    """End to end on the shape the real files have: 3 spindles + 1 NVMe per
+    node, quantities given as totals across 3 nodes."""
+    config = BOMConfig(name='R760 - Smart Selection', server_model='PowerEdge R760',
+                       node_count=3, components=[
+        _c('PowerEdge R760 Server', 3, 'chassis'),
+        _c('Intel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s, 60 MB Cache', 6, 'cpu'),
+        _c('128 GB, RDIMM, 6.400 MT/s, Dual-Rank', 12, 'memory'),
+        _c('8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5", Hot-Plug', 9, 'storage'),
+        _c('7,68 TB, Rechenzentrum, NVMe, leseoptimiert, U2 Gen4 FlexBay', 3, 'storage'),
+        _c('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter, OCP 3.0', 3, 'nic'),
+    ])
+    nodes = fit.derive_nodes(config)
+    assert nodes['node_count'] == 3
+    assert nodes['ram_gb_per_node'] == 512
+    assert nodes['sockets_per_node'] == 2
+    assert nodes['nic_speed_gbe'] == 25.0 and nodes['nic_ports'] == 2
+    assert not nodes['unresolved']
+    tiers = {d['kind']: (d['capacity_tb'], d['qty_per_node']) for d in nodes['drives']}
+    assert tiers == {'hdd': (8.0, 3), 'nvme': (7.68, 1)}

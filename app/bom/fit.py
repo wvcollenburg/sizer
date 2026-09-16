@@ -65,11 +65,14 @@ TIER_KEY = {"hdd": "HDD", "ssd": "SSD", "nvme": "NVMe"}
 # controller/boss/gpu/other are the technical checker's business.
 _CAPACITY_CATEGORIES = ("cpu", "memory", "storage", "nic")
 
-_CAPACITY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(TB|GB)\b", re.IGNORECASE)
+# The hyphen is German compounding ('8-TB-Festplatte'); the comma is its
+# decimal point ('7,68 TB'). Both arrived with the Dell solution exports.
+_CAPACITY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*(TB|GB)\b", re.IGNORECASE)
 # '10/25GbE', '25GbE', '10GBase-T', '10Gb', '100GbE', '2.5GbE', '10 Gigabit'
 _NIC_SPEED_RE = re.compile(r"((?:\d+(?:\.\d+)?\s*/\s*)*\d+(?:\.\d+)?)\s*G(?:b|ig)",
                            re.IGNORECASE)
-_NIC_PORTS_RE = re.compile(r"(\d+)\s*-?\s*port", re.IGNORECASE)
+# 'Anschlüsse' is how a German Dell line writes ports ('2 Anschlüsse').
+_NIC_PORTS_RE = re.compile(r"(\d+)\s*-?\s*(?:port|anschl[üu]ss?e?)", re.IGNORECASE)
 _NIC_NX_RE = re.compile(r"(\d+)\s*x\s*\d+(?:\.\d+)?\s*G(?:b|ig)", re.IGNORECASE)
 _CPU_CORES_RE = re.compile(r"(\d+)\s*C\b|(\d+)-Core", re.IGNORECASE)
 _CPU_THREADS_RE = re.compile(r"(\d+)\s*T\b", re.IGNORECASE)

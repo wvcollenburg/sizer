@@ -206,11 +206,26 @@ def matches_any(text: str, keywords: List[str]) -> bool:
     return any(k.lower() in lower for k in keywords)
 
 
+# Additive extension, deliberately NOT folded into the line below: the source
+# validator only ever saw English, and this file's contract is a byte-identical
+# replay of the 26 archived fixtures (see the module docstring). German absence
+# wording arrived with the Dell solution exports — 'Keine BOSS-Karte' read as a
+# present BOSS card and failed an otherwise fine BOM. Kept as a separate clause
+# so the ported semantics stay visible and the new words cannot alter an
+# English finding. parsers/common.ABSENCE is the richer, parser-side twin;
+# these two are allowed to differ (that one also drops order-entry noise).
+_ABSENCE_DE = re.compile(
+    r'^(?:ohne|kein(?:e|en|er)?)\b|\bplatzhalter\b|\bleermodul\b', re.I)
+
+
 def is_absence_indicator(c: BOMComponent) -> bool:
     """"No BOSS", "BOSS Blank", "No Controller", "Riser Blank", etc. are absence
-    indicators — the customer explicitly chose not to include that component."""
+    indicators — the customer explicitly chose not to include that component.
+    German equivalents: 'Ohne …', 'Kein(e) …', '… Platzhalter', 'Leermodul'."""
     d = c.description.lower()
-    return d.startswith('no ') or ' blank' in d or 'blank ' in d
+    if d.startswith('no ') or ' blank' in d or 'blank ' in d:
+        return True
+    return bool(_ABSENCE_DE.search(c.description or ''))
 
 
 def is_boss_card(c: BOMComponent) -> bool:
@@ -236,7 +251,12 @@ def is_sas_drive(c: BOMComponent) -> bool:
 def is_hdd(c: BOMComponent) -> bool:
     return c.category == 'storage' and matches_any(
         c.description,
-        ['HDD', '7.2K', '7200', 'NL-SAS', 'SAS HDD', 'SATA HDD', 'spinning', 'Hard Drive', 'Hard Disk'],
+        # 'Festplatte' is German for hard drive and '7,2K' its RPM spelling;
+        # a German NVMe line says 'Laufwerk', never 'Festplatte', so this stays
+        # exclusive. Absence lines ('Ohne Festplatte') never reach here — they
+        # are categorised 'other' before any drive test.
+        ['HDD', '7.2K', '7,2K', '7200', 'NL-SAS', 'SAS HDD', 'SATA HDD', 'spinning',
+         'Hard Drive', 'Hard Disk', 'Festplatte'],
     )
 
 
