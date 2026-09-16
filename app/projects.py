@@ -18,6 +18,7 @@ from sqlalchemy.orm import defer
 from auth import current_user, login_required
 from auth_models import Configuration, ScaleConfigLink, _utcnow
 from database import db
+import export_override
 from hcl_vendor import rec_display_model
 from extensions import limiter
 from project_models import (
@@ -232,11 +233,16 @@ def get_project(project_id):
     from fingerprint import tunables_digest
     tunables = tunables_digest()
 
+    # "Exports as <chassis>" for the whole project in one query, so the badge
+    # does not put a BOM-check lookup behind every row.
+    export_badges = export_override.badges_for(sizings)
+
     rows = []
     for sizing in sizings:
         row = sizing.to_summary(user, "owned" if sizing.owner_id == user.id else source)
         row["tags"] = tag_map.get(sizing.id, [])
         row.update(_result_state(sizing, tunables))
+        row["export_as"] = export_badges.get(sizing.id)
         rows.append(row)
 
     payload = project.to_dict(user, source, sizings=rows)
@@ -694,7 +700,8 @@ def _compare_tag_groups(project, tag_ids):
         unsized = 0
         for s in members:
             state = result_state(s, tunables)
-            totals, _sub = _metrics_from_snapshot(s.result_snapshot)
+            totals, _sub = _metrics_from_snapshot(
+                export_override.apply_to_snapshot(s))
             member_rows.append(dict(totals, name=s.name))
             for key in ("nodes", "clusters", "cores", "ram_gb",
                         "n1_cores", "n1_ram_gb"):
@@ -756,7 +763,8 @@ def _compare_sizing_rows(project, wanted):
     rows, warnings, seen_tunables = [], [], set()
     for sizing in sizings:
         state = result_state(sizing, tunables)
-        totals, clusters = _metrics_from_snapshot(sizing.result_snapshot)
+        totals, clusters = _metrics_from_snapshot(
+            export_override.apply_to_snapshot(sizing))
         rows.append({
             "id": sizing.id, "name": sizing.name, "role": sizing.role,
             "notes": sizing.notes, "is_dr_target": sizing.is_dr_target,
@@ -1630,6 +1638,121 @@ def set_sizing_tags(config_id):
     row = sizing.to_summary(user, "owned")
     row["tags"] = _tags_by_configuration([sizing.id]).get(sizing.id, [])
     return jsonify(row)
+
+
+# ── export customization ─────────────────────────────────────────────────────
+
+def _export_override_state(sizing, user):
+    """Everything the "Exports as" dialog needs: the stored setting, what it
+    currently resolves to, and the BOM checks that could drive it."""
+    setting = export_override.clean_setting(sizing.export_override)
+    checks = export_override.candidate_checks(sizing)
+    suggested = export_override.suggested_check(sizing, checks)
+    return {
+        "setting": setting,
+        "effective": export_override.badge_for(sizing),
+        "suggested_check_id": suggested.id if suggested else None,
+        "checks": [{
+            "id": c.id,
+            "name": c.name,
+            "vendor": c.vendor,
+            "technical_verdict": c.technical_verdict,
+            "fit_verdict": c.fit_verdict,
+            "checked_at": _iso_or_none(c.checked_at),
+            "values": {k: v for k, v in export_override.bom_values(c).items()
+                       if not k.startswith("_")},
+        } for c in checks],
+    }
+
+
+def _iso_or_none(value):
+    return value.isoformat() if value else None
+
+
+@sizings_bp.route("/<int:config_id>/export-override", methods=["GET"])
+@login_required
+def get_export_override(config_id):
+    """Read-only: anyone who can see the sizing can see what it exports as —
+    they can export it, so hiding the chassis from them would be odd."""
+    from auth import _config_source_for
+
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+    return jsonify(_export_override_state(sizing, user))
+
+
+@sizings_bp.route("/<int:config_id>/export-override", methods=["PUT"])
+@login_required
+def set_export_override(config_id):
+    """Store which chassis/hardware this sizing's exports name.
+
+    Writable by the sizing's owner only, like every other stored edit: the
+    override changes what a customer-facing document claims is being bought.
+    """
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    setting = export_override.clean_setting(request.json or {})
+    # Stored as NULL when it asks for nothing beyond the default, so "has an
+    # override" stays a simple non-null test in queries and exports.
+    sizing.export_override = None if export_override.is_default(setting) else setting
+    db.session.commit()
+    state = _export_override_state(sizing, user)
+    state["sizing"] = sizing.to_summary(user, "owned")
+    return jsonify(state)
+
+
+@sizings_bp.route("/<int:config_id>/chassis-options", methods=["GET"])
+@login_required
+def chassis_options(config_id):
+    """Every chassis the HCL lists, for the manual override picker.
+
+    Deliberately NOT /api/models: that one joins the sizer's own catalog and
+    filters by vendor, so it under-reports exactly where this picker has to be
+    generous — the partner may quote a box we cannot size on at all. The
+    sizing's own vendor sorts first; free text covers anything not listed yet.
+    """
+    from auth import _config_source_for
+    import hcl_vendor
+    from hcl_models import HclPlatform, STATUS_ACTIVE
+
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+
+    # The vendor this sizing was built on, read from the stored result rather
+    # than the payload: the payload keeps raw form fields per mode, while the
+    # recommendation carries the vendor the engine actually used.
+    own = ""
+    for cluster in ((sizing.result_snapshot or {}).get("clusters") or []):
+        rec = (cluster or {}).get("recommendation") or {}
+        if rec.get("vendor"):
+            own = rec["vendor"]
+            break
+    rows, seen = [], set()
+    try:
+        platforms = (HclPlatform.query.filter_by(status=STATUS_ACTIVE)
+                     .order_by(HclPlatform.brand, HclPlatform.server).all())
+    except Exception:  # pragma: no cover - no HCL tables yet
+        platforms = []
+    for p in platforms:
+        if not p.server:
+            continue
+        key = hcl_vendor.chassis_key(p)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"key": key, "label": hcl_vendor.chassis_label(p),
+                     "brand": p.brand, "server": p.server,
+                     "form_factor": p.form_factor})
+    own = (own or "").lower()
+    rows.sort(key=lambda r: (0 if (r["brand"] or "").lower() == own else 1,
+                             r["brand"] or "", r["label"]))
+    return jsonify({"chassis": rows})
 
 
 # ── bundle exports (§7.2) ────────────────────────────────────────────────────

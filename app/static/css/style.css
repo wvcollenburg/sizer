@@ -3912,3 +3912,53 @@ textarea.text-input:focus {
     .rec-split { flex-direction: column; }
     .rec-split-list { flex: 0 0 auto !important; max-height: 16rem; border-right: 0; border-bottom: 1px solid var(--border); }
 }
+
+/* ── export customization ────────────────────────────────────────────────────
+   The shared .modal-body is padding: 0 (the VM modal owns its own scroll
+   chrome), so this one restores its own — with a compound selector, which
+   outranks the single-class reset regardless of source order. */
+.exportas-modal { max-width: min(640px, 94vw); }
+.modal-body.exportas-body { padding: 1.1rem 1.5rem 1.35rem; }
+.modal-body.exportas-body .panel-section { margin-top: 1rem; }
+
+   "Exports as <chassis>": the sizing was sized on one box and is being quoted
+   on another. Sits under the sizing name, quiet enough not to compete with it
+   but present on every row it applies to. */
+.export-as-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.2rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm, 4px);
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    cursor: help;
+}
+.export-as-badge svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+/* Two fields to a row where they are a pair (cores/threads, RAM/nodes). The
+   global input[type=number] rules still apply, so widths stay on the grid
+   rather than on the inputs. */
+.exportas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 0.75rem;
+}
+@media (max-width: 560px) {
+    .exportas-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* What the chosen BOM check contributes — shown so an empty manual field reads
+   as "inherited", not "missing". */
+.exportas-summary { margin: 0.5rem 0 0.75rem; }
+.exportas-dl {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.15rem 0.75rem;
+    margin: 0.35rem 0 0;
+    font-size: 0.8rem;
+}
+.exportas-dl dt { color: var(--text-muted); }
+.exportas-dl dd { margin: 0; font-variant-numeric: tabular-nums; }

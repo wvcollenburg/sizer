@@ -2064,7 +2064,38 @@ function renderRecToolbar(hostId, save) {
         + ` data-click='${save.action}'${save.disabled ? ' disabled' : ''}`
         + ` title="${esc(save.title)}">`
         + (save.dirty ? '<span class="rec-dirty-dot" aria-hidden="true"></span>' : '')
-        + esc(save.label) + `</button>`;
+        + esc(save.label) + `</button>`
+        + exportAsNoticeHtml();
+}
+
+// Export customization: this sizing's exports may name another chassis than the
+// engine picked (a BOM check the partner sent, or a manual override). The cards
+// keep showing what was recommended — they are the engine's answer — so the
+// difference is stated here rather than by rewriting a card.
+let exportAsInfo = null;
+
+function exportAsNoticeHtml() {
+    if (!exportAsInfo || !exportAsInfo.chassis) return '';
+    const hint = window.t(exportAsInfo.bom_check_name
+        ? 'exportas.badge_bom_hint' : 'exportas.badge_manual_hint',
+        {chassis: exportAsInfo.chassis, bom: exportAsInfo.bom_check_name || ''});
+    return `<span class="export-as-badge" title="${esc(hint)}">`
+        + `${esc(window.t('exportas.title'))}: ${esc(exportAsInfo.chassis)}</span>`;
+}
+
+// Fetched per opened sizing; cleared for an unsaved one, which cannot carry an
+// override yet.
+async function loadExportAsInfo() {
+    const id = window.loadedConfigId ? window.loadedConfigId() : null;
+    exportAsInfo = null;
+    if (id) {
+        try {
+            const res = await fetch(`/api/sizings/${id}/export-override`,
+                {credentials: 'same-origin'});
+            if (res.ok) exportAsInfo = (await res.json()).effective || null;
+        } catch (e) { /* the badge is informational; never block the sizer */ }
+    }
+    renderRecToolbar('rec-toolbar', recSaveSpec());
 }
 
 // The per-sizing list's Save: stores in place, dot while anything is unsaved.

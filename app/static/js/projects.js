@@ -362,6 +362,8 @@ const _svg = (paths) =>
 const ICON_SLIDERS = _svg('<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>');
 const ICON_COPY = _svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
 const ICON_TRASH = _svg('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>');
+// Server/rack: "which box does this export describe".
+const ICON_SERVER = _svg('<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>');
 
 function sizingRow(s, canEdit) {
     const checked = selectedSizings.has(s.id) ? ' checked' : '';
@@ -408,15 +410,27 @@ function sizingRow(s, canEdit) {
 
     const actions = canEdit
         ? iconBtn('openSizingPanel', 'project.action.panel', ICON_SLIDERS)
+          + iconBtn('openExportAs', 'exportas.action', ICON_SERVER)
           + iconBtn('duplicateSizing', 'project.action.duplicate', ICON_COPY)
           + iconBtn('deleteProjectSizing', 'project.action.delete', ICON_TRASH, 'icon-btn-danger')
         : iconBtn('duplicateSizing', 'project.action.copy', ICON_COPY);
+
+    // "Exports as <chassis>" — the sizing was sized on one box and is being
+    // quoted on another, which is invisible until the document is opened.
+    const ea = s.export_as;
+    const exportAs = (ea && ea.chassis)
+        ? `<div class="export-as-badge" title="${escHtml(tt(ea.bom_check_name
+                ? 'exportas.badge_bom_hint' : 'exportas.badge_manual_hint',
+            {chassis: ea.chassis, bom: ea.bom_check_name || ''}))}">`
+          + `${ICON_SERVER}<span>${escHtml(ea.chassis)}</span></div>`
+        : '';
 
     return `<tr>
         <td class="col-check"><input type="checkbox"${checked} data-change='["toggleSizing",${s.id},"$checked"]'></td>
         <td class="sizing-name"><button class="sizing-open" data-click='["openSizing",${s.id}]'`
         + ` title="${escHtml(tt('project.action.open'))}">${escHtml(s.name)}</button>`
-        + `${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}</td>
+        + `${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}`
+        + exportAs + `</td>
         <td>${tags}</td>
         <td>${role}</td>
         <td class="sizing-source">${source}</td>
@@ -1167,6 +1181,7 @@ async function openSizing(id, push) {
     // 'dr_target' mode and would otherwise crash on restore.
     if (data.is_dr_target && window.enterDrTarget) {
         if (window.setLoadedConfig) window.setLoadedConfig(data);
+        if (window.loadExportAsInfo) window.loadExportAsInfo();
         await window.enterDrTarget(data);
         return;
     }
@@ -1179,6 +1194,8 @@ async function openSizing(id, push) {
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
     if (window.setLoadedConfig) window.setLoadedConfig(data);
     if (window.markSizingClean) window.markSizingClean();
+    // After setLoadedConfig: the badge is looked up by the loaded sizing's id.
+    if (window.loadExportAsInfo) window.loadExportAsInfo();
 }
 
 async function duplicateSizing(id) {
@@ -1498,6 +1515,185 @@ async function saveAndReturnToProject() {
     if (saved && currentProject) backToProject();
 }
 
+// ── export customization ────────────────────────────────────────────────────
+// Which chassis and per-node hardware this sizing's exports describe. A partner
+// may quote another box than the one that was sized (we size a Dell R660, the
+// VAR BOM-checks an R670); the proposal has to name what is being bought.
+//
+// The server merges three sources per field — manual > BOM check > the
+// recommendation — so a field left empty here is NOT "blank", it is "whatever
+// the BOM or the recommendation says". That is why every input is optional.
+
+let exportAsState = null;      // {sizingId, setting, checks, effective, ...}
+
+const _EA_TEXT = {chassis: 'export-as-chassis', vendor: 'export-as-vendor',
+    form_factor: 'export-as-ff', cpu: 'export-as-cpu',
+    storage_desc: 'export-as-storage'};
+const _EA_NUM = {cores_per_node: 'export-as-cores',
+    threads_per_node: 'export-as-threads', ram_per_node_gb: 'export-as-ram',
+    node_count: 'export-as-nodes'};
+
+async function openExportAs(id) {
+    const sizing = (currentProject.sizings || []).find(s => s.id === id);
+    if (!sizing) return;
+    hideError('export-as-error');
+    const res = await api(`/api/sizings/${id}/export-override`);
+    if (!res.ok) { info(tt('exportas.title'), (res.data && res.data.error) || ''); return; }
+    exportAsState = Object.assign({sizingId: id}, res.data);
+    document.getElementById('export-as-title').textContent =
+        tt('exportas.title_for', {name: sizing.name});
+    renderExportAsSource();
+    fillExportAsManual(res.data.setting.manual || {});
+    renderExportAsSummary();
+    loadChassisOptions(id);
+    document.getElementById('export-as-modal').style.display = 'flex';
+}
+
+function closeExportAs() {
+    document.getElementById('export-as-modal').style.display = 'none';
+    exportAsState = null;
+}
+
+function renderExportAsSource() {
+    const sel = document.getElementById('export-as-source');
+    if (!sel || !exportAsState) return;
+    const checks = exportAsState.checks || [];
+    const suggested = exportAsState.suggested_check_id;
+    // "Automatic" is the default and stays first: a passing BOM check applies
+    // by itself, which is the whole point of linking one to a sizing.
+    const autoLabel = suggested
+        ? tt('exportas.src_auto_named',
+             {name: (checks.find(c => c.id === suggested) || {}).name || ''})
+        : tt('exportas.src_auto_none');
+    const opts = [`<option value="auto">${escHtml(autoLabel)}</option>`,
+        `<option value="none">${escHtml(tt('exportas.src_none'))}</option>`];
+    checks.forEach(c => {
+        const flags = [];
+        if (c.technical_verdict === 'FAIL') flags.push(tt('exportas.flag_failed'));
+        if (c.fit_verdict === 'smaller') flags.push(tt('exportas.flag_smaller'));
+        const suffix = flags.length ? ` — ${flags.join(', ')}` : '';
+        opts.push(`<option value="${c.id}">${escHtml(c.name + suffix)}</option>`);
+    });
+    sel.innerHTML = opts.join('');
+    sel.value = String((exportAsState.setting || {}).bom || 'auto');
+}
+
+function fillExportAsManual(manual) {
+    Object.entries(_EA_TEXT).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = manual[key] || '';
+    });
+    Object.entries(_EA_NUM).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = manual[key] != null ? manual[key] : '';
+    });
+}
+
+function readExportAsManual() {
+    const manual = {};
+    Object.entries(_EA_TEXT).forEach(([key, id]) => {
+        const v = (document.getElementById(id) || {}).value || '';
+        if (v.trim()) manual[key] = v.trim();
+    });
+    Object.entries(_EA_NUM).forEach(([key, id]) => {
+        const v = (document.getElementById(id) || {}).value || '';
+        if (String(v).trim()) manual[key] = Number(v);
+    });
+    return manual;
+}
+
+// What the chosen source contributes, so the empty manual fields read as
+// "inherited from here" rather than "missing".
+function renderExportAsSummary() {
+    const host = document.getElementById('export-as-summary');
+    if (!host || !exportAsState) return;
+    const sel = document.getElementById('export-as-source');
+    const pick = sel ? sel.value : 'auto';
+    let check = null;
+    if (pick === 'auto') {
+        check = (exportAsState.checks || []).find(
+            c => c.id === exportAsState.suggested_check_id) || null;
+    } else if (pick !== 'none') {
+        check = (exportAsState.checks || []).find(c => c.id === Number(pick)) || null;
+    }
+    if (!check) {
+        host.innerHTML = `<p class="field-hint">${escHtml(tt('exportas.from_rec'))}</p>`;
+        return;
+    }
+    const v = check.values || {};
+    const rows = [
+        [tt('exportas.chassis'), v.chassis],
+        [tt('exportas.cpu'), v.cpu],
+        [tt('exportas.cores'), v.cores_per_node],
+        [tt('exportas.ram'), v.ram_per_node_gb],
+        [tt('exportas.storage'), v.storage_desc],
+        [tt('exportas.nodes'), v.node_count],
+    ].filter(r => r[1] !== undefined && r[1] !== null && r[1] !== '');
+    host.innerHTML = `<p class="field-hint">${escHtml(tt('exportas.from_bom',
+        {name: check.name}))}</p><dl class="exportas-dl">`
+        + rows.map(([k, val]) =>
+            `<dt>${escHtml(k)}</dt><dd>${escHtml(String(val))}</dd>`).join('')
+        + '</dl>';
+}
+
+function onExportAsSource(value) {
+    if (exportAsState) exportAsState.setting =
+        Object.assign({}, exportAsState.setting, {bom: value});
+    renderExportAsSummary();
+}
+
+// The HCL list fills vendor and form factor too — typing "R670" should not cost
+// the two facts the catalog already knows.
+function onExportAsChassis(value) {
+    const list = (exportAsState && exportAsState.chassisOptions) || [];
+    const hit = list.find(c => c.label === value);
+    if (!hit) return;
+    const vendor = document.getElementById('export-as-vendor');
+    const ff = document.getElementById('export-as-ff');
+    if (vendor && !vendor.value) vendor.value = hit.brand || '';
+    if (ff && !ff.value) ff.value = hit.form_factor || '';
+}
+
+async function loadChassisOptions(id) {
+    const res = await api(`/api/sizings/${id}/chassis-options`);
+    if (!res.ok || !exportAsState) return;
+    exportAsState.chassisOptions = (res.data && res.data.chassis) || [];
+    const list = document.getElementById('export-as-chassis-list');
+    if (!list) return;
+    list.innerHTML = exportAsState.chassisOptions
+        .map(c => `<option value="${escHtml(c.label)}"></option>`).join('');
+}
+
+async function submitExportAs() {
+    if (!exportAsState) return;
+    const sel = document.getElementById('export-as-source');
+    const body = {bom: sel ? sel.value : 'auto', manual: readExportAsManual()};
+    const res = await api(`/api/sizings/${exportAsState.sizingId}/export-override`,
+        {method: 'PUT', headers: {'Content-Type': 'application/json'},
+         body: JSON.stringify(body)});
+    if (!res.ok) {
+        showError('export-as-error', (res.data && res.data.error) || tt('exportas.save_failed'));
+        return;
+    }
+    closeExportAs();
+    await openProject(currentProject.id);
+}
+
+async function resetExportAs() {
+    if (!exportAsState) return;
+    // "Use the recommendation" is an explicit no-override, not a cleared form:
+    // an empty form would fall back to AUTO and pick the BOM check up again.
+    const res = await api(`/api/sizings/${exportAsState.sizingId}/export-override`,
+        {method: 'PUT', headers: {'Content-Type': 'application/json'},
+         body: JSON.stringify({bom: 'none', manual: {}})});
+    if (!res.ok) {
+        showError('export-as-error', (res.data && res.data.error) || tt('exportas.save_failed'));
+        return;
+    }
+    closeExportAs();
+    await openProject(currentProject.id);
+}
+
 // ── small helpers ───────────────────────────────────────────────────────────
 
 function showError(id, msg) {
@@ -1535,4 +1731,6 @@ Object.assign(window, {
     openExports, closeExports, expChooseMode, expBack, updateExpPickCount,
     runExport, openBatchEdit, closeBatchEdit, toggleBatchTag,
     updateBatchRepFields, applyBatchEdit, refreshProjectNow,
+    openExportAs, closeExportAs, submitExportAs, resetExportAs,
+    onExportAsSource, onExportAsChassis,
 });
