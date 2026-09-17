@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Proposto",
   "results.quoted_note_bom": "Hardware da verificação de lista de materiais {name}. As exportações descrevem sempre este hardware; para exportar antes uma opção abaixo, remova-o em Exporta como na página do projeto.",
   "results.quoted_note_manual": "Hardware introduzido em Exporta como. As exportações descrevem sempre este hardware; para exportar antes uma opção abaixo, remova-o na página do projeto.",
-  "results.util.advice_over": "Este hardware não suporta a carga dimensionada: precisa de {pct}% da capacidade deste cluster."
+  "results.util.advice_over": "Este hardware não suporta a carga dimensionada: precisa de {pct}% da capacidade deste cluster.",
+  "results.quoted_exported": "Exportado"
 };

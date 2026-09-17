@@ -489,12 +489,25 @@ def find_gpu_in_hcl(c: BOMComponent, hcl: HclData,
 
 # ─── CPU generation check ─────────────────────────────────────────────────────
 
+# Additive extension (see the module docstring): Dell's localised and some
+# English exports write 'Intel® Xeon® Gold 6438N'. The mark sits between the
+# words every pattern below expects to be adjacent, so a current Xeon read as
+# "generation could not be determined" and turned a clean BOM INCONCLUSIVE.
+# None of the 26 archived fixtures carries a mark, so the replay is unaffected.
+_TRADEMARK_RE = re.compile(r'\s*(?:[\u00ae\u2122\u00a9]|\((?:r|tm|c)\))', re.I)
+
+
+def _strip_marks(text: str) -> str:
+    """'Intel® Xeon® 6 Performance' -> 'Intel Xeon 6 Performance'."""
+    return _TRADEMARK_RE.sub('', text or '')
+
+
 _OLD_XEON_RE = _js_re(r'xeon\s+e[357]-')
 _OLD_E_SERIES_RE = _js_re(r'\be[357]-\d{4}\b')
 
 
 def is_clearly_old_cpu(description: str) -> bool:
-    d = description.lower()
+    d = _strip_marks(description).lower()
     if _OLD_XEON_RE.search(d):
         return True
     if _OLD_E_SERIES_RE.search(d):
@@ -519,6 +532,7 @@ _RAPTOR_RE = _js_re(r'raptor lake', ignore_case=True)
 
 
 def is_scalable_cpu(description: str) -> bool:
+    description = _strip_marks(description)
     if _SCALABLE_TIER_RE.search(description):
         return True
     if _XEON6_RE.search(description):
@@ -545,7 +559,7 @@ _XEON_PREFIX_RE = _js_re(r'^Xeon\s+', ignore_case=True)
 
 def find_cpu_in_hcl(c: BOMComponent, hcl: HclData,
                     platform_keys: Optional[Iterable[str]] = None) -> bool:
-    search_text = ('%s %s' % (c.part_number or '', c.description)).lower()
+    search_text = _strip_marks('%s %s' % (c.part_number or '', c.description)).lower()
     # An empty model key matches everything, exactly as `includes('')` does.
     if any(_XEON_PREFIX_RE.sub('', cpu.model).lower() in search_text for cpu in hcl.cpus):
         return True

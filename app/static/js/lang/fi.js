@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Tarjottu",
   "results.quoted_note_bom": "Laitteisto osaluettelon tarkistuksesta {name}. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se kohdassa Viedään nimellä projektisivulla.",
   "results.quoted_note_manual": "Kohtaan Viedään nimellä syötetty laitteisto. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se projektisivulla.",
-  "results.util.advice_over": "Tämä laitteisto ei riitä mitoitetulle kuormalle: se vaatii {pct}% tämän klusterin kapasiteetista."
+  "results.util.advice_over": "Tämä laitteisto ei riitä mitoitetulle kuormalle: se vaatii {pct}% tämän klusterin kapasiteetista.",
+  "results.quoted_exported": "Viedään"
 };

@@ -4013,17 +4013,27 @@ textarea.text-input:focus {
 }
 .exportas-drive-row + .exportas-drive-row { margin-top: 0.5rem; }
 
-/* The quoted-hardware card: first in the list, outside the engine's ranking,
-   so it is framed as its own thing rather than as "the best option". */
-.rec-card.rec-quoted {
-    border: 2px solid var(--sc-700);
-    box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.08));
-    margin-bottom: 1rem;
-}
-/* A word, not a number: the round 28px rank badge would clip it. */
-.rec-card.rec-quoted .rec-rank {
-    width: auto;
+/* The quoted hardware (export customization): the first entry of the Rows and
+   Split lists, marked as its own thing rather than as the engine's best
+   option — a small "Quoted" tag before the name, an accent edge, and an
+   "Exported" mark where the picker would be. */
+.rec-quoted-tag {
+    display: inline-block;
+    margin-right: 0.4rem;
+    padding: 0 0.45rem;
     border-radius: 999px;
-    padding: 0 0.7rem;
+    background: var(--sc-700);
+    color: var(--on-accent, #fff);
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1.5;
+    vertical-align: 2px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
 }
-.rec-card.rec-quoted .quoted-note { margin: 0 0 0.6rem; }
+.rec-rows .rec-row.rec-quoted { border-color: var(--sc-700); border-left-width: 3px; }
+.rec-rows .rec-rank.rec-rank-quoted { background: var(--sc-700); }
+.rec-split .rec-item.rec-quoted { box-shadow: inset 3px 0 0 var(--sc-700); }
+.rec-select.rec-exported { cursor: default; }
+.quoted-note { margin: 0 0 0.6rem; }
+.rec-item-tagline { display: block; line-height: 1; margin-bottom: 0.2rem; }

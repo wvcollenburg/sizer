@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Tilbudt",
   "results.quoted_note_bom": "Hardware fra styklistetjek {name}. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den under Eksporteres som på projektsiden.",
   "results.quoted_note_manual": "Hardware indtastet under Eksporteres som. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den på projektsiden.",
-  "results.util.advice_over": "Denne hardware kan ikke bære den dimensionerede arbejdsbelastning: den kræver {pct}% af klyngens kapacitet."
+  "results.util.advice_over": "Denne hardware kan ikke bære den dimensionerede arbejdsbelastning: den kræver {pct}% af klyngens kapacitet.",
+  "results.quoted_exported": "Eksporteres"
 };

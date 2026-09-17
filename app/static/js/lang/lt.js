@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Pasiūlyta",
   "results.quoted_note_bom": "Įranga iš specifikacijos patikros {name}. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją skiltyje Eksportuojama kaip projekto puslapyje.",
   "results.quoted_note_manual": "Skiltyje Eksportuojama kaip įvesta įranga. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją projekto puslapyje.",
-  "results.util.advice_over": "Ši įranga negali atlaikyti apskaičiuotos apkrovos: jai reikia {pct}% šio klasterio talpos."
+  "results.util.advice_over": "Ši įranga negali atlaikyti apskaičiuotos apkrovos: jai reikia {pct}% šio klasterio talpos.",
+  "results.quoted_exported": "Eksportuojama"
 };

@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Tilbudt",
   "results.quoted_note_bom": "Maskinvare fra stykklistekontroll {name}. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den under Eksporteres som på prosjektsiden.",
   "results.quoted_note_manual": "Maskinvare lagt inn under Eksporteres som. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den på prosjektsiden.",
-  "results.util.advice_over": "Denne maskinvaren kan ikke bære den dimensjonerte arbeidsbelastningen: den krever {pct}% av klyngens kapasitet."
+  "results.util.advice_over": "Denne maskinvaren kan ikke bære den dimensjonerte arbeidsbelastningen: den krever {pct}% av klyngens kapasitet.",
+  "results.quoted_exported": "Eksporteres"
 };

@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Piedāvāts",
   "results.quoted_note_bom": "Aparatūra no specifikācijas pārbaudes {name}. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to sadaļā Eksportē kā projekta lapā.",
   "results.quoted_note_manual": "Sadaļā Eksportē kā ievadīta aparatūra. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to projekta lapā.",
-  "results.util.advice_over": "Šī aparatūra nevar nodrošināt aprēķināto slodzi: tai vajag {pct}% no šī klastera jaudas."
+  "results.util.advice_over": "Šī aparatūra nevar nodrošināt aprēķināto slodzi: tai vajag {pct}% no šī klastera jaudas.",
+  "results.quoted_exported": "Eksportē"
 };

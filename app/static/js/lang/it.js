@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Offerto",
   "results.quoted_note_bom": "Hardware dalla verifica della distinta base {name}. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo in Esportato come nella pagina del progetto.",
   "results.quoted_note_manual": "Hardware inserito in Esportato come. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo nella pagina del progetto.",
-  "results.util.advice_over": "Questo hardware non può sostenere il carico dimensionato: richiede il {pct}% della capacità di questo cluster."
+  "results.util.advice_over": "Questo hardware non può sostenere il carico dimensionato: richiede il {pct}% della capacità di questo cluster.",
+  "results.quoted_exported": "Esportato"
 };

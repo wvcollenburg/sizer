@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Proposé",
   "results.quoted_note_bom": "Matériel issu de la vérification de nomenclature {name}. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sous Exporté comme sur la page du projet.",
   "results.quoted_note_manual": "Matériel saisi sous Exporté comme. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sur la page du projet.",
-  "results.util.advice_over": "Ce matériel ne peut pas porter la charge dimensionnée : elle requiert {pct}% de la capacité de ce cluster."
+  "results.util.advice_over": "Ce matériel ne peut pas porter la charge dimensionnée : elle requiert {pct}% de la capacité de ce cluster.",
+  "results.quoted_exported": "Exporté"
 };

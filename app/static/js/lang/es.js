@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Ofertado",
   "results.quoted_note_bom": "Hardware de la comprobación de lista de materiales {name}. Los exports siempre describen este hardware; para exportar una opción de abajo, bórrelo en Se exporta como en la página del proyecto.",
   "results.quoted_note_manual": "Hardware introducido en Se exporta como. Los exports siempre describen este hardware; para exportar una opción de abajo, bórrelo en la página del proyecto.",
-  "results.util.advice_over": "Este hardware no puede soportar la carga dimensionada: necesita el {pct}% de la capacidad de este clúster."
+  "results.util.advice_over": "Este hardware no puede soportar la carga dimensionada: necesita el {pct}% de la capacidad de este clúster.",
+  "results.quoted_exported": "Exportado"
 };

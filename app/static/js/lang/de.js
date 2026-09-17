@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Angeboten",
   "results.quoted_note_bom": "Hardware aus Stücklistenprüfung {name}. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie unter Exportiert als auf der Projektseite.",
   "results.quoted_note_manual": "Unter Exportiert als eingetragene Hardware. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie auf der Projektseite.",
-  "results.util.advice_over": "Diese Hardware kann die dimensionierte Workload nicht tragen: Sie benötigt {pct}% der Kapazität dieses Clusters."
+  "results.util.advice_over": "Diese Hardware kann die dimensionierte Workload nicht tragen: Sie benötigt {pct}% der Kapazität dieses Clusters.",
+  "results.quoted_exported": "Exportiert"
 };

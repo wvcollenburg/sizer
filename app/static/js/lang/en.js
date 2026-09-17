@@ -1646,5 +1646,6 @@
   "results.quoted_rank": "Quoted",
   "results.quoted_note_bom": "Hardware from BOM check {name}. Exports always describe this hardware; to export an option below instead, clear it under Exports as on the project page.",
   "results.quoted_note_manual": "Hardware entered under Exports as. Exports always describe this hardware; to export an option below instead, clear it on the project page.",
-  "results.util.advice_over": "This hardware cannot carry the sized workload: it needs {pct}% of this cluster's capacity."
+  "results.util.advice_over": "This hardware cannot carry the sized workload: it needs {pct}% of this cluster's capacity.",
+  "results.quoted_exported": "Exported"
 };

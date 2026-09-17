@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Geoffreerd",
   "results.quoted_note_bom": "Hardware uit BOM-controle {name}. Exports beschrijven altijd deze hardware; wis dit onder Exporteert als op de projectpagina om een optie hieronder te exporteren.",
   "results.quoted_note_manual": "Hardware ingevuld onder Exporteert als. Exports beschrijven altijd deze hardware; wis dit op de projectpagina om een optie hieronder te exporteren.",
-  "results.util.advice_over": "Deze hardware kan de gedimensioneerde workload niet dragen: die vraagt {pct}% van de capaciteit van dit cluster."
+  "results.util.advice_over": "Deze hardware kan de gedimensioneerde workload niet dragen: die vraagt {pct}% van de capaciteit van dit cluster.",
+  "results.quoted_exported": "Geëxporteerd"
 };

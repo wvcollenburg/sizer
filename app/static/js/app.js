@@ -2257,6 +2257,40 @@ function recRowsHtml(recs, mode, demand, selIdx, width, ctx) {
         + cols.map(c => `<span class="n">${esc(c.head)}</span>`).join('')
         + `${blanks(2)}</div>`;
 
+    // The quoted hardware (export customization), when there is one, is the
+    // list's first row: same columns, deltas against the picked option, and an
+    // "Exported" mark instead of a picker — while it exists the exports always
+    // describe it (owner decision 2026-09-17). Keyed 'q', outside the engine's
+    // indices, so the rows below keep their numbers, picks and diagram links.
+    const quoted = ctx.quoted;
+    let quotedRow = '';
+    if (quoted) {
+        const q = quoted.rec, isOpen = open === 'q';
+        const d = recDeltas(q, base);
+        const deltaRow = !d ? '' : `<div class="rec-delta rec-grid"${gs}><span></span>`
+            + `<span class="rec-dk">${esc(window.t('results.delta.per_node'))}</span>`
+            + cols.map(c => (c.d && d[c.d]) ? d[c.d] : '<span></span>').join('')
+            + `${blanks(2)}</div>`;
+        quotedRow = `<div class="rec-row rec-quoted${isOpen ? ' is-open' : ''}">`
+            + `<div class="rec-row-head rec-grid"${gs}>`
+            + `<span class="rec-rank rec-rank-quoted" title="${esc(window.t('results.quoted_rank'))}">${REC_QUOTED_ICON}</span>`
+            + `<button type="button" class="rec-row-name" data-click='["toggleRecRow","q"]'`
+            + ` aria-expanded="${isOpen}">`
+            + `<span class="rec-model"><span class="rec-quoted-tag">${esc(window.t('results.quoted_rank'))}</span>${esc(recDisplayModel(q))}</span>`
+            + `<span class="rec-sub" title="${esc(q.storage_config.desc)}">${esc(q.category)} · ${esc(q.storage_config.desc)}</span>`
+            + `</button>`
+            + cols.map(c => c.v(q)).join('')
+            + `<span class="rec-pick"><span class="rec-select selected rec-exported${pickWide ? '' : ' compact'}"`
+            + ` title="${esc(quoted.note)}">${pickWide ? esc(window.t('results.quoted_exported')) : '✓'}</span></span>`
+            + `<button type="button" class="rec-chev" data-click='["toggleRecRow","q"]'`
+            + ` aria-expanded="${isOpen}" aria-label="${esc(window.t('results.view.expand'))}">▾</button>`
+            + `</div>`
+            + deltaRow
+            + (isOpen ? `<div class="rec-row-body">${recCardHtml(q, -1, mode, demand,
+                  { bodyOnly: true, footerActions: false, noteHtml: quoted.noteHtml })}</div>` : '')
+            + `</div>`;
+    }
+
     const rows = recs.map((r, i) => {
         const isOpen = open === i, isSel = i === selIdx;
         const d = recDeltas(r, base);
@@ -2294,8 +2328,15 @@ function recRowsHtml(recs, mode, demand, selIdx, width, ctx) {
                   { bodyOnly: true, footerActions: ctx.footerActions })}</div>` : '')
             + `</div>`;
     }).join('');
-    return `<div class="rec-rows">${head}${rows}</div>`;
+    return `<div class="rec-rows">${head}${quotedRow}${rows}</div>`;
 }
+
+// Server/rack glyph for the quoted row's rank cell: a word will not fit the
+// 26px rank column, and a number would imply the engine ranked it.
+const REC_QUOTED_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/>'
+    + '<line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>';
 
 function recRatioBadge(r) {
     const rises = r.sized_full_cluster && r.vcpu_ratio_degraded > r.vcpu_ratio + 0.005;
@@ -2306,10 +2347,34 @@ function recRatioBadge(r) {
 
 // ── Split view ──────────────────────────────────────────────────────────────
 function recSplitHtml(recs, mode, demand, selIdx, width, ctx) {
+    const quoted = ctx.quoted;
     let cur = recReadRow[mode];
-    if (cur === undefined || cur < 0 || cur >= recs.length) cur = selIdx;
+    if (cur === 'q' && !quoted) cur = undefined;
+    // With quoted hardware the pane opens on it — it is what the exports show,
+    // the way a mailbox opens on the message at the top.
+    if (cur === undefined) cur = quoted ? 'q' : selIdx;
+    if (cur !== 'q' && (cur < 0 || cur >= recs.length)) cur = selIdx;
     const listW = Math.max(272, Math.min(470, Math.round(width * 0.20)));
     const base = recs[selIdx];
+
+    let quotedItem = '';
+    if (quoted) {
+        const q = quoted.rec;
+        const d = recDeltas(q, base);
+        const dl = !d ? '' : `<span class="rec-item-delta">${REC_DELTA_KEYS.map(([k, lk]) =>
+            `<span><span class="k">${esc(window.t(lk))}</span> ${d[k]}</span>`).join('')}</span>`;
+        quotedItem = `<button type="button" class="rec-item rec-quoted${cur === 'q' ? ' is-active' : ''}"`
+            + ` data-click='["readRecRow","q"]'>`
+            // The tag gets its own line: beside the name in the narrow list
+            // column it wrapped the chassis onto three lines.
+            + `<span class="rec-item-tagline"><span class="rec-quoted-tag">${esc(window.t('results.quoted_rank'))}</span></span>`
+            + `<span class="rec-item-top"><span class="rec-model">${esc(recDisplayModel(q))}</span>`
+            + `<span class="rec-item-pin">✓ ${esc(window.t('results.quoted_exported'))}</span></span>`
+            + `<span class="rec-item-meta"><span>${esc(window.t('results.nodes_count', {count: recNodeCount(q)}))}</span>`
+            + `<span>${q.cores_per_node}c</span><span>${formatRam(q.ram_per_node_gb)}</span>`
+            + `<span>${(q.totals.usable_storage_tb / recNodeCount(q)).toFixed(1)} TB</span></span>`
+            + dl + `</button>`;
+    }
 
     const items = recs.map((r, i) => {
         const d = recDeltas(r, base);
@@ -2329,6 +2394,27 @@ function recSplitHtml(recs, mode, demand, selIdx, width, ctx) {
             + dl + `</button>`;
     }).join('');
 
+    if (cur === 'q') {
+        const q = quoted.rec;
+        const d = recDeltas(q, base);
+        const paneDelta = !d ? '' : `<div class="rec-pane-delta"><span class="k">${esc(window.t('results.delta.per_node'))}</span>`
+            + REC_DELTA_KEYS.map(([k, lk]) =>
+                `<span><span class="k">${esc(window.t(lk))}</span> ${d[k]}</span>`).join('')
+            + `</div>`;
+        return `<div class="rec-split">`
+            + `<div class="rec-split-list" style="flex:0 0 ${listW}px">${quotedItem}${items}</div>`
+            + `<div class="rec-split-pane">`
+            + `<div class="rec-pane-head"><div class="rec-pane-title">`
+            + `<span class="rec-quoted-tag">${esc(window.t('results.quoted_rank'))}</span>`
+            + `<span class="rec-model">${esc(recDisplayModel(q))}</span>`
+            + `<span class="rec-category">${esc(q.category)}</span>${recRatioBadge(q)}`
+            + `<span class="rec-nodes">${esc(window.t('results.nodes_count', {count: recNodeCount(q)}))}</span>`
+            + `<span class="rec-select selected rec-exported">${esc(window.t('results.quoted_exported'))}</span>`
+            + `</div>${paneDelta}</div>`
+            + recCardHtml(q, -1, mode, demand, { bodyOnly: true, footerActions: false, noteHtml: quoted.noteHtml })
+            + `</div></div>`;
+    }
+
     const r = recs[cur];
     const d = recDeltas(r, base);
     const paneDelta = !d
@@ -2343,7 +2429,7 @@ function recSplitHtml(recs, mode, demand, selIdx, width, ctx) {
           + ` title="${esc(window.t('cluster.select_for_sizing_title'))}">${esc(ctx.pickLabel)}</button>`;
 
     return `<div class="rec-split">`
-        + `<div class="rec-split-list" style="flex:0 0 ${listW}px">${items}</div>`
+        + `<div class="rec-split-list" style="flex:0 0 ${listW}px">${quotedItem}${items}</div>`
         + `<div class="rec-split-pane">`
         + `<div class="rec-pane-head"><div class="rec-pane-title">`
         + `<span class="rec-rank">#${cur + 1}</span><span class="rec-model">${esc(recDisplayModel(r))}</span>`
@@ -2413,24 +2499,25 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
         pickLabel: window.t('results.select'),
         pickedLabel: window.t('results.selected'),
         footerActions: true,
+        quoted: quotedEntry(recommendations, selIdx),
     };
     const body = recView === 'split'
         ? recSplitHtml(recommendations, mode, demand, selIdx, width, ctx)
         : recRowsHtml(recommendations, mode, demand, selIdx, width, ctx);
-    recList.innerHTML = warningsHtml + quotedCardHtml(recommendations, selIdx, mode, demand)
-        + body + buildAssumptions(targetRatio);
+    recList.innerHTML = warningsHtml + body + buildAssumptions(targetRatio);
 }
 
-// ── the quoted-hardware card (export customization) ─────────────────────────
+// ── the quoted-hardware entry (export customization) ────────────────────────
 // When the sizing's exports describe other hardware than the engine picked — a
 // BOM check the partner sent, or an override typed on the project page — that
 // hardware gets its own card, first in the list. It is built by the server
 // (export_override.apply_to_rec, the same code the exports use) from the option
 // the sizing is based on, so the card and the document cannot disagree.
 //
-// Kept OUT of the engine's numbering and picker on purpose: the quoted card is
-// not a candidate the engine ranked, and while it exists the exports always
-// describe it, whichever option below is picked (owner decision 2026-09-17).
+// It is the first entry of the Rows / Split list (owner, 2026-09-17: part of the
+// list, not a card above it), but kept OUT of the engine's numbering and
+// picker: it is not a candidate the engine ranked, and while it exists the
+// exports always describe it, whichever option is picked.
 let quotedRecCache = {key: null, rec: null, pending: null};
 
 function quotedCardKey(base, selIdx) {
@@ -2442,26 +2529,25 @@ function quotedCardKey(base, selIdx) {
         base.utilization]);
 }
 
-function quotedCardHtml(recommendations, selIdx, mode, demand) {
+// {rec, note, noteHtml} for the list's first entry, or null. Fetched once per
+// base option (the server builds it); the list re-renders when it arrives.
+function quotedEntry(recommendations, selIdx) {
     const base = recommendations[Math.max(selIdx, 0)];
-    if (!base || !base.validated) return '';
+    if (!base || !base.validated) return null;
     const key = quotedCardKey(base, selIdx);
-    if (!key) return '';
+    if (!key) return null;
     if (quotedRecCache.key !== key) {
         fetchQuotedRec(key, base);
-        return '';
+        return null;
     }
     const q = quotedRecCache.rec;
-    if (!q) return '';
+    if (!q) return null;
     const ea = q.export_override || exportAsInfo || {};
     const note = ea.bom_check_name
         ? window.t('results.quoted_note_bom', {name: ea.bom_check_name})
         : window.t('results.quoted_note_manual');
     const noteHtml = `<div class="info-bar quoted-note"><span class="info-bar-icon">i</span><span>${esc(note)}</span></div>`;
-    return recCardHtml(q, -1, mode, demand, {
-        showPicker: false, footerActions: false, noteHtml,
-        rankLabel: window.t('results.quoted_rank'), cardClass: 'rec-quoted',
-    });
+    return {rec: q, note, noteHtml};
 }
 
 async function fetchQuotedRec(key, base) {

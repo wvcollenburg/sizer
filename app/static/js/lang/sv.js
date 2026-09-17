@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Offererad",
   "results.quoted_note_bom": "Hårdvara från stycklistekontroll {name}. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den under Exporteras som på projektsidan.",
   "results.quoted_note_manual": "Hårdvara angiven under Exporteras som. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den på projektsidan.",
-  "results.util.advice_over": "Denna hårdvara klarar inte den dimensionerade arbetslasten: den kräver {pct}% av klustrets kapacitet."
+  "results.util.advice_over": "Denna hårdvara klarar inte den dimensionerade arbetslasten: den kräver {pct}% av klustrets kapacitet.",
+  "results.quoted_exported": "Exporteras"
 };

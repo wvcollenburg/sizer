@@ -1645,5 +1645,6 @@
   "results.quoted_rank": "Pakutud",
   "results.quoted_note_bom": "Riistvara komponentide kontrollist {name}. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel jaotises Eksporditakse kui.",
   "results.quoted_note_manual": "Jaotises Eksporditakse kui sisestatud riistvara. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel.",
-  "results.util.advice_over": "See riistvara ei kanna mõõdetud töökoormust: see vajab {pct}% selle klastri mahust."
+  "results.util.advice_over": "See riistvara ei kanna mõõdetud töökoormust: see vajab {pct}% selle klastri mahust.",
+  "results.quoted_exported": "Eksporditakse"
 };
