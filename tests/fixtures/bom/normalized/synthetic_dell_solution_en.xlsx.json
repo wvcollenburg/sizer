@@ -1,0 +1,134 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "R6615- Full Configuration - All Flash",
+      "serverModel": "PowerEdge R6615",
+      "components": [
+        {
+          "partNumber": "210-BFUO",
+          "description": "PowerEdge R6615 Server",
+          "quantity": 2,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "379-BDTE",
+          "description": "No Rear Storage",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "338-CGXU",
+          "description": "AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800",
+          "quantity": 2,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "370-BCCY",
+          "description": "32GB RDIMM, 6400MT/s, Dual Rank",
+          "quantity": 12,
+          "category": "memory"
+        },
+        {
+          "partNumber": "405-AACD",
+          "description": "No Controller",
+          "quantity": 2,
+          "category": "other"
+        },
+        {
+          "partNumber": "345-BJNW",
+          "description": "7.68TB Data Center NVMe Read Intensive AG Drive U2 with carrier",
+          "quantity": 20,
+          "category": "storage"
+        },
+        {
+          "partNumber": "540-BCRX",
+          "description": "Broadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC",
+          "quantity": 2,
+          "category": "nic"
+        },
+        {
+          "partNumber": "407-BCGJ",
+          "description": "SFP28 SR Optic, 25GbE, 85C",
+          "quantity": 8,
+          "category": "other"
+        },
+        {
+          "partNumber": "403-BCID",
+          "description": "No BOSS Card",
+          "quantity": 2,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 2
+    },
+    {
+      "name": "R7615 - Hybrid",
+      "serverModel": "PowerEdge R7615",
+      "components": [
+        {
+          "partNumber": "210-BFVW",
+          "description": "PowerEdge R7615 Server",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CGXU",
+          "description": "AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800",
+          "quantity": 3,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "370-BCCY",
+          "description": "32GB RDIMM, 6400MT/s, Dual Rank",
+          "quantity": 18,
+          "category": "memory"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "C1, No RAID for HDDs/SSDs (Mixed Drive Types Allowed)",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "HBA355i Adapter LP",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "345-BELX",
+          "description": "7.68TB SSD SAS ISE, Read Intensive, up to 24Gbps 512e 2.5in with 3.5in HYB CARR",
+          "quantity": 6,
+          "category": "storage"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive",
+          "quantity": 18,
+          "category": "storage"
+        },
+        {
+          "partNumber": "540-BCRX",
+          "description": "Broadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "470-AEYU",
+          "description": "No Cables Required, No GPU Blanks",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BERC",
+          "description": "BOSS Blank",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "Solution Id: 7100002.1\nSolution Name: Example Two Options\nSolution Category: General\n\tGroup Name\tGroup ID\tProduct Name\tProduct Qty\tModule Name\tOption ID\tOption Name\tSKUs\tQty\tParent Order Code\n\tGroup 1\t7100002.1.1\tR6615- Full Configuration - All Flash\t2\n\t\t\t\t\tPowerEdge R6615\tGXA0001\tPowerEdge R6615 Server\t210-BFUO\t1\n\t\t\t\t\tFRONT STORAGE\tGXA0002\tChassis with up to 10x2.5\" Drives\t379-BDTF\t1\n\t\t\t\t\tREAR STORAGE\tGXA0003\tNo Rear Storage\t379-BDTE\t1\n\t\t\t\t\tProcessor\tGXA0004\tAMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800\t338-CGXU\t1\n\t\t\t\t\tProcessor Thermal Configuration\tGXA0005\tHigh Performance Heatsink, V2\t412-BBGB\t1\n\t\t\t\t\tMemory DIMM Type and Speed\tGXA0006\t6400MT/s RDIMMs\t370-BCCX\t1\n\t\t\t\t\tMemory Capacity\tGXA0007\t32GB RDIMM, 6400MT/s, Dual Rank\t370-BCCY\t6\n\t\t\t\t\tRAID/Internal Storage Controllers\tGXA0008\tNo Controller\t405-AACD\t1\n\t\t\t\t\tHard Drives (PCIe SSD/Flex Bay)\tGXA0009\t7.68TB Data Center NVMe Read Intensive AG Drive U2 with carrier\t345-BJNW\t10\n\t\t\t\t\tOCP 3.0 Network Adapters\tGXA0010\tBroadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC\t540-BCRX\t1\n\t\t\t\t\tOptics & Cables for Network Cards\tGXA0011\tSFP28 SR Optic, 25GbE, 85C\t407-BCGJ\t4\n\t\t\t\t\tBoot Optimized Storage Cards\tGXA0012\tNo BOSS Card\t403-BCID\t1\n\t\t\t\t\tEmbedded Systems Management\tGXA0013\tiDRAC9, Enterprise 16G\t528-CTIC\t1\n\t\t\t\t\tAnti Theft Device & Asset Tagging\tGXA0014\tAsset Tag - ProSupport (Website, barcode)\t293-10025\t1\n\t\t\t\t\tDell Services: Hardware Support\tGXA0015\tBasic Next Business Day 36 Months, 36 Month(s)\t709-BBIL\t1\n\tGroup 1\t7100002.1.1\tR7615 - Hybrid\t3\n\t\t\t\t\tPoweredge R7615\tGXB0001\tPowerEdge R7615 Server\t210-BFVW\t1\n\t\t\t\t\tProcessor\tGXB0002\tAMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800\t338-CGXU\t1\n\t\t\t\t\tMemory Capacity\tGXB0003\t32GB RDIMM, 6400MT/s, Dual Rank\t370-BCCY\t6\n\t\t\t\t\tRAID Configuration\tGXB0004\tC1, No RAID for HDDs/SSDs (Mixed Drive Types Allowed)\t780-BCDI\t1\n\t\t\t\t\tRAID/Internal Storage Controllers\tGXB0005\tHBA355i Adapter LP\t405-AAZF\t1\n\t\t\t\t\tHard Drives\tGXB0006\t7.68TB SSD SAS ISE, Read Intensive, up to 24Gbps 512e 2.5in with 3.5in HYB CARR\t345-BELX\t2\n\t\t\t\t\tHard Drives\tGXB0007\t8TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive\t161-BCPX\t6\n\t\t\t\t\tAdditional Network Cards\tGXB0008\tPCIe Blank Filler, Low Profile\t414-BBJB\t1\n\t\t\t\t\tOCP 3.0 Network Adapters\tGXB0009\tBroadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC\t540-BCRX\t1\n\t\t\t\t\tGPU/FPGA/Acceleration Cables\tGXB0010\tNo Cables Required, No GPU Blanks\t470-AEYU\t1\n\t\t\t\t\tBoot Optimized Storage Cards\tGXB0011\tBOSS Blank\t329-BERC\t1\n\t\t\t\t\tShipping\tGXB0012\tPowerEdge R7615 Shipping EMEA1\t340-DDLG\t1"
+}

@@ -59,7 +59,10 @@ FORMAT_SOLUTION = 'dell_solution'
 _HEADERS = {
     'group': ('group name', 'gruppenname'),
     'product': ('product name', 'produktname'),
-    'nodes': ('product quantity', 'produktmenge', 'produkt menge'),
+    # 'Product Qty' is what the English export actually says (2026-09-17,
+    # Darksite DACH); 'Product Quantity' kept in case another locale spells
+    # it out.
+    'nodes': ('product qty', 'product quantity', 'produktmenge', 'produkt menge'),
     'module': ('module name', 'name des moduls', 'modulname'),
     'option': ('option name', 'name der option', 'optionsname'),
     'skus': ('skus', 'sku'),
@@ -95,11 +98,14 @@ _MODULE_RULES: List[Tuple[str, object]] = [
     (r'secure onboarding|dokumentation|documentation|eccn', _DROP),
     (r'versand|shipping|verpackung|packaging|regulat|gesetzliche|regulierung', _DROP),
     (r'service|bereitstellung|deployment|diebstahlschutz|bestandskennzeichnung', _DROP),
+    (r'anti theft|asset tag|systems? management|systemverwaltung', _DROP),
     (r'smart selection|additional processor features', _DROP),
     # ── cabling and optics: hardware, but never a NIC ───────────────────────
     (r'kabel|cable|optic', _OTHER),
     # ── hardware ────────────────────────────────────────────────────────────
-    (r'^basis$|^base$|hauptplatine|motherboard', 'chassis'),
+    # The base module is 'Base' / 'Basis', or — in the English solution export
+    # — simply the server's name ('PowerEdge R6615').
+    (r'^basis$|^base$|^poweredge\b|hauptplatine|motherboard', 'chassis'),
     (r'gehause|gehäuse|chassis', 'chassis'),
     (r'prozessor|processor|cpu', 'cpu'),
     (r'speicherkapazitat|speicherkapazität|memory capacity|arbeitsspeicher', 'memory'),

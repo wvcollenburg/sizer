@@ -208,6 +208,24 @@ def test_synthetic_details_that_matter():
     # settings/services carry no hardware: BIOS, DIMM speed, shipping, support
     assert not {"384-BBBL", "370-BBRX", "340-DCEP", "709-BBIM"} & set(d)
 
+    # The same export in English, with two options in one sheet ("Darksite
+    # DACH"): 'Product Qty' in the header, the base module named after the
+    # server, and each group its own config with its own node count.
+    en = _load(os.path.join(NORMALIZED, "synthetic_dell_solution_en.xlsx.json"))["configs"]
+    assert [(c["name"], c["serverModel"], c["nodeCount"]) for c in en] == [
+        ("R6615- Full Configuration - All Flash", "PowerEdge R6615", 2),
+        ("R7615 - Hybrid", "PowerEdge R7615", 3)]
+    flash = {c["partNumber"]: c for c in en[0]["components"]}
+    hybrid = {c["partNumber"]: c for c in en[1]["components"]}
+    assert flash["210-BFUO"]["category"] == "chassis"        # 'PowerEdge R6615' module
+    assert flash["345-BJNW"]["quantity"] == 20               # 10 per node x 2
+    assert hybrid["161-BCPX"]["quantity"] == 18              # 6 per node x 3
+    assert hybrid["370-BCCY"]["quantity"] == 18              # 6 DIMMs x 3
+    assert hybrid["329-BERC"]["category"] == "other"         # BOSS Blank
+    # asset tagging, systems management, services, fillers, shipping: dropped
+    assert not {"293-10025", "528-CTIC", "709-BBIL"} & set(flash)
+    assert not {"414-BBJB", "340-DDLG"} & set(hybrid)
+
 
 # ─── template ─────────────────────────────────────────────────────────────────
 

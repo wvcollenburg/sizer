@@ -747,3 +747,14 @@ def test_german_hybrid_config_derives_both_tiers():
     assert not nodes['unresolved']
     tiers = {d['kind']: (d['capacity_tb'], d['qty_per_node']) for d in nodes['drives']}
     assert tiers == {'hdd': (8.0, 3), 'nvme': (7.68, 1)}
+
+
+def test_a_vendor_cpu_line_still_finds_its_spec_benchmark():
+    """Dell prints 'AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W)
+    DDR5-4800'. The SPEC lookup normalises the clock away but not the rest,
+    so the whole line missed and the BOM had no benchmark at all; the bare
+    model name is tried as a fallback."""
+    cpu = fit.resolve_cpu("AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800", 1)
+    assert cpu["source"] == "spec-cpu2017"
+    assert cpu["specrate_int"] == 358.0
+    assert (cpu["cores"], cpu["threads"]) == (32, 64)

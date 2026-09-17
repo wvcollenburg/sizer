@@ -728,6 +728,67 @@ def make_dell_solution_de():
     save_wb(wb, 'synthetic_dell_solution_de.xlsx')
 
 
+# ─── Dell solution export (English), two options in one file ────────────────
+# Modelled on the "Darksite DACH" quote: the English header says 'Product Qty'
+# (not 'Product Quantity'), the base module is named after the server
+# ('PowerEdge R6615') instead of 'Base', and two groups — an all-flash and a
+# hybrid option — share one sheet, each with its own node count.
+SOLUTION_EN_FLASH = [
+    ('PowerEdge R6615', 'GXA0001', 'PowerEdge R6615 Server', '210-BFUO', 1),
+    ('FRONT STORAGE', 'GXA0002', 'Chassis with up to 10x2.5" Drives', '379-BDTF', 1),
+    ('REAR STORAGE', 'GXA0003', 'No Rear Storage', '379-BDTE', 1),
+    ('Processor', 'GXA0004', 'AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800', '338-CGXU', 1),
+    ('Processor Thermal Configuration', 'GXA0005', 'High Performance Heatsink, V2', '412-BBGB', 1),
+    ('Memory DIMM Type and Speed', 'GXA0006', '6400MT/s RDIMMs', '370-BCCX', 1),
+    ('Memory Capacity', 'GXA0007', '32GB RDIMM, 6400MT/s, Dual Rank', '370-BCCY', 6),
+    ('RAID/Internal Storage Controllers', 'GXA0008', 'No Controller', '405-AACD', 1),
+    ('Hard Drives (PCIe SSD/Flex Bay)', 'GXA0009', '7.68TB Data Center NVMe Read Intensive AG Drive U2 with carrier', '345-BJNW', 10),
+    ('OCP 3.0 Network Adapters', 'GXA0010', 'Broadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC', '540-BCRX', 1),
+    ('Optics & Cables for Network Cards', 'GXA0011', 'SFP28 SR Optic, 25GbE, 85C', '407-BCGJ', 4),
+    ('Boot Optimized Storage Cards', 'GXA0012', 'No BOSS Card', '403-BCID', 1),
+    ('Embedded Systems Management', 'GXA0013', 'iDRAC9, Enterprise 16G', '528-CTIC', 1),
+    ('Anti Theft Device & Asset Tagging', 'GXA0014', 'Asset Tag - ProSupport (Website, barcode)', '293-10025', 1),
+    ('Dell Services: Hardware Support', 'GXA0015', 'Basic Next Business Day 36 Months, 36 Month(s)', '709-BBIL', 1),
+]
+SOLUTION_EN_HYBRID = [
+    ('Poweredge R7615', 'GXB0001', 'PowerEdge R7615 Server', '210-BFVW', 1),
+    ('Processor', 'GXB0002', 'AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800', '338-CGXU', 1),
+    ('Memory Capacity', 'GXB0003', '32GB RDIMM, 6400MT/s, Dual Rank', '370-BCCY', 6),
+    ('RAID Configuration', 'GXB0004', 'C1, No RAID for HDDs/SSDs (Mixed Drive Types Allowed)', '780-BCDI', 1),
+    ('RAID/Internal Storage Controllers', 'GXB0005', 'HBA355i Adapter LP', '405-AAZF', 1),
+    ('Hard Drives', 'GXB0006', '7.68TB SSD SAS ISE, Read Intensive, up to 24Gbps 512e 2.5in with 3.5in HYB CARR', '345-BELX', 2),
+    ('Hard Drives', 'GXB0007', '8TB Hard Drive SAS ISE 12Gbps 7.2K 512e 3.5in Hot-Plug, AG Drive', '161-BCPX', 6),
+    ('Additional Network Cards', 'GXB0008', 'PCIe Blank Filler, Low Profile', '414-BBJB', 1),
+    ('OCP 3.0 Network Adapters', 'GXB0009', 'Broadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC', '540-BCRX', 1),
+    ('GPU/FPGA/Acceleration Cables', 'GXB0010', 'No Cables Required, No GPU Blanks', '470-AEYU', 1),
+    ('Boot Optimized Storage Cards', 'GXB0011', 'BOSS Blank', '329-BERC', 1),
+    ('Shipping', 'GXB0012', 'PowerEdge R7615 Shipping EMEA1', '340-DDLG', 1),
+]
+
+
+def make_dell_solution_en():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Example Two Options'
+    put(ws, 2, {'A': 'Solution Id: 7100002.1'})
+    put(ws, 3, {'A': 'Solution Name: Example Two Options'})
+    put(ws, 4, {'A': 'Solution Category: General'})
+    put(ws, 6, {'B': 'Group Name', 'C': 'Group ID', 'D': 'Product Name', 'E': 'Product Qty',
+                'F': 'Module Name', 'G': 'Option ID', 'H': 'Option Name', 'I': 'SKUs',
+                'J': 'Qty', 'K': 'Parent Order Code'})
+    r = 7
+    # Both groups carry the same Group name/ID in the real file; only the
+    # product row tells them apart.
+    for product, nodes, rows in (('R6615- Full Configuration - All Flash ', 2, SOLUTION_EN_FLASH),
+                                 ('R7615 - Hybrid ', 3, SOLUTION_EN_HYBRID)):
+        put(ws, r, {'B': 'Group 1', 'C': '7100002.1.1', 'D': product, 'E': nodes})
+        r += 1
+        for module, oid, option, skus, qty in rows:
+            put(ws, r, {'F': module, 'G': oid, 'H': option, 'I': skus, 'J': qty})
+            r += 1
+    save_wb(wb, 'synthetic_dell_solution_en.xlsx')
+
+
 # ─── hand-typed Dell lists ───────────────────────────────────────────────────
 
 R660_ROWS = [
@@ -860,6 +921,7 @@ FIXTURES = [
     ('synthetic_dh_bid.xlsx', make_dh_bid, 'dh_bid'),
     ('synthetic_dell_vnet.xlsx', make_dell_vnet, 'dell_vnet'),
     ('synthetic_dell_solution_de.xlsx', make_dell_solution_de, 'dell_solution'),
+    ('synthetic_dell_solution_en.xlsx', make_dell_solution_en, 'dell_solution'),
     ('synthetic_dell_lists.xlsx', make_dell_lists, 'dell_list_sku'),
     ('synthetic_dell_columns.xlsx', make_dell_columns, 'dell_list_columns'),
     ('synthetic_template.xlsx', make_template, 'template'),

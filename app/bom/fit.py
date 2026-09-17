@@ -77,6 +77,13 @@ _NIC_NX_RE = re.compile(r"(\d+)\s*x\s*\d+(?:\.\d+)?\s*G(?:b|ig)", re.IGNORECASE)
 _CPU_CORES_RE = re.compile(r"(\d+)\s*C\b|(\d+)-Core", re.IGNORECASE)
 _CPU_THREADS_RE = re.compile(r"(\d+)\s*T\b", re.IGNORECASE)
 _CPU_GHZ_RE = re.compile(r"(\d+(?:\.\d+)?)\s*GHz", re.IGNORECASE)
+# The model name inside a vendor CPU line, for the SPEC lookup:
+# 'AMD EPYC 9334', 'Intel Xeon Gold 6526Y', 'Intel Xeon 6 Performance 6745P'.
+_CPU_MODEL_TOKEN_RE = re.compile(
+    r"(?:AMD\s+EPYC\s+\d{4}[A-Z0-9]*"
+    r"|(?:Intel\s+)?Xeon\s+(?:6\s+\w+\s+|(?:Platinum|Gold|Silver|Bronze|Max)\s+)?"
+    r"[A-Z]?-?\d{4,5}[A-Z0-9]*)",
+    re.IGNORECASE)
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -407,8 +414,15 @@ def resolve_cpu(model_text: str, qty: int) -> Dict[str, Any]:
         return out
 
     # Unknown to both catalogs: SPECrate from the broad lookup (throughput only)
-    # and cores/threads/clock from whatever the BOM text prints.
+    # and cores/threads/clock from whatever the BOM text prints. The lookup
+    # normalises away clock speeds but not the rest of a vendor order line
+    # ('AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800'), so the
+    # bare model name is tried when the whole line misses.
     hit = cpu_benchmarks.lookup(model_text or "")
+    if not hit:
+        token = _CPU_MODEL_TOKEN_RE.search(model_text or "")
+        if token:
+            hit = cpu_benchmarks.lookup(token.group(0))
     m_c = _CPU_CORES_RE.search(model_text or "")
     m_t = _CPU_THREADS_RE.search(model_text or "")
     m_g = _CPU_GHZ_RE.search(model_text or "")
