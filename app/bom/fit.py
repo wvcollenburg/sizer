@@ -33,7 +33,7 @@ resolution skips the catalog table) so tests and background jobs can run it
 without an app context. Python 3.9-compatible.
 """
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from tunables import T
 from recommend import (_cluster_layout, _cluster_usable_storage,
@@ -549,6 +549,13 @@ def cluster_from_nodes(node_model: Dict[str, Any],
         drive_counts[key] = drive_counts.get(key, 0) + d["qty_per_node"]
     raw_per_node = sum(raw_by_kind.values())
     biggest = max((d["capacity_tb"] for d in drives), default=0.0)
+    # Per-node drive spec, merged on (tier, size), so a consumer can name the
+    # disk ('4 x 7.68 TB NVMe') instead of only counting it. Stored in the
+    # check result (export_override reads it to describe quoted hardware).
+    drive_spec = {}      # type: Dict[Tuple[str, float], int]
+    for d in drives:
+        spec_key = (TIER_KEY[d["kind"]], round(float(d["capacity_tb"]), 3))
+        drive_spec[spec_key] = drive_spec.get(spec_key, 0) + d["qty_per_node"]
     if drives:
         if total > 1:
             usable_tb = _cluster_usable_storage(raw_per_node, biggest, layout)
@@ -605,6 +612,8 @@ def cluster_from_nodes(node_model: Dict[str, Any],
         "ram_per_node_gb": ram_gb, "ram_overhead_gb": ram_overhead,
         "usable_ram_per_node": usable_ram,
         "ram_full": usable_ram * hci, "ram_n1": usable_ram * n1_hci,
+        "drive_spec": [{"kind": k, "capacity_tb": cap, "qty_per_node": n}
+                       for (k, cap), n in drive_spec.items()],
         "raw_storage_tb": raw_per_node * total, "raw_per_node_tb": raw_per_node,
         "usable_storage_tb": usable_tb, "biggest_disk_tb": biggest,
         "raw_by_kind": {t: v * total for t, v in raw_by_kind.items()},
@@ -1165,6 +1174,12 @@ def _cluster_summary(c: Dict[str, Any]) -> Dict[str, Any]:
         "usable_storage_tb": _round(c["usable_storage_tb"], "TB"),
         "usable_by_kind_tb": {k: _round(v, "TB") for k, v in c["usable_by_kind"].items()},
         "drive_counts": c["drive_counts"], "bays": c["bays"],
+        # Per-node disks with their sizes, plus the two figures the engine's
+        # usable-storage maths needs, so the hardware can be re-laid-out
+        # (another node count) without the original BOM.
+        "drives": c.get("drive_spec") or [],
+        "raw_per_node_tb": _round(c.get("raw_per_node_tb") or 0.0, "TB"),
+        "biggest_disk_tb": _round(c.get("biggest_disk_tb") or 0.0, "TB"),
         "storage_category": c["storage_category"],
         "nic_gbe": c["nic_gbe"], "nic_ports": c["nic_ports"],
     }

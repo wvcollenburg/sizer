@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM per node (GB)",
   "exportas.nodes": "Noder",
   "exportas.storage": "Lagring per node",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Bruk anbefalingen",
   "exportas.badge_bom_hint": "Eksportene navngir {chassis}, fra stykklistekontroll {bom}.",
   "exportas.badge_manual_hint": "Eksportene navngir {chassis}.",
-  "exportas.save_failed": "Kunne ikke lagre. Prøv igjen."
+  "exportas.save_failed": "Kunne ikke lagre. Prøv igjen.",
+  "exportas.drives": "Disker per node",
+  "exportas.drives_hint": "Opptil to nivåer. Rå og brukbar lagring beregnes ut fra disse.",
+  "exportas.drive_count": "Antall",
+  "exportas.drive_size": "Størrelse (TB)",
+  "exportas.drive_type": "Type",
+  "results.quoted_rank": "Tilbudt",
+  "results.quoted_note_bom": "Maskinvare fra stykklistekontroll {name}. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den under Eksporteres som på prosjektsiden.",
+  "results.quoted_note_manual": "Maskinvare lagt inn under Eksporteres som. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den på prosjektsiden.",
+  "results.util.advice_over": "Denne maskinvaren kan ikke bære den dimensjonerte arbeidsbelastningen: den krever {pct}% av klyngens kapasitet."
 };

@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM per node (GB)",
   "exportas.nodes": "Nodes",
   "exportas.storage": "Opslag per node",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Gebruik de aanbeveling",
   "exportas.badge_bom_hint": "De exports noemen {chassis}, uit BOM-controle {bom}.",
   "exportas.badge_manual_hint": "De exports noemen {chassis}.",
-  "exportas.save_failed": "Opslaan is niet gelukt. Probeer het opnieuw."
+  "exportas.save_failed": "Opslaan is niet gelukt. Probeer het opnieuw.",
+  "exportas.drives": "Schijven per node",
+  "exportas.drives_hint": "Maximaal twee lagen. Ruwe en bruikbare opslag worden hieruit berekend.",
+  "exportas.drive_count": "Aantal",
+  "exportas.drive_size": "Grootte (TB)",
+  "exportas.drive_type": "Type",
+  "results.quoted_rank": "Geoffreerd",
+  "results.quoted_note_bom": "Hardware uit BOM-controle {name}. Exports beschrijven altijd deze hardware; wis dit onder Exporteert als op de projectpagina om een optie hieronder te exporteren.",
+  "results.quoted_note_manual": "Hardware ingevuld onder Exporteert als. Exports beschrijven altijd deze hardware; wis dit op de projectpagina om een optie hieronder te exporteren.",
+  "results.util.advice_over": "Deze hardware kan de gedimensioneerde workload niet dragen: die vraagt {pct}% van de capaciteit van dit cluster."
 };

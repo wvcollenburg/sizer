@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM par nœud (Go)",
   "exportas.nodes": "Nœuds",
   "exportas.storage": "Stockage par nœud",
-  "exportas.storage_ph": "6 x 7,68 To NVMe",
   "exportas.reset": "Utiliser la recommandation",
   "exportas.badge_bom_hint": "Les exports nomment {chassis}, d'après la vérification de nomenclature {bom}.",
   "exportas.badge_manual_hint": "Les exports nomment {chassis}.",
-  "exportas.save_failed": "L'enregistrement a échoué. Veuillez réessayer."
+  "exportas.save_failed": "L'enregistrement a échoué. Veuillez réessayer.",
+  "exportas.drives": "Disques par nœud",
+  "exportas.drives_hint": "Jusqu'à deux niveaux. Le stockage brut et utile en est calculé.",
+  "exportas.drive_count": "Nombre",
+  "exportas.drive_size": "Taille (To)",
+  "exportas.drive_type": "Type",
+  "results.quoted_rank": "Proposé",
+  "results.quoted_note_bom": "Matériel issu de la vérification de nomenclature {name}. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sous Exporté comme sur la page du projet.",
+  "results.quoted_note_manual": "Matériel saisi sous Exporté comme. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sur la page du projet.",
+  "results.util.advice_over": "Ce matériel ne peut pas porter la charge dimensionnée : elle requiert {pct}% de la capacité de ce cluster."
 };

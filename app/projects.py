@@ -1659,10 +1659,19 @@ def _export_override_state(sizing, user):
             "technical_verdict": c.technical_verdict,
             "fit_verdict": c.fit_verdict,
             "checked_at": _iso_or_none(c.checked_at),
-            "values": {k: v for k, v in export_override.bom_values(c).items()
-                       if not k.startswith("_")},
+            "values": _check_values_for_display(c),
         } for c in checks],
     }
+
+
+def _check_values_for_display(check):
+    """A BOM check's override values as the dialog shows them: the disks as one
+    readable line, whichever form (sized disks or legacy counts) the check has."""
+    values = {k: v for k, v in export_override.bom_values(check).items()
+              if not k.startswith("_")}
+    if values.get("drives"):
+        values["storage_desc"] = export_override.drives_desc(values["drives"])
+    return values
 
 
 def _iso_or_none(value):
@@ -1703,6 +1712,40 @@ def set_export_override(config_id):
     state = _export_override_state(sizing, user)
     state["sizing"] = sizing.to_summary(user, "owned")
     return jsonify(state)
+
+
+@sizings_bp.route("/<int:config_id>/export-override/preview", methods=["POST"])
+@login_required
+def preview_export_override(config_id):
+    """The quoted-hardware card for the sizing screen.
+
+    The screen's recommendations are calculated live, so the client posts the
+    engine option the sizing is based on and gets it back as the quoted
+    hardware — through the same export_override.apply_to_rec the exports use,
+    so the #1 card can never show other figures than the document. Read-only:
+    nothing is stored, and a caller can only ever get their own posted dict
+    back transformed, so it is open to anyone who can see the sizing.
+    """
+    from auth import _config_source_for
+    from recommend import _rec_network_svg
+
+    user = current_user()
+    sizing = db.session.get(Configuration, config_id)
+    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
+        return jsonify({"error": "Sizing not found"}), 404
+    rec = (request.json or {}).get("recommendation")
+    if not isinstance(rec, dict):
+        return jsonify({"error": "A recommendation is required"}), 400
+
+    override = export_override.resolve(sizing)
+    if not override or not export_override.applies_to(rec):
+        return jsonify({"recommendation": None, "effective": None})
+    quoted = export_override.apply_to_rec(rec, override)
+    # The diagram follows the quoted node count and NIC ports, exactly as the
+    # exports regenerate it.
+    quoted["network_svg"] = _rec_network_svg(quoted) or quoted.get("network_svg")
+    return jsonify({"recommendation": quoted,
+                    "effective": export_override.badge_for(sizing)})
 
 
 @sizings_bp.route("/<int:config_id>/chassis-options", methods=["GET"])

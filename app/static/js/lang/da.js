@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM pr. node (GB)",
   "exportas.nodes": "Noder",
   "exportas.storage": "Lagring pr. node",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Brug anbefalingen",
   "exportas.badge_bom_hint": "Eksporterne nævner {chassis}, fra styklistetjek {bom}.",
   "exportas.badge_manual_hint": "Eksporterne nævner {chassis}.",
-  "exportas.save_failed": "Kunne ikke gemme. Prøv igen."
+  "exportas.save_failed": "Kunne ikke gemme. Prøv igen.",
+  "exportas.drives": "Diske pr. node",
+  "exportas.drives_hint": "Op til to niveauer. Rå og brugbar lagerplads beregnes ud fra disse.",
+  "exportas.drive_count": "Antal",
+  "exportas.drive_size": "Størrelse (TB)",
+  "exportas.drive_type": "Type",
+  "results.quoted_rank": "Tilbudt",
+  "results.quoted_note_bom": "Hardware fra styklistetjek {name}. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den under Eksporteres som på projektsiden.",
+  "results.quoted_note_manual": "Hardware indtastet under Eksporteres som. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den på projektsiden.",
+  "results.util.advice_over": "Denne hardware kan ikke bære den dimensionerede arbejdsbelastning: den kræver {pct}% af klyngens kapacitet."
 };

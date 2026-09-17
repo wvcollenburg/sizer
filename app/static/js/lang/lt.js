@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM vienam mazgui (GB)",
   "exportas.nodes": "Mazgai",
   "exportas.storage": "Saugykla vienam mazgui",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Naudoti rekomendaciją",
   "exportas.badge_bom_hint": "Eksportai įvardija {chassis}, iš patikros {bom}.",
   "exportas.badge_manual_hint": "Eksportai įvardija {chassis}.",
-  "exportas.save_failed": "Nepavyko išsaugoti. Bandykite dar kartą."
+  "exportas.save_failed": "Nepavyko išsaugoti. Bandykite dar kartą.",
+  "exportas.drives": "Diskai vienam mazgui",
+  "exportas.drives_hint": "Iki dviejų lygių. Neapdorota ir naudojama saugykla apskaičiuojama pagal juos.",
+  "exportas.drive_count": "Kiekis",
+  "exportas.drive_size": "Dydis (TB)",
+  "exportas.drive_type": "Tipas",
+  "results.quoted_rank": "Pasiūlyta",
+  "results.quoted_note_bom": "Įranga iš specifikacijos patikros {name}. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją skiltyje Eksportuojama kaip projekto puslapyje.",
+  "results.quoted_note_manual": "Skiltyje Eksportuojama kaip įvesta įranga. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją projekto puslapyje.",
+  "results.util.advice_over": "Ši įranga negali atlaikyti apskaičiuotos apkrovos: jai reikia {pct}% šio klasterio talpos."
 };

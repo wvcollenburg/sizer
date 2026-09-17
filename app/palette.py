@@ -72,6 +72,12 @@ UTIL_SNAPSHOT_HATCH = (SC_500, SC_100)    # snapshot reserve (storage only), -45
 UTIL_REPLICATION_HATCH = ("A16207", "FDE047")  # replication (DR) reserve, +45deg gold
 UTIL_HA_HATCH = (SC_400, SC_100)          # HA failover reserve, -45deg
 UTIL_TRACK = BORDER          # free / unused
+# Demand beyond 100 % of capacity — only ever drawn for quoted hardware that
+# cannot carry the workload (export_override). Brighter than UTIL_NOW_HIGH so
+# "over capacity" never reads as merely "busy". Paired with .util-over in
+# style.css.
+UTIL_OVER = "DC2626"
+UTIL_OVER_MARK = TEXT        # the 100 % capacity marker on a rescaled axis
 UTIL_HAIRLINE = BORDER_STRONG
 
 

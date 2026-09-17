@@ -1633,9 +1633,17 @@
   "exportas.ram": "Mälu sõlme kohta (GB)",
   "exportas.nodes": "Sõlmed",
   "exportas.storage": "Salvestusruum sõlme kohta",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Kasuta soovitust",
   "exportas.badge_bom_hint": "Eksport nimetab {chassis}, kontrollist {bom}.",
   "exportas.badge_manual_hint": "Eksport nimetab {chassis}.",
-  "exportas.save_failed": "Salvestamine ebaõnnestus. Proovi uuesti."
+  "exportas.save_failed": "Salvestamine ebaõnnestus. Proovi uuesti.",
+  "exportas.drives": "Kettaid sõlme kohta",
+  "exportas.drives_hint": "Kuni kaks taset. Toor- ja kasutatav salvestusruum arvutatakse nende põhjal.",
+  "exportas.drive_count": "Arv",
+  "exportas.drive_size": "Suurus (TB)",
+  "exportas.drive_type": "Tüüp",
+  "results.quoted_rank": "Pakutud",
+  "results.quoted_note_bom": "Riistvara komponentide kontrollist {name}. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel jaotises Eksporditakse kui.",
+  "results.quoted_note_manual": "Jaotises Eksporditakse kui sisestatud riistvara. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel.",
+  "results.util.advice_over": "See riistvara ei kanna mõõdetud töökoormust: see vajab {pct}% selle klastri mahust."
 };

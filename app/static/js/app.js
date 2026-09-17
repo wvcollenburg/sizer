@@ -2088,6 +2088,7 @@ function exportAsNoticeHtml() {
 async function loadExportAsInfo() {
     const id = window.loadedConfigId ? window.loadedConfigId() : null;
     exportAsInfo = null;
+    quotedRecCache = {key: null, rec: null, pending: null};
     if (id) {
         try {
             const res = await fetch(`/api/sizings/${id}/export-override`,
@@ -2096,6 +2097,9 @@ async function loadExportAsInfo() {
         } catch (e) { /* the badge is informational; never block the sizer */ }
     }
     renderRecToolbar('rec-toolbar', recSaveSpec());
+    // The quoted card depends on the badge; a list rendered before it arrived
+    // has none yet.
+    if (exportAsInfo && typeof rerenderRecommendations === 'function') rerenderRecommendations();
 }
 
 // The per-sizing list's Save: stores in place, dot while anything is unsaved.
@@ -2413,7 +2417,69 @@ function renderRecommendationsTo(recommendations, listId, sliderId, mode, warnin
     const body = recView === 'split'
         ? recSplitHtml(recommendations, mode, demand, selIdx, width, ctx)
         : recRowsHtml(recommendations, mode, demand, selIdx, width, ctx);
-    recList.innerHTML = warningsHtml + body + buildAssumptions(targetRatio);
+    recList.innerHTML = warningsHtml + quotedCardHtml(recommendations, selIdx, mode, demand)
+        + body + buildAssumptions(targetRatio);
+}
+
+// ── the quoted-hardware card (export customization) ─────────────────────────
+// When the sizing's exports describe other hardware than the engine picked — a
+// BOM check the partner sent, or an override typed on the project page — that
+// hardware gets its own card, first in the list. It is built by the server
+// (export_override.apply_to_rec, the same code the exports use) from the option
+// the sizing is based on, so the card and the document cannot disagree.
+//
+// Kept OUT of the engine's numbering and picker on purpose: the quoted card is
+// not a candidate the engine ranked, and while it exists the exports always
+// describe it, whichever option below is picked (owner decision 2026-09-17).
+let quotedRecCache = {key: null, rec: null, pending: null};
+
+function quotedCardKey(base, selIdx) {
+    const id = window.loadedConfigId ? window.loadedConfigId() : null;
+    if (!id || !base || !exportAsInfo) return null;
+    return JSON.stringify([id, selIdx, exportAsInfo, base.model, base.node_count,
+        base.cpu, base.cores_per_node, base.ram_per_node_gb,
+        (base.storage_config || {}).desc, (base.totals || {}).usable_storage_tb,
+        base.utilization]);
+}
+
+function quotedCardHtml(recommendations, selIdx, mode, demand) {
+    const base = recommendations[Math.max(selIdx, 0)];
+    if (!base || !base.validated) return '';
+    const key = quotedCardKey(base, selIdx);
+    if (!key) return '';
+    if (quotedRecCache.key !== key) {
+        fetchQuotedRec(key, base);
+        return '';
+    }
+    const q = quotedRecCache.rec;
+    if (!q) return '';
+    const ea = q.export_override || exportAsInfo || {};
+    const note = ea.bom_check_name
+        ? window.t('results.quoted_note_bom', {name: ea.bom_check_name})
+        : window.t('results.quoted_note_manual');
+    const noteHtml = `<div class="info-bar quoted-note"><span class="info-bar-icon">i</span><span>${esc(note)}</span></div>`;
+    return recCardHtml(q, -1, mode, demand, {
+        showPicker: false, footerActions: false, noteHtml,
+        rankLabel: window.t('results.quoted_rank'), cardClass: 'rec-quoted',
+    });
+}
+
+async function fetchQuotedRec(key, base) {
+    if (quotedRecCache.pending === key) return;
+    quotedRecCache.pending = key;
+    const id = window.loadedConfigId ? window.loadedConfigId() : null;
+    let rec = null;
+    try {
+        const res = await fetch(`/api/sizings/${id}/export-override/preview`, {
+            method: 'POST', credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({recommendation: base}),
+        });
+        if (res.ok) rec = (await res.json()).recommendation || null;
+    } catch (e) { /* the card is additive; never block the sizer on it */ }
+    if (quotedRecCache.pending !== key) return;   // superseded meanwhile
+    quotedRecCache = {key, rec, pending: null};
+    if (rec) rerenderRecommendations();
 }
 
 // Re-render when the container crosses a threshold that changes the column set.
@@ -2570,12 +2636,13 @@ function recCardHtml(r, i, mode, demand, opts) {
                 </div>` : '';
     // A Validated card is named after its vendor chassis; the SC model it was
     // sized from is still worth knowing, so it sits quietly in the footer.
-    const scEquivalent = (r.vendor_chassis && r.model && !r.validated_only)
+    // Not on the quoted card: its SC model is the SIZED box's, not the quote's.
+    const scEquivalent = (r.vendor_chassis && r.model && !r.validated_only && !r.export_override)
         ? ` &mdash; ${esc(window.t('results.sc_equivalent', {model: r.model}))}`
         : '';
     const header = `
             <div class="rec-header">
-                <span class="rec-rank">#${i + 1}</span>
+                <span class="rec-rank">${opts.rankLabel ? esc(opts.rankLabel) : '#' + (i + 1)}</span>
                 <span class="rec-model">${modelLabel}</span>
                 <span class="rec-category">${r.category}</span>
                 ${ratioBadge}
@@ -2585,6 +2652,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             </div>`;
 
     const body = `
+            ${opts.noteHtml || ''}
             ${formatPerfLine(r)}
             ${formatDeterminant(r.determinant)}
             ${formatComputeFloorLine(r)}
@@ -2637,7 +2705,7 @@ function recCardHtml(r, i, mode, demand, opts) {
     // their own header, so they take the body alone.
     if (opts.bodyOnly) return body;
     return `
-        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''}">
+        <div class="rec-card ${i === 0 ? 'rec-best' : ''} ${isSelected ? 'rec-selected' : ''} ${opts.cardClass || ''}">
             ${header}${body}
         </div>
     `;
@@ -2675,6 +2743,12 @@ function buildUtilAdvice(key, cur, tot, ha, r) {
                        {control: window.t('results.size_full_cluster')})
             + `</p>`;
     }
+    // Past capacity: only quoted hardware can get here (the engine never sizes
+    // over 100 %), and "little headroom" would badly understate it.
+    if (tot > 100) {
+        return `<p class="util-advice util-advice-warn">`
+            + window.t('results.util.advice_over', {pct: tot}) + `</p>`;
+    }
     // Day one already close to the ceiling: growth headroom exists on paper but
     // there is nothing left for the unplanned.
     if (cur >= 90) {
@@ -2695,6 +2769,13 @@ function buildUtilizationBars(r) {
     const rows = [['CPU', u.cpu], ['RAM', u.ram], ['Storage', u.storage]];
     const labelFor = k => k === 'Storage' ? window.t('results.util.storage') : k;
     let anyHa = false, anyRep = false;
+    // One axis for the card's bars, so they stay comparable. It is 100 for
+    // anything the engine sized, and only grows for quoted hardware too small
+    // for the workload (export_override): the capacity part is then drawn
+    // narrower, with a marker at 100 % and the demand past it in red.
+    // Clamped instead, an undersized quote would read as exactly full.
+    const axis = Math.max(100, ...rows.map(([, v]) => v
+        ? Math.max(Math.round(v.current || 0), Math.round(v.total || 0)) : 0));
     const bars = rows.map(([key, val]) => {
         if (!val) return '';
         // Bar = full (all-nodes) capacity. `current` is today's load; up to
@@ -2756,19 +2837,30 @@ function buildUtilizationBars(r) {
             keys.push(`<span class="util-key"><i class="util-sw util-sw-cap"></i>${window.t('results.util.capacity')}: ${fmt(a.capacity)} ${a.unit}</span>`);
         }
         const legend = keys.length ? `<div class="util-values">${keys.join('')}</div>` : '';
-
-        return `<div class="util-item">
-            <div class="util-row" title="${tip}">
-                <span class="util-label">${label}${bind}</span>
-                <span class="util-track">
-                    <span class="util-fill ${cls}" style="width:${curW}%"></span>
+        const fills = `<span class="util-fill ${cls}" style="width:${curW}%"></span>
                     <span class="util-fill util-snapshot" style="width:${snapW}%"></span>
                     <span class="util-fill util-reserve" style="width:${resW}%"></span>
                     <span class="util-fill util-replication" style="width:${repW}%"></span>
                     <span class="util-fill util-free" style="width:${freeW}%"></span>
-                    <span class="util-fill util-ha" style="width:${haW}%"></span>
-                </span>
-                <span class="util-pct" title="${window.t(snap > 0 ? 'results.util.pct_tooltip_snapshot' : 'results.util.pct_tooltip', {cur, tot})}">${cur}%<span class="util-pct-sized"> / ${tot}%</span></span>
+                    <span class="util-fill util-ha" style="width:${haW}%"></span>`;
+        // The segment widths above are shares of capacity, so on a rescaled
+        // axis they go unchanged into a narrower capacity track.
+        const over = Math.max(cur, tot) - 100;
+        const trackHtml = axis > 100
+            ? `<span class="util-track util-track-scaled">
+                    <span class="util-cap" style="width:${(100 / axis * 100).toFixed(2)}%">${fills}</span>
+                    <span class="util-mark"></span>
+                    ${over > 0 ? `<span class="util-over" style="width:${(over / axis * 100).toFixed(2)}%"></span>` : ''}
+                </span>`
+            : `<span class="util-track">
+                    ${fills}
+                </span>`;
+
+        return `<div class="util-item">
+            <div class="util-row" title="${tip}">
+                <span class="util-label">${label}${bind}</span>
+                ${trackHtml}
+                <span class="util-pct" title="${window.t(snap > 0 ? 'results.util.pct_tooltip_snapshot' : 'results.util.pct_tooltip', {cur, tot})}"><span class="${cur > 100 ? 'util-pct-over' : ''}">${cur}%</span><span class="util-pct-sized${tot > 100 ? ' util-pct-over' : ''}"> / ${tot}%</span></span>
             </div>
             ${legend}
             ${buildUtilAdvice(key, cur, tot, ha, r)}

@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM uz mezglu (GB)",
   "exportas.nodes": "Mezgli",
   "exportas.storage": "Krātuve uz mezglu",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Izmantot ieteikumu",
   "exportas.badge_bom_hint": "Eksporti nosauc {chassis}, no pārbaudes {bom}.",
   "exportas.badge_manual_hint": "Eksporti nosauc {chassis}.",
-  "exportas.save_failed": "Neizdevās saglabāt. Mēģiniet vēlreiz."
+  "exportas.save_failed": "Neizdevās saglabāt. Mēģiniet vēlreiz.",
+  "exportas.drives": "Diski uz mezglu",
+  "exportas.drives_hint": "Līdz diviem līmeņiem. Neapstrādātā un izmantojamā krātuve tiek aprēķināta no tiem.",
+  "exportas.drive_count": "Skaits",
+  "exportas.drive_size": "Izmērs (TB)",
+  "exportas.drive_type": "Tips",
+  "results.quoted_rank": "Piedāvāts",
+  "results.quoted_note_bom": "Aparatūra no specifikācijas pārbaudes {name}. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to sadaļā Eksportē kā projekta lapā.",
+  "results.quoted_note_manual": "Sadaļā Eksportē kā ievadīta aparatūra. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to projekta lapā.",
+  "results.util.advice_over": "Šī aparatūra nevar nodrošināt aprēķināto slodzi: tai vajag {pct}% no šī klastera jaudas."
 };

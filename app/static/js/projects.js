@@ -1527,8 +1527,8 @@ async function saveAndReturnToProject() {
 let exportAsState = null;      // {sizingId, setting, checks, effective, ...}
 
 const _EA_TEXT = {chassis: 'export-as-chassis', vendor: 'export-as-vendor',
-    form_factor: 'export-as-ff', cpu: 'export-as-cpu',
-    storage_desc: 'export-as-storage'};
+    form_factor: 'export-as-ff', cpu: 'export-as-cpu'};
+const _EA_DRIVE_ROWS = [1, 2];
 const _EA_NUM = {cores_per_node: 'export-as-cores',
     threads_per_node: 'export-as-threads', ram_per_node_gb: 'export-as-ram',
     node_count: 'export-as-nodes'};
@@ -1587,6 +1587,17 @@ function fillExportAsManual(manual) {
         const el = document.getElementById(id);
         if (el) el.value = manual[key] != null ? manual[key] : '';
     });
+    const drives = manual.drives || [];
+    _EA_DRIVE_ROWS.forEach((n, i) => {
+        const d = drives[i] || {};
+        const set = (suffix, v) => {
+            const el = document.getElementById(`export-as-d${n}-${suffix}`);
+            if (el) el.value = v != null ? v : '';
+        };
+        set('count', d.qty_per_node);
+        set('size', d.capacity_tb);
+        set('type', d.kind || '');
+    });
 }
 
 function readExportAsManual() {
@@ -1599,6 +1610,21 @@ function readExportAsManual() {
         const v = (document.getElementById(id) || {}).value || '';
         if (String(v).trim()) manual[key] = Number(v);
     });
+    // A row counts only when all three are filled; the server drops an
+    // incomplete one the same way, so a half-typed tier is never "0 disks".
+    const drives = _EA_DRIVE_ROWS.map(n => ({
+        count: (document.getElementById(`export-as-d${n}-count`) || {}).value || '',
+        size_tb: (document.getElementById(`export-as-d${n}-size`) || {}).value || '',
+        type: (document.getElementById(`export-as-d${n}-type`) || {}).value || '',
+    })).filter(d => d.count && d.size_tb && d.type);
+    if (drives.length) {
+        manual.drives = drives;
+    } else if (exportAsState && exportAsState.setting
+               && exportAsState.setting.manual && exportAsState.setting.manual.storage_desc) {
+        // A setting saved before disks were structured keeps its storage line
+        // until disks are entered here.
+        manual.storage_desc = exportAsState.setting.manual.storage_desc;
+    }
     return manual;
 }
 

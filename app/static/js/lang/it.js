@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM per nodo (GB)",
   "exportas.nodes": "Nodi",
   "exportas.storage": "Storage per nodo",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Usa la raccomandazione",
   "exportas.badge_bom_hint": "Le esportazioni indicano {chassis}, dalla verifica {bom}.",
   "exportas.badge_manual_hint": "Le esportazioni indicano {chassis}.",
-  "exportas.save_failed": "Salvataggio non riuscito. Riprova."
+  "exportas.save_failed": "Salvataggio non riuscito. Riprova.",
+  "exportas.drives": "Dischi per nodo",
+  "exportas.drives_hint": "Fino a due livelli. Lo storage grezzo e utilizzabile viene calcolato da questi.",
+  "exportas.drive_count": "Numero",
+  "exportas.drive_size": "Dimensione (TB)",
+  "exportas.drive_type": "Tipo",
+  "results.quoted_rank": "Offerto",
+  "results.quoted_note_bom": "Hardware dalla verifica della distinta base {name}. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo in Esportato come nella pagina del progetto.",
+  "results.quoted_note_manual": "Hardware inserito in Esportato come. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo nella pagina del progetto.",
+  "results.util.advice_over": "Questo hardware non può sostenere il carico dimensionato: richiede il {pct}% della capacità di questo cluster."
 };

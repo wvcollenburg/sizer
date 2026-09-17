@@ -1923,10 +1923,41 @@
                         </div>
                     </div>
                     <div class="panel-field">
-                        <label class="field-label" for="export-as-storage"
-                               data-i18n="exportas.storage">Storage per node</label>
-                        <input type="text" id="export-as-storage" class="text-input"
-                               data-i18n-ph="exportas.storage_ph" placeholder="6 x 7.68 TB NVMe">
+                        <span class="field-label" data-i18n="exportas.drives">Disks per node</span>
+                        <p class="field-hint" data-i18n="exportas.drives_hint">
+                            Up to two tiers. Raw and usable storage are worked out from these.
+                        </p>
+                        <div class="exportas-drive-head" aria-hidden="true">
+                            <span data-i18n="exportas.drive_count">Count</span>
+                            <span data-i18n="exportas.drive_size">Size (TB)</span>
+                            <span data-i18n="exportas.drive_type">Type</span>
+                        </div>
+                        <div class="exportas-drive-row">
+                            <input type="number" id="export-as-d1-count" class="text-input" min="1" max="64"
+                                   data-i18n-aria="exportas.drive_count" aria-label="Count">
+                            <input type="number" id="export-as-d1-size" class="text-input" min="0" step="0.01"
+                                   data-i18n-aria="exportas.drive_size" aria-label="Size (TB)">
+                            <select id="export-as-d1-type" class="text-input"
+                                    data-i18n-aria="exportas.drive_type" aria-label="Type">
+                                <option value="">—</option>
+                                <option value="NVMe">NVMe</option>
+                                <option value="SSD">SSD</option>
+                                <option value="HDD">HDD</option>
+                            </select>
+                        </div>
+                        <div class="exportas-drive-row">
+                            <input type="number" id="export-as-d2-count" class="text-input" min="1" max="64"
+                                   data-i18n-aria="exportas.drive_count" aria-label="Count">
+                            <input type="number" id="export-as-d2-size" class="text-input" min="0" step="0.01"
+                                   data-i18n-aria="exportas.drive_size" aria-label="Size (TB)">
+                            <select id="export-as-d2-type" class="text-input"
+                                    data-i18n-aria="exportas.drive_type" aria-label="Type">
+                                <option value="">—</option>
+                                <option value="NVMe">NVMe</option>
+                                <option value="SSD">SSD</option>
+                                <option value="HDD">HDD</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-error" id="export-as-error" hidden></div>

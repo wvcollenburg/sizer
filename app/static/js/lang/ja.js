@@ -1633,9 +1633,17 @@
   "exportas.ram": "ノードあたり RAM (GB)",
   "exportas.nodes": "ノード数",
   "exportas.storage": "ノードあたりストレージ",
-  "exportas.storage_ph": "6 x 7.68 TB NVMe",
   "exportas.reset": "推奨構成を使う",
   "exportas.badge_bom_hint": "エクスポートには {chassis}（BOM チェック {bom} 由来）と記載されます。",
   "exportas.badge_manual_hint": "エクスポートには {chassis} と記載されます。",
-  "exportas.save_failed": "保存できませんでした。もう一度お試しください。"
+  "exportas.save_failed": "保存できませんでした。もう一度お試しください。",
+  "exportas.drives": "ノードあたりのディスク",
+  "exportas.drives_hint": "最大 2 階層。raw 容量と使用可能容量はここから計算されます。",
+  "exportas.drive_count": "数量",
+  "exportas.drive_size": "サイズ (TB)",
+  "exportas.drive_type": "種類",
+  "results.quoted_rank": "見積構成",
+  "results.quoted_note_bom": "BOM チェック {name} のハードウェアです。エクスポートは常にこのハードウェアを記載します。下のオプションをエクスポートするには、プロジェクトページの「エクスポート名」で解除してください。",
+  "results.quoted_note_manual": "「エクスポート名」で入力したハードウェアです。エクスポートは常にこのハードウェアを記載します。下のオプションをエクスポートするには、プロジェクトページで解除してください。",
+  "results.util.advice_over": "このハードウェアでは想定ワークロードを処理できません。このクラスター容量の {pct}% が必要です。"
 };

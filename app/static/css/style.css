@@ -3962,3 +3962,68 @@ textarea.text-input:focus {
 }
 .exportas-dl dt { color: var(--text-muted); }
 .exportas-dl dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* ── utilization bars past 100 % (export customization) ──────────────────────
+   Only for quoted hardware too small for the workload: the axis is rescaled so
+   the largest figure fits, the capacity track is drawn narrower with a marker
+   at its end, and the demand past it is red. Paired with palette.UTIL_OVER /
+   UTIL_OVER_MARK in the PPTX/Word bars. */
+.util-track.util-track-scaled {
+    background: transparent;
+    overflow: visible;
+    border-radius: 0;
+}
+.util-cap {
+    flex: 0 0 auto;
+    display: flex;
+    height: 100%;
+    background: var(--border);
+    border-radius: 999px 0 0 999px;
+    overflow: hidden;
+}
+/* The 100 % line: taller than the bar, so it still reads against a red
+   overflow and a dark "now" fill on either side of it. */
+.util-mark {
+    flex: 0 0 2px;
+    align-self: center;
+    height: 170%;
+    background: var(--text);
+    border-radius: 1px;
+}
+.util-over {
+    flex: 0 0 auto;
+    height: 100%;
+    background: #dc2626;
+    border-radius: 0 999px 999px 0;
+}
+.util-pct-over,
+.util-pct .util-pct-sized.util-pct-over { color: #dc2626; font-weight: 700; }
+
+/* Structured disk rows in the "Exports as" dialog: count · size · type. */
+.exportas-drive-head,
+.exportas-drive-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 0 0.75rem;
+}
+.exportas-drive-head {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: 0.35rem 0 0.2rem;
+}
+.exportas-drive-row + .exportas-drive-row { margin-top: 0.5rem; }
+
+/* The quoted-hardware card: first in the list, outside the engine's ranking,
+   so it is framed as its own thing rather than as "the best option". */
+.rec-card.rec-quoted {
+    border: 2px solid var(--sc-700);
+    box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.08));
+    margin-bottom: 1rem;
+}
+/* A word, not a number: the round 28px rank badge would clip it. */
+.rec-card.rec-quoted .rec-rank {
+    width: auto;
+    border-radius: 999px;
+    padding: 0 0.7rem;
+}
+.rec-card.rec-quoted .quoted-note { margin: 0 0 0.6rem; }

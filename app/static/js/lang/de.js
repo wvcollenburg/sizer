@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM pro Knoten (GB)",
   "exportas.nodes": "Knoten",
   "exportas.storage": "Speicher pro Knoten",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Empfehlung verwenden",
   "exportas.badge_bom_hint": "Die Exporte nennen {chassis}, aus Stücklistenprüfung {bom}.",
   "exportas.badge_manual_hint": "Die Exporte nennen {chassis}.",
-  "exportas.save_failed": "Speichern fehlgeschlagen. Bitte erneut versuchen."
+  "exportas.save_failed": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+  "exportas.drives": "Laufwerke pro Knoten",
+  "exportas.drives_hint": "Bis zu zwei Stufen. Roh- und nutzbarer Speicher werden daraus berechnet.",
+  "exportas.drive_count": "Anzahl",
+  "exportas.drive_size": "Größe (TB)",
+  "exportas.drive_type": "Typ",
+  "results.quoted_rank": "Angeboten",
+  "results.quoted_note_bom": "Hardware aus Stücklistenprüfung {name}. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie unter Exportiert als auf der Projektseite.",
+  "results.quoted_note_manual": "Unter Exportiert als eingetragene Hardware. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie auf der Projektseite.",
+  "results.util.advice_over": "Diese Hardware kann die dimensionierte Workload nicht tragen: Sie benötigt {pct}% der Kapazität dieses Clusters."
 };

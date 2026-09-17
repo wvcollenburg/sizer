@@ -1633,9 +1633,17 @@
   "exportas.ram": "Muisti per solmu (Gt)",
   "exportas.nodes": "Solmut",
   "exportas.storage": "Tallennustila per solmu",
-  "exportas.storage_ph": "6 x 7,68 Tt NVMe",
   "exportas.reset": "Käytä suositusta",
   "exportas.badge_bom_hint": "Vienti nimeää {chassis}, tarkistuksesta {bom}.",
   "exportas.badge_manual_hint": "Vienti nimeää {chassis}.",
-  "exportas.save_failed": "Tallennus epäonnistui. Yritä uudelleen."
+  "exportas.save_failed": "Tallennus epäonnistui. Yritä uudelleen.",
+  "exportas.drives": "Levyt per solmu",
+  "exportas.drives_hint": "Enintään kaksi tasoa. Raaka- ja käytettävä tallennustila lasketaan näistä.",
+  "exportas.drive_count": "Määrä",
+  "exportas.drive_size": "Koko (Tt)",
+  "exportas.drive_type": "Tyyppi",
+  "results.quoted_rank": "Tarjottu",
+  "results.quoted_note_bom": "Laitteisto osaluettelon tarkistuksesta {name}. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se kohdassa Viedään nimellä projektisivulla.",
+  "results.quoted_note_manual": "Kohtaan Viedään nimellä syötetty laitteisto. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se projektisivulla.",
+  "results.util.advice_over": "Tämä laitteisto ei riitä mitoitetulle kuormalle: se vaatii {pct}% tämän klusterin kapasiteetista."
 };

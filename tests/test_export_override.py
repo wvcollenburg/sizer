@@ -6,12 +6,14 @@ proposal has to say R670. Three sources merged PER FIELD:
 
     manual override  >  linked BOM check  >  the recommendation
 
-These tests pin the owner's decisions of 2026-09-16:
+These tests pin the owner's decisions of 2026-09-16 and 2026-09-17:
   * only Validated recommendations are ever renamed;
   * a passing BOM check applies by itself, a failing one never does;
-  * per-node hardware follows the source, and the cluster totals follow the
-    per-node figures — while utilization, licensing and the compute floor keep
-    describing the SIZING, which is what they are an answer to;
+  * per-node hardware follows the source, and every figure that follows from
+    it follows too: totals, N-1, usable storage, the vCPU ratio, the compute
+    floor, the licence requirement and the utilization bars (demand kept,
+    capacity replaced, over 100 % NOT clamped);
+  * manual disks are structured and use the engine's own storage maths;
   * the stored snapshot is never mutated.
 
 Run: .venv/bin/python -m pytest tests/test_export_override.py -q
@@ -58,13 +60,37 @@ def _rec(validated=True):
         "node_count": 4,
         "hci_node_count": 4,
         "cluster_layout": [4],
-        "storage_config": {"desc": "4 x 3.84TB NVMe"},
         "totals": {"cores": 120, "threads": 256, "total_ghz": 358.4,
                    "ram_gb": 1920.0, "raw_storage_tb": 61.4,
                    "usable_storage_tb": 24.0},
         "n_minus_1": {"cores": 90, "threads": 192, "total_ghz": 268.8,
                       "ram_gb": 1440.0, "usable_storage_tb": 24.0},
-        "utilization": {"cpu": {"total": 70, "abs": {"capacity": 120}}},
+        "storage_config": {"desc": "4 x 3.84TB NVMe", "raw_per_node": 15.36,
+                           "biggest_disk": 3.84, "drive_counts": {"NVMe": 4}},
+        "cpu_perf_index": 400.0,
+        "vcpu_ratio": 3.75,
+        "vcpu_ratio_degraded": 3.75,
+        "sized_full_cluster": False,
+        "compute_floor": {"coverage_pct": 110.0, "ghz_pct": 120.0,
+                          "perf_pct": 100.0, "balance": 0.5,
+                          "source_cpu_util_pct": 40.0},
+        "iops": {"per_node": 100000, "total": 400000, "n_minus_1": 300000},
+        # Demand in real units (`abs`) and percentages of the sized capacity,
+        # the shape recommend.py stores.
+        "utilization": {
+            "cpu": {"current": 55, "total": 70, "replication": 0, "snapshot": 0,
+                    "ha_reserve": 25,
+                    "abs": {"current": 66, "total": 84, "snapshot": 0,
+                            "capacity": 120, "unit": "cores"}},
+            "ram": {"current": 50, "total": 65, "replication": 0, "snapshot": 0,
+                    "ha_reserve": 25,
+                    "abs": {"current": 960.0, "total": 1248.0, "snapshot": 0,
+                            "capacity": 1920.0, "unit": "GB"}},
+            "storage": {"current": 40, "total": 60, "replication": 0,
+                        "snapshot": 10, "ha_reserve": 0,
+                        "abs": {"current": 9.6, "total": 14.4, "snapshot": 2.4,
+                                "capacity": 24.0, "unit": "TB"}},
+        },
         "licensing": {"band": "49-64"},
     }
 
@@ -80,7 +106,7 @@ def _snapshot(rec=None):
 
 
 def _bom_result(server="PowerEdge R670", brand="dell", nodes=5, cores=48,
-                ram=768, threads=96, with_cluster=True):
+                ram=768, threads=96, with_cluster=True, drives=None):
     """The shape bom/check.py stores: technical config_results + the fit block
     whose `cluster` is bom/fit.py's derived cluster summary."""
     result = {
@@ -106,7 +132,12 @@ def _bom_result(server="PowerEdge R670", brand="dell", nodes=5, cores=48,
             "raw_storage_tb": 92.2, "usable_storage_tb": 36.0,
             "drive_counts": {"NVMe": 6}, "bays": 10,
             "storage_category": "flash", "nic_gbe": 25, "nic_ports": 2,
+            "perf_full": 500.0 * nodes, "perf_n1": 500.0 * (nodes - 1),
         }
+        if drives is not None:
+            # bom/fit.py stores per-node disk sizes since 2026-09-17; the
+            # default fixture above is an older check that only counted them.
+            result["fit"]["cluster"]["drives"] = drives
     return result
 
 
@@ -264,11 +295,173 @@ def test_cluster_totals_follow_the_quoted_hardware(sizing):
     assert out["n_minus_1"]["cores"] == cluster["cores_n1"]
 
 
-def test_utilization_and_licensing_still_describe_the_sizing(sizing):
+# ── bars, ratio, compute floor, licensing follow the quote (2026-09-17) ─────
+
+def test_bars_keep_the_demand_and_follow_the_quoted_capacity(sizing):
+    """The workload is the same, so demand (abs) is kept; only capacity moves.
+    Quoted: 5 x 48C (46 usable) / 768 GB (736 usable) / 36 TB usable."""
     _add_check(sizing)
     out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
-    assert out["utilization"] == _rec()["utilization"]
-    assert out["licensing"] == _rec()["licensing"]
+    cpu, ram, st = (out["utilization"][k] for k in ("cpu", "ram", "storage"))
+    assert cpu["abs"]["current"] == 66 and cpu["abs"]["total"] == 84   # demand kept
+    assert cpu["abs"]["capacity"] == 230
+    assert (cpu["current"], cpu["total"]) == (29, 37)                 # 66/230, 84/230
+    assert cpu["ha_reserve"] == 20                                    # (230-184)/230
+    assert ram["abs"]["capacity"] == 3680.0
+    assert (ram["current"], ram["total"], ram["ha_reserve"]) == (26, 34, 20)
+    assert st["abs"]["capacity"] == 36.0
+    assert (st["current"], st["total"], st["snapshot"]) == (27, 40, 7)
+    assert st["ha_reserve"] == 0
+
+
+def test_an_undersized_quote_reads_over_100_percent_not_clamped(sizing):
+    """A 2-node 16-core quote cannot carry 84 cores of demand. Clamped, it
+    would draw as 'exactly full' - the opposite of the truth."""
+    _add_check(sizing, result=_bom_result(nodes=2, cores=16, threads=32, ram=256))
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    cpu = out["utilization"]["cpu"]
+    assert cpu["abs"]["capacity"] == 14 * 2
+    assert cpu["total"] == 300 and cpu["current"] > 100
+
+
+def test_full_cluster_sizing_releases_the_cpu_ha_band_only(sizing):
+    rec = _rec()
+    rec["sized_full_cluster"] = True
+    _add_check(sizing)
+    out = eo.apply_to_rec(rec, eo.resolve(sizing))
+    assert out["utilization"]["cpu"]["ha_reserve"] == 0
+    assert out["utilization"]["ram"]["ha_reserve"] == 20
+
+
+def test_the_vcpu_ratio_follows_the_quoted_cores(sizing):
+    """Same vCPUs over 184 N-1 cores instead of 90."""
+    _add_check(sizing)
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["vcpu_ratio"] == round(3.75 * 90 / 184, 2)
+    assert out["vcpu_ratio_degraded"] == round(3.75 * 90 / 184, 2)
+
+
+def test_the_compute_floor_follows_a_bom_cpu(sizing):
+    """Coverage scales with (per-node supply x compute nodes). Sized: 2.8 GHz x
+    32C = 89.6 GHz and 400 perf per node over 3 N-1 nodes. Quoted: 80 GHz and
+    500 perf per node over 4 N-1 nodes."""
+    _add_check(sizing)
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    cf = out["compute_floor"]
+    ghz = round(120.0 * (80.0 * 4) / (89.6 * 3), 1)
+    perf = round(100.0 * (500.0 * 4) / (400.0 * 3), 1)
+    assert cf["ghz_pct"] == ghz and cf["perf_pct"] == perf
+    assert cf["coverage_pct"] == round(0.5 * ghz + 0.5 * perf, 1)
+    assert out["cpu_perf_index"] == 500.0
+
+
+def test_the_compute_floor_is_dropped_for_a_cpu_typed_by_hand(sizing):
+    """No catalog behind a typed CPU: its clock and benchmark are unknown, so
+    the coverage line is left out rather than guessed (owner decision)."""
+    sizing.export_override = {"bom": "none", "manual": {
+        "cpu": "2 x Some Future CPU", "cores_per_node": 64}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["compute_floor"] is None
+    assert out["cpu_perf_index"] is None
+
+
+def test_the_compute_floor_rescales_exactly_for_a_node_count_change(sizing):
+    """Same CPU, 6 nodes instead of 4: 5 N-1 compute nodes instead of 3."""
+    sizing.export_override = {"bom": "none", "manual": {"node_count": 6}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    cf = out["compute_floor"]
+    assert cf["ghz_pct"] == round(120.0 * 5 / 3, 1)
+    assert cf["perf_pct"] == round(100.0 * 5 / 3, 1)
+
+
+def test_licensing_is_recomputed_for_the_quoted_hardware(sizing, monkeypatch):
+    import recommend
+    seen = {}
+
+    def fake(layout, cores_per_node, ram_gb_per_node, term_years=None, region=None):
+        seen.update(layout=layout, cores=cores_per_node, ram=ram_gb_per_node)
+        return {"band": "quoted"}
+
+    monkeypatch.setattr(recommend, "license_annotations_for", fake)
+    _add_check(sizing)
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["licensing"] == {"band": "quoted"}
+    assert seen == {"layout": [5], "cores": 48, "ram": 768}
+
+
+def test_a_rename_only_override_leaves_every_figure_alone(sizing):
+    """Chassis only: nothing about the hardware changed, so the engine's own
+    numbers stay byte-for-byte - no rounding drift from a needless rebuild."""
+    sizing.export_override = {"bom": "none", "manual": {"chassis": "Dell PowerEdge R670"}}
+    rec = _rec()
+    out = eo.apply_to_rec(rec, eo.resolve(sizing))
+    for key in ("utilization", "totals", "n_minus_1", "compute_floor",
+                "licensing", "vcpu_ratio", "iops", "storage_config"):
+        assert out[key] == rec[key], key
+
+
+# ── disks (2026-09-17) ───────────────────────────────────────────────────────
+
+def test_clean_manual_keeps_complete_drive_rows_only():
+    cleaned = eo.clean_manual({"drives": [
+        {"type": "nvme", "size_tb": "7,68", "count": "4"},
+        {"type": "hdd", "size_tb": "", "count": 3},           # incomplete: dropped
+        {"type": "tape", "size_tb": 8, "count": 3},           # unknown type
+    ]})
+    assert cleaned == {"drives": [{"kind": "NVMe", "capacity_tb": 7.68, "qty_per_node": 4}]}
+
+
+def test_manual_disks_use_the_engines_usable_storage_maths(sizing):
+    """Hybrid, 4 nodes: RF2 plus one rebuild disk per cluster, exactly as
+    recommend._cluster_usable_storage computes it."""
+    from recommend import _cluster_usable_storage
+    sizing.export_override = {"bom": "none", "manual": {"drives": [
+        {"type": "HDD", "size_tb": 8, "count": 3},
+        {"type": "NVMe", "size_tb": 7.68, "count": 1}]}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    raw_pn = 3 * 8 + 7.68
+    assert out["storage_config"]["desc"] == "3 x 8 TB HDD + 1 x 7.68 TB NVMe"
+    assert out["totals"]["raw_storage_tb"] == round(raw_pn * 4, 2)
+    assert out["totals"]["usable_storage_tb"] == round(
+        _cluster_usable_storage(raw_pn, 8.0, [4]), 2)
+    assert out["utilization"]["storage"]["abs"]["capacity"] == out["totals"]["usable_storage_tb"]
+    # other disks: the sized IOPS no longer describe the node
+    assert out["iops"] is None
+
+
+def test_a_node_count_change_relays_out_the_sized_disks(sizing):
+    """Limit fixed 2026-09-17: a manual node count used to leave storage as
+    sized. Same disks per node over 6 nodes is exact, not an estimate."""
+    sizing.export_override = {"bom": "none", "manual": {"node_count": 6}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["totals"]["usable_storage_tb"] == round((15.36 * 6 - 3.84) / 2, 2)
+    assert out["totals"]["raw_storage_tb"] == round(15.36 * 6, 2)
+    assert out["iops"]["total"] == 100000 * 6          # same disks: re-multiplied
+
+
+def test_a_bom_check_names_its_disks(sizing):
+    _add_check(sizing, result=_bom_result(drives=[
+        {"kind": "NVMe", "capacity_tb": 7.68, "qty_per_node": 6}]))
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["storage_config"]["desc"] == "6 x 7.68 TB NVMe"
+    assert out["totals"]["usable_storage_tb"] == round((46.08 * 5 - 7.68) / 2, 2)
+
+
+def test_an_older_bom_check_without_disk_sizes_keeps_the_count_line(sizing):
+    _add_check(sizing)                       # fixture: no `drives` stored
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["storage_config"]["desc"].startswith("6 x NVMe (")
+    assert out["totals"]["usable_storage_tb"] == 36.0     # the check's own figure
+
+
+def test_manual_disks_win_over_the_bom_disks(sizing):
+    _add_check(sizing, result=_bom_result(drives=[
+        {"kind": "NVMe", "capacity_tb": 7.68, "qty_per_node": 6}]))
+    sizing.export_override = {"bom": "auto", "manual": {"drives": [
+        {"type": "SSD", "size_tb": 3.84, "count": 8}]}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["storage_config"]["desc"] == "8 x 3.84 TB SSD"
+    assert out["cores_per_node"] == 48                   # CPU still from the BOM
 
 
 def test_manual_wins_field_by_field_over_the_bom(sizing):
@@ -556,6 +749,22 @@ def test_a_real_proposal_names_the_quoted_chassis(app):
         # the quoted per-node hardware, not the sized 32C/512GB node
         assert "6542Y" in body, f"{name} shows the sized CPU"
 
+    # An undersized quote takes the over-100 % bar path inside a real build:
+    # it must render, and the document must still name the quoted box.
+    BomCheck.query.delete()
+    db.session.commit()
+    _add_check(config, name="Too small", fit_verdict="match",
+               result=_bom_result(nodes=2, cores=8, threads=16, ram=64))
+    sections, _skipped = sections_for(job)
+    util = sections[0]["recommendation"]["utilization"]
+    assert util["cpu"]["total"] > 100 or util["ram"]["total"] > 100
+    small = Presentation(io.BytesIO(
+        generate_bundle_proposal(sections, lang="en").getvalue()))
+    assert any("PowerEdge R670" in shape.text_frame.text
+               for slide in small.slides for shape in slide.shapes
+               if shape.has_text_frame)
+    assert build_bundle_proposal_docx(sections, lang="en").getvalue()
+
 
 def test_put_ignores_fields_that_are_not_override_fields(client, sizing):
     client.put(f"/api/sizings/{sizing.id}/export-override",
@@ -563,3 +772,97 @@ def test_put_ignores_fields_that_are_not_override_fields(client, sizing):
                                                "chassis": "R670"}})
     stored = db.session.get(Configuration, sizing.id).export_override
     assert stored["manual"] == {"chassis": "R670"}
+
+
+# ── the quoted card's endpoint and the renderers (2026-09-17) ───────────────
+
+def test_preview_returns_the_quoted_card_through_the_export_code(client, sizing):
+    _add_check(sizing)
+    res = client.post(f"/api/sizings/{sizing.id}/export-override/preview",
+                      json={"recommendation": _rec()})
+    assert res.status_code == 200
+    body = res.get_json()
+    quoted = body["recommendation"]
+    # identical to what the exports get for the same base
+    expected = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    for key in ("vendor_chassis", "cores_per_node", "totals", "utilization"):
+        assert quoted[key] == expected[key], key
+    assert quoted["network_svg"]                      # regenerated for 5 nodes
+    assert body["effective"]["chassis"] == "Dell PowerEdge R670"
+
+
+def test_preview_is_empty_without_an_override_or_for_certified(client, sizing):
+    res = client.post(f"/api/sizings/{sizing.id}/export-override/preview",
+                      json={"recommendation": _rec()})
+    assert res.get_json()["recommendation"] is None
+    _add_check(sizing)
+    certified = _rec(validated=False)
+    res = client.post(f"/api/sizings/{sizing.id}/export-override/preview",
+                      json={"recommendation": certified})
+    assert res.get_json()["recommendation"] is None
+
+
+def test_preview_requires_a_recommendation(client, sizing):
+    res = client.post(f"/api/sizings/{sizing.id}/export-override/preview", json={})
+    assert res.status_code == 400
+
+
+def test_gauges_draw_an_over_capacity_block():
+    """A block past 100 % renders on a rescaled axis instead of clamping; the
+    image is as tall as a normal block (same rows), and the renderer does not
+    fail on a bar that is nearly all overflow."""
+    import io
+    from PIL import Image
+    from export_gauges import render_util_bars
+
+    normal = [{"label": "CPU", "now": 35, "sized": 57, "ha": 43},
+              {"label": "Storage", "now": 29, "sized": 63, "ha": 0, "snap": 11}]
+    over = [{"label": "CPU", "now": 142, "sized": 300, "ha": 20},
+            {"label": "Storage", "now": 29, "sized": 63, "ha": 0, "snap": 11}]
+    a = Image.open(io.BytesIO(render_util_bars(normal)))
+    b = Image.open(io.BytesIO(render_util_bars(over)))
+    assert a.size == b.size
+    # the overflow red is actually on the image
+    from export_gauges import OVER
+    red = tuple(int(OVER[i:i + 2], 16) for i in (1, 3, 5)) if isinstance(OVER, str) else tuple(OVER[:3])
+    pixels = b.convert("RGB").getdata()
+    assert any(abs(p[0] - red[0]) < 8 and abs(p[1] - red[1]) < 8 and abs(p[2] - red[2]) < 8
+               for p in pixels)
+
+
+def test_a_bom_check_stores_its_disk_sizes():
+    """bom/fit.py keeps per-node disk sizes in the stored cluster summary, which
+    is what lets the quoted card say '3 x 8 TB HDD' and re-lay the disks out."""
+    import os as _os
+    from bom import fit
+    from bom.parsers import parse_file
+
+    path = _os.path.join(_os.path.dirname(__file__), "fixtures", "bom",
+                         "synthetic_dell_solution_de.xlsx")
+    bom, _fmt = parse_file(path)
+    summary = fit._cluster_summary(fit.cluster_from_nodes(fit.derive_nodes(bom.configs[0])))
+    assert sorted((d["kind"], d["capacity_tb"], d["qty_per_node"]) for d in summary["drives"]) == [
+        ("HDD", 8.0, 3), ("NVMe", 7.68, 1)]
+    assert summary["raw_per_node_tb"] == 31.68 and summary["biggest_disk_tb"] == 8.0
+
+
+def test_typed_cores_without_threads_keep_the_sized_threads_per_core(sizing):
+    sizing.export_override = {"bom": "none", "manual": {"cores_per_node": 16}}
+    out = eo.apply_to_rec(_rec(), eo.resolve(sizing))
+    assert out["threads_per_node"] == 32          # sized 64T / 32C = 2 per core
+
+
+def test_the_rationale_keeps_its_requirement_but_reports_quoted_capacity(sizing):
+    """Which resource drove the sizing and what it required is the engine's
+    reasoning; achieved and headroom are capacity and follow the quote - here
+    negative, because a 2 x 16C quote cannot meet 84 required N-1 cores."""
+    rec = _rec()
+    rec["determinant"] = {"resource": "CPU", "required": 84.0, "achieved": 90.0,
+                          "unit": "cores", "headroom_pct": 7.1}
+    sizing.export_override = {"bom": "none", "manual": {"node_count": 2,
+                                                        "cores_per_node": 16}}
+    out = eo.apply_to_rec(rec, eo.resolve(sizing))
+    det = out["determinant"]
+    assert (det["resource"], det["required"]) == ("CPU", 84.0)
+    assert det["achieved"] == 14.0                 # (16 - 2) x (2 - 1)
+    assert det["headroom_pct"] == round((14 - 84) / 84 * 100, 1)

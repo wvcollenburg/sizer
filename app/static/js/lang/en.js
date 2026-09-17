@@ -1634,9 +1634,17 @@
   "exportas.ram": "RAM per node (GB)",
   "exportas.nodes": "Nodes",
   "exportas.storage": "Storage per node",
-  "exportas.storage_ph": "6 x 7.68 TB NVMe",
   "exportas.reset": "Use the recommendation",
   "exportas.badge_bom_hint": "The exports name {chassis}, from BOM check {bom}.",
   "exportas.badge_manual_hint": "The exports name {chassis}.",
-  "exportas.save_failed": "Could not save. Please try again."
+  "exportas.save_failed": "Could not save. Please try again.",
+  "exportas.drives": "Disks per node",
+  "exportas.drives_hint": "Up to two tiers. Raw and usable storage are worked out from these.",
+  "exportas.drive_count": "Count",
+  "exportas.drive_size": "Size (TB)",
+  "exportas.drive_type": "Type",
+  "results.quoted_rank": "Quoted",
+  "results.quoted_note_bom": "Hardware from BOM check {name}. Exports always describe this hardware; to export an option below instead, clear it under Exports as on the project page.",
+  "results.quoted_note_manual": "Hardware entered under Exports as. Exports always describe this hardware; to export an option below instead, clear it on the project page.",
+  "results.util.advice_over": "This hardware cannot carry the sized workload: it needs {pct}% of this cluster's capacity."
 };

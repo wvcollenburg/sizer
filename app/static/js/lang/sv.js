@@ -1633,9 +1633,17 @@
   "exportas.ram": "RAM per nod (GB)",
   "exportas.nodes": "Noder",
   "exportas.storage": "Lagring per nod",
-  "exportas.storage_ph": "6 x 7,68 TB NVMe",
   "exportas.reset": "Använd rekommendationen",
   "exportas.badge_bom_hint": "Exporterna namnger {chassis}, från stycklistekontroll {bom}.",
   "exportas.badge_manual_hint": "Exporterna namnger {chassis}.",
-  "exportas.save_failed": "Kunde inte spara. Försök igen."
+  "exportas.save_failed": "Kunde inte spara. Försök igen.",
+  "exportas.drives": "Diskar per nod",
+  "exportas.drives_hint": "Upp till två nivåer. Rå och användbar lagring beräknas utifrån dessa.",
+  "exportas.drive_count": "Antal",
+  "exportas.drive_size": "Storlek (TB)",
+  "exportas.drive_type": "Typ",
+  "results.quoted_rank": "Offererad",
+  "results.quoted_note_bom": "Hårdvara från stycklistekontroll {name}. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den under Exporteras som på projektsidan.",
+  "results.quoted_note_manual": "Hårdvara angiven under Exporteras som. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den på projektsidan.",
+  "results.util.advice_over": "Denna hårdvara klarar inte den dimensionerade arbetslasten: den kräver {pct}% av klustrets kapacitet."
 };
