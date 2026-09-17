@@ -93,6 +93,9 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         extra = enrich.delisted_findings(config, delisted)
         result.findings.extend(extra)
         result.findings.append(enrich.platform_finding(matched))
+        single_disk = enrich.single_disk_finding(config, matched)
+        if single_disk is not None:
+            result.findings.append(single_disk)
         result.verdict = rules.determine_verdict(result.findings)
         config_results.append(result)
         suggestions.extend(enrich.suggestions_for(config, result, matched))

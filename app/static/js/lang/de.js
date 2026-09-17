@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM pro Knoten (GB)",
   "validated.resolve_rules_tooltip": "Beheben Sie die hervorgehobenen validierten Installer-Regeln, um zu berechnen",
   "validated.rule_band": "Hybrid: schnelles Tier muss {min}–{max} % der Gesamtkapazität ausmachen",
-  "validated.rule_disks": "1 oder 3+ Datenträger pro Knoten (keine 2-Datenträger-Konfigurationen)",
+  "validated.rule_disks": "2+ Laufwerke pro Knoten (3+ bevorzugt); 1 nur bei einem Knoten mit nur einem Laufwerksschacht",
   "validated.rule_hybrid": "Hybrid = rotierend (SAS/NLSAS/SATA) + Flash (SSD/NVMe)",
   "validated.rule_internal": "Nur interner Speicher — kein SAN oder DAS",
   "validated.rule_jbod": "Nur JBOD — keine RAID-Controller, nur HBA oder PCIe-NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Threads",
   "validated.threads_per_node": "Threads pro Knoten",
   "validated.tier": "Tier",
-  "validated.two_disks_unsupported": "2 Datenträger werden nicht unterstützt. Verwenden Sie 1 oder 3+ Datenträger.",
   "wizard.back": "Zurück",
   "wizard.env.caveats": "Einige Dinge, die Sie zu diesem Import wissen sollten:",
   "wizard.export.save_close": "Speichern und schließen",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hardware aus Stücklistenprüfung {name}. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie unter Exportiert als auf der Projektseite.",
   "results.quoted_note_manual": "Unter Exportiert als eingetragene Hardware. Exporte beschreiben immer diese Hardware; um stattdessen eine Option unten zu exportieren, entfernen Sie sie auf der Projektseite.",
   "results.util.advice_over": "Diese Hardware kann die dimensionierte Workload nicht tragen: Sie benötigt {pct}% der Kapazität dieses Clusters.",
-  "results.quoted_exported": "Exportiert"
+  "results.quoted_exported": "Exportiert",
+  "validated.single_disk_warning": "Ein einzelnes Laufwerk pro Knoten bedeutet, dass ein Laufwerksausfall den ganzen Knoten ausfallen lässt. Verwenden Sie 2 oder mehr Laufwerke, wenn das Gehäuse die Schächte hat."
 };

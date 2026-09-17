@@ -41,6 +41,7 @@ REVIEW_CODES = frozenset([
 CODE_DELISTED = "component_delisted"
 CODE_PLATFORM_IDENTIFIED = "platform_identified"
 CODE_PLATFORM_UNKNOWN = "platform_unknown"
+CODE_SINGLE_DISK_MULTI_BAY = "single_disk_multi_bay"
 
 _CATEGORY_KINDS = {"nic": ("nic",), "controller": ("hba",), "gpu": ("gpu",),
                    "storage": ("hdd", "ssd"), "cpu": ("cpu",)}
@@ -105,6 +106,42 @@ def platform_finding(platforms: List[HclPlatform]) -> Finding:
         remediation="Checks run against the whole HCL; no platform-specific swap suggestions "
                     "are possible. Confirm the server model is on the HC-Ready list.",
         code=CODE_PLATFORM_UNKNOWN,
+    )
+
+
+def platform_bays(platforms: List[HclPlatform]) -> Optional[int]:
+    """Drive bays of the identified platform(s), from the HCL card's "up to N
+    HDD / SSD" lines; None when the HCL does not say."""
+    bays = max([max(p.hdd_max or 0, p.ssd_max or 0) for p in platforms] or [0])
+    return bays or None
+
+
+def single_disk_finding(config: BOMConfig, platforms: List[HclPlatform]) -> Optional[Finding]:
+    """Warn when a node that has bays for more disks is quoted with just one.
+
+    Redundancy, not cost (owner decision 2026-09-17): with a single disk a disk
+    failure takes the whole node down, which a multi-bay chassis never has to
+    accept. Only raised when the platform's bay count is known and the BOM's
+    node count could be established — per-node figures without a node count
+    would be guesses. Kept out of rules.py so the 26-BOM replay is untouched.
+    """
+    bays = platform_bays(platforms)
+    if not bays or bays <= 1:
+        return None
+    from bom.fit import derive_nodes
+    nodes = derive_nodes(config)
+    if nodes.get("node_count") is None:
+        return None
+    per_node = sum(int(d.get("qty_per_node") or 0) for d in nodes.get("drives") or [])
+    if per_node != 1:
+        return None
+    return Finding(
+        severity="warning",
+        component="Storage",
+        issue="Single disk per node in a chassis with %d drive bays" % bays,
+        remediation="With one disk, a disk failure takes the whole node down. Quote at least "
+                    "two disks per node (three or more preferred); the chassis has the bays.",
+        code=CODE_SINGLE_DISK_MULTI_BAY,
     )
 
 

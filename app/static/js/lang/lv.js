@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM uz mezglu (GB)",
   "validated.resolve_rules_tooltip": "Atrisiniet izceltos validētā instalētāja noteikumus, lai aprēķinātu",
   "validated.rule_band": "Hibrīds: ātrajam līmenim jābūt {min}–{max}% no kopējās ietilpības",
-  "validated.rule_disks": "1 vai 3+ diski uz mezglu (nav 2 disku konfigurāciju)",
+  "validated.rule_disks": "2+ diski uz mezglu (vēlams 3+); 1 tikai mezglā ar vienu diska nodalījumu",
   "validated.rule_hybrid": "Hibrīds = rotējošie (SAS/NLSAS/SATA) + zibatmiņa (SSD/NVMe)",
   "validated.rule_internal": "Tikai iekšējā krātuve — bez SAN vai DAS",
   "validated.rule_jbod": "Tikai JBOD — bez RAID kontrolieriem, tikai HBA vai PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Pavedieni",
   "validated.threads_per_node": "Pavedieni uz mezglu",
   "validated.tier": "Līmenis",
-  "validated.two_disks_unsupported": "2 diski netiek atbalstīti. Izmantojiet 1 vai 3+ diskus.",
   "wizard.back": "Atpakaļ",
   "wizard.env.caveats": "Daži aspekti, kas jāņem vērā par šo importu:",
   "wizard.export.save_close": "Saglabāt un aizvērt",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Aparatūra no specifikācijas pārbaudes {name}. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to sadaļā Eksportē kā projekta lapā.",
   "results.quoted_note_manual": "Sadaļā Eksportē kā ievadīta aparatūra. Eksporti vienmēr apraksta šo aparatūru; lai tā vietā eksportētu kādu no zemāk esošajām iespējām, notīriet to projekta lapā.",
   "results.util.advice_over": "Šī aparatūra nevar nodrošināt aprēķināto slodzi: tai vajag {pct}% no šī klastera jaudas.",
-  "results.quoted_exported": "Eksportē"
+  "results.quoted_exported": "Eksportē",
+  "validated.single_disk_warning": "Viens disks uz mezglu nozīmē, ka diska kļūme atslēdz visu mezglu. Izmantojiet 2 vai vairāk diskus, ja korpusā ir nodalījumi."
 };

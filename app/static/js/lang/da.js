@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM pr. node (GB)",
   "validated.resolve_rules_tooltip": "Løs de fremhævede Validated Installer-regler for at beregne",
   "validated.rule_band": "Hybrid: det hurtige lag skal udgøre {min}-{max} % af den samlede kapacitet",
-  "validated.rule_disks": "1 eller 3+ diske pr. node (ingen konfigurationer med 2 diske)",
+  "validated.rule_disks": "2+ diske pr. node (3+ foretrækkes); 1 kun i en node med én diskplads",
   "validated.rule_hybrid": "Hybrid = roterende (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Kun intern lagring — ingen SAN eller DAS",
   "validated.rule_jbod": "Kun JBOD — ingen RAID-controllere, kun HBA eller PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Tråde",
   "validated.threads_per_node": "Tråde pr. node",
   "validated.tier": "Lag",
-  "validated.two_disks_unsupported": "2 diske understøttes ikke. Brug 1 eller 3+ diske.",
   "wizard.back": "Tilbage",
   "wizard.env.caveats": "Et par ting, du skal være opmærksom på ved denne import:",
   "wizard.export.save_close": "Gem og luk",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hardware fra styklistetjek {name}. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den under Eksporteres som på projektsiden.",
   "results.quoted_note_manual": "Hardware indtastet under Eksporteres som. Eksporter beskriver altid denne hardware; for i stedet at eksportere en mulighed nedenfor skal du rydde den på projektsiden.",
   "results.util.advice_over": "Denne hardware kan ikke bære den dimensionerede arbejdsbelastning: den kræver {pct}% af klyngens kapacitet.",
-  "results.quoted_exported": "Eksporteres"
+  "results.quoted_exported": "Eksporteres",
+  "validated.single_disk_warning": "Én disk pr. node betyder, at en diskfejl tager hele noden ned. Brug 2 eller flere diske, hvis kabinettet har pladserne."
 };

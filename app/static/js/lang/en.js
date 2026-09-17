@@ -1168,7 +1168,7 @@
   "validated.ram_per_node": "RAM per Node (GB)",
   "validated.resolve_rules_tooltip": "Resolve the highlighted Validated Installer Rules to calculate",
   "validated.rule_band": "Hybrid: fast tier must be {min}-{max}% of total capacity",
-  "validated.rule_disks": "1 or 3+ disks per node (no 2-disk configs)",
+  "validated.rule_disks": "2+ disks per node (3+ preferred); 1 only in a single-disk node",
   "validated.rule_hybrid": "Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Internal storage only — no SAN or DAS",
   "validated.rule_jbod": "JBOD only — no RAID controllers, HBA or PCIe NVMe only",
@@ -1181,7 +1181,6 @@
   "validated.threads": "Threads",
   "validated.threads_per_node": "Threads per Node",
   "validated.tier": "Tier",
-  "validated.two_disks_unsupported": "2 disks not supported. Use 1 or 3+ disks.",
   "wizard.back": "Back",
   "wizard.env.caveats": "A few things to be aware of about this import:",
   "wizard.export.save_close": "Save and close",
@@ -1647,5 +1646,6 @@
   "results.quoted_note_bom": "Hardware from BOM check {name}. Exports always describe this hardware; to export an option below instead, clear it under Exports as on the project page.",
   "results.quoted_note_manual": "Hardware entered under Exports as. Exports always describe this hardware; to export an option below instead, clear it on the project page.",
   "results.util.advice_over": "This hardware cannot carry the sized workload: it needs {pct}% of this cluster's capacity.",
-  "results.quoted_exported": "Exported"
+  "results.quoted_exported": "Exported",
+  "validated.single_disk_warning": "A single disk per node means a disk failure takes the whole node down. Use 2 or more disks if the chassis has the bays."
 };

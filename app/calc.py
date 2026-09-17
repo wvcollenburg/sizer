@@ -379,8 +379,10 @@ def calculate_validated(data, node_count):
         return {"error": "At least 1 disk required per node"}
 
     disk_count = len(disks)
-    if disk_count == 2:
-        return {"error": "Disk count must be 1 or 3+. 2 disks is not supported."}
+    # 2 disks per node is supported in a multi-node cluster (Validated here is
+    # always 2+ nodes); only a 2-drive Single Node System is not, which the BOM
+    # checker flags. A 1-disk node still calculates, but the GUI warns that a
+    # disk failure then takes the whole node down (owner decision 2026-09-17).
 
     # Optional storage-only nodes: same disks, virtualization disabled. They add
     # capacity and disks to the cluster but no usable compute.

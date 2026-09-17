@@ -629,6 +629,15 @@ textarea:focus-visible {
 
 .val-ok::before { content: "\2713  "; }
 
+/* A caution: the build calculates, but something about it is risky. */
+.val-warn {
+    color: var(--orange);
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
+}
+
+.val-warn::before { content: "\26A0  "; }
+
 .results-section {
     margin-top: 1.5rem;
 }

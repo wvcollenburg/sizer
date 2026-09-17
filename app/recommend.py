@@ -360,8 +360,11 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         stype = md["storage"]["type"]
         if stype == "cloud":
             continue
-        # nvme_and_ssd is inherently a 1+1 (2-disk) node, which violates the
-        # software-only "1 or 3+ disks" rule and cannot be flexed lower.
+        # nvme_and_ssd is inherently a 1+1 (2-disk) node. It was excluded under
+        # the old "1 or 3+ disks" rule; 2 disks is now allowed as a fallback
+        # (_validated_disk_counts), but this mixed two-flash-tier build was
+        # deliberately left excluded — re-including it changes which models
+        # Validated sizing offers, which is a separate decision.
         if validated and stype == "nvme_and_ssd":
             continue
         chassis = vendor_chassis.for_model(m.name) if validated else None
@@ -383,7 +386,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                           validated_only=md.get("validated_only", False),
                           iops_cfg=iops_cfg,
                           allow_storage_only=allow_storage_only,
-                          license_ctx=license_ctx)
+                          license_ctx=license_ctx,
+                          chassis_bays=_chassis_bays(chassis))
         if chassis is not None:
             for f in fits:
                 f["vendor"] = vendor
@@ -901,7 +905,8 @@ def _effective_cores(cpu):
 
 
 def _fit_model(model, needs, required_cores, validated=False, validated_only=False,
-               iops_cfg=None, allow_storage_only=False, license_ctx=None):
+               iops_cfg=None, allow_storage_only=False, license_ctx=None,
+               chassis_bays=None):
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     # Active compute floor (perf-based sizing) state, read once per model.
@@ -1087,7 +1092,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
             cpu_avail = full_usable_cores if full_cluster else n1_usable_cores
 
             stor = _pick_storage_multi(storage, needs["min_capacity_storage_tb"],
-                                       layout, validated=validated)
+                                       layout, validated=validated,
+                                       multi_disk=_multi_disk_node(chassis_bays, storage))
             if not stor:
                 continue
 
@@ -1562,26 +1568,56 @@ def _pick_ram(options, total_needed_gb, node_count, num_clusters=1, ram_overhead
     return None
 
 
-def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=False):
+def _chassis_bays(chassis):
+    """Drive bays of the vendor chassis a Validated build sits on, from its HCL
+    platform card ("up to N HDD / SSD"), or None when the HCL does not say —
+    validated-only models and Certified sizing have no platform card."""
+    platform = (chassis or {}).get("platform")
+    if platform is None:
+        return None
+    bays = max(getattr(platform, "hdd_max", None) or 0, getattr(platform, "ssd_max", None) or 0)
+    return bays or None
+
+
+def _multi_disk_node(chassis_bays, storage):
+    """True when a node can hold more than one disk, so a Validated build must
+    never be cut down to one (owner decision 2026-09-17).
+
+    The reason is redundancy, not cost: with a single disk, a disk failure is a
+    node failure, which a multi-bay box never has to accept. The chassis bay
+    count decides when the HCL states it; otherwise the model's certified disk
+    count stands in for it.
+
+    A box whose CERTIFIED build is one disk (the HE15x NUCs) keeps its one
+    disk: Validated only ever removes disks from the certified build, so there
+    is no second disk to keep, even if the chassis has a spare bay.
+    """
+    certified = _bay_count(storage)
+    capable = (chassis_bays > 1) if chassis_bays else (certified > 1)
+    return capable and certified > 1
+
+
+def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=False,
+                        multi_disk=False):
     stype = storage["type"]
 
     if stype == "nvme_only":
         return _pick_uniform_drives(
             storage.get("nvme_options_tb", []),
             storage.get("drives_per_node", 1),
-            usable_needed_tb, cluster_layout, "nvme", validated
+            usable_needed_tb, cluster_layout, "nvme", validated, multi_disk
         )
     elif stype == "ssd_only":
         return _pick_uniform_drives(
             storage.get("ssd_options_tb", []),
             storage.get("drives_per_node", 4),
-            usable_needed_tb, cluster_layout, "ssd", validated
+            usable_needed_tb, cluster_layout, "ssd", validated, multi_disk
         )
     elif stype == "hdd_only":
         return _pick_uniform_drives(
             storage.get("hdd_options_tb", []),
             storage.get("drives_per_node", 4),
-            usable_needed_tb, cluster_layout, "hdd", validated
+            usable_needed_tb, cluster_layout, "hdd", validated, multi_disk
         )
     elif stype == "hybrid":
         return _pick_hybrid(storage, usable_needed_tb, cluster_layout, "ssd", validated)
@@ -1594,49 +1630,68 @@ def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=Fal
     return None
 
 
-def _validated_disk_counts(certified_count):
-    """Valid per-node disk counts when flexing down from a fully-populated
-    certified node: 1, or 3..certified_count. Never 2, never above certified."""
-    counts = [n for n in range(3, certified_count + 1)]
-    if certified_count >= 1:
-        counts.append(1)
-    return sorted(set(counts))
+def _validated_disk_counts(certified_count, multi_disk=False, single_node=False):
+    """(preferred, fallback) per-node disk counts when flexing down from a
+    fully-populated certified node. Never above certified.
+
+    preferred: 3..certified, plus 1 only for a node that cannot hold more than
+      one disk anyway (a single disk in a multi-bay node turns every disk
+      failure into a node failure — owner decision 2026-09-17).
+    fallback: 2, tried only when no preferred count yields a build (e.g. the
+      certified build has exactly 2 disks). 2 disks is supported in a
+      multi-node cluster but not on a Single Node System, matching the BOM
+      checker's 2-drive rule.
+    """
+    preferred = [n for n in range(3, certified_count + 1)]
+    if not multi_disk and certified_count >= 1:
+        preferred.append(1)
+    fallback = [2] if (multi_disk and certified_count >= 2 and not single_node) else []
+    return sorted(set(preferred)), fallback
 
 
 def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
-                         cluster_layout, drive_type, validated=False):
+                         cluster_layout, drive_type, validated=False, multi_disk=False):
     # The 100-disk cap is per CLUSTER, so it binds on the largest cluster in the
     # layout — not the total node count across clusters.
     max_cluster_nodes = max(cluster_layout)
     # Certified: fixed count, smallest size that fits. Validated: also flex the
-    # count down (1 or 3+, never above certified), picking the closest fit.
-    counts = _validated_disk_counts(drives_per_node) if validated else [drives_per_node]
+    # count down (never above certified), picking the closest fit — from the
+    # preferred counts first, and 2 disks only when none of those can work.
+    if validated:
+        preferred, fallback = _validated_disk_counts(
+            drives_per_node, multi_disk=multi_disk, single_node=sum(cluster_layout) == 1)
+        passes = [preferred, fallback]
+    else:
+        passes = [[drives_per_node]]
 
-    best = None
-    for size in sorted(size_options):
-        for count in counts:
-            if validated and count * max_cluster_nodes > T.max_cluster_disks:
-                continue
-            raw_per_node = size * count
-            usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
-            if usable < usable_needed:
-                continue
-            cand = {
-                "raw_per_node": raw_per_node,
-                "biggest_disk": size,
-                "desc": f"{count}x {size}TB {drive_type.upper()}",
-                f"{drive_type}_tb": size,
-                "drive_counts": {DRIVE_TYPE_KEY[drive_type]: count},
-                "_usable": usable,
-                "_disks": count,
-            }
-            if not validated:
-                return _strip_pick(cand)
-            # Closest fit: least usable; tie-break fewer disks, smaller size.
-            key = (usable, count, size)
-            if best is None or key < best[0]:
-                best = (key, cand)
-    return _strip_pick(best[1]) if best else None
+    for counts in passes:
+        best = None
+        for size in sorted(size_options):
+            for count in counts:
+                if validated and count * max_cluster_nodes > T.max_cluster_disks:
+                    continue
+                raw_per_node = size * count
+                usable = _cluster_usable_storage(raw_per_node, size, cluster_layout)
+                if usable < usable_needed:
+                    continue
+                cand = {
+                    "raw_per_node": raw_per_node,
+                    "biggest_disk": size,
+                    "desc": f"{count}x {size}TB {drive_type.upper()}",
+                    f"{drive_type}_tb": size,
+                    "drive_counts": {DRIVE_TYPE_KEY[drive_type]: count},
+                    "_usable": usable,
+                    "_disks": count,
+                }
+                if not validated:
+                    return _strip_pick(cand)
+                # Closest fit: least usable; tie-break fewer disks, smaller size.
+                key = (usable, count, size)
+                if best is None or key < best[0]:
+                    best = (key, cand)
+        if best:
+            return _strip_pick(best[1])
+    return None
 
 
 def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=False):

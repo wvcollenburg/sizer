@@ -606,8 +606,10 @@ async function calculateValidated() {
         valDiv.innerHTML = validation.errors.map(e => `<div class="val-error">${esc(e)}</div>`).join('');
         valDiv.style.display = 'block';
     } else {
-        valDiv.innerHTML = validation.warnings.map(w => `<div class="val-ok">${esc(w)}</div>`).join('');
-        valDiv.style.display = validation.warnings.length > 0 ? 'block' : 'none';
+        const cautions = validation.cautions || [];
+        valDiv.innerHTML = cautions.map(w => `<div class="val-warn">${esc(w)}</div>`).join('')
+            + validation.warnings.map(w => `<div class="val-ok">${esc(w)}</div>`).join('');
+        valDiv.style.display = (cautions.length + validation.warnings.length) > 0 ? 'block' : 'none';
     }
 
     const payload = {
@@ -644,13 +646,18 @@ async function calculateValidated() {
 function validateDisks(disks) {
     const errors = [];
     const warnings = [];
+    const cautions = [];
 
     if (disks.length === 0) {
         errors.push(window.t('validated.at_least_one_disk'));
-        return {errors, warnings};
+        return {errors, warnings, cautions};
     }
-    if (disks.length === 2) {
-        errors.push(window.t('validated.two_disks_unsupported'));
+    // 2 disks is supported (a Validated cluster is always 2+ nodes). One disk
+    // still calculates, but it makes every disk failure a node failure — the
+    // calculator cannot see the chassis bay count, so it is a caution rather
+    // than an error (owner decision 2026-09-17).
+    if (disks.length === 1) {
+        cautions.push(window.t('validated.single_disk_warning'));
     }
 
     const hasSpinning = disks.some(d => ['SAS', 'NLSAS', 'SATA', 'HDD'].includes(d.type));
@@ -670,7 +677,7 @@ function validateDisks(disks) {
         warnings.push(window.t('validated.all_flash_detected'));
     }
 
-    return {errors, warnings};
+    return {errors, warnings, cautions};
 }
 
 // Live state of the Validated Installer Rules that can be derived from the disk

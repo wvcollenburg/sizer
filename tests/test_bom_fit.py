@@ -451,7 +451,11 @@ def test_compare_without_a_sizing_result_is_unknown():
 
 
 def test_compare_storage_feasibility_lands_in_notes():
+    # 2 disks per node is supported in a multi-node cluster (2026-09-17) and
+    # only flagged for a Single Node System.
     r = fit.compare(lenovo_config(drives_per_node=2), requirements())
+    assert not any("Exactly 2 disks" in n for n in r["notes"])
+    r = fit.compare(lenovo_config(nodes=1, drives_per_node=2), requirements())
     assert any("Exactly 2 disks" in n for n in r["notes"])
     T.set_values({"max_cluster_disks": 10})
     r = fit.compare(lenovo_config(drives_per_node=4), requirements())

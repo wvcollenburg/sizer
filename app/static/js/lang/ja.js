@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "ノードあたりのRAM (GB)",
   "validated.resolve_rules_tooltip": "計算するには、ハイライトされたValidated Installerルールを解消してください",
   "validated.rule_band": "ハイブリッド: 高速ティアは総容量の{min}〜{max}%である必要があります",
-  "validated.rule_disks": "ノードあたり1台または3台以上のディスク (2台構成は不可)",
+  "validated.rule_disks": "ノードあたり 2 台以上のディスク（3 台以上推奨）。1 台は単一ベイのノードのみ",
   "validated.rule_hybrid": "ハイブリッド = 回転式 (SAS/NLSAS/SATA) + フラッシュ (SSD/NVMe)",
   "validated.rule_internal": "内蔵ストレージのみ — SANまたはDAS不可",
   "validated.rule_jbod": "JBODのみ — RAIDコントローラー不可、HBAまたはPCIe NVMeのみ",
@@ -1180,7 +1180,6 @@
   "validated.threads": "スレッド",
   "validated.threads_per_node": "ノードあたりのスレッド数",
   "validated.tier": "ティア",
-  "validated.two_disks_unsupported": "2台のディスクはサポートされていません。1台または3台以上を使用してください。",
   "wizard.back": "戻る",
   "wizard.env.caveats": "このインポートについて注意すべき点がいくつかあります:",
   "wizard.export.save_close": "保存して閉じる",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "BOM チェック {name} のハードウェアです。エクスポートは常にこのハードウェアを記載します。下のオプションをエクスポートするには、プロジェクトページの「エクスポート名」で解除してください。",
   "results.quoted_note_manual": "「エクスポート名」で入力したハードウェアです。エクスポートは常にこのハードウェアを記載します。下のオプションをエクスポートするには、プロジェクトページで解除してください。",
   "results.util.advice_over": "このハードウェアでは想定ワークロードを処理できません。このクラスター容量の {pct}% が必要です。",
-  "results.quoted_exported": "エクスポート対象"
+  "results.quoted_exported": "エクスポート対象",
+  "validated.single_disk_warning": "ノードあたりディスク 1 台では、ディスク障害がノード全体の停止になります。シャーシにベイがあれば 2 台以上を使用してください。"
 };

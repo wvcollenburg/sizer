@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM per nodo (GB)",
   "validated.resolve_rules_tooltip": "Risolva le Regole dell'Installer Validated evidenziate per calcolare",
   "validated.rule_band": "Ibrido: il tier veloce deve essere il {min}-{max}% della capacità totale",
-  "validated.rule_disks": "1 o 3+ dischi per nodo (nessuna configurazione a 2 dischi)",
+  "validated.rule_disks": "2+ dischi per nodo (3+ preferibili); 1 solo in un nodo con un solo alloggiamento",
   "validated.rule_hybrid": "Ibrido = rotativo (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Solo storage interno — nessun SAN o DAS",
   "validated.rule_jbod": "Solo JBOD — nessun controller RAID, solo HBA o PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Thread",
   "validated.threads_per_node": "Thread per nodo",
   "validated.tier": "Tier",
-  "validated.two_disks_unsupported": "2 dischi non supportati. Usi 1 o 3+ dischi.",
   "wizard.back": "Indietro",
   "wizard.env.caveats": "Alcuni aspetti da tenere presenti riguardo a questa importazione:",
   "wizard.export.save_close": "Salva e chiudi",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hardware dalla verifica della distinta base {name}. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo in Esportato come nella pagina del progetto.",
   "results.quoted_note_manual": "Hardware inserito in Esportato come. Le esportazioni descrivono sempre questo hardware; per esportare invece un'opzione qui sotto, rimuovilo nella pagina del progetto.",
   "results.util.advice_over": "Questo hardware non può sostenere il carico dimensionato: richiede il {pct}% della capacità di questo cluster.",
-  "results.quoted_exported": "Esportato"
+  "results.quoted_exported": "Esportato",
+  "validated.single_disk_warning": "Un solo disco per nodo significa che un guasto del disco ferma l'intero nodo. Usa 2 o più dischi se lo chassis ha gli alloggiamenti."
 };

@@ -1074,8 +1074,11 @@ def compare(config: BOMConfig, configuration_or_requirements: Any,
     b_cat = cluster["storage_category"]
     if s_cat and b_cat and s_cat != b_cat:
         notes.append(f"Storage tier differs: BOM is {b_cat}, the sizing is {s_cat}.")
-    if feas["exactly_two_disks"]:
-        notes.append("Exactly 2 disks per node is not a supported layout (1 or 3+).")
+    # 2 disks per node is supported in a multi-node cluster; only a 2-drive
+    # Single Node System is not (same rule as the technical check's two_drives
+    # warning and the Validated engine, 2026-09-17).
+    if feas["exactly_two_disks"] and cluster["node_count"] == 1:
+        notes.append("Exactly 2 disks is not a supported layout for a Single Node System.")
     if not feas["disk_cap_ok"]:
         notes.append(f"{feas['cluster_disks']} disks in the largest cluster exceed the "
                      f"{feas['max_cluster_disks']}-disk limit.")

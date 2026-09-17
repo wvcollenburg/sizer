@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM viename mazge (GB)",
   "validated.resolve_rules_tooltip": "Išspręskite paryškintas patvirtintojo diegimo taisykles, kad būtų galima apskaičiuoti",
   "validated.rule_band": "Hibridinis: greitasis lygis turi būti {min}–{max} % visos talpos",
-  "validated.rule_disks": "1 arba 3+ diskai viename mazge (jokių 2 diskų konfigūracijų)",
+  "validated.rule_disks": "2+ diskai vienam mazgui (pageidautina 3+); 1 tik mazge su viena disko vieta",
   "validated.rule_hybrid": "Hibridinis = besisukantys (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Tik vidinė saugykla — jokių SAN ar DAS",
   "validated.rule_jbod": "Tik JBOD — jokių RAID valdiklių, tik HBA arba PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Gijos",
   "validated.threads_per_node": "Gijos viename mazge",
   "validated.tier": "Lygis",
-  "validated.two_disks_unsupported": "2 diskai nepalaikomi. Naudokite 1 arba 3+ diskus.",
   "wizard.back": "Atgal",
   "wizard.env.caveats": "Keli dalykai, į kuriuos verta atkreipti dėmesį dėl šio importo:",
   "wizard.export.save_close": "Įrašyti ir uždaryti",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Įranga iš specifikacijos patikros {name}. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją skiltyje Eksportuojama kaip projekto puslapyje.",
   "results.quoted_note_manual": "Skiltyje Eksportuojama kaip įvesta įranga. Eksportai visada aprašo šią įrangą; norėdami eksportuoti žemiau esančią parinktį, išvalykite ją projekto puslapyje.",
   "results.util.advice_over": "Ši įranga negali atlaikyti apskaičiuotos apkrovos: jai reikia {pct}% šio klasterio talpos.",
-  "results.quoted_exported": "Eksportuojama"
+  "results.quoted_exported": "Eksportuojama",
+  "validated.single_disk_warning": "Vienas diskas mazge reiškia, kad disko gedimas išjungia visą mazgą. Naudokite 2 ar daugiau diskų, jei korpuse yra vietų."
 };

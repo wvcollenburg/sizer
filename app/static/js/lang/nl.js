@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM per node (GB)",
   "validated.resolve_rules_tooltip": "Los de gemarkeerde Validated Installer Rules op om te berekenen",
   "validated.rule_band": "Hybride: snelle tier moet {min}-{max}% van de totale capaciteit zijn",
-  "validated.rule_disks": "1 of 3+ schijven per node (geen configuraties met 2 schijven)",
+  "validated.rule_disks": "2+ schijven per node (3+ bij voorkeur); 1 alleen in een node met één schijfsleuf",
   "validated.rule_hybrid": "Hybride = draaiend (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Alleen interne opslag — geen SAN of DAS",
   "validated.rule_jbod": "Alleen JBOD — geen RAID-controllers, alleen HBA of PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Threads",
   "validated.threads_per_node": "Threads per node",
   "validated.tier": "Tier",
-  "validated.two_disks_unsupported": "2 schijven niet ondersteund. Gebruik 1 of 3+ schijven.",
   "wizard.back": "Terug",
   "wizard.env.caveats": "Een paar dingen om rekening mee te houden bij deze import:",
   "wizard.export.save_close": "Opslaan en sluiten",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hardware uit BOM-controle {name}. Exports beschrijven altijd deze hardware; wis dit onder Exporteert als op de projectpagina om een optie hieronder te exporteren.",
   "results.quoted_note_manual": "Hardware ingevuld onder Exporteert als. Exports beschrijven altijd deze hardware; wis dit op de projectpagina om een optie hieronder te exporteren.",
   "results.util.advice_over": "Deze hardware kan de gedimensioneerde workload niet dragen: die vraagt {pct}% van de capaciteit van dit cluster.",
-  "results.quoted_exported": "Geëxporteerd"
+  "results.quoted_exported": "Geëxporteerd",
+  "validated.single_disk_warning": "Eén schijf per node betekent dat een defecte schijf de hele node uitschakelt. Gebruik 2 of meer schijven als de behuizing de sleuven heeft."
 };

@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM par nœud (GB)",
   "validated.resolve_rules_tooltip": "Résolvez les règles d'installation validée en surbrillance pour calculer",
   "validated.rule_band": "Hybride : le niveau rapide doit représenter {min} à {max} % de la capacité totale",
-  "validated.rule_disks": "1 ou 3+ disques par nœud (pas de configurations à 2 disques)",
+  "validated.rule_disks": "2+ disques par nœud (3+ de préférence) ; 1 seulement pour un nœud à un seul emplacement",
   "validated.rule_hybrid": "Hybride = mécanique (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Stockage interne uniquement — pas de SAN ni DAS",
   "validated.rule_jbod": "JBOD uniquement — pas de contrôleurs RAID, HBA ou PCIe NVMe uniquement",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Threads",
   "validated.threads_per_node": "Threads par nœud",
   "validated.tier": "Niveau",
-  "validated.two_disks_unsupported": "2 disques non pris en charge. Utilisez 1 ou 3+ disques.",
   "wizard.back": "Précédent",
   "wizard.env.caveats": "Quelques points à connaître concernant cet import :",
   "wizard.export.save_close": "Enregistrer et fermer",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Matériel issu de la vérification de nomenclature {name}. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sous Exporté comme sur la page du projet.",
   "results.quoted_note_manual": "Matériel saisi sous Exporté comme. Les exports décrivent toujours ce matériel ; pour exporter plutôt une option ci-dessous, supprimez-le sur la page du projet.",
   "results.util.advice_over": "Ce matériel ne peut pas porter la charge dimensionnée : elle requiert {pct}% de la capacité de ce cluster.",
-  "results.quoted_exported": "Exporté"
+  "results.quoted_exported": "Exporté",
+  "validated.single_disk_warning": "Un seul disque par nœud signifie qu'une panne de disque arrête tout le nœud. Utilisez 2 disques ou plus si le châssis a les emplacements."
 };

@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM per node (GB)",
   "validated.resolve_rules_tooltip": "Løs de uthevede reglene for validert installasjonsprogram for å beregne",
   "validated.rule_band": "Hybrid: raskt nivå må være {min}–{max} % av total kapasitet",
-  "validated.rule_disks": "1 eller 3+ disker per node (ingen 2-disk-konfigurasjoner)",
+  "validated.rule_disks": "2+ disker per node (3+ foretrekkes); 1 kun i en node med én diskplass",
   "validated.rule_hybrid": "Hybrid = roterende (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Kun intern lagring — ingen SAN eller DAS",
   "validated.rule_jbod": "Kun JBOD — ingen RAID-kontrollere, kun HBA eller PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Tråder",
   "validated.threads_per_node": "Tråder per node",
   "validated.tier": "Nivå",
-  "validated.two_disks_unsupported": "2 disker støttes ikke. Bruk 1 eller 3+ disker.",
   "wizard.back": "Tilbake",
   "wizard.env.caveats": "Noen ting å være oppmerksom på ved denne importen:",
   "wizard.export.save_close": "Lagre og lukk",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Maskinvare fra stykklistekontroll {name}. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den under Eksporteres som på prosjektsiden.",
   "results.quoted_note_manual": "Maskinvare lagt inn under Eksporteres som. Eksporter beskriver alltid denne maskinvaren; for å eksportere et alternativ nedenfor i stedet, fjern den på prosjektsiden.",
   "results.util.advice_over": "Denne maskinvaren kan ikke bære den dimensjonerte arbeidsbelastningen: den krever {pct}% av klyngens kapasitet.",
-  "results.quoted_exported": "Eksporteres"
+  "results.quoted_exported": "Eksporteres",
+  "validated.single_disk_warning": "Én disk per node betyr at en diskfeil tar ned hele noden. Bruk 2 eller flere disker hvis kabinettet har plassene."
 };

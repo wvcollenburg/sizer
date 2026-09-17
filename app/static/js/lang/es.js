@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM por nodo (GB)",
   "validated.resolve_rules_tooltip": "Resuelva las Reglas del instalador Validado resaltadas para calcular",
   "validated.rule_band": "Híbrido: el nivel rápido debe ser del {min} al {max} % de la capacidad total",
-  "validated.rule_disks": "1 o 3+ discos por nodo (sin configuraciones de 2 discos)",
+  "validated.rule_disks": "2+ discos por nodo (3+ preferible); 1 solo en un nodo de una sola bahía",
   "validated.rule_hybrid": "Híbrido = mecánico (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Solo almacenamiento interno: sin SAN ni DAS",
   "validated.rule_jbod": "Solo JBOD: sin controladoras RAID, solo HBA o NVMe PCIe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Subprocesos",
   "validated.threads_per_node": "Subprocesos por nodo",
   "validated.tier": "Nivel",
-  "validated.two_disks_unsupported": "No se admiten 2 discos. Use 1 o 3+ discos.",
   "wizard.back": "Atrás",
   "wizard.env.caveats": "Algunas cosas que debe tener en cuenta sobre esta importación:",
   "wizard.export.save_close": "Guardar y cerrar",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hardware de la comprobación de lista de materiales {name}. Los exports siempre describen este hardware; para exportar una opción de abajo, bórrelo en Se exporta como en la página del proyecto.",
   "results.quoted_note_manual": "Hardware introducido en Se exporta como. Los exports siempre describen este hardware; para exportar una opción de abajo, bórrelo en la página del proyecto.",
   "results.util.advice_over": "Este hardware no puede soportar la carga dimensionada: necesita el {pct}% de la capacidad de este clúster.",
-  "results.quoted_exported": "Exportado"
+  "results.quoted_exported": "Exportado",
+  "validated.single_disk_warning": "Un solo disco por nodo significa que un fallo de disco deja caer todo el nodo. Use 2 o más discos si el chasis tiene las bahías."
 };

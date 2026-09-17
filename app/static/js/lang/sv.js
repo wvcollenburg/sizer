@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM per nod (GB)",
   "validated.resolve_rules_tooltip": "Åtgärda de markerade validerade installationsreglerna för att beräkna",
   "validated.rule_band": "Hybrid: den snabba nivån måste vara {min}–{max} % av den totala kapaciteten",
-  "validated.rule_disks": "1 eller 3+ diskar per nod (inga 2-diskkonfigurationer)",
+  "validated.rule_disks": "2+ diskar per nod (3+ föredras); 1 endast i en nod med en enda diskplats",
   "validated.rule_hybrid": "Hybrid = snurrande (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Endast intern lagring — ingen SAN eller DAS",
   "validated.rule_jbod": "Endast JBOD — inga RAID-controllers, endast HBA eller PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Trådar",
   "validated.threads_per_node": "Trådar per nod",
   "validated.tier": "Nivå",
-  "validated.two_disks_unsupported": "2 diskar stöds inte. Använd 1 eller 3+ diskar.",
   "wizard.back": "Tillbaka",
   "wizard.env.caveats": "Några saker att vara medveten om gällande denna import:",
   "wizard.export.save_close": "Spara och stäng",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Hårdvara från stycklistekontroll {name}. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den under Exporteras som på projektsidan.",
   "results.quoted_note_manual": "Hårdvara angiven under Exporteras som. Exporter beskriver alltid denna hårdvara; för att exportera ett alternativ nedan i stället, rensa den på projektsidan.",
   "results.util.advice_over": "Denna hårdvara klarar inte den dimensionerade arbetslasten: den kräver {pct}% av klustrets kapacitet.",
-  "results.quoted_exported": "Exporteras"
+  "results.quoted_exported": "Exporteras",
+  "validated.single_disk_warning": "En enda disk per nod innebär att ett diskfel tar ner hela noden. Använd 2 eller fler diskar om chassit har platserna."
 };

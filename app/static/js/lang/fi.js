@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM solmua kohti (GB)",
   "validated.resolve_rules_tooltip": "Ratkaise korostetut validoidun asennusohjelman säännöt laskeaksesi",
   "validated.rule_band": "Hybridi: nopean tason on oltava {min}–{max} % kokonaiskapasiteetista",
-  "validated.rule_disks": "1 tai 3+ levyä solmua kohti (ei 2-levyisiä kokoonpanoja)",
+  "validated.rule_disks": "2+ levyä per solmu (3+ suositeltu); 1 vain yhden levypaikan solmussa",
   "validated.rule_hybrid": "Hybridi = pyörivä (SAS/NLSAS/SATA) + flash (SSD/NVMe)",
   "validated.rule_internal": "Vain sisäinen tallennustila — ei SAN- tai DAS-laitteita",
   "validated.rule_jbod": "Vain JBOD — ei RAID-ohjaimia, vain HBA tai PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Säikeet",
   "validated.threads_per_node": "Säikeet solmua kohti",
   "validated.tier": "Taso",
-  "validated.two_disks_unsupported": "2 levyä ei tueta. Käytä 1 tai 3+ levyä.",
   "wizard.back": "Takaisin",
   "wizard.env.caveats": "Muutama asia, jotka on hyvä tietää tästä tuonnista:",
   "wizard.export.save_close": "Tallenna ja sulje",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Laitteisto osaluettelon tarkistuksesta {name}. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se kohdassa Viedään nimellä projektisivulla.",
   "results.quoted_note_manual": "Kohtaan Viedään nimellä syötetty laitteisto. Viennit kuvaavat aina tätä laitteistoa; jos haluat viedä alla olevan vaihtoehdon, poista se projektisivulla.",
   "results.util.advice_over": "Tämä laitteisto ei riitä mitoitetulle kuormalle: se vaatii {pct}% tämän klusterin kapasiteetista.",
-  "results.quoted_exported": "Viedään"
+  "results.quoted_exported": "Viedään",
+  "validated.single_disk_warning": "Yksi levy per solmu tarkoittaa, että levyvika kaataa koko solmun. Käytä 2 tai useampaa levyä, jos kotelossa on paikat."
 };

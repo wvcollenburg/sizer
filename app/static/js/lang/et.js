@@ -1167,7 +1167,7 @@
   "validated.ram_per_node": "RAM sõlme kohta (GB)",
   "validated.resolve_rules_tooltip": "Arvutamiseks lahendage esiletõstetud valideeritud installeri reeglid",
   "validated.rule_band": "Hübriid: kiire tase peab olema {min}-{max}% kogumahust",
-  "validated.rule_disks": "1 või 3+ ketast sõlme kohta (2-ketta konfiguratsioone pole)",
+  "validated.rule_disks": "2+ ketast sõlme kohta (eelistatult 3+); 1 ainult ühe kettapesaga sõlmes",
   "validated.rule_hybrid": "Hübriid = pöörlev (SAS/NLSAS/SATA) + välkmälu (SSD/NVMe)",
   "validated.rule_internal": "Ainult sisemine salvestusruum — SAN-i või DAS-i pole",
   "validated.rule_jbod": "Ainult JBOD — RAID-kontrollereid pole, ainult HBA või PCIe NVMe",
@@ -1180,7 +1180,6 @@
   "validated.threads": "Lõimed",
   "validated.threads_per_node": "Lõimed sõlme kohta",
   "validated.tier": "Tase",
-  "validated.two_disks_unsupported": "2 ketast ei toetata. Kasutage 1 või 3+ ketast.",
   "wizard.back": "Tagasi",
   "wizard.env.caveats": "Mõned asjad, mida selle impordi puhul teada:",
   "wizard.export.save_close": "Salvesta ja sulge",
@@ -1646,5 +1645,6 @@
   "results.quoted_note_bom": "Riistvara komponentide kontrollist {name}. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel jaotises Eksporditakse kui.",
   "results.quoted_note_manual": "Jaotises Eksporditakse kui sisestatud riistvara. Eksport kirjeldab alati seda riistvara; allpool oleva valiku eksportimiseks eemalda see projektilehel.",
   "results.util.advice_over": "See riistvara ei kanna mõõdetud töökoormust: see vajab {pct}% selle klastri mahust.",
-  "results.quoted_exported": "Eksporditakse"
+  "results.quoted_exported": "Eksporditakse",
+  "validated.single_disk_warning": "Üks ketas sõlme kohta tähendab, et ketta rike viib maha kogu sõlme. Kasuta 2 või enamat ketast, kui korpuses on pesad olemas."
 };
