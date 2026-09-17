@@ -76,7 +76,10 @@ _NIC_PORTS_RE = re.compile(r"(\d+)\s*-?\s*(?:port|anschl[üu]ss?e?)", re.IGNOREC
 _NIC_NX_RE = re.compile(r"(\d+)\s*x\s*\d+(?:\.\d+)?\s*G(?:b|ig)", re.IGNORECASE)
 _CPU_CORES_RE = re.compile(r"(\d+)\s*C\b|(\d+)-Core", re.IGNORECASE)
 _CPU_THREADS_RE = re.compile(r"(\d+)\s*T\b", re.IGNORECASE)
-_CPU_GHZ_RE = re.compile(r"(\d+(?:\.\d+)?)\s*GHz", re.IGNORECASE)
+# '2.70GHz', and the German '2,8 GHz' / '3,1 G' (decimal comma, bare 'G'). The
+# comma used to be missed, which read '2,8 GHz' as 8 GHz. 'G' must not run
+# into a letter, so '24 GT/s' (the UPI speed) is never taken for a clock.
+_CPU_GHZ_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*G(?:Hz)?(?![A-Za-z])", re.IGNORECASE)
 # The model name inside a vendor CPU line, for the SPEC lookup:
 # 'AMD EPYC 9334', 'Intel Xeon Gold 6526Y', 'Intel Xeon 6 Performance 6745P'.
 _CPU_MODEL_TOKEN_RE = re.compile(
@@ -392,6 +395,32 @@ def _catalog_row(model_text: str, key: Optional[str]):
     return None
 
 
+def _spec_lookup(model_text: str) -> Optional[Dict[str, Any]]:
+    """SPEC CPU 2017 hit for a vendor CPU line, trying progressively barer
+    names: the whole line, the model name inside it, and for Xeon 6 the name
+    without its marketing word — the lookup lists 'Intel Xeon 6745P', while
+    Dell writes 'Intel® Xeon® 6 Performance 6745P'."""
+    hit = cpu_benchmarks.lookup(model_text)
+    if hit:
+        return hit
+    plain = re.sub(r"[\u00ae\u2122]|\((?:r|tm)\)", " ", model_text, flags=re.I)
+    token = _CPU_MODEL_TOKEN_RE.search(plain)
+    if not token:
+        return None
+    name = token.group(0)
+    candidates = [name]
+    xeon6 = re.match(r"(?:Intel\s+)?Xeon\s+6\s+\w+\s+(\d{4}[A-Z0-9]*)", name, re.I)
+    if xeon6:
+        candidates.append("Intel Xeon " + xeon6.group(1))
+    if not name.lower().startswith(("intel", "amd")) and "xeon" in name.lower():
+        candidates.append("Intel " + name)
+    for candidate in candidates:
+        hit = cpu_benchmarks.lookup(candidate)
+        if hit:
+            return hit
+    return None
+
+
 def resolve_cpu(model_text: str, qty: int) -> Dict[str, Any]:
     """BOM CPU text + sockets -> the engine's per-node cpu option shape, with
     sockets folded in, plus 'source' and 'base_clock_only' provenance."""
@@ -418,17 +447,13 @@ def resolve_cpu(model_text: str, qty: int) -> Dict[str, Any]:
     # normalises away clock speeds but not the rest of a vendor order line
     # ('AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800'), so the
     # bare model name is tried when the whole line misses.
-    hit = cpu_benchmarks.lookup(model_text or "")
-    if not hit:
-        token = _CPU_MODEL_TOKEN_RE.search(model_text or "")
-        if token:
-            hit = cpu_benchmarks.lookup(token.group(0))
+    hit = _spec_lookup(model_text or "")
     m_c = _CPU_CORES_RE.search(model_text or "")
     m_t = _CPU_THREADS_RE.search(model_text or "")
     m_g = _CPU_GHZ_RE.search(model_text or "")
     cores = int(m_c.group(1) or m_c.group(2)) if m_c else None
     threads = int(m_t.group(1)) if m_t else (cores * 2 if cores else None)
-    ghz = float(m_g.group(1)) if m_g else None
+    ghz = float(m_g.group(1).replace(",", ".")) if m_g else None
     if hit:
         source = "spec-cpu2017"
     elif cores is not None:

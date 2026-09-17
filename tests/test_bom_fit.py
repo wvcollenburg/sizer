@@ -758,3 +758,22 @@ def test_a_vendor_cpu_line_still_finds_its_spec_benchmark():
     assert cpu["source"] == "spec-cpu2017"
     assert cpu["specrate_int"] == 358.0
     assert (cpu["cores"], cpu["threads"]) == (32, 64)
+
+
+def test_a_decimal_comma_clock_is_not_misread():
+    """'2,8 GHz' was read as 8 GHz (the comma stopped the number) and the German
+    '3,1 G' not at all, for any CPU outside the catalog."""
+    cpu = fit.resolve_cpu("Intel® Xeon® Gold 9999X, 2,8 GHz, 32 C/64 T, 20 GT/s", 1)
+    assert cpu["ghz"] == 2.8
+    cpu = fit.resolve_cpu("Intel® Xeon® 6 Performance 6745P 3,1 G, 32 C/64 T, 24 GT/s", 1)
+    assert cpu["ghz"] == 3.1
+    # the UPI speed '24 GT/s' is never taken for a clock
+    cpu = fit.resolve_cpu("Some CPU 16C/32T, 24 GT/s", 1)
+    assert cpu["ghz"] is None
+
+
+def test_a_xeon_6_marketing_name_still_finds_its_benchmark():
+    """The SPEC lookup lists 'Intel Xeon 6745P'; Dell writes 'Intel® Xeon® 6
+    Performance 6745P'."""
+    cpu = fit.resolve_cpu("Intel® Xeon® 6 Performance 6745P 3,1 G, 32 C/64 T", 1)
+    assert cpu["source"] == "spec-cpu2017" and cpu["specrate_int"]

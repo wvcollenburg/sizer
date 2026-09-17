@@ -187,8 +187,10 @@ class _Group:
             self.order.append(key)
 
     def config(self, index: int) -> BOMConfig:
-        label = self.product or self.name or ('Config %d' % index)
-        return BOMConfig(name=label.strip()[:120] or ('Config %d' % index),
+        # Product cells can hold a line break ('R670 - … [PROMO_R670_1]\nAll
+        # Flasch'); the config name is one line wherever it is shown.
+        label = ' '.join((self.product or self.name or '').split())
+        return BOMConfig(name=label[:120] or ('Config %d' % index),
                          server_model=self.model,
                          components=[self.items[k] for k in self.order],
                          node_count=self.nodes)

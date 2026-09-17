@@ -893,8 +893,10 @@ def test_dcsc_description_only_variant(tmp_path):
     assert 'Months' not in by_desc          # service noise dropped
 
 
+# Partner BOMs live in _archive/boms/<vendor>/ since 2026-09-17 (see
+# tests/test_bom_archive.py, which also covers this file).
 ARROW_CURA = os.path.join(
-    ROOT, '_archive',
+    ROOT, '_archive', 'boms', 'lenovo',
     'Arrow Cura IT SR650v4_2x6530P_16x64GB_3x7.68_9x16TB_ETH_5YNBD 200226_V2.xlsx')
 
 
