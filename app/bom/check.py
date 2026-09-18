@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 
 from bom import rules
 from bom.normalize import ConfigResult, NormalizedBOM, ValidationResult
-from bom import enrich, platform_match
+from bom import enrich, part_notes, platform_match
 
 
 def _now_iso() -> str:
@@ -76,6 +76,8 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         delisted = enrich.load_delisted()
     except Exception:
         delisted = []
+    # Reviewers' standing notes on specific parts (bom/part_notes.py).
+    notes = part_notes.load_notes()
 
     config_results = []  # type: List[ConfigResult]
     config_dicts = []    # type: List[Dict]
@@ -96,6 +98,10 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         single_disk = enrich.single_disk_finding(config, matched)
         if single_disk is not None:
             result.findings.append(single_disk)
+        # Before the verdict, suggestions and review flags: a note that turns
+        # "not on the HCL" into a warning must stop the fail, the swap offer and
+        # the review for that part alike.
+        result.findings = part_notes.apply_notes(config, result.findings, notes)
         result.verdict = rules.determine_verdict(result.findings)
         config_results.append(result)
         suggestions.extend(enrich.suggestions_for(config, result, matched))

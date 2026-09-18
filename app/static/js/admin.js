@@ -43,7 +43,7 @@ function switchTab(tab) {
     if (tab === 'tuning') loadTunables();
     else if (tab === 'pricebook') loadPricebook();
     else if (tab === 'hcl') loadHcl();
-    else if (tab === 'bomreviews') { loadBomReviews(); loadBomRejects(); }
+    else if (tab === 'bomreviews') { loadBomReviews(); loadBomNotes(); loadBomRejects(); }
     else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
@@ -1803,6 +1803,7 @@ let hclSearchTimer = null;        // debounce for the component search box
 let hclExpandedPlatform = null;   // platform id whose detail row is open
 let bomReviewRows = [];           // last list from /admin/api/bom-reviews
 let bomReviewCurrent = null;      // row open in the modal
+let bomReviewFull = null;         // its full check (result + normalised BOM), for part notes
 let bomPrevData = null;           // /acceptable payload for the open review modal
 
 const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active', merge: 'badge-accent' };
@@ -2526,6 +2527,7 @@ async function bomReviewOpen(id) {
         if (res.ok && res.data) full = res.data;
     } catch (e) { full = null; }
     if (bomReviewCurrent !== row) return;
+    bomReviewFull = full;
     summary.innerHTML = bomReviewHeaderHtml(row) + bomReviewResultHtml(full && full.result ? full.result : null, row);
     document.getElementById('bom-review-note').focus();
 }
@@ -2560,7 +2562,7 @@ function bomReviewResultHtml(result, row) {
     const configs = Array.isArray(result.technical.config_results) ? result.technical.config_results : [];
     let html = `<h4 class="bom-review-h">${adminEsc(t('admin.bom.findings_title'))}</h4>`;
     if (!configs.length) html += `<p class="muted">${adminEsc(t('admin.bom.no_findings'))}</p>`;
-    configs.forEach(cfg => {
+    configs.forEach((cfg, ci) => {
         const findings = Array.isArray(cfg.findings) ? cfg.findings : [];
         const platform = cfg.platform || null;
         html += `<div class="bom-review-config"><div class="bom-review-config-head"><strong>${adminEsc(cfg.config_name || '')}</strong> ${bomReviewVerdictChip(cfg.verdict)}`
@@ -2573,12 +2575,14 @@ function bomReviewResultHtml(result, row) {
         html += '<table class="model-table bom-review-findings"><thead><tr>'
             + `<th>${adminEsc(t('admin.bom.col_severity'))}</th><th>${adminEsc(t('admin.bom.col_component'))}</th>`
             + `<th>${adminEsc(t('admin.bom.col_issue'))}</th><th>${adminEsc(t('admin.bom.col_remediation'))}</th>`
+            + `<th class="col-actions"></th>`
             + '</tr></thead><tbody>'
-            + findings.map(f => `<tr>
+            + findings.map((f, fi) => `<tr>
                 <td><span class="badge ${HCL_SEVERITY_BADGE[f.severity] || 'hcl-badge-plain'}">${adminEsc(hclTextOr('admin.bom.severity_' + f.severity, f.severity || ''))}</span></td>
                 <td>${adminEsc(f.component || '')}</td>
                 <td>${adminEsc(f.issue || '')}${f.code ? ` <code class="muted">${adminEsc(f.code)}</code>` : ''}</td>
                 <td>${adminEsc(f.remediation || '')}</td>
+                <td class="col-actions">${bomNoteLineFor(f.component) ? `<button class="btn btn-sm btn-secondary bom-note-add" data-click='["bomNoteFromFinding",${ci},${fi}]'>${adminEsc(t('admin.bomnote.add_btn'))}</button>` : ''}</td>
             </tr>`).join('')
             + '</tbody></table></div>';
     });
@@ -2607,6 +2611,7 @@ function bomReviewClose() {
     document.getElementById('bom-review-modal').style.display = 'none';
     document.getElementById('bom-prev-accept').innerHTML = '';
     bomReviewCurrent = null;
+    bomReviewFull = null;
     bomPrevData = null;
 }
 
@@ -2855,6 +2860,159 @@ function bomRejSize(bytes) {
     if (bytes == null) return '';
     if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
     return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+// ── part notes ───────────────────────────────────────────────────────────────
+// A reviewer's standing verdict on one specific part ("disable this LOM in the
+// BIOS"). The server applies it to new checks and re-checks in place of the
+// generic finding for that part (bom/part_notes.py). Existing checks keep their
+// stored result until re-checked.
+let bomNoteRows = [];
+let bomNoteEditing = null;     // {id?, source_check_id?}
+
+// The BOM line a finding is about, from the check's normalised BOM — only
+// findings that name a real line can carry a note ("Storage", "Platform" and
+// other summary findings cannot).
+function bomNoteLineFor(component) {
+    const configs = bomReviewFull && bomReviewFull.normalized && bomReviewFull.normalized.configs;
+    if (!component || !Array.isArray(configs)) return null;
+    for (const cfg of configs) {
+        const hit = (cfg.components || []).find(c => c.description === component);
+        if (hit) return hit;
+    }
+    return null;
+}
+
+function bomNoteMatchLabel(n) {
+    if (n.match_mode === 'contains') return t('admin.bomnote.contains', {text: n.match_text || ''});
+    return [n.part_number, n.description].filter(Boolean).join(' · ');
+}
+
+async function loadBomNotes() {
+    const body = document.getElementById('bom-notes-tbody');
+    if (!body) return;
+    const { ok, data } = await adminApi('/admin/api/bom-part-notes');
+    if (!ok || !Array.isArray(data)) {
+        body.innerHTML = `<tr><td colspan="6">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        return;
+    }
+    bomNoteRows = data;
+    body.innerHTML = data.map(n => `
+        <tr class="${n.active ? '' : 'muted'}">
+            <td>${adminEsc(bomNoteMatchLabel(n))}</td>
+            <td>${adminEsc(n.category ? hclTextOr('admin.bomnote.cat_' + n.category, n.category) : t('admin.bomnote.cat_any'))}</td>
+            <td><span class="badge ${HCL_SEVERITY_BADGE[n.severity] || 'hcl-badge-plain'}">${adminEsc(hclTextOr('admin.bom.severity_' + n.severity, n.severity))}</span></td>
+            <td title="${adminEsc(n.remediation || '')}">${adminEsc(n.issue)}</td>
+            <td><input type="checkbox" ${n.active ? 'checked' : ''} data-change='["bomNoteToggle",${n.id},"$checked"]'
+                       aria-label="${adminEsc(t('admin.bomnote.active_label'))}"></td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-secondary" data-click='["bomNoteEdit",${n.id}]'>${adminEsc(t('common.edit'))}</button>
+                <button class="btn btn-sm btn-danger" data-click='["bomNoteDelete",${n.id}]'>${adminEsc(t('common.delete'))}</button>
+            </td>
+        </tr>`).join('') || `<tr><td colspan="6" class="muted">${adminEsc(t('admin.bomnote.none'))}</td></tr>`;
+}
+
+function bomNoteFill(n) {
+    const set = (id, v) => { document.getElementById(id).value = v == null ? '' : v; };
+    set('bom-note-mode', n.match_mode || 'exact');
+    set('bom-note-part', n.part_number);
+    set('bom-note-desc', n.description);
+    set('bom-note-text', n.match_text);
+    set('bom-note-category', n.category || '');
+    set('bom-note-severity', n.severity || 'warning');
+    set('bom-note-issue', n.issue);
+    set('bom-note-remediation', n.remediation);
+    document.getElementById('bom-note-active').checked = n.active !== false;
+    bomNoteModeChanged();
+    setStatus('bom-note-status', '', false);
+    document.getElementById('bom-note-modal').style.display = 'flex';
+    document.getElementById('bom-note-issue').focus();
+}
+
+function bomNoteOpen() {
+    bomNoteEditing = {};
+    bomNoteFill({});
+}
+
+function bomNoteEdit(id) {
+    const n = bomNoteRows.find(r => r.id === id);
+    if (!n) return;
+    bomNoteEditing = {id: n.id};
+    bomNoteFill(n);
+}
+
+// From a finding in the review modal: the part is already known, so the
+// admin only has to write the note.
+function bomNoteFromFinding(ci, fi) {
+    const configs = bomReviewFull && bomReviewFull.result && bomReviewFull.result.technical
+        && bomReviewFull.result.technical.config_results;
+    const f = configs && configs[ci] && (configs[ci].findings || [])[fi];
+    const line = f && bomNoteLineFor(f.component);
+    if (!line) return;
+    bomNoteEditing = {source_check_id: bomReviewCurrent ? bomReviewCurrent.id : null};
+    bomNoteFill({
+        match_mode: 'exact',
+        part_number: line.partNumber || '',
+        description: line.description || '',
+        category: line.category || '',
+        severity: 'warning',
+    });
+}
+
+function bomNoteModeChanged() {
+    const contains = document.getElementById('bom-note-mode').value === 'contains';
+    document.querySelectorAll('#bom-note-modal .bom-note-exact').forEach(el => { el.style.display = contains ? 'none' : ''; });
+    document.querySelectorAll('#bom-note-modal .bom-note-contains').forEach(el => { el.style.display = contains ? '' : 'none'; });
+}
+
+function bomNoteClose() {
+    document.getElementById('bom-note-modal').style.display = 'none';
+    bomNoteEditing = null;
+}
+
+async function bomNoteSave() {
+    if (!bomNoteEditing) return;
+    const val = id => document.getElementById(id).value;
+    const payload = {
+        match_mode: val('bom-note-mode'),
+        part_number: val('bom-note-part'),
+        description: val('bom-note-desc'),
+        match_text: val('bom-note-text'),
+        category: val('bom-note-category'),
+        severity: val('bom-note-severity'),
+        issue: val('bom-note-issue'),
+        remediation: val('bom-note-remediation'),
+        active: document.getElementById('bom-note-active').checked,
+    };
+    let res;
+    if (bomNoteEditing.id) {
+        res = await hclJson(`/admin/api/bom-part-notes/${bomNoteEditing.id}`, 'PUT', payload);
+    } else {
+        payload.source_check_id = bomNoteEditing.source_check_id || null;
+        res = await hclJson('/admin/api/bom-part-notes', 'POST', payload);
+    }
+    if (!res.ok) {
+        setStatus('bom-note-status', (res.data && res.data.error) || t('admin.msg.failed'), true);
+        return;
+    }
+    bomNoteClose();
+    setStatus('bom-review-status', t('admin.bomnote.saved'), false);
+    loadBomNotes();
+}
+
+async function bomNoteToggle(id, checked) {
+    const n = bomNoteRows.find(r => r.id === id);
+    if (!n) return;
+    const res = await hclJson(`/admin/api/bom-part-notes/${id}`, 'PUT', Object.assign({}, n, {active: !!checked}));
+    if (!res.ok) setStatus('bom-review-status', (res.data && res.data.error) || t('admin.msg.failed'), true);
+    loadBomNotes();
+}
+
+async function bomNoteDelete(id) {
+    if (!confirm(t('admin.bomnote.delete_confirm'))) return;
+    const { ok, data } = await adminApi(`/admin/api/bom-part-notes/${id}`, { method: 'DELETE' });
+    if (!ok) { setStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    loadBomNotes();
 }
 
 async function loadBomRejects() {
