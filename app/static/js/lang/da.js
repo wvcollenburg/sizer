@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Kun intern lagring — ingen SAN eller DAS",
   "validated.rule_jbod": "Kun JBOD — ingen RAID-controllere, kun HBA eller PCIe NVMe",
   "validated.rule_nodes": "Minimum 2 noder (clustre med 2 noder kræver en witness-enhed)",
-  "validated.rule_ratio": "Hybrid: mindst 3 HDD'er pr. flashdisk (HEAT-nedlagdeling)",
+  "validated.rule_ratio": "Hybrid: mindst 2 HDD'er pr. flashdisk (HEAT-nedlagdeling)",
   "validated.rules_title": "Validated Installer-regler",
   "validated.single_tier": "Enkelt lag",
   "validated.storage_only_info": "Noder kun til lagring kører ingen VM'er, men tilslutter sig lagerclusteret og tilføjer kapacitet og IOPS. Samme diske som HCI-noderne, en enkelt CPU og mindst 16 GB RAM. Kræver mindst 2 fulde HCI-noder.",

@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Kun intern lagring — ingen SAN eller DAS",
   "validated.rule_jbod": "Kun JBOD — ingen RAID-kontrollere, kun HBA eller PCIe NVMe",
   "validated.rule_nodes": "Minimum 2 noder (2-node-klynger krever en witness-enhet)",
-  "validated.rule_ratio": "Hybrid: minst 3 HDD-er per flash-disk (HEAT-nedgradering)",
+  "validated.rule_ratio": "Hybrid: minst 2 HDD-er per flash-disk (HEAT-nedgradering)",
   "validated.rules_title": "Regler for validert installasjonsprogram",
   "validated.single_tier": "Enkelt nivå",
   "validated.storage_only_info": "Kun-lagring-noder kjører ingen VM-er men blir med i lagringsklyngen og legger til kapasitet og IOPS. Samme disker som HCI-nodene, en enkel CPU og minst 16 GB RAM. Krever minst 2 fulle HCI-noder.",

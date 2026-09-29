@@ -9,7 +9,7 @@ Pinned here:
     hold more than one disk; the model's certified disk count stands in when
     the HCL does not say;
   * such a node never gets 1 disk; 3+ is preferred and 2 is used only when no
-    3+ build works — and never on a Single Node System;
+    3+ build works — on a Single Node System too (owner, 2026-09-29);
   * a box certified with ONE disk (the HE15x NUCs) keeps it: Validated only
     removes disks from the certified build;
   * the manual Validated calculator accepts 2 disks;
@@ -53,9 +53,12 @@ def test_a_single_disk_node_keeps_one():
     assert preferred == [1] and fallback == []
 
 
-def test_no_two_disk_fallback_on_a_single_node_system():
-    _preferred, fallback = _validated_disk_counts(12, multi_disk=True, single_node=True)
-    assert fallback == []
+def test_two_disks_are_allowed_on_a_single_node_system():
+    # Owner, 2026-09-29: the 2-disk SNS restriction is resolved. A box
+    # certified with 2 disks keeps its 2-disk build as a single node.
+    pick = _pick_uniform_drives([1.92, 3.84], 2, 1.0, [1], "nvme",
+                                validated=True, multi_disk=True)
+    assert pick is not None and pick["drive_counts"] == {"NVMe": 2}
 
 
 def test_bay_count_decides_and_certified_count_is_the_fallback():
@@ -101,13 +104,6 @@ def test_two_disks_only_when_no_three_disk_build_exists():
                                 cluster_layout=[40], drive_type="hdd",
                                 validated=True, multi_disk=True)
     assert _disks(pick) == 2
-
-
-def test_a_single_node_system_never_falls_back_to_two():
-    pick = _pick_uniform_drives([3.84, 7.68], 2, usable_needed=1.0,
-                                cluster_layout=[1], drive_type="nvme",
-                                validated=True, multi_disk=True)
-    assert pick is None
 
 
 def test_certified_builds_are_untouched():
@@ -196,6 +192,22 @@ def test_the_manual_validated_calculator_accepts_two_disks(app):
         "disks": [{"type": "SSD", "size_tb": 3.84}, {"type": "SSD", "size_tb": 3.84}],
     }, 3)
     assert "error" not in result, result.get("error")
+
+
+def test_a_hybrid_node_needs_two_hdds_per_flash_disk(app):
+    """Owner, 2026-09-29: 2 slow disks per fast disk (SSD and faster)."""
+    from calc import calculate_validated
+    from tunables import T
+    assert T.hybrid_min_hdd_per_flash == 2
+
+    def run(hdds):
+        return calculate_validated({
+            "cores_per_node": 16, "threads_per_node": 32, "ghz": 3.0, "ram_gb": 256,
+            "disks": [{"type": "HDD", "size_tb": 8.0}] * hdds
+                     + [{"type": "SSD", "size_tb": 1.92}],
+        }, 3)
+    assert "error" not in run(2), run(2).get("error")
+    assert "HDDs per flash disk" in run(1).get("error", "")
 
 
 def test_bom_checker_warns_about_a_single_disk_in_a_multi_bay_chassis():

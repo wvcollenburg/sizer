@@ -1,28 +1,43 @@
 #!/bin/sh
 # Screenshot the running sizer into docs/shots/ for UI review.
 #
-# Exists because Claude Code's sandbox denies Chrome the Mach-port bootstrap it
-# needs to start, so it can't take these itself — but it CAN read the PNGs once
-# they exist. Run this yourself and the screenshots become reviewable.
+# Claude can read the PNGs once they exist, so this gives it a quick visual
+# check of the main pages.
 #
 #   tools/shots.sh [base-url]
 #
-# Default base-url is the local dev server on :5101. The browser binary is
-# fetched on first run into .tools/ (gitignored, ~200MB).
+# Default base-url is the local dev server on :5101. Uses Playwright's
+# chrome-headless-shell (~/.cache/ms-playwright) when installed; otherwise the
+# binary for this platform is fetched on first run into .tools/ (gitignored,
+# ~200MB).
 
 set -e
 BASE="${1:-http://127.0.0.1:5101}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/docs/shots"
-CHS="$ROOT/.tools/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+
+case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) PLAT=mac-arm64 ;;
+    Darwin-*)     PLAT=mac-x64 ;;
+    *)            PLAT=linux64 ;;
+esac
+
+CHS=""
+for c in "$HOME"/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-"$PLAT"/chrome-headless-shell; do
+    [ -x "$c" ] && CHS="$c"
+done
+
+if [ -z "$CHS" ]; then
+    CHS="$ROOT/.tools/chrome-headless-shell-$PLAT/chrome-headless-shell"
+fi
 
 if [ ! -x "$CHS" ]; then
-    echo "Fetching chrome-headless-shell..."
+    echo "Fetching chrome-headless-shell ($PLAT)..."
     mkdir -p "$ROOT/.tools"
     VER=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json" \
           | python3 -c "import json,sys; print(json.load(sys.stdin)['channels']['Stable']['version'])")
     curl -sL -o "$ROOT/.tools/chs.zip" \
-        "https://storage.googleapis.com/chrome-for-testing-public/$VER/mac-arm64/chrome-headless-shell-mac-arm64.zip"
+        "https://storage.googleapis.com/chrome-for-testing-public/$VER/$PLAT/chrome-headless-shell-$PLAT.zip"
     (cd "$ROOT/.tools" && unzip -q -o chs.zip && rm chs.zip)
     chmod +x "$CHS"
 fi

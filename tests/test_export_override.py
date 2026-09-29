@@ -625,6 +625,35 @@ def test_the_export_worker_renders_the_quoted_chassis(app, sizing):
         "vendor_chassis"] == "Dell PowerEdge R660"
 
 
+def test_a_dr_target_exports_its_quoted_hardware_too(app, sizing):
+    """Owner, 2026-09-29: the DR setup is compared against a BOM as well. A DR
+    target is a sizing like any other, stored the way saveDrTarget stores it,
+    so a BOM checked against it drives its exports and its fit comparison."""
+    from project_models import ExportJob
+    from export_worker import sections_for
+    from bom import fit
+
+    sizing.is_dr_target = True
+    sizing.payload = {"mode": "dr_target", "dr": {"sizing_mode": "validated"}}
+    sizing.result_snapshot = {"clusters": [{
+        "name": sizing.name, "summary": {"vm_count": 0}, "projection": {"years": 5},
+        "recommendation": _rec(), "source_perf": None, "replicates_to": "",
+        "refs": {"mode": "validated"},
+    }], "totals": None}
+    db.session.commit()
+
+    assert fit.sizing_requirements(sizing) is not None
+    _add_check(sizing, name="DR site quote")
+    job = ExportJob(user_id=sizing.owner_id, project_id=sizing.project_id,
+                    fmt="pptx", sizing_ids=[sizing.id], lang="en")
+    db.session.add(job)
+    db.session.commit()
+    sections, skipped = sections_for(job)
+    assert not skipped
+    assert sections[0]["recommendation"]["vendor_chassis"] == "Dell PowerEdge R670"
+    assert eo.badge_for(sizing)["bom_check_name"] == "DR site quote"
+
+
 def test_a_real_proposal_names_the_quoted_chassis(app):
     """End-to-end on REAL engine output: seed a catalog, size a Validated
     cluster, attach a BOM check for another chassis, and read the rendered

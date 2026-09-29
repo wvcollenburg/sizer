@@ -42,6 +42,15 @@ CODE_DELISTED = "component_delisted"
 CODE_PLATFORM_IDENTIFIED = "platform_identified"
 CODE_PLATFORM_UNKNOWN = "platform_unknown"
 CODE_SINGLE_DISK_MULTI_BAY = "single_disk_multi_bay"
+CODE_HYBRID_RATIO = "hybrid_hdd_ratio"
+
+# Ported findings the owner has since overruled (apply_owner_rules).
+_RESOLVED_CODES = frozenset(["two_drives"])
+# On a NUC the NIC is onboard and a single disk is a supported build.
+_NUC_EXEMPT_CODES = frozenset([
+    "nic_missing", "nic_not_in_hcl", "nic_lom", "nic_multiple_families",
+    "single_flash_drive", "single_hdd",
+])
 
 _CATEGORY_KINDS = {"nic": ("nic",), "controller": ("hba",), "gpu": ("gpu",),
                    "storage": ("hdd", "ssd"), "cpu": ("cpu",)}
@@ -116,24 +125,42 @@ def platform_bays(platforms: List[HclPlatform]) -> Optional[int]:
     return bays or None
 
 
+def is_nuc(platforms: List[HclPlatform]) -> bool:
+    """True when the identified platform is a NUC-class box (the HCL's "DT"
+    form factor, e.g. HE155 on a ThinkCentre M70q Tiny)."""
+    return any((p.form_factor or "").strip().upper() == "DT"
+               or re.search(r"\b(NUC|Tiny)\b", p.server or "", re.I)
+               for p in platforms)
+
+
+def _drives_per_node(config: BOMConfig) -> Optional[Dict[str, int]]:
+    """Per-node drive counts by kind ('hdd'/'ssd'/'nvme'), or None when the
+    BOM's node count could not be established — per-node figures without a
+    node count would be guesses."""
+    from bom.fit import derive_nodes
+    nodes = derive_nodes(config)
+    if nodes.get("node_count") is None:
+        return None
+    counts = {}  # type: Dict[str, int]
+    for d in nodes.get("drives") or []:
+        counts[d["kind"]] = counts.get(d["kind"], 0) + int(d.get("qty_per_node") or 0)
+    return counts
+
+
 def single_disk_finding(config: BOMConfig, platforms: List[HclPlatform]) -> Optional[Finding]:
     """Warn when a node that has bays for more disks is quoted with just one.
 
     Redundancy, not cost (owner decision 2026-09-17): with a single disk a disk
     failure takes the whole node down, which a multi-bay chassis never has to
     accept. Only raised when the platform's bay count is known and the BOM's
-    node count could be established — per-node figures without a node count
-    would be guesses. Kept out of rules.py so the 26-BOM replay is untouched.
+    node count could be established. Never on a NUC: a second disk is possible
+    there but not required (owner, 2026-09-29).
     """
     bays = platform_bays(platforms)
-    if not bays or bays <= 1:
+    if not bays or bays <= 1 or is_nuc(platforms):
         return None
-    from bom.fit import derive_nodes
-    nodes = derive_nodes(config)
-    if nodes.get("node_count") is None:
-        return None
-    per_node = sum(int(d.get("qty_per_node") or 0) for d in nodes.get("drives") or [])
-    if per_node != 1:
+    counts = _drives_per_node(config)
+    if counts is None or sum(counts.values()) != 1:
         return None
     return Finding(
         severity="warning",
@@ -143,6 +170,52 @@ def single_disk_finding(config: BOMConfig, platforms: List[HclPlatform]) -> Opti
                     "two disks per node (three or more preferred); the chassis has the bays.",
         code=CODE_SINGLE_DISK_MULTI_BAY,
     )
+
+
+def hybrid_ratio_finding(config: BOMConfig) -> Optional[Finding]:
+    """Warn when a hybrid node has fewer than the required slow (HDD) disks
+    per fast (SSD or faster) disk — 2 by default (owner, 2026-09-29), the same
+    tunable the engine and the manual calculator enforce."""
+    from tunables import T
+    counts = _drives_per_node(config)
+    if counts is None:
+        return None
+    slow = counts.get("hdd", 0)
+    fast = counts.get("ssd", 0) + counts.get("nvme", 0)
+    need = T.hybrid_min_hdd_per_flash
+    if not slow or not fast or slow >= need * fast:
+        return None
+    return Finding(
+        severity="warning",
+        component="Storage",
+        issue="Hybrid layout has %d HDD(s) for %d SSD/NVMe disk(s) per node" % (slow, fast),
+        remediation="A hybrid node needs at least %d HDDs per SSD/NVMe disk, so the slow tier "
+                    "can absorb data tiered down from flash (HEAT). Add HDDs or quote fewer "
+                    "flash disks." % need,
+        code=CODE_HYBRID_RATIO,
+    )
+
+
+def apply_owner_rules(config: BOMConfig, findings: List[Finding],
+                      platforms: List[HclPlatform]) -> List[Finding]:
+    """Owner decisions layered over the ported rules, which stay a faithful
+    1:1 port so the 26-BOM replay holds:
+
+    * a 2-drive Single Node System is supported (2026-09-29) — the port's
+      ``two_drives`` warning is dropped;
+    * on a NUC every NIC is onboard (LOM) and one disk is fine, so the NIC and
+      single-drive findings do not apply there;
+    * a node with more bays than disks must not run on one disk;
+    * a hybrid node needs 2 HDDs per SSD/NVMe disk.
+    """
+    drop = set(_RESOLVED_CODES)
+    if is_nuc(platforms):
+        drop |= _NUC_EXEMPT_CODES
+    out = [f for f in findings if f.code not in drop]
+    for extra in (single_disk_finding(config, platforms), hybrid_ratio_finding(config)):
+        if extra is not None:
+            out.append(extra)
+    return out
 
 
 def _platform_parts(platforms: List[HclPlatform], kind: str) -> List[Dict]:

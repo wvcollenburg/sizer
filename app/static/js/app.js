@@ -853,7 +853,7 @@ const VALIDATED_LIMITS = {
     maxClusterDisks: parseInt(document.body.dataset.maxClusterDisks, 10) || 100,
     flashMinPct: parseFloat(document.body.dataset.hybridFlashMin) || 7,
     flashMaxPct: parseFloat(document.body.dataset.hybridFlashMax) || 25,
-    minHddPerFlash: parseInt(document.body.dataset.hybridMinHddPerFlash, 10) || 3,
+    minHddPerFlash: parseInt(document.body.dataset.hybridMinHddPerFlash, 10) || 2,
 };
 
 // The static rule-list label and the sizing-mode tooltip carry {min}/{max}/
@@ -2103,9 +2103,15 @@ async function loadExportAsInfo() {
             if (res.ok) exportAsInfo = (await res.json()).effective || null;
         } catch (e) { /* the badge is informational; never block the sizer */ }
     }
-    renderRecToolbar('rec-toolbar', recSaveSpec());
     // The quoted card depends on the badge; a list rendered before it arrived
-    // has none yet.
+    // has none yet. A DR target renders its own list and toolbar — and only
+    // once its sizing has come back, or the loading message would be replaced
+    // by "no results".
+    if (currentMode === 'dr_target') {
+        if (exportAsInfo && drTargetResult) renderDrRecommendations();
+        return;
+    }
+    renderRecToolbar('rec-toolbar', recSaveSpec());
     if (exportAsInfo && typeof rerenderRecommendations === 'function') rerenderRecommendations();
 }
 
@@ -2572,7 +2578,7 @@ async function fetchQuotedRec(key, base) {
     } catch (e) { /* the card is additive; never block the sizer on it */ }
     if (quotedRecCache.pending !== key) return;   // superseded meanwhile
     quotedRecCache = {key, rec, pending: null};
-    if (rec) rerenderRecommendations();
+    if (rec) rerenderActiveRecList();
 }
 
 // Re-render when the container crosses a threshold that changes the column set.
@@ -4273,6 +4279,10 @@ function renderDrRecommendations() {
         pickLabel: window.t('results.select'),
         pickedLabel: window.t('results.selected'),
         footerActions: false,
+        // A DR target is a sizing like any other: a BOM checked against it, or
+        // a manual override, makes its quoted hardware the list's first entry
+        // and what its exports describe (owner, 2026-09-29).
+        quoted: quotedEntry(recs, sel),
     };
     const body = recView === 'split'
         ? recSplitHtml(recs, 'dr', demand, sel, width, ctx)

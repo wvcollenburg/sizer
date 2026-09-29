@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Solo storage interno — nessun SAN o DAS",
   "validated.rule_jbod": "Solo JBOD — nessun controller RAID, solo HBA o PCIe NVMe",
   "validated.rule_nodes": "Minimo 2 nodi (i cluster a 2 nodi richiedono un dispositivo witness)",
-  "validated.rule_ratio": "Ibrido: almeno 3 HDD per disco flash (down-tiering HEAT)",
+  "validated.rule_ratio": "Ibrido: almeno 2 HDD per disco flash (down-tiering HEAT)",
   "validated.rules_title": "Regole dell'Installer Validated",
   "validated.single_tier": "Tier singolo",
   "validated.storage_only_info": "I nodi solo storage non eseguono VM ma si uniscono al cluster di storage, aggiungendo capacità e IOPS. Stessi dischi dei nodi HCI, una CPU singola e almeno 16 GB di RAM. Richiede almeno 2 nodi HCI completi.",

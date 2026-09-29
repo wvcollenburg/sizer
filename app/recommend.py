@@ -1630,7 +1630,7 @@ def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=Fal
     return None
 
 
-def _validated_disk_counts(certified_count, multi_disk=False, single_node=False):
+def _validated_disk_counts(certified_count, multi_disk=False):
     """(preferred, fallback) per-node disk counts when flexing down from a
     fully-populated certified node. Never above certified.
 
@@ -1638,14 +1638,13 @@ def _validated_disk_counts(certified_count, multi_disk=False, single_node=False)
       one disk anyway (a single disk in a multi-bay node turns every disk
       failure into a node failure — owner decision 2026-09-17).
     fallback: 2, tried only when no preferred count yields a build (e.g. the
-      certified build has exactly 2 disks). 2 disks is supported in a
-      multi-node cluster but not on a Single Node System, matching the BOM
-      checker's 2-drive rule.
+      certified build has exactly 2 disks). Supported on a Single Node System
+      too (owner, 2026-09-29).
     """
     preferred = [n for n in range(3, certified_count + 1)]
     if not multi_disk and certified_count >= 1:
         preferred.append(1)
-    fallback = [2] if (multi_disk and certified_count >= 2 and not single_node) else []
+    fallback = [2] if (multi_disk and certified_count >= 2) else []
     return sorted(set(preferred)), fallback
 
 
@@ -1659,7 +1658,7 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
     # preferred counts first, and 2 disks only when none of those can work.
     if validated:
         preferred, fallback = _validated_disk_counts(
-            drives_per_node, multi_disk=multi_disk, single_node=sum(cluster_layout) == 1)
+            drives_per_node, multi_disk=multi_disk)
         passes = [preferred, fallback]
     else:
         passes = [[drives_per_node]]

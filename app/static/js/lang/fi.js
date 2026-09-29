@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Vain sisäinen tallennustila — ei SAN- tai DAS-laitteita",
   "validated.rule_jbod": "Vain JBOD — ei RAID-ohjaimia, vain HBA tai PCIe NVMe",
   "validated.rule_nodes": "Vähintään 2 solmua (2-solmuiset klusterit vaativat todistajalaitteen)",
-  "validated.rule_ratio": "Hybridi: vähintään 3 HDD:tä flash-levyä kohti (HEAT-alastasoitus)",
+  "validated.rule_ratio": "Hybridi: vähintään 2 HDD:tä flash-levyä kohti (HEAT-alastasoitus)",
   "validated.rules_title": "Validoidun asennusohjelman säännöt",
   "validated.single_tier": "Yksi taso",
   "validated.storage_only_info": "Vain tallennus -solmut eivät aja VM:iä, mutta liittyvät tallennusklusteriin lisäten kapasiteettia ja IOPS:ia. Samat levyt kuin HCI-solmuilla, yksittäinen CPU ja vähintään 16 GB RAM. Vaatii vähintään 2 täyttä HCI-solmua.",

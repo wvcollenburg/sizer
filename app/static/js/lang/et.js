@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Ainult sisemine salvestusruum — SAN-i või DAS-i pole",
   "validated.rule_jbod": "Ainult JBOD — RAID-kontrollereid pole, ainult HBA või PCIe NVMe",
   "validated.rule_nodes": "Vähemalt 2 sõlme (2-sõlmelised klastrid vajavad tunnistajaseadet)",
-  "validated.rule_ratio": "Hübriid: vähemalt 3 HDD-d välkmäluketta kohta (HEAT-i astmete alandamine)",
+  "validated.rule_ratio": "Hübriid: vähemalt 2 HDD-d välkmäluketta kohta (HEAT-i astmete alandamine)",
   "validated.rules_title": "Valideeritud installeri reeglid",
   "validated.single_tier": "Üksik tase",
   "validated.storage_only_info": "Ainult salvestuse sõlmed ei käita VM-e, kuid liituvad salvestusklastriga, lisades mahtu ja IOPS-i. Samad kettad nagu HCI sõlmedel, üksik CPU ja vähemalt 16 GB RAM-i. Nõuab vähemalt 2 täielikku HCI sõlme.",

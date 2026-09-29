@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Stockage interne uniquement — pas de SAN ni DAS",
   "validated.rule_jbod": "JBOD uniquement — pas de contrôleurs RAID, HBA ou PCIe NVMe uniquement",
   "validated.rule_nodes": "Minimum 2 nœuds (les clusters à 2 nœuds nécessitent un dispositif témoin)",
-  "validated.rule_ratio": "Hybride : au moins 3 HDD par disque flash (déclassement HEAT)",
+  "validated.rule_ratio": "Hybride : au moins 2 HDD par disque flash (déclassement HEAT)",
   "validated.rules_title": "Règles d'installation validée",
   "validated.single_tier": "Niveau unique",
   "validated.storage_only_info": "Les nœuds de stockage seul n'exécutent aucune VM mais rejoignent le cluster de stockage, ajoutant capacité et IOPS. Mêmes disques que les nœuds HCI, un CPU simple et au moins 16 GB de RAM. Nécessite au moins 2 nœuds HCI complets.",

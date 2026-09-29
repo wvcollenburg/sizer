@@ -257,7 +257,7 @@ def test_cluster_three_nodes_rf2_rebuild_reserve_and_n_minus_1():
     assert c["perf_full"] == pytest.approx(169.5 * 3)
     assert c["n_minus_1"]["ram_gb"] == c["ram_n1"]
     assert c["storage_category"] == "flash" and c["nic_gbe"] == 25
-    assert c["feasibility"]["disk_cap_ok"] and not c["feasibility"]["exactly_two_disks"]
+    assert c["feasibility"]["disk_cap_ok"]
 
 
 def test_cluster_single_node_uses_the_sns_rule():
@@ -451,12 +451,12 @@ def test_compare_without_a_sizing_result_is_unknown():
 
 
 def test_compare_storage_feasibility_lands_in_notes():
-    # 2 disks per node is supported in a multi-node cluster (2026-09-17) and
-    # only flagged for a Single Node System.
+    # 2 disks per node is supported, a Single Node System included (owner,
+    # 2026-09-29): no note either way.
     r = fit.compare(lenovo_config(drives_per_node=2), requirements())
-    assert not any("Exactly 2 disks" in n for n in r["notes"])
+    assert not any("2 disks" in n for n in r["notes"])
     r = fit.compare(lenovo_config(nodes=1, drives_per_node=2), requirements())
-    assert any("Exactly 2 disks" in n for n in r["notes"])
+    assert not any("2 disks" in n for n in r["notes"])
     T.set_values({"max_cluster_disks": 10})
     r = fit.compare(lenovo_config(drives_per_node=4), requirements())
     assert any("exceed the 10-disk limit" in n for n in r["notes"])

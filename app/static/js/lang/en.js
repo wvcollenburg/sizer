@@ -1173,7 +1173,7 @@
   "validated.rule_internal": "Internal storage only — no SAN or DAS",
   "validated.rule_jbod": "JBOD only — no RAID controllers, HBA or PCIe NVMe only",
   "validated.rule_nodes": "Minimum 2 nodes (2-node clusters require a witness device)",
-  "validated.rule_ratio": "Hybrid: at least 3 HDDs per flash disk (HEAT down-tiering)",
+  "validated.rule_ratio": "Hybrid: at least 2 HDDs per flash disk (HEAT down-tiering)",
   "validated.rules_title": "Validated Installer Rules",
   "validated.single_tier": "Single tier",
   "validated.storage_only_info": "Storage-only nodes run no VMs but join the storage cluster, adding capacity and IOPS. Same disks as the HCI nodes, a single CPU and at least 16 GB RAM. Requires at least 2 full HCI nodes.",

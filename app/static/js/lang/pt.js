@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Somente armazenamento interno — sem SAN ou DAS",
   "validated.rule_jbod": "Somente JBOD — sem controladores RAID, apenas HBA ou NVMe PCIe",
   "validated.rule_nodes": "Mínimo de 2 nós (clusters de 2 nós exigem um dispositivo testemunha)",
-  "validated.rule_ratio": "Híbrido: pelo menos 3 HDDs por disco de flash (down-tiering HEAT)",
+  "validated.rule_ratio": "Híbrido: pelo menos 2 HDDs por disco de flash (down-tiering HEAT)",
   "validated.rules_title": "Regras do Instalador Validado",
   "validated.single_tier": "Nível único",
   "validated.storage_only_info": "Nós somente armazenamento não executam VMs, mas ingressam no cluster de armazenamento, adicionando capacidade e IOPS. Mesmos discos que os nós HCI, uma CPU única e pelo menos 16 GB de RAM. Requer pelo menos 2 nós HCI completos.",

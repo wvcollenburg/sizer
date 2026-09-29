@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Tik vidinė saugykla — jokių SAN ar DAS",
   "validated.rule_jbod": "Tik JBOD — jokių RAID valdiklių, tik HBA arba PCIe NVMe",
   "validated.rule_nodes": "Bent 2 mazgai (2 mazgų klasteriams reikia liudytojo įrenginio)",
-  "validated.rule_ratio": "Hibridinis: bent 3 HDD vienam flash diskui (HEAT žemesnio lygio perkėlimas)",
+  "validated.rule_ratio": "Hibridinis: bent 2 HDD vienam flash diskui (HEAT žemesnio lygio perkėlimas)",
   "validated.rules_title": "Patvirtintojo diegimo taisyklės",
   "validated.single_tier": "Vienas lygis",
   "validated.storage_only_info": "Tik saugyklos mazgai neleidžia VM, bet prisijungia prie saugyklos klasterio, pridėdami talpos ir IOPS. Tie patys diskai kaip HCI mazgų, vienas CPU ir bent 16 GB RAM. Reikia bent 2 pilnų HCI mazgų.",

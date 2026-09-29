@@ -1,7 +1,7 @@
 """Pre-publication accepts (bom/preview.py) end to end.
 
-The real case this mirrors: a BOM arrives on a ThinkCentre M70q Tiny Gen 6
-(HE155) quoting a NIC and a 'Core Ultra' CPU the HCL team has verified but
+The real case this mirrors: a BOM arrives on a ThinkEdge SE100 (HE250)
+quoting a NIC and a 'Core Ultra' CPU the HCL team has verified but
 the public HCL does not list yet. The super admin accepts the parts so the
 very next opportunity passes; a later scrape must neither delist them nor
 duplicate them, and the HCL team pulls the accepted set over a tokened feed
@@ -48,7 +48,7 @@ CPU_KEY = "cpu/no-part:core-ultra-7-265t"
 FEED_TOKEN = "hcl-team-pull-token-1"
 
 
-# ── fixture snapshot, cut down to the HE155 platform ─────────────────────────
+# ── fixture snapshot, cut down to the HE155 + HE250 platforms ────────────────
 
 def _read(name):
     with open(os.path.join(FIXTURES, name), encoding="utf-8") as fh:
@@ -73,10 +73,15 @@ def mini_snapshot():
     Still 'complete': the delist/flip rules only run on complete snapshots."""
     full = hs.scrape_all(fetch=fixture_fetch(), sleep=lambda s: None)
     assert full["complete"] is True
-    he155 = [copy.deepcopy(p) for p in full["platforms"]
-             if p["brand"] == "lenovo" and p["sc_model"] == "HE155"]
-    assert len(he155) == 1
-    return {"platforms": he155, "devices": [], "complete": True,
+    # HE250 carries the failing-BOM story (make_failed_check). It used to be
+    # HE155, but a NUC's NIC is onboard and never flagged (owner, 2026-09-29),
+    # so the unlisted-NIC case needs a box that takes an add-in NIC. HE155
+    # stays for the new-platform / near-match stories below.
+    wanted = {("lenovo", "HE155"), ("lenovo", "HE250")}
+    kept = [copy.deepcopy(p) for p in full["platforms"]
+            if (p["brand"], p["sc_model"]) in wanted]
+    assert len(kept) == 2
+    return {"platforms": kept, "devices": [], "complete": True,
             "pages_total": 2, "pages_done": 2, "errors": [],
             "scraped_at": full.get("scraped_at")}
 
@@ -127,12 +132,12 @@ def _bom():
     def comp(cat, desc, part, qty):
         return BOMComponent(part_number=part, description=desc, quantity=qty, category=cat)
     return NormalizedBOM(vendor="Lenovo", configs=[BOMConfig(
-        name="Edge PROD", server_model="ThinkCentre M70q Tiny Gen 6", node_count=3,
+        name="Edge PROD", server_model="ThinkEdge SE100", node_count=3,
         components=[
-            comp("chassis", "ThinkCentre M70q Tiny Chassis", "BLK1", 3),
+            comp("chassis", "ThinkEdge SE100 Chassis", "BLK1", 3),
             comp("cpu", CPU_DESC, None, 3),
-            comp("memory", "ThinkCentre 32GB DDR5 5600MHz SODIMM", "MEM1", 6),
-            comp("storage", 'ThinkCentre 2.5" 3.84TB Read Intensive NVMe PCIe 4.0 SSD',
+            comp("memory", "ThinkEdge 32GB DDR5 5600MHz SODIMM", "MEM1", 6),
+            comp("storage", 'ThinkEdge 2.5" 3.84TB Read Intensive NVMe PCIe 4.0 SSD',
                  "SSD1", 6),
             comp("nic", NIC_DESC, NIC_PART, 3),
         ])])
@@ -172,8 +177,8 @@ def test_unknown_parts_fail_against_the_real_platform(app):
     assert set(check["flag_reasons"]) >= {"nic_not_in_hcl", "cpu_unknown"}
     assert check["review_status"] == "open"
     cr = check["result"]["technical"]["config_results"][0]
-    assert cr["platform"]["sc_models"] == ["HE155"]
-    assert cr["platform"]["server"] == "ThinkCentre M70q Tiny Gen6"
+    assert cr["platform"]["sc_models"] == ["HE250"]
+    assert cr["platform"]["server"] == "ThinkEdge SE100"
 
 
 # ── acceptable candidates ────────────────────────────────────────────────────
@@ -194,7 +199,7 @@ def test_acceptable_lists_the_nic_and_cpu_with_the_platform(app):
     cpu = by_key[CPU_KEY]
     assert cpu["kind"] == "cpu" and cpu["part_number"].startswith("no-part:")
     assert cpu["from_code"] == "cpu_unknown"
-    assert [p["sc_model"] for p in d["platforms"]] == ["HE155"]
+    assert [p["sc_model"] for p in d["platforms"]] == ["HE250"]
     assert d["platforms"][0]["brand"] == "lenovo"
 
     assert admin.get("/admin/api/bom-reviews/99999/acceptable").status_code == 404
@@ -211,7 +216,7 @@ def test_accept_creates_preview_components_linked_to_the_platform(app):
     assert sorted(d["created"]) == sorted([NIC_KEY, CPU_KEY])
     assert d["relisted"] == [] and d["skipped"] == []
     assert sorted(d["linked"]) == sorted(
-        ["lenovo/HE155 -> %s" % NIC_KEY, "lenovo/HE155 -> %s" % CPU_KEY])
+        ["lenovo/HE250 -> %s" % NIC_KEY, "lenovo/HE250 -> %s" % CPU_KEY])
 
     with app.app_context():
         run = db.session.get(hm.HclScrapeRun, d["run_id"])
@@ -231,11 +236,12 @@ def test_accept_creates_preview_components_linked_to_the_platform(app):
         assert nic.tce is False
         cpu = hm.HclComponent.query.filter_by(kind="cpu").one()
         assert cpu.origin == hm.ORIGIN_PREVIEW
-        platform = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HE155").one()
-        links = {l.component.key: l for l in platform.links}
+        platform = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HE250").one()
+        # HE250's own page lists two NICs; the accept adds exactly two links.
+        links = {l.component.key: l for l in platform.links
+                 if l.origin == hm.ORIGIN_PREVIEW}
         assert set(links) == {NIC_KEY, CPU_KEY}
-        assert all(l.status == hm.STATUS_ACTIVE and l.origin == hm.ORIGIN_PREVIEW
-                   for l in links.values())
+        assert all(l.status == hm.STATUS_ACTIVE for l in links.values())
         assert sync.catalog_stamp() != stamp_before
         assert "hcl_preview_accept" in [a.action for a in AdminAuditLog.query.all()]
 
@@ -253,8 +259,8 @@ def test_accepting_twice_skips_and_duplicates_nothing(app):
         adds = hm.HclPendingChange.query.filter_by(
             entity_type="component", entity_key=NIC_KEY, change_kind="add").count()
         assert adds == 1
-        platform = hm.HclPlatform.query.filter_by(sc_model="HE155").one()
-        assert len(platform.links) == 2
+        platform = hm.HclPlatform.query.filter_by(sc_model="HE250").one()
+        assert len([l for l in platform.links if l.origin == hm.ORIGIN_PREVIEW]) == 2
 
 
 def test_accept_validates_keys_and_check(app):
@@ -299,7 +305,7 @@ def test_scrape_without_the_parts_never_delists_them(app, mini_snapshot):
         assert hm.HclPendingChange.query.filter_by(status=hm.PENDING).count() == 0
         nic = hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).one()
         assert nic.status == hm.STATUS_ACTIVE and nic.origin == hm.ORIGIN_PREVIEW
-        platform = hm.HclPlatform.query.filter_by(sc_model="HE155").one()
+        platform = hm.HclPlatform.query.filter_by(sc_model="HE250").one()
         assert all(l.status == hm.STATUS_ACTIVE for l in platform.links)
 
 
@@ -307,7 +313,8 @@ def test_publication_flips_origin_silently(app, mini_snapshot):
     partner, admin, check = make_failed_check(app)
     assert accept(admin, check["id"]).status_code == 200
     published = copy.deepcopy(mini_snapshot)
-    published["platforms"][0].setdefault("components", []).append({
+    he250 = next(p for p in published["platforms"] if p["sc_model"] == "HE250")
+    he250.setdefault("components", []).append({
         "kind": "nic", "part_number": NIC_PART, "description": NIC_DESC,
         "tce": False, "attrs": component_attrs("nic", NIC_DESC),
     })
@@ -319,9 +326,9 @@ def test_publication_flips_origin_silently(app, mini_snapshot):
         assert hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).count() == 1
         nic = hm.HclComponent.query.filter_by(kind="nic", part_number=NIC_PART).one()
         assert nic.origin == hm.ORIGIN_SCRAPE
-        platform = hm.HclPlatform.query.filter_by(sc_model="HE155").one()
+        platform = hm.HclPlatform.query.filter_by(sc_model="HE250").one()
         links = {l.component.key: l for l in platform.links}
-        assert len(links) == 2  # no duplicate link row
+        assert len(links) == 4  # 2 scraped NICs + NIC + CPU, no duplicate link row
         assert links[NIC_KEY].origin == hm.ORIGIN_SCRAPE
         # the CPU is still unpublished: stays preview, stays immune
         assert links[CPU_KEY].origin == hm.ORIGIN_PREVIEW
@@ -339,7 +346,7 @@ def test_admin_preview_list_shows_accepted_parts(app):
     assert sorted(r["key"] for r in rows) == sorted([NIC_KEY, CPU_KEY])
     nic = next(r for r in rows if r["key"] == NIC_KEY)
     assert nic["origin"] == "preview"
-    assert nic["platforms"][0]["sc_model"] == "HE155"
+    assert nic["platforms"][0]["sc_model"] == "HE250"
     assert nic["platforms"][0]["link_origin"] == "preview"
 
 
@@ -375,8 +382,8 @@ def test_pull_feed_is_tokened_and_needs_no_login(app):
     nic = parts[NIC_PART]
     assert nic["kind"] == "nic" and nic["description"] == NIC_DESC
     assert nic["accepted_at"]
-    assert nic["platforms"] == [{"brand": "lenovo", "sc_model": "HE155",
-                                 "server": "ThinkCentre M70q Tiny Gen6"}]
+    assert nic["platforms"] == [{"brand": "lenovo", "sc_model": "HE250",
+                                 "server": "ThinkEdge SE100"}]
 
     # curl-friendly query-string token works too
     assert anon.get("/api/hcl/preview-feed?token=" + FEED_TOKEN).status_code == 200
@@ -537,13 +544,13 @@ def test_linked_generic_description_stays_scoped_to_its_platform(app):
                            dict(NEW_PLATFORM)).status_code == 200
 
     with app.app_context():
-        # same line on a BOM identified as HE155: still gpu_not_in_hcl
+        # same line on a BOM identified as HE250: still gpu_not_in_hcl
         bom = _bom()
         bom.configs[0].components.append(BOMComponent(
             part_number=None, description=GPU_DESC, quantity=1, category="gpu"))
         result = run_check(bom)
         cr = result["technical"]["config_results"][0]
-        assert cr["platform"]["sc_models"] == ["HE155"]
+        assert cr["platform"]["sc_models"] == ["HE250"]
         assert "gpu_not_in_hcl" in [f["code"] for f in cr["findings"]]
 
         # same line on a BOM with NO identified platform: the part is LINKED,
@@ -575,13 +582,13 @@ def test_unlinked_preview_part_matches_only_platformless_boms(app):
         assert cr["platform"] is None
         assert "gpu_not_in_hcl" not in [f["code"] for f in cr["findings"]]
 
-        # identified BOM (HE155): the unlinked part does NOT match
+        # identified BOM (HE250): the unlinked part does NOT match
         bom = _bom()
         bom.configs[0].components.append(BOMComponent(
             part_number=None, description=GPU_DESC, quantity=1, category="gpu"))
         result = run_check(bom)
         cr = result["technical"]["config_results"][0]
-        assert cr["platform"]["sc_models"] == ["HE155"]
+        assert cr["platform"]["sc_models"] == ["HE250"]
         assert "gpu_not_in_hcl" in [f["code"] for f in cr["findings"]]
 
 
@@ -625,7 +632,7 @@ def test_preview_platform_is_delist_immune_then_flips_on_publication(app, mini_s
 
 
 def test_platform_spec_validation_errors(app):
-    partner, admin, check = make_failed_check(app)          # identifies HE155
+    partner, admin, check = make_failed_check(app)          # identifies HE250
     project = make_project(partner, name="Tiny2")
     check2 = upload_bom(partner, project["id"], _tiny_bom())  # no platform
     gpu_key = gpu_candidate_key(admin, check2["id"])
@@ -952,7 +959,7 @@ def test_withdraw_delists_the_part_and_its_links(app):
                    json={"note": "accepted by mistake"})
     assert r.status_code == 200, r.get_data(as_text=True)
     d = r.get_json()
-    assert d["withdrawn"] == comp_key and d["links"] == ["lenovo/HE155"]
+    assert d["withdrawn"] == comp_key and d["links"] == ["lenovo/HE250"]
 
     with app.app_context():
         comp = hm.HclComponent.query.filter_by(part_number=NIC_PART).one()

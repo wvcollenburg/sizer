@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "内蔵ストレージのみ — SANまたはDAS不可",
   "validated.rule_jbod": "JBODのみ — RAIDコントローラー不可、HBAまたはPCIe NVMeのみ",
   "validated.rule_nodes": "最低2ノード (2ノードクラスターにはウィットネスデバイスが必要)",
-  "validated.rule_ratio": "ハイブリッド: フラッシュディスク1台につき最低3台のHDD (HEATダウンティアリング)",
+  "validated.rule_ratio": "ハイブリッド: フラッシュディスク1台につき最低2台のHDD (HEATダウンティアリング)",
   "validated.rules_title": "Validated Installerルール",
   "validated.single_tier": "シングルティア",
   "validated.storage_only_info": "ストレージ専用ノードはVMを実行しませんが、ストレージクラスターに参加し、容量とIOPSを追加します。HCIノードと同じディスク、シングルCPU、最低16 GBのRAMを使用します。最低2台の完全なHCIノードが必要です。",

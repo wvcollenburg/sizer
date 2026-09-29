@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Alleen interne opslag — geen SAN of DAS",
   "validated.rule_jbod": "Alleen JBOD — geen RAID-controllers, alleen HBA of PCIe NVMe",
   "validated.rule_nodes": "Minimaal 2 nodes (clusters met 2 nodes vereisen een witness-apparaat)",
-  "validated.rule_ratio": "Hybride: ten minste 3 HDD's per flashschijf (HEAT down-tiering)",
+  "validated.rule_ratio": "Hybride: ten minste 2 HDD's per flashschijf (HEAT down-tiering)",
   "validated.rules_title": "Validated Installer Rules",
   "validated.single_tier": "Enkele tier",
   "validated.storage_only_info": "Alleen-opslag-nodes draaien geen VM's maar sluiten zich aan bij het opslagcluster, waardoor capaciteit en IOPS worden toegevoegd. Zelfde schijven als de HCI-nodes, een enkele CPU en ten minste 16 GB RAM. Vereist ten minste 2 volledige HCI-nodes.",

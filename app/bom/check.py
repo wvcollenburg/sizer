@@ -95,9 +95,7 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         extra = enrich.delisted_findings(config, delisted)
         result.findings.extend(extra)
         result.findings.append(enrich.platform_finding(matched))
-        single_disk = enrich.single_disk_finding(config, matched)
-        if single_disk is not None:
-            result.findings.append(single_disk)
+        result.findings = enrich.apply_owner_rules(config, result.findings, matched)
         # Before the verdict, suggestions and review flags: a note that turns
         # "not on the HCL" into a warning must stop the fail, the swap offer and
         # the review for that part alike.

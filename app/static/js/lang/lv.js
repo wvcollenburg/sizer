@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Tikai iekšējā krātuve — bez SAN vai DAS",
   "validated.rule_jbod": "Tikai JBOD — bez RAID kontrolieriem, tikai HBA vai PCIe NVMe",
   "validated.rule_nodes": "Minimums 2 mezgli (2 mezglu klasteriem nepieciešama liecinieka ierīce)",
-  "validated.rule_ratio": "Hibrīds: vismaz 3 HDD uz vienu zibatmiņas disku (HEAT pārvietošana uz zemāku līmeni)",
+  "validated.rule_ratio": "Hibrīds: vismaz 2 HDD uz vienu zibatmiņas disku (HEAT pārvietošana uz zemāku līmeni)",
   "validated.rules_title": "Validētā instalētāja noteikumi",
   "validated.single_tier": "Viens līmenis",
   "validated.storage_only_info": "Tikai krātuves mezgli nedarbina VM, bet pievienojas krātuves klasterim, papildinot ietilpību un IOPS. Tādi paši diski kā HCI mezgliem, viens CPU un vismaz 16 GB RAM. Nepieciešami vismaz 2 pilni HCI mezgli.",

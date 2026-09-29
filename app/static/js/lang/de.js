@@ -1172,7 +1172,7 @@
   "validated.rule_internal": "Nur interner Speicher — kein SAN oder DAS",
   "validated.rule_jbod": "Nur JBOD — keine RAID-Controller, nur HBA oder PCIe-NVMe",
   "validated.rule_nodes": "Mindestens 2 Knoten (2-Knoten-Cluster erfordern ein Witness-Gerät)",
-  "validated.rule_ratio": "Hybrid: mindestens 3 HDDs pro Flash-Datenträger (HEAT-Down-Tiering)",
+  "validated.rule_ratio": "Hybrid: mindestens 2 HDDs pro Flash-Datenträger (HEAT-Down-Tiering)",
   "validated.rules_title": "Validierte Installer-Regeln",
   "validated.single_tier": "Einzelnes Tier",
   "validated.storage_only_info": "Nur-Speicher-Knoten betreiben keine VMs, treten aber dem Speichercluster bei und fügen Kapazität und IOPS hinzu. Gleiche Datenträger wie die HCI-Knoten, eine einzelne CPU und mindestens 16 GB RAM. Erfordert mindestens 2 vollständige HCI-Knoten.",
