@@ -41,6 +41,9 @@ bom_admin_bp.before_request(require_super_admin)
 bom_reject_admin_bp = Blueprint("bom_reject_admin", __name__,
                                 url_prefix="/admin/api/bom-rejects")
 bom_reject_admin_bp.before_request(require_super_admin)
+bom_notes_admin_bp = Blueprint("bom_notes_admin", __name__,
+                               url_prefix="/admin/api/bom-part-notes")
+bom_notes_admin_bp.before_request(require_super_admin)
 # Machine-to-machine pull feed for the HCL team (no user accounts on their
 # side): deliberately NOT behind login — auth.require_login exempts exactly
 # this path, and the route enforces its own bearer token instead.
@@ -57,6 +60,7 @@ def register_bom(app):
     app.register_blueprint(bom_checks_bp)
     app.register_blueprint(bom_admin_bp)
     app.register_blueprint(bom_reject_admin_bp)
+    app.register_blueprint(bom_notes_admin_bp)
     app.register_blueprint(hcl_feed_bp)
 
 
@@ -548,3 +552,103 @@ def delete_reject(reject_id):
     db.session.delete(row)
     db.session.commit()
     return jsonify({"message": "File deleted"})
+
+
+# ── part notes (super admin) ─────────────────────────────────────────────────
+# A reviewer's standing verdict on one specific part; applied to every later
+# check by bom/part_notes.py. Existing checks pick a note up on re-check.
+
+def _note_from_payload(data, note=None):
+    """(note, error) — validated fields copied onto ``note`` (new when None)."""
+    from bom_models import (BomPartNote, NOTE_MATCH_CONTAINS, NOTE_MATCH_EXACT,
+                            NOTE_MATCH_MODES, NOTE_SEVERITIES)
+
+    def text(key, limit):
+        value = (data.get(key) or "").strip()
+        return value[:limit] or None
+
+    mode = (data.get("match_mode") or NOTE_MATCH_EXACT).strip().lower()
+    if mode not in NOTE_MATCH_MODES:
+        return None, "Unknown match mode"
+    severity = (data.get("severity") or "warning").strip().lower()
+    if severity not in NOTE_SEVERITIES:
+        return None, "Unknown severity"
+    issue = text("issue", 300)
+    if not issue:
+        return None, "A note needs a title"
+    part_number, description, match_text = text("part_number", 80), text("description", 300), text("match_text", 200)
+    if mode == NOTE_MATCH_EXACT and not (part_number or description):
+        return None, "An exact note needs a part number or a description"
+    if mode == NOTE_MATCH_CONTAINS and (not match_text or len(match_text) < 3):
+        # A one- or two-letter text would hit half the BOM.
+        return None, "A 'contains' note needs a match text of at least 3 characters"
+
+    note = note or BomPartNote()
+    note.match_mode = mode
+    note.part_number = part_number if mode == NOTE_MATCH_EXACT else None
+    note.description = description if mode == NOTE_MATCH_EXACT else None
+    note.match_text = match_text if mode == NOTE_MATCH_CONTAINS else None
+    note.category = text("category", 20)
+    note.severity = severity
+    note.issue = issue
+    note.remediation = text("remediation", 2000)
+    if "active" in data:
+        note.active = bool(data.get("active"))
+    return note, None
+
+
+def _note_label(note):
+    return note.part_number or note.description or ("contains '%s'" % note.match_text)
+
+
+@bom_notes_admin_bp.route("", methods=["GET"])
+def list_part_notes():
+    from bom_models import BomPartNote
+    rows = BomPartNote.query.order_by(BomPartNote.updated_at.desc(), BomPartNote.id.desc()).all()
+    return jsonify([n.to_dict() for n in rows])
+
+
+@bom_notes_admin_bp.route("", methods=["POST"])
+def create_part_note():
+    data = request.json or {}
+    note, err = _note_from_payload(data)
+    if err:
+        return jsonify({"error": err}), 400
+    user = current_user()
+    note.created_by_user_id = user.id if user else None
+    check_id = data.get("source_check_id")
+    if check_id and db.session.get(BomCheck, int(check_id)) is not None:
+        note.source_check_id = int(check_id)
+    db.session.add(note)
+    db.session.flush()
+    audit("bom_part_note", "created note #%d (%s, %s): %s"
+          % (note.id, _note_label(note), note.severity, note.issue))
+    db.session.commit()
+    return jsonify(note.to_dict()), 201
+
+
+@bom_notes_admin_bp.route("/<int:note_id>", methods=["PUT"])
+def update_part_note(note_id):
+    from bom_models import BomPartNote
+    note = db.session.get(BomPartNote, note_id)
+    if note is None:
+        return jsonify({"error": "Note not found"}), 404
+    note, err = _note_from_payload(request.json or {}, note)
+    if err:
+        return jsonify({"error": err}), 400
+    audit("bom_part_note", "updated note #%d (%s, %s, %s)"
+          % (note.id, _note_label(note), note.severity, "active" if note.active else "disabled"))
+    db.session.commit()
+    return jsonify(note.to_dict())
+
+
+@bom_notes_admin_bp.route("/<int:note_id>", methods=["DELETE"])
+def delete_part_note(note_id):
+    from bom_models import BomPartNote
+    note = db.session.get(BomPartNote, note_id)
+    if note is None:
+        return jsonify({"error": "Note not found"}), 404
+    audit("bom_part_note", "deleted note #%d (%s)" % (note.id, _note_label(note)))
+    db.session.delete(note)
+    db.session.commit()
+    return jsonify({"message": "Note deleted"})

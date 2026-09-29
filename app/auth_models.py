@@ -199,6 +199,11 @@ class Configuration(db.Model):
     # "re-import needed" rather than merely stale (§3.3).
     parser_version = db.Column(db.String(64))
     source_meta = db.Column(JSON_TYPE)  # provenance: file name, type, hash, counts
+    # Export customization (export_override.py): which chassis/hardware the
+    # exports name when the partner sells something other than what was sized.
+    # Display only — NOT part of result_fingerprint, since it changes nothing
+    # about whether the stored result is still a valid calculation.
+    export_override = db.Column(JSON_TYPE)
     # Digest of the payload, maintained on save. A DR target's fingerprint folds
     # in the digests of everything replicating into it (§8.5), so this is read
     # once per link instead of re-hashing a 4 MB payload on every project open.

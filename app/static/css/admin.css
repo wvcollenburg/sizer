@@ -968,3 +968,13 @@ body { padding-bottom: 64px; }
     line-height: 1.5;
     color: var(--text, #0f172b);
 }
+
+/* Part notes (BOM review). The editor opens on top of the review modal, so it
+   stacks above that modal's raised z-index. */
+#bom-note-modal.bom-note-overlay { z-index: 1200; }
+.bom-note-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.bom-note-header .btn { flex-shrink: 0; }
+.bom-note-hint { margin: 0 0 0.9rem; }
+.bom-review-findings .bom-note-add { white-space: nowrap; }
+#bom-note-modal .modal-body { padding: 1.25rem 1.5rem; }
+#bom-notes-tbody .col-actions { white-space: nowrap; }

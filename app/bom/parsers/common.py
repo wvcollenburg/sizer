@@ -277,12 +277,24 @@ def server_model_from_text(text: Optional[str]) -> Optional[str]:
 # Absence indicators the rules engine relies on (rules.is_absence_indicator,
 # is_boss_card, is_controller). These win over DROP: a BOM that explicitly
 # says 'No BOSS Card' must keep saying so.
+#
+# German ('Ohne Festplatte', 'Kein Controller', 'Keine BOSS-Karte') and the
+# 'Platzhalter' / 'Leermodul' blanks arrived with the Dell solution exports
+# (parsers/dell_solution.py), the same way the Portuguese did with Lenovo:
+# read as hardware, 'Ohne Festplatte' becomes a diskless node's phantom disk
+# and 'Keine BOSS-Karte' becomes a BOSS card nobody quoted.
 ABSENCE = re.compile(
     r'^(?:No\s+(?:BOSS|Controller|HBA|RAID|PERC|OCP|Additional Processor|Second Processor|'
     r'Hard Drive|Rear Storage|GPU|Internal|Trusted Platform|TPM)\b'
     r'|(?:Assembly\s+)?BOSS Blank|LOM Blank|Riser Blank|OCP Blank|.*\bBlank\s*$'
     r'|Unconfigured RAID|C\d+,\s*No RAID|No RAID|Select Storage devices'
-    r'|Dispositivos de armazenamento)',
+    r'|Dispositivos de armazenamento'
+    r'|Ohne\s+(?:BOSS|Festplatte|Controller|HBA|RAID|PERC|OCP|Betriebssystem|GPU|'
+    r'Laufwerk|zweiten|weiteren)'
+    r'|Kein(?:e|en|er)?\s+(?:BOSS|Festplatte|Controller|HBA|RAID|PERC|OCP|'
+    r'Betriebssystem|GPU|Laufwerk|Datentr[äa]ger|Bereitstellung|DPUs?)'
+    r'|C\d+,?\s*[-–—]?\s*[Kk]ein\s+RAID'
+    r'|.*\bPlatzhalter\s*$|.*\bLeermodul\b)',
     re.I)
 
 # Pure order-entry noise. Anchored alternatives first, then whole-word hits
@@ -339,9 +351,10 @@ def should_drop(description: str, part_number: Optional[str] = None) -> bool:
 # 'No X' / 'X Blank' lines classify as 'other' regardless of keywords so
 # 'No BOSS Card' never counts as a BOSS card.
 NEGATED = re.compile(
-    r'^(?:No\b|None\b|Nenhum\b|Assembly BOSS Blank|BOSS Blank|LOM Blank|Riser Blank|'
-    r'.*\bBlank\s*$|Decline|C\d+,\s*No RAID|Unconfigured|no configured|'
-    r'Select Storage devices|Dispositivos de armazenamento)',
+    r'^(?:No\b|None\b|Nenhum\b|Ohne\b|Kein(?:e|en|er)?\b|Assembly BOSS Blank|BOSS Blank|'
+    r'LOM Blank|Riser Blank|.*\bBlank\s*$|Decline|C\d+,\s*No RAID|Unconfigured|'
+    r'no configured|Select Storage devices|Dispositivos de armazenamento|'
+    r'.*\bPlatzhalter\s*$|.*\bLeermodul\b|Auswahl ablehnen)',
     re.I)
 
 # A line that IS the server (the chassis/base line) — checked before the

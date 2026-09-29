@@ -206,11 +206,26 @@ def matches_any(text: str, keywords: List[str]) -> bool:
     return any(k.lower() in lower for k in keywords)
 
 
+# Additive extension, deliberately NOT folded into the line below: the source
+# validator only ever saw English, and this file's contract is a byte-identical
+# replay of the 26 archived fixtures (see the module docstring). German absence
+# wording arrived with the Dell solution exports — 'Keine BOSS-Karte' read as a
+# present BOSS card and failed an otherwise fine BOM. Kept as a separate clause
+# so the ported semantics stay visible and the new words cannot alter an
+# English finding. parsers/common.ABSENCE is the richer, parser-side twin;
+# these two are allowed to differ (that one also drops order-entry noise).
+_ABSENCE_DE = re.compile(
+    r'^(?:ohne|kein(?:e|en|er)?)\b|\bplatzhalter\b|\bleermodul\b', re.I)
+
+
 def is_absence_indicator(c: BOMComponent) -> bool:
     """"No BOSS", "BOSS Blank", "No Controller", "Riser Blank", etc. are absence
-    indicators — the customer explicitly chose not to include that component."""
+    indicators — the customer explicitly chose not to include that component.
+    German equivalents: 'Ohne …', 'Kein(e) …', '… Platzhalter', 'Leermodul'."""
     d = c.description.lower()
-    return d.startswith('no ') or ' blank' in d or 'blank ' in d
+    if d.startswith('no ') or ' blank' in d or 'blank ' in d:
+        return True
+    return bool(_ABSENCE_DE.search(c.description or ''))
 
 
 def is_boss_card(c: BOMComponent) -> bool:
@@ -236,7 +251,12 @@ def is_sas_drive(c: BOMComponent) -> bool:
 def is_hdd(c: BOMComponent) -> bool:
     return c.category == 'storage' and matches_any(
         c.description,
-        ['HDD', '7.2K', '7200', 'NL-SAS', 'SAS HDD', 'SATA HDD', 'spinning', 'Hard Drive', 'Hard Disk'],
+        # 'Festplatte' is German for hard drive and '7,2K' its RPM spelling;
+        # a German NVMe line says 'Laufwerk', never 'Festplatte', so this stays
+        # exclusive. Absence lines ('Ohne Festplatte') never reach here — they
+        # are categorised 'other' before any drive test.
+        ['HDD', '7.2K', '7,2K', '7200', 'NL-SAS', 'SAS HDD', 'SATA HDD', 'spinning',
+         'Hard Drive', 'Hard Disk', 'Festplatte'],
     )
 
 
@@ -469,12 +489,25 @@ def find_gpu_in_hcl(c: BOMComponent, hcl: HclData,
 
 # ─── CPU generation check ─────────────────────────────────────────────────────
 
+# Additive extension (see the module docstring): Dell's localised and some
+# English exports write 'Intel® Xeon® Gold 6438N'. The mark sits between the
+# words every pattern below expects to be adjacent, so a current Xeon read as
+# "generation could not be determined" and turned a clean BOM INCONCLUSIVE.
+# None of the 26 archived fixtures carries a mark, so the replay is unaffected.
+_TRADEMARK_RE = re.compile(r'\s*(?:[\u00ae\u2122\u00a9]|\((?:r|tm|c)\))', re.I)
+
+
+def _strip_marks(text: str) -> str:
+    """'Intel® Xeon® 6 Performance' -> 'Intel Xeon 6 Performance'."""
+    return _TRADEMARK_RE.sub('', text or '')
+
+
 _OLD_XEON_RE = _js_re(r'xeon\s+e[357]-')
 _OLD_E_SERIES_RE = _js_re(r'\be[357]-\d{4}\b')
 
 
 def is_clearly_old_cpu(description: str) -> bool:
-    d = description.lower()
+    d = _strip_marks(description).lower()
     if _OLD_XEON_RE.search(d):
         return True
     if _OLD_E_SERIES_RE.search(d):
@@ -499,6 +532,7 @@ _RAPTOR_RE = _js_re(r'raptor lake', ignore_case=True)
 
 
 def is_scalable_cpu(description: str) -> bool:
+    description = _strip_marks(description)
     if _SCALABLE_TIER_RE.search(description):
         return True
     if _XEON6_RE.search(description):
@@ -525,7 +559,7 @@ _XEON_PREFIX_RE = _js_re(r'^Xeon\s+', ignore_case=True)
 
 def find_cpu_in_hcl(c: BOMComponent, hcl: HclData,
                     platform_keys: Optional[Iterable[str]] = None) -> bool:
-    search_text = ('%s %s' % (c.part_number or '', c.description)).lower()
+    search_text = _strip_marks('%s %s' % (c.part_number or '', c.description)).lower()
     # An empty model key matches everything, exactly as `includes('')` does.
     if any(_XEON_PREFIX_RE.sub('', cpu.model).lower() in search_text for cpu in hcl.cpus):
         return True

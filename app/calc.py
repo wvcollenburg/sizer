@@ -115,11 +115,10 @@ def calculate_appliance(data, node_count):
     if total_nodes > 1:
         usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
     else:
-        # Single Node System. A hybrid SNS must mirror each tier within the one
-        # node, which needs >=2 disks of every type; a 3+1 layout is out of scope.
-        sns_err = _sns_storage_error(storage, model_name)
-        if sns_err:
-            return sns_err
+        # Single Node System. Any disk layout the model is certified with runs
+        # as SNS (owner, 2026-09-29: the old "2+ disks of every tier" rule is
+        # resolved; hybrids only need 2 slow disks per fast one, which the
+        # certified layouts already meet).
         # RF2 still mirrors across the node's own drives (usable = raw/2), but
         # reserves no rebuild disk — there's no peer node to rebuild onto, so the
         # largest-disk reserve that multi-node clusters hold back doesn't apply. A
@@ -303,32 +302,6 @@ def compute_raw_per_node_appliance(data, storage):
     return 0
 
 
-def _sns_storage_error(storage, model_name):
-    """Validate that a model can run as a Single Node System (SNS). A hybrid SNS
-    must mirror each storage tier within the one node (RF2), which requires at
-    least two disks of every type. A 3+1 layout (a single disk in one tier) can't
-    be mirrored, so it's out of scope for SNS — return an error pointing the user
-    at a multi-node build."""
-    stype = storage["type"]
-    if stype == "hybrid":
-        tiers = {"HDD": storage["hdd_count"], "SSD": storage["ssd_count"]}
-    elif stype == "hybrid_nvme":
-        tiers = {"HDD": storage["hdd_count"], "NVMe": storage["nvme_count"]}
-    elif stype == "nvme_and_ssd":
-        tiers = {"NVMe": 1, "SSD": 1}
-    else:
-        return None
-    if any(c < 2 for c in tiers.values()):
-        layout = ", ".join("%d× %s" % (c, t) for t, c in tiers.items())
-        return {"error": (
-            f"{model_name} can't be configured as a single node: a hybrid Single "
-            f"Node System must mirror each storage tier locally, which needs at "
-            f"least 2 disks of every type (this layout is {layout}). Use 2 or more "
-            f"nodes for this model."
-        )}
-    return None
-
-
 def compute_drive_count_appliance(data, storage):
     """Number of physical drives in one node — used to decide whether a Single
     Node System can mirror (RF2). A single-disk node has no second drive to
@@ -379,8 +352,9 @@ def calculate_validated(data, node_count):
         return {"error": "At least 1 disk required per node"}
 
     disk_count = len(disks)
-    if disk_count == 2:
-        return {"error": "Disk count must be 1 or 3+. 2 disks is not supported."}
+    # 2 disks per node is supported, on a Single Node System too (owner,
+    # 2026-09-29). A 1-disk node still calculates, but the GUI warns that a
+    # disk failure then takes the whole node down (owner decision 2026-09-17).
 
     # Optional storage-only nodes: same disks, virtualization disabled. They add
     # capacity and disks to the cluster but no usable compute.
@@ -540,7 +514,7 @@ def calculate_validated(data, node_count):
         "single_node": total_nodes == 1,
         "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
         "validation": {
-            "disk_count_valid": disk_count == 1 or disk_count >= 3,
+            "disk_count_valid": disk_count >= 1,
             "hybrid_ratio_valid": True,
             "no_raid": True,
             "internal_only": True,

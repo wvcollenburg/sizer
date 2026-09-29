@@ -33,7 +33,7 @@ resolution skips the catalog table) so tests and background jobs can run it
 without an app context. Python 3.9-compatible.
 """
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from tunables import T
 from recommend import (_cluster_layout, _cluster_usable_storage,
@@ -65,15 +65,28 @@ TIER_KEY = {"hdd": "HDD", "ssd": "SSD", "nvme": "NVMe"}
 # controller/boss/gpu/other are the technical checker's business.
 _CAPACITY_CATEGORIES = ("cpu", "memory", "storage", "nic")
 
-_CAPACITY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(TB|GB)\b", re.IGNORECASE)
+# The hyphen is German compounding ('8-TB-Festplatte'); the comma is its
+# decimal point ('7,68 TB'). Both arrived with the Dell solution exports.
+_CAPACITY_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*(TB|GB)\b", re.IGNORECASE)
 # '10/25GbE', '25GbE', '10GBase-T', '10Gb', '100GbE', '2.5GbE', '10 Gigabit'
 _NIC_SPEED_RE = re.compile(r"((?:\d+(?:\.\d+)?\s*/\s*)*\d+(?:\.\d+)?)\s*G(?:b|ig)",
                            re.IGNORECASE)
-_NIC_PORTS_RE = re.compile(r"(\d+)\s*-?\s*port", re.IGNORECASE)
+# 'Anschlüsse' is how a German Dell line writes ports ('2 Anschlüsse').
+_NIC_PORTS_RE = re.compile(r"(\d+)\s*-?\s*(?:port|anschl[üu]ss?e?)", re.IGNORECASE)
 _NIC_NX_RE = re.compile(r"(\d+)\s*x\s*\d+(?:\.\d+)?\s*G(?:b|ig)", re.IGNORECASE)
 _CPU_CORES_RE = re.compile(r"(\d+)\s*C\b|(\d+)-Core", re.IGNORECASE)
 _CPU_THREADS_RE = re.compile(r"(\d+)\s*T\b", re.IGNORECASE)
-_CPU_GHZ_RE = re.compile(r"(\d+(?:\.\d+)?)\s*GHz", re.IGNORECASE)
+# '2.70GHz', and the German '2,8 GHz' / '3,1 G' (decimal comma, bare 'G'). The
+# comma used to be missed, which read '2,8 GHz' as 8 GHz. 'G' must not run
+# into a letter, so '24 GT/s' (the UPI speed) is never taken for a clock.
+_CPU_GHZ_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*G(?:Hz)?(?![A-Za-z])", re.IGNORECASE)
+# The model name inside a vendor CPU line, for the SPEC lookup:
+# 'AMD EPYC 9334', 'Intel Xeon Gold 6526Y', 'Intel Xeon 6 Performance 6745P'.
+_CPU_MODEL_TOKEN_RE = re.compile(
+    r"(?:AMD\s+EPYC\s+\d{4}[A-Z0-9]*"
+    r"|(?:Intel\s+)?Xeon\s+(?:6\s+\w+\s+|(?:Platinum|Gold|Silver|Bronze|Max)\s+)?"
+    r"[A-Z]?-?\d{4,5}[A-Z0-9]*)",
+    re.IGNORECASE)
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -382,6 +395,32 @@ def _catalog_row(model_text: str, key: Optional[str]):
     return None
 
 
+def _spec_lookup(model_text: str) -> Optional[Dict[str, Any]]:
+    """SPEC CPU 2017 hit for a vendor CPU line, trying progressively barer
+    names: the whole line, the model name inside it, and for Xeon 6 the name
+    without its marketing word — the lookup lists 'Intel Xeon 6745P', while
+    Dell writes 'Intel® Xeon® 6 Performance 6745P'."""
+    hit = cpu_benchmarks.lookup(model_text)
+    if hit:
+        return hit
+    plain = re.sub(r"[\u00ae\u2122]|\((?:r|tm)\)", " ", model_text, flags=re.I)
+    token = _CPU_MODEL_TOKEN_RE.search(plain)
+    if not token:
+        return None
+    name = token.group(0)
+    candidates = [name]
+    xeon6 = re.match(r"(?:Intel\s+)?Xeon\s+6\s+\w+\s+(\d{4}[A-Z0-9]*)", name, re.I)
+    if xeon6:
+        candidates.append("Intel Xeon " + xeon6.group(1))
+    if not name.lower().startswith(("intel", "amd")) and "xeon" in name.lower():
+        candidates.append("Intel " + name)
+    for candidate in candidates:
+        hit = cpu_benchmarks.lookup(candidate)
+        if hit:
+            return hit
+    return None
+
+
 def resolve_cpu(model_text: str, qty: int) -> Dict[str, Any]:
     """BOM CPU text + sockets -> the engine's per-node cpu option shape, with
     sockets folded in, plus 'source' and 'base_clock_only' provenance."""
@@ -404,14 +443,17 @@ def resolve_cpu(model_text: str, qty: int) -> Dict[str, Any]:
         return out
 
     # Unknown to both catalogs: SPECrate from the broad lookup (throughput only)
-    # and cores/threads/clock from whatever the BOM text prints.
-    hit = cpu_benchmarks.lookup(model_text or "")
+    # and cores/threads/clock from whatever the BOM text prints. The lookup
+    # normalises away clock speeds but not the rest of a vendor order line
+    # ('AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800'), so the
+    # bare model name is tried when the whole line misses.
+    hit = _spec_lookup(model_text or "")
     m_c = _CPU_CORES_RE.search(model_text or "")
     m_t = _CPU_THREADS_RE.search(model_text or "")
     m_g = _CPU_GHZ_RE.search(model_text or "")
     cores = int(m_c.group(1) or m_c.group(2)) if m_c else None
     threads = int(m_t.group(1)) if m_t else (cores * 2 if cores else None)
-    ghz = float(m_g.group(1)) if m_g else None
+    ghz = float(m_g.group(1).replace(",", ".")) if m_g else None
     if hit:
         source = "spec-cpu2017"
     elif cores is not None:
@@ -546,6 +588,13 @@ def cluster_from_nodes(node_model: Dict[str, Any],
         drive_counts[key] = drive_counts.get(key, 0) + d["qty_per_node"]
     raw_per_node = sum(raw_by_kind.values())
     biggest = max((d["capacity_tb"] for d in drives), default=0.0)
+    # Per-node drive spec, merged on (tier, size), so a consumer can name the
+    # disk ('4 x 7.68 TB NVMe') instead of only counting it. Stored in the
+    # check result (export_override reads it to describe quoted hardware).
+    drive_spec = {}      # type: Dict[Tuple[str, float], int]
+    for d in drives:
+        spec_key = (TIER_KEY[d["kind"]], round(float(d["capacity_tb"]), 3))
+        drive_spec[spec_key] = drive_spec.get(spec_key, 0) + d["qty_per_node"]
     if drives:
         if total > 1:
             usable_tb = _cluster_usable_storage(raw_per_node, biggest, layout)
@@ -602,6 +651,8 @@ def cluster_from_nodes(node_model: Dict[str, Any],
         "ram_per_node_gb": ram_gb, "ram_overhead_gb": ram_overhead,
         "usable_ram_per_node": usable_ram,
         "ram_full": usable_ram * hci, "ram_n1": usable_ram * n1_hci,
+        "drive_spec": [{"kind": k, "capacity_tb": cap, "qty_per_node": n}
+                       for (k, cap), n in drive_spec.items()],
         "raw_storage_tb": raw_per_node * total, "raw_per_node_tb": raw_per_node,
         "usable_storage_tb": usable_tb, "biggest_disk_tb": biggest,
         "raw_by_kind": {t: v * total for t, v in raw_by_kind.items()},
@@ -616,7 +667,6 @@ def cluster_from_nodes(node_model: Dict[str, Any],
             "hdd_per_flash": round(hdd_n / flash_n, 2) if flash_n else None,
             "hybrid_flash_in_band": hybrid_in_band,
             "hybrid_hdd_ratio_ok": hdd_ratio_ok,
-            "exactly_two_disks": bays == 2,
             "cluster_disks": cluster_disks,
             "max_cluster_disks": T.max_cluster_disks,
             "disk_cap_ok": cluster_disks <= T.max_cluster_disks,
@@ -1062,8 +1112,8 @@ def compare(config: BOMConfig, configuration_or_requirements: Any,
     b_cat = cluster["storage_category"]
     if s_cat and b_cat and s_cat != b_cat:
         notes.append(f"Storage tier differs: BOM is {b_cat}, the sizing is {s_cat}.")
-    if feas["exactly_two_disks"]:
-        notes.append("Exactly 2 disks per node is not a supported layout (1 or 3+).")
+    # 2 disks per node is supported, on a Single Node System too (owner,
+    # 2026-09-29), so it earns no note.
     if not feas["disk_cap_ok"]:
         notes.append(f"{feas['cluster_disks']} disks in the largest cluster exceed the "
                      f"{feas['max_cluster_disks']}-disk limit.")
@@ -1162,6 +1212,12 @@ def _cluster_summary(c: Dict[str, Any]) -> Dict[str, Any]:
         "usable_storage_tb": _round(c["usable_storage_tb"], "TB"),
         "usable_by_kind_tb": {k: _round(v, "TB") for k, v in c["usable_by_kind"].items()},
         "drive_counts": c["drive_counts"], "bays": c["bays"],
+        # Per-node disks with their sizes, plus the two figures the engine's
+        # usable-storage maths needs, so the hardware can be re-laid-out
+        # (another node count) without the original BOM.
+        "drives": c.get("drive_spec") or [],
+        "raw_per_node_tb": _round(c.get("raw_per_node_tb") or 0.0, "TB"),
+        "biggest_disk_tb": _round(c.get("biggest_disk_tb") or 0.0, "TB"),
         "storage_category": c["storage_category"],
         "nic_gbe": c["nic_gbe"], "nic_ports": c["nic_ports"],
     }

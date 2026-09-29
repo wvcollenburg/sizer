@@ -188,6 +188,44 @@ def test_synthetic_details_that_matter():
     assert v["770-BDRQ"]["category"] == "other" and "770-BEKK" not in v
     assert "370-BBRX" not in v and "343-BBST" not in v
 
+    # Dell solution export, German. The quantity convention is what separates
+    # it from the VNET sheet above: the node count is on the group row and each
+    # option's Menge is PER NODE, so 4 DIMMs on a 3-node group is 12.
+    sol = _load(os.path.join(NORMALIZED, "synthetic_dell_solution_de.xlsx.json"))["configs"][0]
+    assert (sol["nodeCount"], sol["serverModel"]) == (3, "PowerEdge R760")
+    d = {c["partNumber"]: c for c in sol["components"]}
+    assert d["370-BCGJ"]["quantity"] == 12                  # 4 DIMMs per node x 3
+    assert d["338-CHSC"]["quantity"] == 6                   # both sockets, x3
+    assert d["161-BCPX"]["quantity"] == 9                   # 3 HDDs per node x 3
+    assert d["161-BCPX"]["category"] == "storage"
+    # German absence wording is kept and neutralised, never read as hardware:
+    # 'Keine BOSS-Karte' as a BOSS card failed an otherwise clean BOM.
+    assert d["403-BCID"]["category"] == "other"             # Keine BOSS-Karte
+    assert d["540-BDOW"]["category"] == "other"             # LOM-Platzhalter
+    assert d["780-BCDI"]["category"] == "other"             # C1 – kein RAID
+    assert d["407-BCBE"]["category"] == "other"             # NIC cabling is not a NIC
+    assert d["540-BFPV"]["category"] == "nic"
+    # settings/services carry no hardware: BIOS, DIMM speed, shipping, support
+    assert not {"384-BBBL", "370-BBRX", "340-DCEP", "709-BBIM"} & set(d)
+
+    # The same export in English, with two options in one sheet ("Darksite
+    # DACH"): 'Product Qty' in the header, the base module named after the
+    # server, and each group its own config with its own node count.
+    en = _load(os.path.join(NORMALIZED, "synthetic_dell_solution_en.xlsx.json"))["configs"]
+    assert [(c["name"], c["serverModel"], c["nodeCount"]) for c in en] == [
+        ("R6615- Full Configuration - All Flash", "PowerEdge R6615", 2),
+        ("R7615 - Hybrid", "PowerEdge R7615", 3)]
+    flash = {c["partNumber"]: c for c in en[0]["components"]}
+    hybrid = {c["partNumber"]: c for c in en[1]["components"]}
+    assert flash["210-BFUO"]["category"] == "chassis"        # 'PowerEdge R6615' module
+    assert flash["345-BJNW"]["quantity"] == 20               # 10 per node x 2
+    assert hybrid["161-BCPX"]["quantity"] == 18              # 6 per node x 3
+    assert hybrid["370-BCCY"]["quantity"] == 18              # 6 DIMMs x 3
+    assert hybrid["329-BERC"]["category"] == "other"         # BOSS Blank
+    # asset tagging, systems management, services, fillers, shipping: dropped
+    assert not {"293-10025", "528-CTIC", "709-BBIL"} & set(flash)
+    assert not {"414-BBJB", "340-DDLG"} & set(hybrid)
+
 
 # ─── template ─────────────────────────────────────────────────────────────────
 
@@ -855,8 +893,10 @@ def test_dcsc_description_only_variant(tmp_path):
     assert 'Months' not in by_desc          # service noise dropped
 
 
+# Partner BOMs live in _archive/boms/<vendor>/ since 2026-09-17 (see
+# tests/test_bom_archive.py, which also covers this file).
 ARROW_CURA = os.path.join(
-    ROOT, '_archive',
+    ROOT, '_archive', 'boms', 'lenovo',
     'Arrow Cura IT SR650v4_2x6530P_16x64GB_3x7.68_9x16TB_ETH_5YNBD 200226_V2.xlsx')
 
 

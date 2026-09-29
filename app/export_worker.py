@@ -126,7 +126,11 @@ def sections_for(job):
 
     sections, skipped = [], []
     for sizing in sizings:
-        clusters = ((sizing.result_snapshot or {}).get("clusters")) or []
+        # Export customization: a Validated sizing may be quoted on another
+        # chassis than the one it was sized on (export_override.py). Applied
+        # here, once, so every format and every section type inherits it.
+        import export_override
+        clusters = ((export_override.apply_to_snapshot(sizing)).get("clusters")) or []
         # Two renderable section shapes:
         #   * a PROPOSAL cluster — summary + recommendation + projection (the
         #     generators index these unconditionally, so a partial one would take

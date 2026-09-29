@@ -46,6 +46,7 @@ from bom.rules import (  # noqa: E402
     get_drive_count,
     is_absence_indicator,
     is_boss_card,
+    is_controller,
     is_clearly_old_cpu,
     is_hardware_config,
     is_hdd,
@@ -212,6 +213,25 @@ def test_absence_indicators():
     assert not is_absence_indicator(comp("other", "Nominal riser"))
     assert not is_boss_card(comp("boss", "No BOSS card"))
     assert is_boss_card(comp("other", "Boot Optimized Server Storage S2"))
+
+
+def test_german_absence_indicators():
+    """German Dell exports say 'Keine BOSS-Karte' / 'LOM-Platzhalter'. Read as
+    hardware, they failed a clean BOM on a BOSS card nobody had quoted."""
+    assert is_absence_indicator(comp("boss", "Keine BOSS-Karte"))
+    assert is_absence_indicator(comp("boss", "Ohne BOSS-Karte, Leermodul hinten"))
+    assert is_absence_indicator(comp("boss", "BOSS-Platzhalter"))
+    assert is_absence_indicator(comp("storage", "Ohne Festplatte"))
+    assert is_absence_indicator(comp("controller", "Kein Controller"))
+    assert is_absence_indicator(comp("nic", "LOM-Platzhalter"))
+    assert not is_boss_card(comp("boss", "Keine BOSS-Karte"))
+    assert not is_controller(comp("controller", "Kein Controller"))
+    # Real German hardware must still read as hardware.
+    assert not is_absence_indicator(comp("controller", "HBA355i-Adapter, flaches Profil"))
+    assert not is_absence_indicator(
+        comp("storage", '8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5"'))
+    assert not is_absence_indicator(
+        comp("nic", "Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter"))
 
 
 def test_dwpd_threshold_heuristic_and_override():
@@ -595,3 +615,17 @@ def test_validation_result_round_trip_tolerates_missing_code():
     # snake_case input is accepted too
     assert ValidationResult.from_dict({"verdict": "FAIL", "config_results": [
         {"config_name": "z", "verdict": "FAIL", "findings": []}]}).config_results[0].config_name == "z"
+
+
+def test_trademark_marks_do_not_hide_a_current_xeon():
+    """'Intel® Xeon® Gold 6438N' (Dell, German and some English exports): the
+    mark sat between 'Xeon' and 'Gold', so a current CPU raised 'generation
+    could not be determined' and turned a clean BOM INCONCLUSIVE."""
+    for desc in ("Intel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s",
+                 "Intel® Xeon® 6 Performance 6745P 3,1 G, 32 C/64 T",
+                 "Intel(R) Xeon(R) Silver 4514Y",
+                 "Intel Xeon™ Platinum 8580"):
+        assert is_scalable_cpu(desc), desc
+    assert is_clearly_old_cpu("Intel® Xeon® E5-2680 v4")
+    hcl = HclData(cpus=[HclCpu(model="Xeon Gold 6438N", description="Intel Xeon Gold 6438N")])
+    assert find_cpu_in_hcl(comp("cpu", "Intel® Xeon® Gold 6438N, 2 GHz"), hcl)

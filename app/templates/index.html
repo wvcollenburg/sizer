@@ -275,9 +275,9 @@
             <div class="validated-rules">
                 <h3 data-i18n="validated.rules_title">Validated Installer Rules</h3>
                 <ul id="validated-rules-list">
-                    <li data-rule="disks" data-i18n="validated.rule_disks">1 or 3+ disks per node (no 2-disk configs)</li>
+                    <li data-rule="disks" data-i18n="validated.rule_disks">2+ disks per node (3+ preferred); 1 only in a single-disk node</li>
                     <li data-rule="band" data-i18n="validated.rule_band">Hybrid: fast tier must be {{ hybrid_flash_min_pct }}-{{ hybrid_flash_max_pct }}% of total capacity</li>
-                    <li data-rule="ratio" data-i18n="validated.rule_ratio">Hybrid: at least 3 HDDs per flash disk (HEAT down-tiering)</li>
+                    <li data-rule="ratio" data-i18n="validated.rule_ratio">Hybrid: at least 2 HDDs per flash disk (HEAT down-tiering)</li>
                     <li data-i18n="validated.rule_hybrid">Hybrid = spinning (SAS/NLSAS/SATA) + flash (SSD/NVMe)</li>
                     <li data-i18n="validated.rule_jbod">JBOD only &mdash; no RAID controllers, HBA or PCIe NVMe only</li>
                     <li data-i18n="validated.rule_internal">Internal storage only &mdash; no SAN or DAS</li>
@@ -1837,6 +1837,137 @@
                 <button class="btn btn-muted" data-click='["closeSizingPanel"]'
                         data-i18n="common.cancel">Cancel</button>
                 <button class="btn btn-primary" data-click='["submitSizingPanel"]'
+                        data-i18n="common.save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export customization: which chassis/hardware this sizing's exports name.
+         A partner may quote another box than the one that was sized (a BOM check
+         supplies it, or it is typed in), and the proposal has to say so. -->
+    <div class="modal-overlay" id="export-as-modal" style="display:none">
+        <div class="modal-content exportas-modal">
+            <div class="modal-header">
+                <h2 id="export-as-title" data-i18n="exportas.title">Exports as</h2>
+                <button class="modal-close" data-click='["closeExportAs"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="modal-body exportas-body">
+                <p class="field-hint" data-i18n="exportas.intro">
+                    The exports name the hardware being quoted. Leave this alone and they
+                    describe the recommendation; point it at a BOM check, or fill the
+                    fields in, and they describe that instead.
+                </p>
+                <div class="panel-field">
+                    <label class="field-label" for="export-as-source"
+                           data-i18n="exportas.source">Hardware source</label>
+                    <select id="export-as-source" class="text-input"
+                            data-change='["onExportAsSource","$value"]'></select>
+                </div>
+                <div id="export-as-summary" class="exportas-summary"></div>
+                <div class="panel-section">
+                    <p class="panel-section-title" data-i18n="exportas.manual">Override by hand</p>
+                    <p class="field-hint" data-i18n="exportas.manual_hint">
+                        Anything filled in here wins, field by field. Leave a field empty
+                        to keep what the BOM check (or the recommendation) says.
+                    </p>
+                    <div class="panel-field">
+                        <label class="field-label" for="export-as-chassis"
+                               data-i18n="exportas.chassis">Chassis</label>
+                        <input type="text" id="export-as-chassis" class="text-input"
+                               list="export-as-chassis-list" autocomplete="off"
+                               data-change='["onExportAsChassis","$value"]'
+                               data-i18n-ph="exportas.chassis_ph" placeholder="e.g. Dell PowerEdge R670">
+                        <datalist id="export-as-chassis-list"></datalist>
+                    </div>
+                    <div class="exportas-grid">
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-vendor"
+                                   data-i18n="exportas.vendor">Vendor</label>
+                            <input type="text" id="export-as-vendor" class="text-input">
+                        </div>
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-ff"
+                                   data-i18n="exportas.form_factor">Form factor</label>
+                            <input type="text" id="export-as-ff" class="text-input"
+                                   data-i18n-ph="exportas.form_factor_ph" placeholder="1U">
+                        </div>
+                    </div>
+                    <div class="panel-field">
+                        <label class="field-label" for="export-as-cpu"
+                               data-i18n="exportas.cpu">CPU per node</label>
+                        <input type="text" id="export-as-cpu" class="text-input"
+                               data-i18n-ph="exportas.cpu_ph" placeholder="2 x Intel Xeon Gold 6542Y">
+                    </div>
+                    <div class="exportas-grid">
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-cores"
+                                   data-i18n="exportas.cores">Cores per node</label>
+                            <input type="number" id="export-as-cores" class="text-input" min="1">
+                        </div>
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-threads"
+                                   data-i18n="exportas.threads">Threads per node</label>
+                            <input type="number" id="export-as-threads" class="text-input" min="1">
+                        </div>
+                    </div>
+                    <div class="exportas-grid">
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-ram"
+                                   data-i18n="exportas.ram">RAM per node (GB)</label>
+                            <input type="number" id="export-as-ram" class="text-input" min="1">
+                        </div>
+                        <div class="panel-field">
+                            <label class="field-label" for="export-as-nodes"
+                                   data-i18n="exportas.nodes">Nodes</label>
+                            <input type="number" id="export-as-nodes" class="text-input" min="1">
+                        </div>
+                    </div>
+                    <div class="panel-field">
+                        <span class="field-label" data-i18n="exportas.drives">Disks per node</span>
+                        <p class="field-hint" data-i18n="exportas.drives_hint">
+                            Up to two tiers. Raw and usable storage are worked out from these.
+                        </p>
+                        <div class="exportas-drive-head" aria-hidden="true">
+                            <span data-i18n="exportas.drive_count">Count</span>
+                            <span data-i18n="exportas.drive_size">Size (TB)</span>
+                            <span data-i18n="exportas.drive_type">Type</span>
+                        </div>
+                        <div class="exportas-drive-row">
+                            <input type="number" id="export-as-d1-count" class="text-input" min="1" max="64"
+                                   data-i18n-aria="exportas.drive_count" aria-label="Count">
+                            <input type="number" id="export-as-d1-size" class="text-input" min="0" step="0.01"
+                                   data-i18n-aria="exportas.drive_size" aria-label="Size (TB)">
+                            <select id="export-as-d1-type" class="text-input"
+                                    data-i18n-aria="exportas.drive_type" aria-label="Type">
+                                <option value="">—</option>
+                                <option value="NVMe">NVMe</option>
+                                <option value="SSD">SSD</option>
+                                <option value="HDD">HDD</option>
+                            </select>
+                        </div>
+                        <div class="exportas-drive-row">
+                            <input type="number" id="export-as-d2-count" class="text-input" min="1" max="64"
+                                   data-i18n-aria="exportas.drive_count" aria-label="Count">
+                            <input type="number" id="export-as-d2-size" class="text-input" min="0" step="0.01"
+                                   data-i18n-aria="exportas.drive_size" aria-label="Size (TB)">
+                            <select id="export-as-d2-type" class="text-input"
+                                    data-i18n-aria="exportas.drive_type" aria-label="Type">
+                                <option value="">—</option>
+                                <option value="NVMe">NVMe</option>
+                                <option value="SSD">SSD</option>
+                                <option value="HDD">HDD</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-error" id="export-as-error" hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-muted" data-click='["resetExportAs"]'
+                        data-i18n="exportas.reset">Use the recommendation</button>
+                <button class="btn btn-muted" data-click='["closeExportAs"]'
+                        data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-primary" data-click='["submitExportAs"]'
                         data-i18n="common.save">Save</button>
             </div>
         </div>

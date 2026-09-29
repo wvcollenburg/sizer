@@ -257,7 +257,7 @@ def test_cluster_three_nodes_rf2_rebuild_reserve_and_n_minus_1():
     assert c["perf_full"] == pytest.approx(169.5 * 3)
     assert c["n_minus_1"]["ram_gb"] == c["ram_n1"]
     assert c["storage_category"] == "flash" and c["nic_gbe"] == 25
-    assert c["feasibility"]["disk_cap_ok"] and not c["feasibility"]["exactly_two_disks"]
+    assert c["feasibility"]["disk_cap_ok"]
 
 
 def test_cluster_single_node_uses_the_sns_rule():
@@ -451,8 +451,12 @@ def test_compare_without_a_sizing_result_is_unknown():
 
 
 def test_compare_storage_feasibility_lands_in_notes():
+    # 2 disks per node is supported, a Single Node System included (owner,
+    # 2026-09-29): no note either way.
     r = fit.compare(lenovo_config(drives_per_node=2), requirements())
-    assert any("Exactly 2 disks" in n for n in r["notes"])
+    assert not any("2 disks" in n for n in r["notes"])
+    r = fit.compare(lenovo_config(nodes=1, drives_per_node=2), requirements())
+    assert not any("2 disks" in n for n in r["notes"])
     T.set_values({"max_cluster_disks": 10})
     r = fit.compare(lenovo_config(drives_per_node=4), requirements())
     assert any("exceed the 10-disk limit" in n for n in r["notes"])
@@ -700,3 +704,76 @@ def test_requirements_without_replication_band_are_unchanged():
     assert req["ram_required_gb"] == pytest.approx(400.0)   # floor 200 / 50 %
     assert req["storage_required_tb"] == pytest.approx(16.0)  # floor 8 / 50 %
     assert not any("Replication" in n for n in req["notes"])
+
+
+# ─── German BOM wording (Dell solution exports) ──────────────────────────────
+# Three German "Smart Selection" solutions arrived unrecognised. Getting them
+# through the parser was only half of it: the capacity, drive-kind and port
+# parsing here all read the description text, which Dell localises.
+
+def test_german_capacity_wording_is_read():
+    """'8-TB-Festplatte' (compound hyphen) and '7,68 TB' (decimal comma). The
+    hyphen form parsed as nothing, so a hybrid node lost every spindle and was
+    sized as an all-flash cluster."""
+    assert fit._parse_capacity_tb('8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K') == 8.0
+    assert fit._parse_capacity_tb('7,68 TB Rechenzentrum NVMe, leseoptimiert') == 7.68
+    assert fit._parse_capacity_tb('3.84TB NVMe') == 3.84          # unchanged
+    assert fit._parse_dimm_gb('128 GB, RDIMM, 6.400 MT/s, Dual-Rank') == 128
+
+
+def test_german_nic_ports_are_read():
+    assert fit._parse_nic_ports('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28') == 2
+    assert fit._parse_nic_ports('Broadcom 57414 Dual Port 10/25GbE') == 2   # unchanged
+    assert fit._parse_nic_speed('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28') == 25.0
+
+
+def test_german_hybrid_config_derives_both_tiers():
+    """End to end on the shape the real files have: 3 spindles + 1 NVMe per
+    node, quantities given as totals across 3 nodes."""
+    config = BOMConfig(name='R760 - Smart Selection', server_model='PowerEdge R760',
+                       node_count=3, components=[
+        _c('PowerEdge R760 Server', 3, 'chassis'),
+        _c('Intel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s, 60 MB Cache', 6, 'cpu'),
+        _c('128 GB, RDIMM, 6.400 MT/s, Dual-Rank', 12, 'memory'),
+        _c('8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5", Hot-Plug', 9, 'storage'),
+        _c('7,68 TB, Rechenzentrum, NVMe, leseoptimiert, U2 Gen4 FlexBay', 3, 'storage'),
+        _c('Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter, OCP 3.0', 3, 'nic'),
+    ])
+    nodes = fit.derive_nodes(config)
+    assert nodes['node_count'] == 3
+    assert nodes['ram_gb_per_node'] == 512
+    assert nodes['sockets_per_node'] == 2
+    assert nodes['nic_speed_gbe'] == 25.0 and nodes['nic_ports'] == 2
+    assert not nodes['unresolved']
+    tiers = {d['kind']: (d['capacity_tb'], d['qty_per_node']) for d in nodes['drives']}
+    assert tiers == {'hdd': (8.0, 3), 'nvme': (7.68, 1)}
+
+
+def test_a_vendor_cpu_line_still_finds_its_spec_benchmark():
+    """Dell prints 'AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W)
+    DDR5-4800'. The SPEC lookup normalises the clock away but not the rest,
+    so the whole line missed and the BOM had no benchmark at all; the bare
+    model name is tried as a fallback."""
+    cpu = fit.resolve_cpu("AMD EPYC 9334 2.70GHz, 32C/64T, 128M Cache (210W) DDR5-4800", 1)
+    assert cpu["source"] == "spec-cpu2017"
+    assert cpu["specrate_int"] == 358.0
+    assert (cpu["cores"], cpu["threads"]) == (32, 64)
+
+
+def test_a_decimal_comma_clock_is_not_misread():
+    """'2,8 GHz' was read as 8 GHz (the comma stopped the number) and the German
+    '3,1 G' not at all, for any CPU outside the catalog."""
+    cpu = fit.resolve_cpu("Intel® Xeon® Gold 9999X, 2,8 GHz, 32 C/64 T, 20 GT/s", 1)
+    assert cpu["ghz"] == 2.8
+    cpu = fit.resolve_cpu("Intel® Xeon® 6 Performance 6745P 3,1 G, 32 C/64 T, 24 GT/s", 1)
+    assert cpu["ghz"] == 3.1
+    # the UPI speed '24 GT/s' is never taken for a clock
+    cpu = fit.resolve_cpu("Some CPU 16C/32T, 24 GT/s", 1)
+    assert cpu["ghz"] is None
+
+
+def test_a_xeon_6_marketing_name_still_finds_its_benchmark():
+    """The SPEC lookup lists 'Intel Xeon 6745P'; Dell writes 'Intel® Xeon® 6
+    Performance 6745P'."""
+    cpu = fit.resolve_cpu("Intel® Xeon® 6 Performance 6745P 3,1 G, 32 C/64 T", 1)
+    assert cpu["source"] == "spec-cpu2017" and cpu["specrate_int"]

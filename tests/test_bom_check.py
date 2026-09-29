@@ -279,3 +279,89 @@ def test_services_only_bom_is_inconclusive(app):
     assert result["technical"]["verdict"] == "INCONCLUSIVE"
     assert result["technical"]["config_results"] == []
     assert "inconclusive" in result["flag_reasons"]
+
+
+# ── owner rules layered over the port (2026-09-29) ───────────────────────────
+
+def _codes(result):
+    return [f["code"] for cr in result["technical"]["config_results"] for f in cr["findings"]]
+
+
+def _he155():
+    he155 = HclPlatform(brand="lenovo", sc_model="HE155",
+                        server="ThinkCentre M70q Tiny Gen6", form_factor="DT")
+    db.session.add(he155)
+    db.session.commit()
+    return he155
+
+
+def nuc_config(nic_desc="Intel Ethernet Connection I219-LM", disks=1):
+    comps = [
+        c("chassis", "ThinkCentre M70q Tiny Gen6", "12TD", 1),
+        c("cpu", "Intel Core Ultra 5 245T Processor", "C1", 1),
+        c("memory", "32GB DDR5 5600MHz SODIMM", "M1", 2),
+        c("storage", "1TB M.2 2280 PCIe Gen4 NVMe SSD", "S1", disks),
+    ]
+    if nic_desc:
+        comps.append(c("nic", nic_desc, "N1", 1))
+    return BOMConfig(name="NUC", server_model="ThinkCentre M70q Tiny Gen6",
+                     node_count=1, components=comps)
+
+
+def test_a_nuc_nic_is_onboard_and_never_flagged(app):
+    """Every NIC on a NUC counts as LOM: not 'not in the HCL', not the LOM
+    notice pushing a PCIe card, not missing when the quote leaves it out."""
+    platforms = [_he155()]
+    for nic in ("Intel Ethernet Connection I219-LM", None):
+        result = run_check(NormalizedBOM(vendor="Lenovo", configs=[nuc_config(nic)]),
+                           hcl=hcl_data(), platforms=platforms)
+        codes = _codes(result)
+        assert not {"nic_not_in_hcl", "nic_missing", "nic_lom"} & set(codes), codes
+        assert "nic_not_in_hcl" not in result["flag_reasons"]
+        assert not result["suggestions"]
+
+
+def test_one_or_two_disks_in_a_nuc_are_both_fine(app):
+    platforms = [_he155()]
+    for disks in (1, 2):
+        result = run_check(NormalizedBOM(vendor="Lenovo", configs=[nuc_config(disks=disks)]),
+                           hcl=hcl_data(), platforms=platforms)
+        codes = _codes(result)
+        assert not {"single_flash_drive", "two_drives", "single_disk_multi_bay"} & set(codes), codes
+
+
+def test_the_nuc_exemption_does_not_leak_to_rack_servers(app):
+    cfg = lenovo_config("Mellanox ConnectX-6 Dx 25GbE 2-port OCP")
+    result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]), hcl=hcl_data())
+    assert "nic_not_in_hcl" in _codes(result)
+
+
+def test_a_two_drive_single_node_is_supported(app):
+    cfg = lenovo_config("ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter")
+    cfg.node_count = 1
+    cfg.components = [
+        c("chassis", 'ThinkSystem V3 1U 10x2.5" Chassis', "BLK4", 1),
+        c("cpu", "Intel Xeon Gold 6526Y 16C 195W 2.8GHz Processor", "BYVX", 1),
+        c("memory", "ThinkSystem 32GB TruDDR5 5600MHz (2Rx8) RDIMM", "BWJC", 8),
+        c("storage", 'ThinkSystem 2.5" U.2 VA 3.84TB Read Intensive NVMe PCIe 4.0 x4 HS SSD', "C18M", 2),
+        c("nic", "ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter", "BXXX", 1),
+    ]
+    result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]), hcl=hcl_data())
+    assert "two_drives" not in _codes(result)
+
+
+def test_a_hybrid_node_needs_two_hdds_per_flash_disk(app):
+    def hybrid(hdd_per_node):
+        cfg = lenovo_config("ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter")
+        cfg.components = [x for x in cfg.components if x.category != "storage"] + [
+            c("storage", 'ThinkSystem 3.5" 8TB 7.2K SAS 12Gb HDD', "H8", 3 * hdd_per_node),
+            c("storage", 'ThinkSystem 2.5" 1.92TB Read Intensive SAS SSD', "S2", 3),
+            c("controller", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA", "4Y37A78602", 3),
+        ]
+        return run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]), hcl=hcl_data())
+    one = hybrid(1)
+    finding = [f for cr in one["technical"]["config_results"] for f in cr["findings"]
+               if f["code"] == "hybrid_hdd_ratio"]
+    assert finding and finding[0]["severity"] == "warning"
+    assert "1 HDD(s) for 1 SSD/NVMe" in finding[0]["issue"]
+    assert "hybrid_hdd_ratio" not in _codes(hybrid(2))

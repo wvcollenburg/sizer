@@ -173,6 +173,10 @@ def _migrate_schema():
         # opened+saved by a person (feature/per-cluster-sizing).
         "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS "
         "untouched BOOLEAN NOT NULL DEFAULT false",
+        # Export customization (feature/export-customization): the chassis and
+        # per-node hardware the exports name when the partner quotes another
+        # box than the one that was sized.
+        "ALTER TABLE configurations ADD COLUMN IF NOT EXISTS export_override JSONB",
         # HCL preview accepts (feature/bomchecker): origin marks components/
         # links accepted ahead of HCL publication. The hcl_* tables ship on
         # this same unmerged branch, but it was already deployed to testenv

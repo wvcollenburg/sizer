@@ -145,3 +145,67 @@ class BomRejectedFile(db.Model):
             "note": self.note,
             "created_at": _iso(self.created_at),
         }
+
+
+# ── part notes ───────────────────────────────────────────────────────────────
+
+NOTE_MATCH_EXACT = "exact"         # part number (normalised), else exact description
+NOTE_MATCH_CONTAINS = "contains"   # every word of match_text appears in the line
+NOTE_MATCH_MODES = (NOTE_MATCH_EXACT, NOTE_MATCH_CONTAINS)
+NOTE_SEVERITIES = ("info", "warning", "error")
+
+
+class BomPartNote(db.Model):
+    """A reviewer's standing verdict on one specific part.
+
+    Some parts are neither simply supported nor simply wrong: the Broadcom 5720
+    LOM on a Dell is fine once it is disabled in the BIOS. A super admin writes
+    that down once, during a BOM review, and every later check containing the
+    part gets this note INSTEAD of the generic finding ("NIC not found in the
+    Hardware Compatibility List"), at the severity the admin chose — or, for a
+    part that is on the HCL, as an extra finding (owner decisions 2026-09-17).
+
+    Kept apart from the HCL catalog on purpose: the catalog mirrors what Scale
+    publishes and is rewritten by the scrape, while a note is local reviewer
+    knowledge. bom/part_notes.py applies them; the ported rules never see them.
+    Existing checks pick a note up on their next re-check.
+    """
+    __tablename__ = "bom_part_notes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    match_mode = db.Column(db.String(12), nullable=False, default=NOTE_MATCH_EXACT)
+    part_number = db.Column(db.String(80))          # exact mode
+    description = db.Column(db.String(300))         # exact mode, when no part number
+    match_text = db.Column(db.String(200))          # contains mode
+    # BOM line category the note is limited to (nic, controller, cpu, ...);
+    # NULL matches any. Keeps a "contains" note from hitting the wrong kind of part.
+    category = db.Column(db.String(20))
+    severity = db.Column(db.String(10), nullable=False, default="warning")
+    issue = db.Column(db.String(300), nullable=False)
+    remediation = db.Column(db.Text)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    source_check_id = db.Column(db.Integer, db.ForeignKey("bom_checks.id"))
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, onupdate=_utcnow)
+
+    created_by = db.relationship("User", foreign_keys=[created_by_user_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "match_mode": self.match_mode,
+            "part_number": self.part_number,
+            "description": self.description,
+            "match_text": self.match_text,
+            "category": self.category,
+            "severity": self.severity,
+            "issue": self.issue,
+            "remediation": self.remediation,
+            "active": bool(self.active),
+            "source_check_id": self.source_check_id,
+            "created_by": self.created_by.email if self.created_by else None,
+            "created_at": _iso(self.created_at),
+            "updated_at": _iso(self.updated_at),
+        }

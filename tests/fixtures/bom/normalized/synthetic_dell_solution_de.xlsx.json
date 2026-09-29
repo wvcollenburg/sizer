@@ -1,0 +1,115 @@
+{
+  "vendor": "Dell",
+  "configs": [
+    {
+      "name": "R760 - Smart Selection Flexi [PER7601A]",
+      "serverModel": "PowerEdge R760",
+      "components": [
+        {
+          "partNumber": "210-BDZY",
+          "description": "PowerEdge R760 Server",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "404-BBED",
+          "description": "3,5\"-Gehäuse mit bis zu 12 SAS-/SATA-Laufwerken, 4 x 2,5\"-NVMe-Direct",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "338-CHSC",
+          "description": "Intel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s, 60 MB Cache, Turbo",
+          "quantity": 6,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "370-BCGJ",
+          "description": "128 GB, RDIMM, 6.400 MT/s, Dual-Rank",
+          "quantity": 12,
+          "category": "memory"
+        },
+        {
+          "partNumber": "780-BCDI",
+          "description": "C1 – kein RAID für Festplatten/SSDs",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "405-AAZF",
+          "description": "HBA355i-Adapter, flaches Profil",
+          "quantity": 3,
+          "category": "controller"
+        },
+        {
+          "partNumber": "161-BCPX",
+          "description": "8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5\", Hot-Plug-Laufwerk",
+          "quantity": 9,
+          "category": "storage"
+        },
+        {
+          "partNumber": "345-BJPJ",
+          "description": "7,68 TB, Rechenzentrum, NVMe, leseoptimiert, agnostisches Laufwerk, U2 Gen4",
+          "quantity": 3,
+          "category": "storage"
+        },
+        {
+          "partNumber": "750-ADGJ",
+          "description": "PowerEdge, Silver-Lüfter mit hoher Performance",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "450-AKYB",
+          "description": "Dual, fehlertolerant, redundant (1+1), Hot-Plug-MHS-Netzteil",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "540-BFPV",
+          "description": "Broadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter, OCP 3.0",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "540-BDOW",
+          "description": "LOM-Platzhalter",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "407-BCBE",
+          "description": "SFP+ SR Optic, 10GbE, für alle SFP+ Ports",
+          "quantity": 12,
+          "category": "other"
+        },
+        {
+          "partNumber": "403-BCID",
+          "description": "Keine BOSS-Karte",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "329-BKCJ",
+          "description": "PowerEdge R760, Hauptplatine für RTS 1.2, ROW",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "611-BBBF",
+          "description": "Kein Betriebssystem, keine Utility Partition",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "770-BDRQ",
+          "description": "ReadyRails-Gleitschienen mit Kabelführungsarm",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "Lösungs-ID: 7100001.1\nName der Lösung: Beispiel GmbH - 3 Nodes Hybrid\nLösungskategorie: General\nInformationen zur Lösung:\n Lösung erstellt 01/02/2026  (CST)\n\tGruppenname\tGruppen-ID\tProduktname\tProduktmenge\tName des Moduls\tOptions-ID\tName der Option\tSKUs\tMenge\tÜbergeordneter Bestellcode\n\tGroup 1\t7100001.1.1\tR760 - Smart Selection Flexi [PER7601A]\t3\n\t\t\t\t\tBasis\tG1ASKF1\tPowerEdge R760 Server\t210-BDZY\t1\n\t\t\t\t\tGehäusekonfiguration\tG173QT1\t3,5\"-Gehäuse mit bis zu 12 SAS-/SATA-Laufwerken, 4 x 2,5\"-NVMe-Direct\t404-BBED\t1\n\t\t\t\t\tProzessor\tG1N5T71\tIntel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s, 60 MB Cache, Turbo\t338-CHSC\t1\n\t\t\t\t\tZusätzlicher Prozessor\tG3TO1W1\tIntel® Xeon® Gold 6438N, 2 GHz, 32 C/64 T, 16 GT/s, 60 MB Cache, Turbo\t338-CHSC\t1\n\t\t\t\t\tThermische Konfiguration des Prozessors\tG830FD1\tKühlung für Konfigurationen mit 2 CPUs\t412-ABCP\t1\n\t\t\t\t\tTyp von Speicherkonfiguration\tGH9QBE1\tLeistungsoptimierung\t370-AAIP\t1\n\t\t\t\t\tSpeicher DIMM Typ und Geschwindigkeit\tGL7EXY1\t6.400 MT/s, RDIMMs\t370-BBRX\t1\n\t\t\t\t\tSpeicherkapazität\tG9S8BK1\t128 GB, RDIMM, 6.400 MT/s, Dual-Rank\t370-BCGJ\t4\n\t\t\t\t\tRAID-Konfigurationen\tGF5RC21\tC1 – kein RAID für Festplatten/SSDs\t780-BCDI\t1\n\t\t\t\t\tRAID/Interne Speichercontroller\tGLTBAZ1\tHBA355i-Adapter, flaches Profil\t405-AAZF\t1\n\t\t\t\t\tFestplatte\tGZ4G6T1\t8-TB-Festplatte, SAS, ISE, 12 Gbit/s, 7,2K, 512e, 3,5\", Hot-Plug-Laufwerk\t161-BCPX\t3\n\t\t\t\t\tFestplatten (PCIe SSD/Flex Bay)\tGOM0VW1\t7,68 TB, Rechenzentrum, NVMe, leseoptimiert, agnostisches Laufwerk, U2 Gen4\t345-BJPJ\t1\n\t\t\t\t\tBIOS- und erweiterte Systemkonfigurationseinstellungen\tGEARJ91\tBIOS-Einstellung: „Energy Safe“\t384-BBBL\t1\n\t\t\t\t\tLüfter\tGD72EH1\tPowerEdge, Silver-Lüfter mit hoher Performance\t750-ADGJ\t1\n\t\t\t\t\tStromversorgung\tGH1VYQ1\tDual, fehlertolerant, redundant (1+1), Hot-Plug-MHS-Netzteil\t450-AKYB\t1\n\t\t\t\t\tOCP 3.0-Netzwerkadapter\tGJ1N0O1\tBroadcom 57414, 2 Anschlüsse, 25 GbE, SFP28-Adapter, OCP 3.0\t540-BFPV\t1\n\t\t\t\t\tZusätzliche Netzwerkadapter\tG1MBCO1\tLOM-Platzhalter\t540-BDOW\t1\n\t\t\t\t\tOptische Kabel und Kabel für Netzwerkkarten\tG0FVJI1\tSFP+ SR Optic, 10GbE, für alle SFP+ Ports\t407-BCBE\t4\n\t\t\t\t\tBootoptimierte Speicherkarten\tGKU6Y01\tKeine BOSS-Karte\t403-BCID\t1\n\t\t\t\t\tHauptplatine\tGHQIS21\tPowerEdge R760, Hauptplatine für RTS 1.2, ROW\t329-BKCJ\t1\n\t\t\t\t\tKennwort\tGI1M6T1\tiDRAC Legacy-Kennwort mit OCP\t379-BCQV\t1\n\t\t\t\t\tBetriebssystem\tG863QL1\tKein Betriebssystem, keine Utility Partition\t611-BBBF\t1\n\t\t\t\t\tRackschienen\tGSNQZP1\tReadyRails-Gleitschienen mit Kabelführungsarm\t770-BDRQ\t1\n\t\t\t\t\tVersand\tGBL0EU1\tPowerEdge R760, Versand EMEA1\t340-DCEP\t1\n\t\t\t\t\tGesetzliche Bestimmungen\tGRX73Q1\tPowerEdge, mit CCC- und CE-Kennzeichnung\t343-BBST\t1\n\t\t\t\t\tStandardservice\tG38PX01\tStandardservice am nächsten Arbeitstag, 36 Monate\t709-BBIM\t1"
+}

@@ -37,6 +37,8 @@ REPLICATION_HATCH = tuple(_p.css(c) for c in _p.UTIL_REPLICATION_HATCH)  # repli
 HA_HATCH = tuple(_p.css(c) for c in _p.UTIL_HA_HATCH)                    # HA failover reserve, -45deg
 TRACK = _p.css(_p.UTIL_TRACK)          # free / unused
 HAIRLINE = _p.css(_p.UTIL_HAIRLINE)    # thin outline around each bar pill
+OVER = _p.css(_p.UTIL_OVER)            # demand past 100 % of capacity
+OVER_MARK = _p.css(_p.UTIL_OVER_MARK)  # the 100 % marker on a rescaled axis
 TEXT = _p.css(_p.TEXT)
 MUTED = _p.css(_p.TEXT_MUTED)
 ORANGE = _p.css(_p.ORANGE)
@@ -237,6 +239,31 @@ def _bar(img, x, y, w, h, now, sized, ha, color, rep=0, snap=0):
         [x, y, x + w - 1, y + h - 1], radius=h // 2, outline=HAIRLINE, width=max(1, round(1.2 * _SS)))
 
 
+def _bar_over(img, x, y, w, h, now, sized, ha, color, rep, snap, axis):
+    """A bar on a rescaled axis, for a block where some demand exceeds 100 %.
+
+    Only reached for quoted hardware too small for the workload
+    (export_override): the capacity part is the ordinary bar, drawn narrower
+    so the axis fits the largest value, then the demand past 100 % in red with
+    a dark marker at the 100 % line. Clamped instead, an undersized quote would
+    draw as exactly full — i.e. as fitting (owner decision 2026-09-17).
+    """
+    cap_w = max(int(round(w * 100.0 / axis)), h)
+    over = max(now, sized) - 100
+    if over > 0:
+        # Drawn first and started under the capacity pill's rounded end, so
+        # the pill painted on top reads as one bar running past its own end.
+        over_w = max(int(round(w * over / axis)), 2 * _SS)
+        ImageDraw.Draw(img).rounded_rectangle(
+            [x + cap_w - h // 2, y, x + cap_w + over_w, y + h - 1],
+            radius=h // 2, fill=OVER)
+    _bar(img, x, y, cap_w, h, min(now, 100), min(sized, 100), ha, color, rep, snap)
+    d = ImageDraw.Draw(img)
+    mark = max(2 * _SS, 1)
+    d.rectangle([x + cap_w - mark // 2, y - 3 * _SS, x + cap_w + mark // 2, y + h + 3 * _SS],
+                fill=OVER_MARK)
+
+
 def _text(d, xy, s, font, fill, anchor="la"):
     d.text(xy, s, font=font, fill=fill, anchor=anchor)
 
@@ -324,6 +351,11 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
     bar_w = W - pad - label_w - pct_w
     bar_h = row_h
 
+    # One axis for the whole block, so the bars stay comparable. It is 100 for
+    # anything the engine sized (which never exceeds capacity) and only grows
+    # for quoted hardware too small for the workload.
+    axis = max([100] + [max(r["now"], r["sized"]) for r in rows])
+
     y = top
     for r in rows:
         now, sized, ha, rep = r["now"], r["sized"], r.get("ha", 0), r.get("rep", 0)
@@ -336,14 +368,19 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
             bx = pad + (rr - l) + 10 * _SS
             _badge(img, d, bx, y + bar_h // 2, t("export.gauge.limiting"), f_badge)
         # bar
-        _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now), rep, snap)
+        if axis > 100:
+            _bar_over(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now),
+                      rep, snap, axis)
+        else:
+            _bar(img, bar_x, y, bar_w, bar_h, now, sized, ha, now_color(now), rep, snap)
         d = ImageDraw.Draw(img)
-        # pct: "35% / 57%"
+        # pct: "35% / 57%" — red for a figure past capacity
         px = bar_x + bar_w + 16 * _SS
-        _text(d, (px, y + bar_h // 2), f"{now}%", f_pct, TEXT, anchor="lm")
+        _text(d, (px, y + bar_h // 2), f"{now}%", f_pct, OVER if now > 100 else TEXT,
+              anchor="lm")
         l, _tb, rr, b = d.textbbox((0, 0), f"{now}%", font=f_pct)
         _text(d, (px + (rr - l) + 4 * _SS, y + bar_h // 2), f"/ {sized}%",
-              f_pct2, MUTED, anchor="lm")
+              f_pct2, OVER if sized > 100 else MUTED, anchor="lm")
         y += row_h + row_gap
 
     img = img.resize((W // _SS, H // _SS), Image.LANCZOS)

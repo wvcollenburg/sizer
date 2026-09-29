@@ -612,6 +612,27 @@
                 </table>
             </div>
 
+            <!-- Part notes: a reviewer's standing verdict on one specific part
+                 (e.g. "disable this LOM in the BIOS"). Applied to new checks and
+                 re-checks in place of the generic finding for that part. -->
+            <div class="iops-card">
+                <div class="iops-card-header bom-note-header">
+                    <div>
+                        <h3 data-i18n="admin.bomnote.title">Part notes</h3>
+                        <p class="muted" data-i18n="admin.bomnote.desc">Standing notes on specific parts. A note replaces the generic finding for that part (for example "not on the HCL") in new checks and re-checks; on a part that is on the HCL it is added.</p>
+                    </div>
+                    <button class="btn btn-sm btn-primary" data-click='["bomNoteOpen"]' data-i18n="admin.bomnote.new">New note</button>
+                </div>
+                <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
+                    <th data-i18n="admin.bomnote.col_match">Matches</th>
+                    <th data-i18n="admin.bomnote.category_label">Applies to</th>
+                    <th data-i18n="admin.bom.col_severity">Severity</th>
+                    <th data-i18n="admin.bomnote.col_title">Title</th>
+                    <th data-i18n="admin.bomnote.active_label">Active</th>
+                    <th class="col-actions" data-i18n="common.actions">Actions</th>
+                </tr></thead><tbody id="bom-notes-tbody"></tbody></table></div>
+            </div>
+
             <!-- Files users consented to share after the checker refused them:
                  download to teach the parsers a new format, delete when done.
                  Auto-purged after 90 days either way. -->
@@ -876,9 +897,81 @@
         </div>
 
         <!-- ═══════════════════ BOM REVIEW MODAL (super admin) ═══════════════════ -->
+        <div class="modal-overlay centered bom-note-overlay" id="bom-note-modal" style="display:none"
+             role="dialog" aria-modal="true" aria-labelledby="bom-note-modal-title">
+            <div class="modal" style="max-width:560px">
+                <div class="modal-header">
+                    <h2 id="bom-note-modal-title" data-i18n="admin.bomnote.modal_title">Part note</h2>
+                    <button class="modal-close" data-click='["bomNoteClose"]' aria-label="Close" data-i18n-aria="common.close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="muted bom-note-hint" data-i18n="admin.bomnote.hint">Replaces the generic finding for this part from the next check or re-check on. Existing checks keep their result until they are re-checked.</p>
+                    <div class="form-group">
+                        <label for="bom-note-mode" data-i18n="admin.bomnote.mode_label">Match</label>
+                        <select id="bom-note-mode" data-change='["bomNoteModeChanged"]'>
+                            <option value="exact" data-i18n="admin.bomnote.mode_exact">Exact part (part number, else description)</option>
+                            <option value="contains" data-i18n="admin.bomnote.mode_contains">Contains all these words</option>
+                        </select>
+                    </div>
+                    <div class="form-group bom-note-exact">
+                        <label for="bom-note-part" data-i18n="admin.bomnote.part_label">Part number</label>
+                        <input type="text" id="bom-note-part" maxlength="80">
+                    </div>
+                    <div class="form-group bom-note-exact">
+                        <label for="bom-note-desc" data-i18n="admin.bomnote.desc_label">Description (used when a quote has no part number)</label>
+                        <input type="text" id="bom-note-desc" maxlength="300">
+                    </div>
+                    <div class="form-group bom-note-contains" style="display:none">
+                        <label for="bom-note-text" data-i18n="admin.bomnote.text_label">Words that must all appear</label>
+                        <input type="text" id="bom-note-text" maxlength="200" data-i18n-ph="admin.bomnote.text_ph" placeholder="e.g. 5720 LOM">
+                    </div>
+                    <div class="form-group">
+                        <label for="bom-note-category" data-i18n="admin.bomnote.category_label">Applies to</label>
+                        <select id="bom-note-category">
+                            <option value="" data-i18n="admin.bomnote.cat_any">Any kind of part</option>
+                            <option value="nic" data-i18n="admin.bomnote.cat_nic">NIC</option>
+                            <option value="controller" data-i18n="admin.bomnote.cat_controller">Storage controller</option>
+                            <option value="cpu" data-i18n="admin.bomnote.cat_cpu">CPU</option>
+                            <option value="gpu" data-i18n="admin.bomnote.cat_gpu">GPU</option>
+                            <option value="storage" data-i18n="admin.bomnote.cat_storage">Drive</option>
+                            <option value="memory" data-i18n="admin.bomnote.cat_memory">Memory</option>
+                            <option value="boss" data-i18n="admin.bomnote.cat_boss">Boot device</option>
+                            <option value="chassis" data-i18n="admin.bomnote.cat_chassis">Chassis</option>
+                            <option value="other" data-i18n="admin.bomnote.cat_other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bom-note-severity" data-i18n="admin.bom.col_severity">Severity</label>
+                        <select id="bom-note-severity">
+                            <option value="info" data-i18n="admin.bom.severity_info">Info</option>
+                            <option value="warning" selected data-i18n="admin.bom.severity_warning">Warning</option>
+                            <option value="error" data-i18n="admin.bom.severity_error">Error</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bom-note-issue" data-i18n="admin.bomnote.issue_label">Title (shown as the issue)</label>
+                        <input type="text" id="bom-note-issue" maxlength="300" data-i18n-ph="admin.bomnote.issue_ph" placeholder="e.g. Device must be disabled in the BIOS">
+                    </div>
+                    <div class="form-group">
+                        <label for="bom-note-remediation" data-i18n="admin.bomnote.remediation_label">What to do</label>
+                        <textarea id="bom-note-remediation" rows="3" maxlength="2000"></textarea>
+                    </div>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" id="bom-note-active" checked>
+                        <span data-i18n="admin.bomnote.active_label">Active</span>
+                    </label>
+                    <div id="bom-note-status" class="admin-status" style="display:none" role="status"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-click='["bomNoteClose"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["bomNoteSave"]' data-i18n="common.save">Save</button>
+                </div>
+            </div>
+        </div>
+
         <div class="modal-overlay centered bom-review-overlay" id="bom-review-modal" style="display:none"
              role="dialog" aria-modal="true" aria-labelledby="bom-review-modal-title">
-            <div class="modal" style="max-width:720px">
+            <div class="modal" style="max-width:min(960px, 96vw)">
                 <div class="modal-header">
                     <h2 id="bom-review-modal-title" data-i18n="admin.bom.modal_title">Review BOM check</h2>
                     <button class="modal-close" data-click='["bomReviewClose"]' aria-label="Close" data-i18n-aria="common.close">&times;</button>
