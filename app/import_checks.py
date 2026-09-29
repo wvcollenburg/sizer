@@ -23,8 +23,10 @@ def build_import_warnings(data, file_type=None):
         return v if isinstance(v, (int, float)) else 0
 
     # No measured storage IOPS (RVTools never has any; some Live Optics exports
-    # omit it). Storage then falls back to default per-drive IOPS.
-    if num("total_avg_iops") == 0 and num("total_peak_iops") == 0:
+    # omit it; Nutanix Collector has only a p95). Storage then falls back to
+    # default per-drive IOPS.
+    if (num("total_avg_iops") == 0 and num("total_peak_iops") == 0
+            and num("p95_iops") == 0):
         warnings.append({"code": "no_iops", "params": {}})
 
     # No measured CPU/memory performance — perf-based sizing can't scale by

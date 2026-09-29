@@ -813,6 +813,13 @@ body { padding-bottom: 64px; }
     margin-bottom: 1rem;
 }
 
+.import-upload .import-supported {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin: 0.5rem 0 0;
+    text-align: center;
+}
+
 .upload-area {
     border: 2px dashed var(--border);
     border-radius: var(--radius);

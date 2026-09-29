@@ -185,8 +185,8 @@
             </button>
             <button class="mode-btn" data-mode="import" data-click='["requestSwitchMode","import"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-                <span class="mode-label" data-i18n="mode.import_label">VMware Import</span>
-                <span class="mode-desc" data-i18n="mode.import_desc">Import Live Optics or RVTools export</span>
+                <span class="mode-label" data-i18n="mode.import_label">Assessment Import</span>
+                <span class="mode-desc" data-i18n="mode.import_desc">Import an environment assessment export</span>
             </button>
             <button class="mode-btn" data-mode="manual" data-click='["requestSwitchMode","manual"]'>
                 <span class="mode-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
@@ -422,13 +422,14 @@
                  of this into its step panes, and restores them here on "classic". -->
             <div id="import-classic">
             <div class="import-upload">
-                <h3 data-i18n="import.upload_title">Upload VMware Environment Export</h3>
-                <p class="import-desc" data-i18n="import.upload_desc">Upload a .xlsx file exported from Live Optics or RVTools to analyze your current VMware environment and get SC// hardware recommendations.</p>
+                <h3 data-i18n="import.upload_title">Upload Environment Assessment Export</h3>
+                <p class="import-desc" data-i18n="import.upload_desc">Upload an environment assessment export (.xlsx) to analyze your current environment and get SC// hardware recommendations.</p>
                 <div class="upload-area" id="upload-area">
                     <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
                     <div class="upload-text" data-i18n="import.drop_hint">Drop .xlsx file here or click to browse</div>
                     <input type="file" id="file-input" accept=".xlsx" data-change='["handleFileSelect","$this"]'>
                 </div>
+                <p class="import-supported" data-i18n="import.supported_tools">Supported: Live Optics, RVTools, Nutanix Collector</p>
                 <div id="upload-status" class="upload-status" style="display:none"></div>
             </div>
 

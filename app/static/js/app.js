@@ -1111,7 +1111,7 @@ async function uploadFile(file) {
             pendingImportData = data;
             pendingImportFileName = file.name;
             showUploadStatus(window.t('upload.analyzed', {
-                source: data.source === 'rvtools' ? 'RVTools' : 'Live Optics',
+                source: importSourceLabel(data.source),
                 file: file.name, note: ''}), false);
             openClusterFanout(data);
             return;
@@ -1121,6 +1121,13 @@ async function uploadFile(file) {
     } catch (e) {
         showUploadStatus(window.t('upload.failed', {error: e.message}), true);
     }
+}
+
+// Product name of the tool that produced an import (the response's `source`).
+function importSourceLabel(source) {
+    if (source === 'rvtools') return 'RVTools';
+    if (source === 'nutanix') return 'Nutanix Collector';
+    return 'Live Optics';
 }
 
 // Apply an import response to the sizing screen (single-cluster path, or the
@@ -1153,7 +1160,7 @@ function finishImport(data, fileName) {
         document.getElementById('sizing-model-select').value = '';
         populateSizingModelDropdown('sizing-model-select', false);
         updateFullClusterInfo(false, null);
-        const sourceLabel = data.source === 'rvtools' ? 'RVTools' : 'Live Optics';
+        const sourceLabel = importSourceLabel(data.source);
         const scanNote = data.summary && data.summary.scan_type === 'general'
             ? window.t('upload.scan_note_general')
             : '';

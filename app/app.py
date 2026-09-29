@@ -19,6 +19,7 @@ from orm_models import (
 from models import RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
+from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
 from import_checks import build_import_warnings
 import hcl_vendor
 from recommend import generate_recommendations
@@ -370,8 +371,10 @@ def create_app():
                 data = parse_rvtools(tmp.name)
             elif file_type == "liveoptics":
                 data = parse_liveoptics(tmp.name)
+            elif file_type == "nutanix":
+                data = parse_nutanix_collector(tmp.name)
             else:
-                return jsonify({"error": "Unrecognised file format. Please upload a Live Optics or RVTools Excel export."}), 400
+                return jsonify({"error": "Unrecognised file format. Please upload an environment assessment export (Live Optics, RVTools or Nutanix Collector)."}), 400
 
             vcpu_ratio = request.form.get("vcpu_ratio", type=float)
             result = generate_recommendations(data["summary"], vcpu_ratio)
@@ -412,7 +415,7 @@ def create_app():
             })
         except Exception as e:
             app.logger.warning("Import parse failed: %s", e)
-            return jsonify({"error": "Could not parse the file. Upload a valid Live Optics or RVTools .xlsx export."}), 400
+            return jsonify({"error": "Could not parse the file. Upload a valid environment assessment export (.xlsx)."}), 400
         finally:
             os.unlink(tmp.name)
 
@@ -550,6 +553,9 @@ def _detect_file_type(file_path):
     wb = load_workbook(file_path, read_only=True)
     sheets = set(wb.sheetnames)
     wb.close()
+    # Nutanix Collector reuses RVTools sheet names (vInfo, ...) — check it first.
+    if is_nutanix_collector(sheets):
+        return "nutanix"
     if "vInfo" in sheets or "vMetaData" in sheets:
         return "rvtools"
     if "ESX Hosts" in sheets or "Details" in sheets:
