@@ -491,6 +491,8 @@ def _append_site_sizing(doc, cl, lang, cw):
     _spec_table(doc, spec_rows, total_w=cw, lang=lang)
     if r.get("single_node"):
         _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    if (r.get("export_override") or {}).get("bom_agent_read"):
+        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
     _spacer(doc)
 
     # Network diagram
@@ -618,6 +620,8 @@ def _append_config_sizing(doc, cfg, lang, cw):
     _spec_table(doc, spec_rows, total_w=cw, lang=lang)
     if cfg.get("single_node"):
         _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    if (cfg.get("export_override") or {}).get("bom_agent_read"):
+        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
     _spacer(doc)
 
     svg = _rec_network_svg(cfg, lang) or cfg.get("network_svg")
@@ -868,6 +872,8 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     # Single-node DR target: no failover redundancy.
     if r.get("single_node"):
         _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    if (r.get("export_override") or {}).get("bom_agent_read"):
+        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
     _spacer(doc)
 
     # Network diagram — regenerate in the document language (fall back to stored).

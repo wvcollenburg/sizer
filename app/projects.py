@@ -95,6 +95,24 @@ def _sizing_count(project_id):
         project_id=project_id, is_deleted=False).count()
 
 
+def _list_counts(project_ids):
+    """({project: live sizings}, {project: live BOM checks}) for the project
+    list in two grouped queries, instead of a count query per tile."""
+    from sqlalchemy import func
+    from bom_models import BomCheck
+    if not project_ids:
+        return {}, {}
+    sizings = dict(db.session.query(Configuration.project_id, func.count(Configuration.id))
+                   .filter(Configuration.project_id.in_(project_ids),
+                           Configuration.is_deleted.is_(False))
+                   .group_by(Configuration.project_id).all())
+    boms = dict(db.session.query(BomCheck.project_id, func.count(BomCheck.id))
+                .filter(BomCheck.project_id.in_(project_ids),
+                        BomCheck.is_deleted.is_(False))
+                .group_by(BomCheck.project_id).all())
+    return sizings, boms
+
+
 # ── project CRUD ─────────────────────────────────────────────────────────────
 
 @projects_bp.route("/", methods=["GET"])
@@ -151,8 +169,10 @@ def list_projects():
                 add(project, _project_source_for(user, project) or "linked")
 
     rows.sort(key=lambda pair: pair[0].updated_at or pair[0].created_at, reverse=True)
+    sizing_counts, bom_counts = _list_counts([p.id for p, _ in rows])
     return jsonify([
-        p.to_summary(user, source, sizing_count=_sizing_count(p.id))
+        p.to_summary(user, source, sizing_count=sizing_counts.get(p.id, 0),
+                     bom_count=bom_counts.get(p.id, 0))
         for p, source in rows
     ])
 

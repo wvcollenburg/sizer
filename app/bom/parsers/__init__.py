@@ -23,6 +23,7 @@ text; uploads are untrusted and the sheet caps in xlsx_utils apply to every
 sheet we read (SheetTooLargeError propagates to the route).
 """
 import os
+from contextlib import contextmanager
 from typing import Optional, Tuple
 
 from bom.normalize import NormalizedBOM
@@ -51,7 +52,7 @@ FORMAT_LABELS = {
 }
 
 XLSX_MAGIC = b'PK\x03\x04'
-ACCEPTED_EXTENSIONS = ('.xlsx', '.csv')
+ACCEPTED_EXTENSIONS = ('.xlsx', '.xls', '.csv')
 
 
 def _extension(filename: Optional[str], path: str) -> str:
@@ -65,6 +66,30 @@ def _is_xlsx(path: str) -> bool:
             return fh.read(4) == XLSX_MAGIC
     except OSError:
         return False
+
+
+@contextmanager
+def _as_xlsx(path: str):
+    """Temporary .xlsx copy of an .xls (None when it is not a readable one);
+    SheetTooLargeError propagates like it does for .xlsx."""
+    from bom.parsers.common import is_xls, xls_to_xlsx
+    converted = None
+    if is_xls(path):
+        try:
+            converted = xls_to_xlsx(path)
+        except ValueError as exc:
+            from xlsx_utils import SheetTooLargeError
+            if isinstance(exc, SheetTooLargeError):
+                raise
+            converted = None
+    try:
+        yield converted
+    finally:
+        if converted:
+            try:
+                os.unlink(converted)
+            except OSError:
+                pass
 
 
 def _detect_xlsx(path: str) -> Optional[str]:
@@ -105,6 +130,9 @@ def detect_format(path: str, filename: Optional[str] = None) -> Optional[str]:
     """Format id for a file, or None when nothing matches (PDF, docx, an
     unknown spreadsheet, a corrupt upload)."""
     ext = _extension(filename, path)
+    if ext == '.xls':
+        with _as_xlsx(path) as converted:
+            return _detect_xlsx(converted) if converted else None
     if ext == '.csv':
         from bom.parsers import dell_service_tag
         return dell_service_tag.FORMAT if dell_service_tag.detect_csv(path) else None
@@ -119,12 +147,18 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
                              dell_solution, lenovo_dcsc, template)
+    if _extension(filename, path) == '.xls':
+        # Legacy workbook: parse its .xlsx copy with the same ladder.
+        with _as_xlsx(path) as converted:
+            if converted is None:
+                raise UnrecognizedFormat('The .xls file could not be read as an Excel workbook.')
+            stem = os.path.splitext(os.path.basename(filename or path))[0]
+            return parse_file(converted, stem + '.xlsx')
     fmt = detect_format(path, filename)
     if fmt is None:
         ext = _extension(filename, path)
         if ext not in ACCEPTED_EXTENSIONS:
-            raise UnrecognizedFormat('Only .xlsx and .csv BOM exports are parsed directly; '
-                                     'use the template (or the AI pre-fill) for other files.')
+            raise UnrecognizedFormat('Only .xlsx, .xls and .csv BOM exports are parsed directly.')
         raise UnrecognizedFormat()
     if fmt == template.FORMAT:
         bom = template.parse_template(path)

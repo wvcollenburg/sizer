@@ -19,6 +19,7 @@
   "export.common.resource": "Ressource",
   "export.common.single_cluster": "Einzelner Cluster",
   "export.common.single_node_note": "Einzelner Knoten — keine Failover-Redundanz. Akzeptabel für eine DR-Stufe, die selbst die Redundanz darstellt; für Produktionscluster nicht empfohlen.",
+  "export.common.agent_bom_note": "Die angebotene Hardware stammt aus einer Stückliste in einem nicht unterstützten Format, die von einem Claude-Agenten gelesen wurde. Gleichen Sie sie mit dem Originalangebot ab.",
   "export.common.storage": "Speicher",
   "export.common.threads": "Threads",
   "export.common.usable_storage": "Nutzbarer Speicher",

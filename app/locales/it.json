@@ -19,6 +19,7 @@
   "export.common.resource": "Risorsa",
   "export.common.single_cluster": "cluster singolo",
   "export.common.single_node_note": "Nodo singolo — nessuna ridondanza di failover. Accettabile per un livello DR che è esso stesso la ridondanza; non consigliato per i cluster di produzione.",
+  "export.common.agent_bom_note": "L'hardware quotato proviene da una distinta base in un formato non supportato, letta da un agente Claude. Verificalo rispetto all'offerta originale.",
   "export.common.storage": "Storage",
   "export.common.threads": "Thread",
   "export.common.usable_storage": "Storage utilizzabile",

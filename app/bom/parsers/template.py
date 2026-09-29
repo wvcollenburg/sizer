@@ -93,6 +93,16 @@ class TemplateError(ValueError):
 
 # ─── build ────────────────────────────────────────────────────────────────────
 
+def _force_text(row_cells) -> None:
+    """Store every string as a string. openpyxl turns a value starting with
+    '=' into a formula, and the row values come from uploaded quotes or the
+    AI agent: '=HYPERLINK(...)' in a description would otherwise run when the
+    user opens the pre-filled template in Excel. Typed as text, Excel shows
+    it verbatim and our parser reads back exactly what was written."""
+    for c in row_cells:
+        if isinstance(c.value, str):
+            c.data_type = 's'
+
 def build_template_bytes(bom: Optional[NormalizedBOM] = None, lang: str = 'en') -> bytes:
     from openpyxl import Workbook
     from openpyxl.comments import Comment
@@ -142,6 +152,7 @@ def build_template_bytes(bom: Optional[NormalizedBOM] = None, lang: str = 'en') 
                     comp.category,
                     (config.node_count if first and config.node_count else None),
                 ])
+                _force_text(ws[ws.max_row])
                 first = False
 
     # Marker for detect_format: a defined name survives re-saves in every

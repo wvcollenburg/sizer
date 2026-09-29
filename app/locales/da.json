@@ -19,6 +19,7 @@
   "export.common.resource": "Ressource",
   "export.common.single_cluster": "enkelt cluster",
   "export.common.single_node_note": "Enkelt node — ingen failover-redundans. Acceptabelt for et DR-niveau, der selv er redundansen; ikke anbefalet til produktionsclustre.",
+  "export.common.agent_bom_note": "Den tilbudte hardware stammer fra en stykliste i et ikke-understøttet format, som er læst af en Claude-agent. Kontrollér den mod det oprindelige tilbud.",
   "export.common.storage": "Lagring",
   "export.common.threads": "Tråde",
   "export.common.usable_storage": "Anvendelig lagring",

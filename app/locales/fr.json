@@ -19,6 +19,7 @@
   "export.common.resource": "Ressource",
   "export.common.single_cluster": "cluster unique",
   "export.common.single_node_note": "Nœud unique — aucune redondance par basculement. Acceptable pour un niveau DR qui constitue lui-même la redondance ; non recommandé pour des clusters de production.",
+  "export.common.agent_bom_note": "Le matériel proposé provient d'une nomenclature dans un format non pris en charge, lue par un agent Claude. Vérifiez-le par rapport au devis d'origine.",
   "export.common.storage": "Stockage",
   "export.common.threads": "Threads",
   "export.common.usable_storage": "Stockage utilisable",

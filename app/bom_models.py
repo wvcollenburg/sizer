@@ -21,6 +21,21 @@ REVIEW_CONFIRMED = "confirmed"
 REVIEW_INCORRECT = "incorrect"
 REVIEW_STATUSES = (REVIEW_NONE, REVIEW_OPEN, REVIEW_CONFIRMED, REVIEW_INCORRECT)
 
+# file_format of a check whose BOM the Claude agent read (bom/agent_ingest.py)
+# because no deterministic parser recognised the file.
+AGENT_FORMAT = "ai_agent"
+
+# AppSettings (admin UI, BOM reviews tab). Caps: agent jobs per UTC day,
+# "0" = unlimited (the testing default; set real caps before production).
+AGENT_ALWAYS_REVIEW_SETTING = "bom_agent_always_review"
+AGENT_TENANT_CAP_SETTING = "bom_agent_daily_cap_tenant"
+AGENT_GLOBAL_CAP_SETTING = "bom_agent_daily_cap_global"
+
+JOB_QUEUED = "queued"
+JOB_RUNNING = "running"
+JOB_DONE = "done"
+JOB_FAILED = "failed"
+
 
 class BomCheck(db.Model):
     __tablename__ = "bom_checks"
@@ -50,6 +65,10 @@ class BomCheck(db.Model):
     reviewed_at = db.Column(db.DateTime(timezone=True))
     catalog_stamp = db.Column(db.String(64))
     history = db.Column(JSON_TYPE)
+    # Only for file_format == AGENT_FORMAT: how the Claude agent read the file
+    # (source kind, grounding result, dropped lines, injection flag, tokens).
+    # Separate from ``result`` because a re-check rewrites the result.
+    ingest_meta = db.Column(JSON_TYPE)
     checked_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
@@ -64,6 +83,75 @@ class BomCheck(db.Model):
     @property
     def flag_reasons(self):
         return list((self.result or {}).get("flag_reasons") or [])
+
+    @property
+    def is_agent_read(self):
+        return self.file_format == AGENT_FORMAT
+
+    def agent_flag_reasons(self):
+        """Review reasons that come from HOW the file was read, not from the
+        rules: an agent-read check opens a review while the owner builds trust
+        in the agent (setting ``bom_agent_always_review``, on by default), and
+        always when the document tried to instruct the agent or lines had to
+        be dropped because they were not in the document."""
+        if not self.is_agent_read:
+            return []
+        from auth import get_setting
+        meta = self.ingest_meta or {}
+        reasons = []
+        if (get_setting(AGENT_ALWAYS_REVIEW_SETTING, "1") or "1") != "0":
+            reasons.append("agent_read")
+        if meta.get("instructions_detected"):
+            reasons.append("agent_instructions")
+        if meta.get("dropped") or meta.get("model_changed"):
+            reasons.append("agent_ungrounded")
+        return reasons
+
+    def apply_result(self, result, sizing):
+        """Store a run_check result and keep the review status in step: flags
+        open a review, a clean re-check closes one nobody has acted on."""
+        extra = [r for r in self.agent_flag_reasons() if r not in (result.get("flag_reasons") or [])]
+        if extra:
+            result = dict(result)
+            result["flag_reasons"] = list(result.get("flag_reasons") or []) + extra
+        self.result = result
+        self.configuration_id = sizing.id if sizing else None
+        self.technical_verdict = (result.get("technical") or {}).get("verdict")
+        fit = result.get("fit")
+        self.fit_verdict = fit.get("verdict") if fit else None
+        self.catalog_stamp = result.get("catalog_stamp")
+        self.checked_at = _utcnow()
+        flags = result.get("flag_reasons") or []
+        current = self.review_status or REVIEW_NONE   # None before the first flush
+        if flags and current == REVIEW_NONE:
+            self.review_status = REVIEW_OPEN
+        elif not flags and current == REVIEW_OPEN:
+            self.review_status = REVIEW_NONE
+        else:
+            self.review_status = current
+
+    def history_entry(self):
+        return {
+            "checked_at": self.checked_at.isoformat() if self.checked_at else None,
+            "technical_verdict": self.technical_verdict,
+            "fit_verdict": self.fit_verdict,
+            "catalog_stamp": self.catalog_stamp,
+            "sizing_id": self.configuration_id,
+        }
+
+    def agent_summary(self):
+        """What the UI needs to warn about an agent-read check: None for a
+        file a deterministic parser read. Model details stay server-side."""
+        if not self.is_agent_read:
+            return None
+        meta = self.ingest_meta or {}
+        return {
+            "source_kind": meta.get("source_kind"),
+            "grounded": meta.get("grounded"),
+            "dropped": list(meta.get("dropped") or [])[:50],
+            "model_changed": list(meta.get("model_changed") or [])[:20],
+            "instructions_detected": bool(meta.get("instructions_detected")),
+        }
 
     def to_dict(self, full=False):
         """Summary by default (list rows); ``full`` adds the normalised BOM and
@@ -90,6 +178,7 @@ class BomCheck(db.Model):
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),
             "config_count": len((self.normalized or {}).get("configs") or []),
+            "agent": self.agent_summary(),
         }
         if full:
             d["normalized"] = self.normalized
@@ -208,4 +297,66 @@ class BomPartNote(db.Model):
             "created_by": self.created_by.email if self.created_by else None,
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),
+        }
+
+
+class BomAgentJob(db.Model):
+    """One upload the deterministic parsers could not read, queued for the
+    Claude agent (bom/agent_ingest.py, drained by bom/agent_worker.py).
+
+    Why a queue and not the request: reading a PDF or a picture takes up to
+    a minute or two, longer than the proxy in front of the app waits. The
+    upload returns 202 at once, the modal polls, and the user can ask for an
+    email and walk away, the same as the project exports.
+
+    The uploaded bytes live in ``content`` ONLY until the job finishes; the
+    worker nulls the column in the same commit that records the outcome, so
+    the check route's "never keep the quote" rule still holds once a job is
+    done. The row itself stays: its ``meta`` (tokens, model, outcome) is the
+    agent usage record, and the daily caps count rows per day.
+    """
+    __tablename__ = "bom_agent_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"),
+                           nullable=False, index=True)
+    configuration_id = db.Column(db.Integer, db.ForeignKey("configurations.id"))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    filename = db.Column(db.String(200), nullable=False)
+    file_sha256 = db.Column(db.String(64), nullable=False, index=True)
+    content = db.Column(db.LargeBinary)                 # nulled when finished
+    status = db.Column(db.String(12), nullable=False, default=JOB_QUEUED, index=True)
+    error = db.Column(db.Text)
+    notify_email = db.Column(db.Boolean, nullable=False, default=False)
+    check_id = db.Column(db.Integer, db.ForeignKey("bom_checks.id"))
+    # A failed round trip through the template still yields the agent's
+    # pre-filled template; kept (small) so the user can fix and upload it.
+    template = db.Column(db.LargeBinary)
+    meta = db.Column(JSON_TYPE)
+    lang = db.Column(db.String(5))
+    claimed_by = db.Column(db.String(80))
+    claimed_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, index=True)
+    finished_at = db.Column(db.DateTime(timezone=True))
+
+    project = db.relationship("Project", foreign_keys=[project_id])
+    user = db.relationship("User", foreign_keys=[user_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "configuration_id": self.configuration_id,
+            "name": self.name,
+            "filename": self.filename,
+            "status": self.status,
+            "error": self.error,
+            "notify_email": bool(self.notify_email),
+            "check_id": self.check_id,
+            "has_template": self.template is not None,
+            "created_at": _iso(self.created_at),
+            "finished_at": _iso(self.finished_at),
         }

@@ -59,18 +59,21 @@ def _worker_id():
     return f"{os.getpid()}:{threading.get_ident()}"
 
 
-def claim_next_job():
-    """Atomically take the oldest queued job, or None.
+def claim_next_job(model=ExportJob):
+    """Atomically take the oldest queued job of ``model``'s table, or None.
 
     SKIP LOCKED keeps two workers from grabbing the same row; on SQLite (tests)
     it degrades to a plain guarded UPDATE, which is fine for a single process.
+    Shared with the BOM agent queue (bom/agent_worker.py): any job model with
+    status/claimed_by/claimed_at/created_at columns and the same status words.
     """
+    table = model.__tablename__            # a class attribute, never user input
     if db.engine.dialect.name == "postgresql":
-        row = db.session.execute(text("""
-            UPDATE export_jobs SET status = :running, claimed_by = :worker,
+        row = db.session.execute(text(f"""
+            UPDATE {table} SET status = :running, claimed_by = :worker,
                                    claimed_at = :now
             WHERE id = (
-                SELECT id FROM export_jobs
+                SELECT id FROM {table}
                 WHERE status = :queued
                 ORDER BY created_at
                 FOR UPDATE SKIP LOCKED
@@ -80,10 +83,10 @@ def claim_next_job():
         """), {"running": JOB_RUNNING, "queued": JOB_QUEUED,
                "worker": _worker_id(), "now": _utcnow()}).first()
         db.session.commit()
-        return db.session.get(ExportJob, row[0]) if row else None
+        return db.session.get(model, row[0]) if row else None
 
-    job = ExportJob.query.filter_by(status=JOB_QUEUED).order_by(
-        ExportJob.created_at).first()
+    job = model.query.filter_by(status=JOB_QUEUED).order_by(
+        model.created_at).first()
     if job is None:
         return None
     job.status = JOB_RUNNING
@@ -93,13 +96,13 @@ def claim_next_job():
     return job
 
 
-def requeue_abandoned_jobs():
+def requeue_abandoned_jobs(model=ExportJob, timeout=CLAIM_TIMEOUT):
     """Return jobs whose claimer died to the queue."""
-    cutoff = _utcnow() - CLAIM_TIMEOUT
-    stuck = ExportJob.query.filter(
-        ExportJob.status == JOB_RUNNING,
-        ExportJob.claimed_at.isnot(None),
-        ExportJob.claimed_at < cutoff).all()
+    cutoff = _utcnow() - timeout
+    stuck = model.query.filter(
+        model.status == JOB_RUNNING,
+        model.claimed_at.isnot(None),
+        model.claimed_at < cutoff).all()
     for job in stuck:
         job.status = JOB_QUEUED
         job.claimed_by = None

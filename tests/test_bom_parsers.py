@@ -117,7 +117,7 @@ def test_pdf_is_not_detected(tmp_path):
     assert detect_format(str(pdf), "quote.pdf") is None
     with pytest.raises(UnrecognizedFormat) as exc:
         parse_file(str(pdf), "quote.pdf")
-    assert "Only .xlsx and .csv" in exc.value.hint
+    assert "Only .xlsx, .xls and .csv" in exc.value.hint
 
 
 def test_wrong_magic_bytes_are_unrecognized(tmp_path):
@@ -410,12 +410,12 @@ def test_xlsx_decompression_bomb_is_refused_before_openpyxl(tmp_path):
     # Finding: "xlsx decompression bomb: sharedStrings is loaded eagerly
     # before any row cap applies" — a sub-MB upload whose sharedStrings part
     # inflates past the member cap must be refused by the zip pre-check in
-    # load_workbook_safe (and via parse_file / ai_prefill._xlsx_text), before
+    # load_workbook_safe (and via parse_file / agent_ingest._xlsx_text), before
     # openpyxl materialises the strings.
     import zipfile
     from xlsx_utils import SheetTooLargeError
     from bom.parsers.common import load_workbook_safe
-    from bom import ai_prefill
+    from bom import agent_ingest
     path = str(tmp_path / "bomb.xlsx")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("[Content_Types].xml", "<Types/>")
@@ -425,8 +425,8 @@ def test_xlsx_decompression_bomb_is_refused_before_openpyxl(tmp_path):
         load_workbook_safe(path)
     with pytest.raises(SheetTooLargeError):
         parse_file(path, "bomb.xlsx")     # detect_format must not swallow it
-    with pytest.raises(ai_prefill.PrefillError):
-        ai_prefill._xlsx_text(path)
+    with pytest.raises(agent_ingest.AgentError):
+        agent_ingest._xlsx_text(path)
 
 
 def test_zip_pre_check_lets_ordinary_workbooks_through():

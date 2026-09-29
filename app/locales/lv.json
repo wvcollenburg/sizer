@@ -19,6 +19,7 @@
   "export.common.resource": "Resurss",
   "export.common.single_cluster": "viens klasteris",
   "export.common.single_node_note": "Viens mezgls — nav pārslēgšanās dublēšanas. Pieņemami DR līmenim, kas pats ir dublēšana; ražošanas klasteriem nav ieteicams.",
+  "export.common.agent_bom_note": "Piedāvātā aparatūra ir ņemta no neatbalstīta formāta materiālu saraksta, ko nolasīja Claude aģents. Pārbaudiet to pēc sākotnējā piedāvājuma.",
   "export.common.storage": "Krātuve",
   "export.common.threads": "Pavedieni",
   "export.common.usable_storage": "Izmantojamā krātuve",

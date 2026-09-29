@@ -148,6 +148,9 @@
             <div id="project-tag-filter" class="project-tag-filter"></div>
             <div id="project-sizings" class="project-sizings"></div>
             <div id="project-replication" class="project-replication"></div>
+            <!-- BOM checks of this project (js/bom.js): agent jobs still
+                 running or failed, then the checks, newest first. -->
+            <div id="project-bom-checks" class="project-bom-checks"></div>
         </section>
     </div>
 
@@ -1150,8 +1153,9 @@
     </div>
 
     <!-- BOM checker modal (docs/bom-checker-build.md §7) — driven by js/bom.js.
-         Step "upload" holds the drop zone, the sizing picker, the help block
-         and the history of past checks; step "result" renders one check. -->
+         Step "upload": drop zone, sizing dropdown, name. Step "agent": waiting
+         for the Claude agent on an unrecognised file. Step "result": one
+         check. Past checks are listed on the project page (#project-bom-checks). -->
     <div class="modal-overlay" id="bom-modal" style="display:none">
         <div class="modal-content cmp-modal bom-modal" style="max-width:880px" role="dialog" aria-modal="true" aria-labelledby="bom-modal-title">
             <div class="modal-header">
@@ -1175,75 +1179,66 @@
                 </div>
 
                 <div id="bom-step-upload">
-                    <p class="import-info" data-i18n="bom.upload.intro">Upload a vendor BOM to check every part against the Scale Computing HCL and, optionally, against one of this project's sizings.</p>
+                    <p class="import-info" data-i18n="bom.upload.intro2">Every part is checked against the Scale Computing HCL. Pick a sizing to also compare the BOM with what was sized.</p>
 
                     <div class="upload-area bom-upload-area" id="bom-upload-area" role="button" tabindex="0" aria-describedby="bom-accept-hint">
-                        <div class="upload-icon" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-                        <div class="upload-text" data-i18n="bom.upload.drop_hint">Drop a BOM file here or click to browse</div>
+                        <div class="upload-icon" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                        <div class="upload-text" data-i18n="bom.upload.drop_hint2">Drop a BOM or quote here, or click to browse</div>
                         <div class="bom-file-name" id="bom-file-name" hidden></div>
-                        <input type="file" id="bom-file-input" accept=".xlsx,.csv" data-change='["bomFileChosen","$this"]' aria-label="BOM file" data-i18n-aria="bom.upload.input_label">
+                        <input type="file" id="bom-file-input" accept=".xlsx,.xls,.csv" data-change='["bomFileChosen","$this"]' aria-label="BOM file" data-i18n-aria="bom.upload.input_label">
                     </div>
-                    <p class="field-hint" id="bom-accept-hint" data-i18n="bom.upload.accept_hint_static">Accepted: .xlsx, .csv</p>
+                    <p class="field-hint" id="bom-accept-hint"></p>
                     <div id="bom-upload-status" class="upload-status" style="display:none" aria-live="polite"></div>
 
-                    <div class="panel-field bom-field">
+                    <div class="bom-form-grid">
+                        <label class="field-label" for="bom-sizing-select" data-i18n="bom.pick.heading">Check against a sizing</label>
+                        <select id="bom-sizing-select" class="text-input" data-change='["bomPickSizing","$value"]'></select>
                         <label class="field-label" for="bom-name" data-i18n="bom.name_label">Name (optional)</label>
-                        <input type="text" id="bom-name" class="text-input" maxlength="200" autocomplete="off">
-                        <p class="field-hint" data-i18n="bom.name_hint">Defaults to the file name.</p>
+                        <input type="text" id="bom-name" class="text-input" maxlength="200" autocomplete="off" data-i18n-ph="bom.name_hint">
                     </div>
 
-                    <h3 class="rep-heading" data-i18n="bom.pick.heading">Check against a sizing</h3>
-                    <p class="field-hint" data-i18n="bom.pick.hint">The compatibility check always runs. Pick a sizing to also compare node count, cores, RAM, storage and NIC speed with what was sized.</p>
-                    <div id="bom-sizing-pick" class="fanout-list bom-pick-list" role="radiogroup" aria-label="Sizing to check against" data-i18n-aria="bom.pick.heading"></div>
-
-                    <details class="bom-help">
-                        <summary data-i18n="bom.help.summary">Accepted formats and the blank template</summary>
-                        <div class="bom-help-body">
-                            <p data-i18n="bom.help.formats">Recognised out of the box: Lenovo DCSC configuration exports (.xlsx) and Dell quote or service-tag exports (.xlsx, .csv). Anything else is not guessed at — fill in the blank template instead and upload that.</p>
-                            <p data-i18n="bom.help.template_rules">One row per line item, quantities are totals across all nodes, and the node count is the quantity of the chassis/server line.</p>
-                            <p class="bom-help-actions">
-                                <a class="btn btn-soft btn-xs" href="/api/bom/template" download data-i18n="bom.help.template_download">Download the blank template</a>
-                            </p>
+                    <details class="bom-formats">
+                        <summary data-i18n="bom.help.layouts">Recognised layouts and the blank template</summary>
+                        <div class="bom-formats-body">
+                            <ul id="bom-formats-list"></ul>
+                            <p id="bom-formats-agent" hidden data-i18n="bom.help.agent_note">Anything else, including PDFs and pictures, is read by a Claude agent. The result then says so, and you can download what the agent read as a filled template.</p>
+                            <p><a class="btn btn-soft btn-xs" href="/api/bom/template" download data-i18n="bom.help.template_download">Download the blank template</a></p>
                             <p class="field-hint" id="bom-catalog-line" hidden></p>
                         </div>
                     </details>
+                </div>
 
-                    <div class="panel-section bom-prefill" id="bom-prefill-panel" hidden>
-                        <div class="panel-section-title" data-i18n="bom.prefill.title">AI pre-fill of the template</div>
-                        <p class="field-hint" data-i18n="bom.prefill.desc">Have an unrecognised quote, PDF or document? Upload it here and a pre-filled copy of the template is generated for you.</p>
-                        <p class="rec-warning bom-prefill-warning" data-i18n="bom.prefill.mandatory">The pre-filled template must be reviewed and corrected by you, then uploaded above as a normal check. The AI result is never checked directly.</p>
-                        <div class="bom-prefill-row">
-                            <label class="btn btn-soft btn-xs bom-file-btn" for="bom-prefill-input">
-                                <span data-i18n="bom.prefill.choose">Choose a document</span>
-                                <input type="file" id="bom-prefill-input" accept=".xlsx,.csv,.pdf,.docx,.txt" data-change='["bomPrefillFileChosen","$this"]'>
-                            </label>
-                            <span class="bom-file-name" id="bom-prefill-name" hidden></span>
-                            <button class="btn btn-cta btn-xs" id="bom-prefill-btn" data-click='["bomRunPrefill"]' data-i18n="bom.prefill.run">Generate pre-filled template</button>
+                <!-- The Claude agent is reading an unrecognised file (a queued
+                     job, bom/agent_worker.py). The modal polls; closing it is
+                     fine, the result lands on the project page. -->
+                <div id="bom-step-agent" style="display:none">
+                    <div class="bom-agent-wait" role="status" aria-live="polite">
+                        <span class="bom-spinner" aria-hidden="true"></span>
+                        <div>
+                            <p class="bom-agent-wait-title" data-i18n="bom.agent.reading">The checker does not recognise this layout, so a Claude agent is reading the file.</p>
+                            <p class="field-hint" data-i18n="bom.agent.wait_hint">This usually takes under a minute, longer for a big PDF. You can close this window; the result appears under BOM checks on the project page.</p>
                         </div>
-                        <p class="field-hint" id="bom-prefill-status" aria-live="polite" hidden></p>
                     </div>
-
-                    <div id="bom-history">
-                        <h3 class="rep-heading" data-i18n="bom.history.heading">Past checks</h3>
-                        <ul class="export-list bom-history-list" id="bom-history-list"></ul>
-                        <p class="import-info muted" id="bom-history-empty" data-i18n="bom.history.empty">No BOM checked yet for this project.</p>
-                    </div>
+                    <label class="notify-check" id="bom-agent-notify-wrap" hidden>
+                        <input type="checkbox" id="bom-agent-notify" data-change='["bomAgentNotify","$this"]'>
+                        <span data-i18n="bom.agent.notify">Email me when the check is done</span>
+                    </label>
                 </div>
 
                 <div id="bom-step-result" style="display:none">
+                    <div class="bom-recheck-bar" id="bom-recheck-wrap">
+                        <label class="field-label-inline" for="bom-recheck-sizing" data-i18n="bom.recheck_against">Re-check against</label>
+                        <select id="bom-recheck-sizing" class="text-input inline-select" data-change='["bomRecheckSizingChanged","$value"]'></select>
+                        <button class="btn btn-soft btn-sm" id="bom-recheck-btn" data-click='["bomRecheck"]' data-i18n="bom.recheck">Re-check</button>
+                    </div>
                     <div id="bom-result" aria-live="polite"></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-actions bom-footer">
-                    <button class="btn btn-secondary" id="bom-back-btn" style="display:none" data-click='["bomBack"]' data-i18n="bom.back_to_list">Back to list</button>
-                    <button class="btn btn-secondary" data-click='["closeBomChecker"]' data-i18n="common.close">Close</button>
                     <button class="btn btn-danger btn-sm" id="bom-delete-btn" style="display:none" data-click='["bomDelete"]' data-i18n="common.delete">Delete</button>
-                    <span class="bom-recheck-wrap" id="bom-recheck-wrap" style="display:none">
-                        <label class="field-label-inline" for="bom-recheck-sizing" data-i18n="bom.recheck_against">Re-check against</label>
-                        <select id="bom-recheck-sizing" class="text-input inline-select" data-change='["bomRecheckSizingChanged","$value"]'></select>
-                    </span>
-                    <button class="btn btn-primary" id="bom-recheck-btn" style="display:none" data-click='["bomRecheck"]' data-i18n="bom.recheck">Re-check</button>
+                    <button class="btn btn-secondary" id="bom-back-btn" style="display:none" data-click='["bomBack"]' data-i18n="bom.check_another">Check another BOM</button>
+                    <button class="btn btn-secondary" id="bom-close-btn" data-click='["closeBomChecker"]' data-i18n="common.close">Close</button>
                     <button class="btn btn-primary" id="bom-run-btn" data-click='["bomRunCheck"]' data-i18n="bom.run">Check BOM</button>
                 </div>
             </div>

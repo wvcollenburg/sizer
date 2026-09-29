@@ -185,6 +185,8 @@ function projectCard(p) {
     const sub = [
         p.customer_name ? escHtml(p.customer_name) : '',
         tt('project.card.sizings', { count: count }),
+        // Only when there is one: most projects have no BOM checked yet.
+        p.bom_count ? tt('project.card.boms', { count: p.bom_count }) : '',
         fmtProjectDate(p.updated_at),
     ].filter(Boolean).join(' · ');
     const badge = p.is_scratch

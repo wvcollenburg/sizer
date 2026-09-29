@@ -93,7 +93,8 @@ class Project(db.Model):
         db.Index("ix_projects_owner_active", "owner_id", "is_deleted"),
     )
 
-    def to_summary(self, current_user=None, source="tenant", sizing_count=None):
+    def to_summary(self, current_user=None, source="tenant", sizing_count=None,
+                   bom_count=None):
         """List-row shape. ``source`` tags why it's visible, mirroring
         Configuration.to_summary."""
         d = {
@@ -117,6 +118,8 @@ class Project(db.Model):
         }
         if sizing_count is not None:
             d["sizing_count"] = sizing_count
+        if bom_count is not None:
+            d["bom_count"] = bom_count
         # Omitted, not nulled: an always-present salesforce_url: null would still
         # tell a partner the field exists.
         if self.may_see_salesforce(current_user):

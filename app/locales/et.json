@@ -19,6 +19,7 @@
   "export.common.resource": "Ressurss",
   "export.common.single_cluster": "üksik klaster",
   "export.common.single_node_note": "Üksik sõlm — tõrkesiirde liiasust pole. Vastuvõetav DR-tasemele, mis on ise liiasus; tootmisklastritele pole soovitatav.",
+  "export.common.agent_bom_note": "Pakutud riistvara pärineb toetamata vormingus komplektsusloendist, mille luges Claude'i agent. Kontrollige seda algse pakkumise järgi.",
   "export.common.storage": "Salvestusruum",
   "export.common.threads": "Lõimed",
   "export.common.usable_storage": "Kasutatav salvestusruum",
