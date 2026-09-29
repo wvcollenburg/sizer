@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Workload analyseren...",
   "upload.failed": "Uploaden mislukt: {error}",
   "upload.must_be_xlsx": "Bestand moet een .xlsx Excel-bestand zijn",
+  "upload.reject.lo_incomplete": "Deze Live Optics-export is onvolledig: de datastores dekken slechts {covered} van de {vms} VM's. De verzameling is waarschijnlijk gestopt vóór de eerste volledige snapshot. Voer Live Optics opnieuw uit en laat de verzameling voltooien voordat u exporteert.",
   "upload.restored": "Een opgeslagen sizing hersteld.",
   "upload.scan_note_general": " — scan op serverniveau: elke server 1:1 bemeten (geen overcommit-/NIC-gegevens; alleen piekmetingen)",
   "validated.add_storage_only": "Alleen-opslag-nodes toevoegen",

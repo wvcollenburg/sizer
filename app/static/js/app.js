@@ -1100,7 +1100,11 @@ async function uploadFile(file) {
         const data = await resp.json();
 
         if (data.error) {
-            showUploadStatus(data.error, true);
+            // Coded rejections (e.g. an incomplete Live Optics export) carry a
+            // translatable message; plain errors are shown as sent.
+            showUploadStatus(data.error_code
+                ? window.t('upload.reject.' + data.error_code, data.error_params || {})
+                : data.error, true);
             return;
         }
 

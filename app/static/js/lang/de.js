@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Arbeitslast wird analysiert...",
   "upload.failed": "Upload fehlgeschlagen: {error}",
   "upload.must_be_xlsx": "Die Datei muss eine .xlsx-Excel-Datei sein",
+  "upload.reject.lo_incomplete": "Dieser Live Optics-Export ist unvollständig: Seine Datastores erfassen nur {covered} von {vms} VMs. Die Erfassung wurde vermutlich vor dem ersten vollständigen Snapshot abgebrochen. Führen Sie Live Optics erneut aus und lassen Sie die Erfassung vor dem Export abschließen.",
   "upload.restored": "Ein gespeichertes Sizing wurde wiederhergestellt.",
   "upload.scan_note_general": " — Scan auf Serverebene: jeder Server 1:1 dimensioniert (keine Overcommit-/NIC-Daten; nur Spitzenmetriken)",
   "validated.add_storage_only": "Nur-Speicher-Knoten hinzufügen",

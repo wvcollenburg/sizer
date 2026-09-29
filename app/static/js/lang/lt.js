@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analizuojamas darbo krūvis...",
   "upload.failed": "Įkelti nepavyko: {error}",
   "upload.must_be_xlsx": "Failas turi būti .xlsx Excel failas",
+  "upload.reject.lo_incomplete": "Šis Live Optics eksportas nepilnas: jo duomenų saugyklos apima tik {covered} iš {vms} VM. Duomenų rinkimas tikriausiai buvo sustabdytas prieš pirmąją pilną momentinę kopiją. Paleiskite Live Optics iš naujo ir leiskite rinkimui baigtis prieš eksportuodami.",
   "upload.restored": "Atkurtas įrašytas dydžio parinkimas.",
   "upload.scan_note_general": " — serverio lygio nuskaitymas: kiekvieno serverio dydis parinktas 1:1 (nėra viršįdiegimo / NIC duomenų; tik piko metrikos)",
   "validated.add_storage_only": "Pridėti tik saugyklos mazgus",

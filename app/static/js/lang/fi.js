@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analysoidaan työkuormaa...",
   "upload.failed": "Lataus epäonnistui: {error}",
   "upload.must_be_xlsx": "Tiedoston on oltava .xlsx Excel -tiedosto",
+  "upload.reject.lo_incomplete": "Tämä Live Optics -vienti on puutteellinen: sen tietovarastot kattavat vain {covered}/{vms} virtuaalikonetta. Keruu pysäytettiin todennäköisesti ennen ensimmäistä täydellistä tilannevedosta. Suorita Live Optics uudelleen ja anna keruun valmistua ennen vientiä.",
   "upload.restored": "Palautettu tallennettu mitoitus.",
   "upload.scan_note_general": " — palvelintason skannaus: jokainen palvelin mitoitettu 1:1 (ei ylivarauksen/NIC:in tietoja; vain huippumittarit)",
   "validated.add_storage_only": "Lisää vain tallennus -solmuja",

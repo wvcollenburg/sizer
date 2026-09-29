@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analyserer arbejdsbelastning...",
   "upload.failed": "Upload mislykkedes: {error}",
   "upload.must_be_xlsx": "Filen skal være en .xlsx Excel-fil",
+  "upload.reject.lo_incomplete": "Denne Live Optics-eksport er ufuldstændig: dens datastores dækker kun {covered} af {vms} VM'er. Indsamlingen blev sandsynligvis stoppet før det første komplette snapshot. Kør Live Optics igen, og lad den gøre indsamlingen færdig, før du eksporterer.",
   "upload.restored": "Gendannede en gemt dimensionering.",
   "upload.scan_note_general": " — scanning på serverniveau: hver server dimensioneret 1:1 (ingen overcommit-/NIC-data; kun spidsbelastningsmålinger)",
   "validated.add_storage_only": "Tilføj noder kun til lagring",

@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Töökoormuse analüüsimine...",
   "upload.failed": "Üleslaadimine ebaõnnestus: {error}",
   "upload.must_be_xlsx": "Fail peab olema .xlsx Exceli fail",
+  "upload.reject.lo_incomplete": "See Live Opticsi eksport on puudulik: selle andmehoidlad hõlmavad ainult {covered} VM-i {vms}-st. Kogumine peatati tõenäoliselt enne esimest täielikku hetktõmmist. Käivitage Live Optics uuesti ja laske sel enne eksportimist lõpuni joosta.",
   "upload.restored": "Salvestatud sizing taastatud.",
   "upload.scan_note_general": " — serveritaseme skannimine: iga server mõõdetud 1:1 (ülemääramise/NIC-i andmeid pole; ainult tipumõõdikud)",
   "validated.add_storage_only": "Lisa ainult salvestuse sõlmed",

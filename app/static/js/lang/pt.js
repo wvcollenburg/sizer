@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analisando carga de trabalho...",
   "upload.failed": "Falha no envio: {error}",
   "upload.must_be_xlsx": "O arquivo deve ser um arquivo Excel .xlsx",
+  "upload.reject.lo_incomplete": "Esta exportação do Live Optics está incompleta: seus datastores abrangem apenas {covered} de {vms} VMs. A coleta provavelmente foi interrompida antes do primeiro snapshot completo. Execute o Live Optics novamente e deixe a coleta terminar antes de exportar.",
   "upload.restored": "Um sizing salvo foi restaurado.",
   "upload.scan_note_general": " — varredura em nível de servidor: cada servidor dimensionado 1:1 (sem dados de overcommit/NIC; apenas métricas de pico)",
   "validated.add_storage_only": "Adicionar nós somente armazenamento",

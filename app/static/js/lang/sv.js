@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analyserar arbetslast...",
   "upload.failed": "Uppladdning misslyckades: {error}",
   "upload.must_be_xlsx": "Filen måste vara en .xlsx Excel-fil",
+  "upload.reject.lo_incomplete": "Denna Live Optics-export är ofullständig: dess datalager omfattar bara {covered} av {vms} VM:ar. Insamlingen stoppades troligen före den första fullständiga ögonblicksbilden. Kör Live Optics igen och låt insamlingen slutföras innan du exporterar.",
   "upload.restored": "Återställde en sparad sizing.",
   "upload.scan_note_general": " — skanning på servernivå: varje server dimensionerad 1:1 (ingen övercommit/NIC-data; endast toppvärden)",
   "validated.add_storage_only": "Lägg till noder endast för lagring",

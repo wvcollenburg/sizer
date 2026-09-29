@@ -1141,6 +1141,7 @@
   "upload.analyzing": "Analyzing workload...",
   "upload.failed": "Upload failed: {error}",
   "upload.must_be_xlsx": "File must be an .xlsx Excel file",
+  "upload.reject.lo_incomplete": "This Live Optics export is incomplete: its datastores account for only {covered} of {vms} VMs. The collection was probably stopped before its first complete snapshot. Re-run Live Optics and let it complete before exporting.",
   "upload.restored": "Restored a saved sizing.",
   "upload.scan_note_general": " — server-level scan: each server sized 1:1 (no overcommit/NIC data; peak metrics only)",
   "validated.add_storage_only": "Add storage-only nodes",

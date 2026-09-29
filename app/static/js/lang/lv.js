@@ -1140,6 +1140,7 @@
   "upload.analyzing": "Analizē darba slodzi...",
   "upload.failed": "Augšupielāde neizdevās: {error}",
   "upload.must_be_xlsx": "Failam jābūt .xlsx Excel failam",
+  "upload.reject.lo_incomplete": "Šis Live Optics eksports ir nepilnīgs: tā datu krātuves aptver tikai {covered} no {vms} VM. Datu vākšana, visticamāk, tika apturēta pirms pirmā pilnā momentuzņēmuma. Palaidiet Live Optics atkārtoti un ļaujiet vākšanai pabeigties pirms eksportēšanas.",
   "upload.restored": "Atjaunots saglabāts aprēķins.",
   "upload.scan_note_general": " — servera līmeņa skenēšana: katrs serveris izmērots 1:1 (nav pārsaistes/NIC datu; tikai maksimālie rādītāji)",
   "validated.add_storage_only": "Pievienot tikai krātuves mezglus",

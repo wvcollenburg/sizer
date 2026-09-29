@@ -20,7 +20,7 @@ from models import RAM_SIZES_GB
 from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
-from import_checks import build_import_warnings
+from import_checks import build_import_warnings, import_rejection
 import hcl_vendor
 from recommend import generate_recommendations
 from tunables import T, refresh_from_db
@@ -375,6 +375,19 @@ def create_app():
                 data = parse_nutanix_collector(tmp.name)
             else:
                 return jsonify({"error": "Unrecognised file format. Please upload an environment assessment export (Live Optics, RVTools or Nutanix Collector)."}), 400
+
+            # Too incomplete to size at all (e.g. an aborted Live Optics run).
+            # error_code lets the client show a translated message.
+            rejection = import_rejection(data, file_type)
+            if rejection:
+                return jsonify({
+                    "error": ("This Live Optics export is incomplete: its datastores account for only "
+                              f"{rejection['params']['covered']} of {rejection['params']['vms']} VMs. "
+                              "The collection was probably stopped before its first complete snapshot. "
+                              "Re-run Live Optics and let it complete before exporting."),
+                    "error_code": rejection["code"],
+                    "error_params": rejection["params"],
+                }), 422
 
             vcpu_ratio = request.form.get("vcpu_ratio", type=float)
             result = generate_recommendations(data["summary"], vcpu_ratio)

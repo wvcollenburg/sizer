@@ -1140,6 +1140,7 @@
   "upload.analyzing": "ワークロードを分析中...",
   "upload.failed": "アップロードに失敗しました: {error}",
   "upload.must_be_xlsx": "ファイルは.xlsx形式のExcelファイルである必要があります",
+  "upload.reject.lo_incomplete": "この Live Optics エクスポートは不完全です。データストアが対象としている VM は {vms} 台中 {covered} 台のみです。最初の完全なスナップショットが取得される前に収集が停止された可能性があります。Live Optics を再実行し、収集が完了してからエクスポートしてください。",
   "upload.restored": "保存済みサイジングを復元しました。",
   "upload.scan_note_general": " — サーバーレベルのスキャン: 各サーバーを1:1でサイジング (オーバーコミット/NICデータなし、ピークメトリクスのみ)",
   "validated.add_storage_only": "ストレージ専用ノードを追加",

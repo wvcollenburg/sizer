@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
-from import_checks import build_import_warnings  # noqa: E402
+from import_checks import build_import_warnings, import_rejection  # noqa: E402
 
 
 def codes(data, file_type="liveoptics"):
@@ -91,3 +91,39 @@ if __name__ == "__main__":
             failed += 1; print(f"FAIL {f.__name__}"); traceback.print_exc()
     print(f"\n{len(funcs) - failed}/{len(funcs)} passed")
     sys.exit(1 if failed else 0)
+
+
+# ── import_rejection: exports too incomplete to size (issue #35) ─────────────
+
+def _lo(vm_count, ds_vm_counts, scan_type=None):
+    data = {"vms": [{"is_template": False} for _ in range(vm_count)],
+            "datastores": [{"vm_count": c} for c in ds_vm_counts]}
+    if scan_type:
+        data["scan_type"] = scan_type
+    return data
+
+
+def test_aborted_lo_collection_is_rejected():
+    # The #35 export: 121 VMs, only the hosts' local datastores (7 VMs) listed.
+    r = import_rejection(_lo(121, [3, 2, 0, 0, 2]), "liveoptics")
+    assert r == {"code": "lo_incomplete", "params": {"covered": 7, "vms": 121}}
+
+
+def test_healthy_lo_is_accepted():
+    # Real exports sit at ~0.95-1.25 coverage (VMs spanning datastores count twice).
+    assert import_rejection(_lo(78, [40, 30, 4]), "liveoptics") is None
+    assert import_rejection(_lo(60, [50, 24]), "liveoptics") is None
+
+
+def test_rejection_only_applies_to_vmware_lo():
+    assert import_rejection(_lo(10, []), "rvtools") is None
+    assert import_rejection(_lo(10, []), "nutanix") is None
+    assert import_rejection(_lo(10, [], scan_type="general"), "liveoptics") is None
+    assert import_rejection(_lo(10, [], scan_type="hyperv"), "liveoptics") is None
+
+
+def test_templates_do_not_count_and_empty_is_accepted():
+    data = _lo(2, [2])
+    data["vms"] += [{"is_template": True}] * 10
+    assert import_rejection(data, "liveoptics") is None
+    assert import_rejection(_lo(0, []), "liveoptics") is None
