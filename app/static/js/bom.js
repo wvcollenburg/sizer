@@ -570,7 +570,17 @@
         const a = check.agent;
         if (!a) return '';
         const lines = [`<p class="bom-agent-banner-title">${escHtml(t('bom.agent.banner'))}</p>`];
-        if (a.source_kind === 'pdf' || a.source_kind === 'image') {
+        if (a.pdf_certainty !== null && a.pdf_certainty !== undefined) {
+            // A PDF layout we parse locally, not trusted this time: say why.
+            lines.push(`<p>${escHtml(t('bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
+            if ((a.pdf_reasons || []).length) {
+                lines.push(`<ul class="bom-agent-dropped">${a.pdf_reasons.map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>`);
+            }
+        }
+        if (a.hidden_words) {
+            lines.push(`<p class="bom-agent-alert">${escHtml(t('bom.agent.hidden_words', { n: a.hidden_words }))}</p>`);
+        }
+        if (!a.grounded) {
             lines.push(`<p>${escHtml(t('bom.agent.not_grounded'))}</p>`);
         }
         if (a.instructions_detected) {
@@ -743,6 +753,9 @@
 
         const metaBits = [];
         metaBits.push(escHtml(formatLabel(check.file_format)));
+        if (check.pdf && check.pdf.score !== null && check.pdf.score !== undefined) {
+            metaBits.push(escHtml(t('bom.result.pdf_certainty', { score: check.pdf.score })));
+        }
         if (check.vendor) metaBits.push(escHtml(check.vendor));
         if (check.filename && check.filename !== check.name) metaBits.push(escHtml(check.filename));
         const when = check.checked_at || (result.checked_at) || check.created_at;

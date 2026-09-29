@@ -629,12 +629,17 @@
                         <label for="bom-agent-global-cap" data-i18n="admin.bomagent.global_cap">Files per day, all organisations</label>
                         <input type="number" id="bom-agent-global-cap" min="0" max="100000" step="1">
                     </div>
+                    <div class="form-group">
+                        <label for="bom-agent-pdf-threshold" data-i18n="admin.bomagent.pdf_threshold">Minimum PDF certainty</label>
+                        <input type="number" id="bom-agent-pdf-threshold" min="0" max="100" step="1">
+                    </div>
                     <label class="checkbox-inline bom-agent-review">
                         <input type="checkbox" id="bom-agent-always-review">
                         <span data-i18n="admin.bomagent.always_review">Send every agent-read check to the review queue</span>
                     </label>
                     <button class="btn btn-primary" id="bom-agent-save" data-click='["bomAgentSaveSettings"]' data-i18n="common.save">Save</button>
                 </div>
+                <p class="muted hcl-card-desc" data-i18n="admin.bomagent.pdf_threshold_hint">PDFs in a known layout are read locally, without the agent, when the certainty score (0–100) reaches this minimum. Below it, or when the file looks tampered with, the agent reads the file instead.</p>
                 <p class="muted hcl-card-desc" data-i18n-html="admin.bomagent.cap_hint"><strong>0 means no limit.</strong> That is the testing default: set real limits before production. Each user can also send at most 20 files an hour.</p>
                 <div class="catalog-table-wrap"><table class="model-table"><thead><tr>
                     <th data-i18n="admin.bomagent.col_day">Day (UTC)</th>

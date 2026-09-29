@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Todas as peças são verificadas contra a HCL da Scale Computing. Escolha um sizing para comparar também o BOM com o que foi dimensionado.",
   "bom.upload.drop_hint2": "Largue aqui um BOM ou uma cotação, ou clique para procurar",
   "bom.upload.accept_agent": "Excel, CSV, PDF ou uma imagem (PNG, JPEG, WebP) · máx. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) ou CSV · máx. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV ou PDF · máx. 10 MB",
   "bom.help.layouts": "Formatos reconhecidos e o modelo em branco",
-  "bom.help.agent_note": "Tudo o resto, incluindo PDFs e imagens, é lido por um agente Claude. O resultado indica-o, e pode transferir o que o agente leu como um modelo preenchido.",
+  "bom.help.agent_note": "Os PDFs nestes formatos são lidos diretamente. Tudo o resto, incluindo imagens, é lido por um agente Claude: o resultado indica-o, e pode transferir o que o agente leu como um modelo preenchido.",
   "bom.check_another": "Verificar outro BOM",
   "bom.working_short": "A verificar…",
   "bom.section.title": "Verificações de BOM",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>Verificações de BOM</strong> — quando você verifica um BOM ou uma cotação de um fornecedor, armazenamos a lista de peças lidas dele, os resultados da verificação, o nome do arquivo e uma impressão digital (fingerprint) do arquivo. O arquivo em si não é mantido depois de lido, a menos que você opte por compartilhá-lo conosco. As cotações podem conter os nomes e os dados de contato das pessoas que as prepararam.",
   "privacy.s3_li5": "<strong>Para verificar BOMs</strong>, incluindo fazer com que um serviço de IA leia arquivos num formato que o verificador não reconhece — <em>execução de um contrato</em>.",
   "privacy.s5_p2": "<strong>Processamento de arquivos BOM por IA.</strong> Quando o verificador não consegue ler por si próprio um BOM ou uma cotação enviados (por exemplo, um PDF, uma imagem ou um formato de planilha desconhecido), o conteúdo do arquivo é enviado à <strong>Anthropic</strong>, que o processa em nosso nome por meio da sua API Claude apenas para extrair a lista de peças. A Anthropic atua como nosso operador (processador) e não utiliza este conteúdo para treinar os seus modelos. Este processamento pode ocorrer fora do seu país, inclusive nos Estados Unidos, mediante salvaguardas adequadas. O resultado da verificação informa quando um arquivo foi lido desta forma.",
-  "privacy.s6_li5": "<strong>Verificações de BOM</strong> — mantidas junto com o projeto a que pertencem. Um arquivo aguardando leitura pelo serviço de IA é guardado apenas até ser lido, e nunca por mais de um dia. Os arquivos que você compartilha conosco para que possamos oferecer suporte ao seu formato, e os registros de arquivos lidos pelo serviço de IA (nome do arquivo e uso), são excluídos após <strong>90 dias</strong>."
+  "privacy.s6_li5": "<strong>Verificações de BOM</strong> — mantidas junto com o projeto a que pertencem. Um arquivo aguardando leitura pelo serviço de IA é guardado apenas até ser lido, e nunca por mais de um dia. Os arquivos que você compartilha conosco para que possamos oferecer suporte ao seu formato, e os registros de arquivos lidos pelo serviço de IA (nome do arquivo e uso), são excluídos após <strong>90 dias</strong>.",
+  "bom.result.pdf_certainty": "lido do PDF com {score}% de certeza",
+  "bom.agent.low_certainty": "A verificação conhece este formato de PDF, mas não o conseguiu ler com certeza suficiente ({score}%), por isso foi lido por um agente Claude:",
+  "bom.agent.hidden_words": "O PDF continha {n} palavra(s) invisível(eis). Não foram lidas, e a verificação foi enviada à Scale para revisão.",
+  "admin.bomagent.pdf_threshold": "Certeza mínima de PDF",
+  "admin.bomagent.pdf_threshold_hint": "Os PDFs num formato conhecido são lidos localmente, sem o agente, quando a pontuação de certeza (0–100) atinge este mínimo. Abaixo disso, ou se o ficheiro parecer adulterado, é o agente que lê o ficheiro.",
+  "admin.bom.reason_pdf_suspicious": "O PDF continha texto invisível ou conteúdo ativo"
 };

@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Hver del sjekkes mot Scale Computing HCL. Velg en dimensjonering for også å sammenligne BOM-en med det som ble dimensjonert.",
   "bom.upload.drop_hint2": "Slipp en BOM eller et tilbud her, eller klikk for å bla gjennom",
   "bom.upload.accept_agent": "Excel, CSV, PDF eller et bilde (PNG, JPEG, WebP) · maks. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) eller CSV · maks. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV eller PDF · maks. 10 MB",
   "bom.help.layouts": "Gjenkjente oppsett og den tomme malen",
-  "bom.help.agent_note": "Alt annet, inkludert PDF-er og bilder, leses av en Claude-agent. Resultatet sier fra om det, og du kan laste ned det agenten leste som en utfylt mal.",
+  "bom.help.agent_note": "PDF-er i disse oppsettene leses direkte. Alt annet, inkludert bilder, leses av en Claude-agent: resultatet sier fra om det, og du kan laste ned det agenten leste som en utfylt mal.",
   "bom.check_another": "Sjekk en annen BOM",
   "bom.working_short": "Sjekker…",
   "bom.section.title": "BOM-sjekker",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM-sjekker</strong> — når du sjekker en leverandørs BOM eller tilbud, lagrer vi listen over deler som er lest fra den, sjekkresultatene, filnavnet og et fingeravtrykk av filen. Selve filen oppbevares ikke etter at den er lest, med mindre du velger å dele den med oss. Tilbud kan inneholde navn og kontaktopplysninger til personene som utarbeidet dem.",
   "privacy.s3_li5": "<strong>For å sjekke BOM-er</strong>, inkludert å la en AI-tjeneste lese filer i et oppsett som kontrollen ikke gjenkjenner — <em>oppfyllelse av en kontrakt</em>.",
   "privacy.s5_p2": "<strong>AI-behandling av BOM-filer.</strong> Når kontrollen ikke selv kan lese en opplastet BOM eller et tilbud (for eksempel en PDF, et bilde eller et ukjent regnearkoppsett), sendes innholdet i filen til <strong>Anthropic</strong>, som behandler det på våre vegne via sitt Claude API utelukkende for å hente ut listen over deler. Anthropic opptrer som vår databehandler og bruker ikke dette innholdet til å trene sine modeller. Denne behandlingen kan skje utenfor ditt land, inkludert i USA, med egnede garantier. Resultatet av sjekken viser deg når en fil er lest på denne måten.",
-  "privacy.s6_li5": "<strong>BOM-sjekker</strong> — oppbevares sammen med prosjektet de tilhører. En fil som venter på å bli lest av AI-tjenesten, oppbevares bare til den er lest, og aldri lenger enn én dag. Filer du deler med oss slik at vi kan støtte oppsettet deres, og registreringer av filer lest av AI-tjenesten (filnavn og bruk), slettes etter <strong>90 dager</strong>."
+  "privacy.s6_li5": "<strong>BOM-sjekker</strong> — oppbevares sammen med prosjektet de tilhører. En fil som venter på å bli lest av AI-tjenesten, oppbevares bare til den er lest, og aldri lenger enn én dag. Filer du deler med oss slik at vi kan støtte oppsettet deres, og registreringer av filer lest av AI-tjenesten (filnavn og bruk), slettes etter <strong>90 dager</strong>.",
+  "bom.result.pdf_certainty": "lest fra PDF-en med {score} % sikkerhet",
+  "bom.agent.low_certainty": "Kontrollen kjenner dette PDF-oppsettet, men kunne ikke lese det med tilstrekkelig sikkerhet ({score} %), så en Claude-agent leste det i stedet:",
+  "bom.agent.hidden_words": "PDF-en inneholdt {n} usynlige ord. De ble ikke lest, og sjekken er sendt til Scale for gjennomgang.",
+  "admin.bomagent.pdf_threshold": "Minste PDF-sikkerhet",
+  "admin.bomagent.pdf_threshold_hint": "PDF-er i et kjent oppsett leses lokalt, uten agenten, når sikkerhetsscoren (0–100) når dette minimumet. Under det, eller hvis filen ser manipulert ut, leser agenten filen i stedet.",
+  "admin.bom.reason_pdf_suspicious": "PDF-en inneholdt usynlig tekst eller aktivt innhold"
 };

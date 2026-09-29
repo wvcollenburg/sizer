@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Ogni parte viene verificata rispetto alla HCL di Scale Computing. Scegli un sizing per confrontare la BOM anche con quanto dimensionato.",
   "bom.upload.drop_hint2": "Trascina qui una BOM o un preventivo o clicca per sfogliare",
   "bom.upload.accept_agent": "Excel, CSV, PDF o un'immagine (PNG, JPEG, WebP) · max 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) o CSV · max 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV o PDF · max 10 MB",
   "bom.help.layouts": "Layout riconosciuti e modello vuoto",
-  "bom.help.agent_note": "Tutto il resto, inclusi PDF e immagini, viene letto da un agente Claude. Il risultato lo segnala e puoi scaricare quanto letto dall'agente come modello compilato.",
+  "bom.help.agent_note": "I PDF in questi layout vengono letti direttamente. Tutto il resto, incluse le immagini, viene letto da un agente Claude: il risultato lo segnala e puoi scaricare quanto letto dall'agente come modello compilato.",
   "bom.check_another": "Verifica un'altra BOM",
   "bom.working_short": "Verifica…",
   "bom.section.title": "Verifiche BOM",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>Verifiche BOM</strong> — quando verifica una BOM o un preventivo di un fornitore, conserviamo l'elenco delle parti letto dal file, i risultati della verifica, il nome del file e un'impronta del file. Il file stesso non viene conservato dopo la lettura, a meno che non scelga di condividerlo con noi. I preventivi possono contenere i nomi e i recapiti delle persone che li hanno preparati.",
   "privacy.s3_li5": "<strong>Per verificare le BOM</strong>, incluso far leggere a un servizio di IA i file in un layout che la verifica non riconosce — <em>esecuzione di un contratto</em>.",
   "privacy.s5_p2": "<strong>Elaborazione IA dei file BOM.</strong> Quando la verifica non riesce a leggere autonomamente una BOM o un preventivo caricato (ad esempio un PDF, un'immagine o un layout di foglio di calcolo non noto), il contenuto del file viene inviato ad <strong>Anthropic</strong>, che lo elabora per nostro conto tramite la sua API Claude al solo scopo di estrarre l'elenco delle parti. Anthropic agisce come nostro responsabile del trattamento e non utilizza questo contenuto per addestrare i propri modelli. Questa elaborazione può avvenire al di fuori del suo paese, anche negli Stati Uniti, con garanzie adeguate. Il risultato della verifica le indica quando un file è stato letto in questo modo.",
-  "privacy.s6_li5": "<strong>Verifiche BOM</strong> — conservate insieme al progetto a cui appartengono. Un file in attesa di essere letto dal servizio di IA viene conservato solo fino alla lettura e mai per più di un giorno. I file che condivide con noi affinché possiamo supportarne il layout, e le registrazioni dei file letti dal servizio di IA (nome del file e utilizzo), vengono eliminati dopo <strong>90 giorni</strong>."
+  "privacy.s6_li5": "<strong>Verifiche BOM</strong> — conservate insieme al progetto a cui appartengono. Un file in attesa di essere letto dal servizio di IA viene conservato solo fino alla lettura e mai per più di un giorno. I file che condivide con noi affinché possiamo supportarne il layout, e le registrazioni dei file letti dal servizio di IA (nome del file e utilizzo), vengono eliminati dopo <strong>90 giorni</strong>.",
+  "bom.result.pdf_certainty": "letto dal PDF con il {score}% di certezza",
+  "bom.agent.low_certainty": "La verifica conosce questo layout PDF, ma non è riuscita a leggerlo con sufficiente certezza ({score}%), quindi lo ha letto un agente Claude:",
+  "bom.agent.hidden_words": "Il PDF conteneva {n} parola/e invisibile/i. Non sono state lette e la verifica è stata inviata a Scale per la revisione.",
+  "admin.bomagent.pdf_threshold": "Certezza PDF minima",
+  "admin.bomagent.pdf_threshold_hint": "I PDF in un layout noto vengono letti localmente, senza l'agente, quando il punteggio di certezza (0–100) raggiunge questo minimo. Al di sotto, o se il file sembra manomesso, il file viene letto dall'agente.",
+  "admin.bom.reason_pdf_suspicious": "Il PDF conteneva testo invisibile o contenuti attivi"
 };

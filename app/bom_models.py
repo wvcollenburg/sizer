@@ -105,6 +105,11 @@ class BomCheck(db.Model):
             reasons.append("agent_instructions")
         if meta.get("dropped") or meta.get("model_changed"):
             reasons.append("agent_ungrounded")
+        local = meta.get("pdf_local") or {}
+        if meta.get("hidden_words") or local.get("hard_stop"):
+            # Invisible text, active content, encryption: the file itself is
+            # suspect, whatever the agent made of its visible text.
+            reasons.append("pdf_suspicious")
         return reasons
 
     def apply_result(self, result, sizing):
@@ -145,13 +150,27 @@ class BomCheck(db.Model):
         if not self.is_agent_read:
             return None
         meta = self.ingest_meta or {}
+        local = meta.get("pdf_local") or {}
         return {
             "source_kind": meta.get("source_kind"),
             "grounded": meta.get("grounded"),
             "dropped": list(meta.get("dropped") or [])[:50],
             "model_changed": list(meta.get("model_changed") or [])[:20],
             "instructions_detected": bool(meta.get("instructions_detected")),
+            "hidden_words": int(meta.get("hidden_words") or 0),
+            # A PDF layout we know, read with too little certainty to trust:
+            # the score and the reasons, so the user sees why the agent ran.
+            "pdf_certainty": local.get("score") if local.get("format") else None,
+            "pdf_reasons": [r.get("text") for r in (local.get("reasons") or [])][:5],
         }
+
+    def pdf_summary(self):
+        """Certainty of a PDF read by a local parser; None otherwise."""
+        pdf = (self.ingest_meta or {}).get("pdf") if not self.is_agent_read else None
+        if not pdf:
+            return None
+        return {"score": pdf.get("score"), "format": pdf.get("format"),
+                "reasons": [r.get("text") for r in (pdf.get("reasons") or [])][:5]}
 
     def to_dict(self, full=False):
         """Summary by default (list rows); ``full`` adds the normalised BOM and
@@ -179,6 +198,7 @@ class BomCheck(db.Model):
             "updated_at": _iso(self.updated_at),
             "config_count": len((self.normalized or {}).get("configs") or []),
             "agent": self.agent_summary(),
+            "pdf": self.pdf_summary(),
         }
         if full:
             d["normalized"] = self.normalized

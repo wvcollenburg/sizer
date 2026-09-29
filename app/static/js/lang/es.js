@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Cada pieza se comprueba frente a la HCL de Scale Computing. Elija un dimensionamiento para comparar también el BOM con lo dimensionado.",
   "bom.upload.drop_hint2": "Suelte aquí un BOM o una cotización, o haga clic para explorar",
   "bom.upload.accept_agent": "Excel, CSV, PDF o una imagen (PNG, JPEG, WebP) · máx. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) o CSV · máx. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV o PDF · máx. 10 MB",
   "bom.help.layouts": "Formatos reconocidos y plantilla en blanco",
-  "bom.help.agent_note": "Todo lo demás, incluidos PDF e imágenes, lo lee un agente de Claude. El resultado lo indica, y puede descargar lo que leyó el agente como una plantilla completada.",
+  "bom.help.agent_note": "Los PDF con estos formatos se leen directamente. Todo lo demás, incluidas las imágenes, lo lee un agente de Claude: el resultado lo indica, y puede descargar lo que leyó el agente como una plantilla completada.",
   "bom.check_another": "Comprobar otro BOM",
   "bom.working_short": "Comprobando…",
   "bom.section.title": "Comprobaciones de BOM",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>Comprobaciones de BOM</strong>: cuando comprueba un BOM o una cotización de un proveedor, almacenamos la lista de piezas leída de él, los resultados de la comprobación, el nombre del archivo y una huella digital del archivo. El archivo en sí no se conserva una vez leído, salvo que decida compartirlo con nosotros. Las cotizaciones pueden contener los nombres y datos de contacto de las personas que las prepararon.",
   "privacy.s3_li5": "<strong>Para comprobar BOM</strong>, lo que incluye que un servicio de IA lea archivos en un formato que la comprobación no reconoce: <em>ejecución de un contrato</em>.",
   "privacy.s5_p2": "<strong>Procesamiento con IA de archivos BOM.</strong> Cuando la comprobación no puede leer por sí misma un BOM o una cotización cargados (por ejemplo, un PDF, una imagen o un formato de hoja de cálculo desconocido), el contenido del archivo se envía a <strong>Anthropic</strong>, que lo procesa en nuestro nombre a través de su API de Claude únicamente para extraer la lista de piezas. Anthropic actúa como nuestro encargado del tratamiento y no utiliza este contenido para entrenar sus modelos. Este procesamiento puede tener lugar fuera de su país, incluso en los Estados Unidos, con las garantías adecuadas. El resultado de la comprobación le indica cuándo un archivo se ha leído de esta forma.",
-  "privacy.s6_li5": "<strong>Comprobaciones de BOM</strong>: se conservan con el proyecto al que pertenecen. Un archivo pendiente de lectura por el servicio de IA se conserva solo hasta que se ha leído, y nunca más de un día. Los archivos que comparte con nosotros para que podamos admitir su formato, y los registros de los archivos leídos por el servicio de IA (nombre del archivo y uso), se eliminan tras <strong>90 días</strong>."
+  "privacy.s6_li5": "<strong>Comprobaciones de BOM</strong>: se conservan con el proyecto al que pertenecen. Un archivo pendiente de lectura por el servicio de IA se conserva solo hasta que se ha leído, y nunca más de un día. Los archivos que comparte con nosotros para que podamos admitir su formato, y los registros de los archivos leídos por el servicio de IA (nombre del archivo y uso), se eliminan tras <strong>90 días</strong>.",
+  "bom.result.pdf_certainty": "leído del PDF con un {score}% de certeza",
+  "bom.agent.low_certainty": "La comprobación conoce este formato de PDF, pero no pudo leerlo con suficiente certeza ({score}%), así que lo ha leído un agente de Claude:",
+  "bom.agent.hidden_words": "El PDF contenía {n} palabra(s) invisible(s). No se leyeron y la comprobación se ha enviado a Scale para su revisión.",
+  "admin.bomagent.pdf_threshold": "Certeza mínima de PDF",
+  "admin.bomagent.pdf_threshold_hint": "Los PDF con un formato conocido se leen localmente, sin el agente, cuando la puntuación de certeza (0–100) alcanza este mínimo. Por debajo, o si el archivo parece manipulado, el agente lee el archivo.",
+  "admin.bom.reason_pdf_suspicious": "El PDF contenía texto invisible o contenido activo"
 };

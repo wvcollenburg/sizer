@@ -62,6 +62,17 @@ def store_agent_check(*, project_id, user, name, filename, digest, bom, meta, si
     return check
 
 
+def _merged(job, meta):
+    """The agent's usage/grounding meta, keeping what the route recorded when
+    the job was queued (``pdf_local``: why the local PDF parse was not
+    trusted)."""
+    out = dict(meta or {})
+    local = (job.meta or {}).get("pdf_local")
+    if local:
+        out["pdf_local"] = local
+    return out
+
+
 def _audit(job, outcome_text):
     from auth import audit
     meta = job.meta or {}
@@ -84,24 +95,24 @@ def run_agent_job(job, app=None, client=None):
             fh.write(job.content)
         outcome = agent_ingest.read_document(path, job.filename, client=client,
                                              lang=job.lang or "en")
-        job.meta = dict(outcome.meta)
+        job.meta = _merged(job, outcome.meta)
         check = store_agent_check(
             project_id=job.project_id, user=job.user, name=job.name,
             filename=job.filename, digest=job.file_sha256, bom=outcome.bom,
-            meta=outcome.meta, sizing=_live_sizing(job))
+            meta=job.meta, sizing=_live_sizing(job))
         job.check_id = check.id
         job.status = JOB_DONE
         _audit(job, "check #%d, %s" % (check.id, check.technical_verdict))
     except agent_ingest.AgentTemplateError as exc:
         db.session.rollback()
-        job.meta = exc.meta or job.meta
+        job.meta = _merged(job, exc.meta)
         job.status = JOB_FAILED
         job.error = str(exc)[:1000]
         job.template = exc.template
         _audit(job, "template round trip failed")
     except agent_ingest.AgentError as exc:
         db.session.rollback()
-        job.meta = exc.meta or job.meta
+        job.meta = _merged(job, exc.meta)
         job.status = JOB_FAILED
         job.error = str(exc)[:1000]
         _audit(job, "failed: %s" % str(exc)[:120])

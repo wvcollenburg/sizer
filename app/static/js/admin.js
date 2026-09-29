@@ -3028,6 +3028,7 @@ async function loadBomAgent() {
         document.getElementById('bom-agent-tenant-cap').value = d.tenant_daily_cap;
         document.getElementById('bom-agent-global-cap').value = d.global_daily_cap;
         document.getElementById('bom-agent-always-review').checked = !!d.always_review;
+        document.getElementById('bom-agent-pdf-threshold').value = d.pdf_threshold;
         if (state) {
             state.textContent = d.available
                 ? t('admin.bomagent.on', { model: d.model || '' })
@@ -3061,14 +3062,15 @@ async function bomAgentSaveSettings() {
     };
     const tenant = cap('bom-agent-tenant-cap');
     const global = cap('bom-agent-global-cap');
-    if (isNaN(tenant) || isNaN(global)) {
+    const threshold = cap('bom-agent-pdf-threshold');
+    if (isNaN(tenant) || isNaN(global) || isNaN(threshold) || threshold > 100) {
         setStatus('bom-review-status', t('admin.bomagent.cap_invalid'), true);
         return;
     }
     const btn = document.getElementById('bom-agent-save');
     btn.disabled = true;
     const { ok, data } = await hclJson('/admin/api/bom-reviews/agent-settings', 'PUT', {
-        tenant_daily_cap: tenant, global_daily_cap: global,
+        tenant_daily_cap: tenant, global_daily_cap: global, pdf_threshold: threshold,
         always_review: document.getElementById('bom-agent-always-review').checked,
     });
     btn.disabled = false;

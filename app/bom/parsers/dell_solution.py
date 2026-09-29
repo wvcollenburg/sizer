@@ -110,7 +110,7 @@ _MODULE_RULES: List[Tuple[str, object]] = [
     (r'prozessor|processor|cpu', 'cpu'),
     (r'speicherkapazitat|speicherkapazität|memory capacity|arbeitsspeicher', 'memory'),
     (r'(storage|speicher)ontroller|interne (storage|speicher)|storage controller'
-     r'|speichercontroller|hba|perc', 'controller'),
+     r'|speichercontroller|raid ?controller|hba|perc', 'controller'),
     (r'boot ?optimierte|boot optimized|boss', 'boss'),
     (r'festplatte|hard drive|hard disk|pcie ?ssd|flex ?bay|laufwerk', 'storage'),
     (r'netzwerkadapter|netzwerkkarte|network adapter|network card|ocp|nic|lom', 'nic'),
@@ -196,6 +196,24 @@ class _Group:
                          node_count=self.nodes)
 
 
+def add_option(group: '_Group', module: str, option: str, sku: Optional[str], qty: int) -> bool:
+    """One option row into its group, the same way for the xlsx export and
+    the PDF print of the configurator (parsers/pdf_dell_solution.py).
+    Returns False when the row is a setting/service that is dropped."""
+    if is_absence(option):
+        # Kept, as 'other', so "Ohne BOSS-Karte" stays visible to the rules
+        # instead of looking like a BOSS card that was never quoted.
+        category = 'other'
+    else:
+        category = _category_for_module(module)
+        if category is None or should_drop(option, sku):
+            return False
+    if group.model is None and category == 'chassis':
+        group.model = server_model_from_text(option)
+    group.add(sku, option, qty, category)
+    return True
+
+
 def parse(path: str) -> NormalizedBOM:
     from bom.parsers import UnrecognizedFormat
     from bom.parsers.common import load_workbook_safe
@@ -237,20 +255,8 @@ def parse(path: str) -> NormalizedBOM:
             continue
         skus = [t.strip() for t in cell(rows, r, cols['skus']).split(',')
                 if t.strip()] if 'skus' in cols else []
-        sku = skus[0] if skus else None
-        qty = to_int(cell(rows, r, cols['qty']), default=1)
-
-        if is_absence(option):
-            # Kept, as 'other', so "Ohne BOSS-Karte" stays visible to the rules
-            # instead of looking like a BOSS card that was never quoted.
-            category = 'other'
-        else:
-            category = _category_for_module(module)
-            if category is None or should_drop(option, sku):
-                continue
-        if current.model is None and category == 'chassis':
-            current.model = server_model_from_text(option)
-        current.add(sku, option, qty, category)
+        add_option(current, module, option, skus[0] if skus else None,
+                   to_int(cell(rows, r, cols['qty']), default=1))
 
     groups = [g for g in groups if g.order]
     if not groups:

@@ -916,3 +916,95 @@ def test_arrow_cura_description_only_quote_parses():
     assert totals['storage'] == 48
     assert totals['controller'] == 4
     assert totals['nic'] == 4
+
+
+# ─── archive-optional parity: the real partner PDFs ──────────────────────────
+# (bom/parsers/pdf_*.py; format, [(config, model, nodes)], minimum certainty)
+
+ARCHIVE_PDFS = {
+    "CityOfRogers_HC5650D_SR650V4_DR.pdf": (
+        "lenovo_build_pdf", [("Config 1", "ThinkSystem SR650 V4", 1)], 100),
+    "CityOfRogers_HC5650D_SR650V4_Production.pdf": (
+        "lenovo_build_pdf", [("Config 1", "ThinkSystem SR650 V4", 3)], 100),
+    "WHLeary_HC1450_SR650V4_BuildOrder.pdf": (
+        "lenovo_build_pdf", [("Config 1", "ThinkSystem SR650 V4", 3)], 100),
+    "Heralax - SuperMicro Quote 160326.pdf": (
+        "supermicro_quote_pdf", [("Config 1", "SYS-511R-M", 3)], 85),
+    "Heralex_1.pdf": (
+        "dell_solution_pdf", [('R360 - PROMO Smart Selection Flexi |4x3.5"|6315P|2x16GB|2x480GB SSD '
+                               'SATA|2x700W|H355|No OS|1Yr Basic NBD - [EMEA_PER3601', "PowerEdge R360", 3)], 100),
+    "NorthernHaserot_1-1.pdf": (
+        "dell_solution_pdf", [("PowerEdge R760 [AMER_R760_15724_VI_VP]", "PowerEdge R760", 3),
+                              ("PowerEdge R760 [AMER_R760_15724_VI_VP] (2)", "PowerEdge R760", 1)], 100),
+    "Sol Schwartz Scale nodes_1.pdf": (
+        "dell_solution_pdf", [("PowerEdge R660xs [AMER_R660XS_16775_VI_VP]", "PowerEdge R660xs", 3),
+                              ("PowerEdge R660xs [AMER_R660XS_16775_VI_VP] (2)", "PowerEdge R660xs", 1)], 100),
+    "Your Dell Quote 30002003239741  Brazos Scale Box  Customer 530003459558  PC CONNECTION.pdf": (
+        "dell_quote_pdf", [("PowerEdge R760 - [amer_r760_15724_vi_vp]", "PowerEdge R760", 1)], 100),
+}
+
+_LENOVO_BUILD_FC = ("feature code kept as the part number where the build order gives no Lenovo part "
+                    "number (the DCSC convention); the LLM left those null")
+_DELL_SOLUTION_TOTALS = ("quantities are totals across the group's servers (qty x 'Quantity: 3'), as the "
+                         "xlsx export of the same configurator is read; the LLM kept per-server counts. "
+                         "The motherboard line is chassis by the configurator's own module rule")
+
+
+_NH_G1 = [("chassis", "210-BDZY", 1), ("chassis", "404-BBDS", 1), ("controller", "405-AAZF", 1),
+          ("cpu", "338-CPBZ", 1), ("memory", "370-BBRQ", 8), ("nic", "540-BCXW", 1),
+          ("nic", "540-BCYK", 1), ("storage", "400-ASIF", 3), ("storage", "400-AXRK", 4)]
+_SS_G1 = [("chassis", "210-BFUZ", 1), ("chassis", "470-AFQF", 1), ("controller", "405-AAXY", 1),
+          ("cpu", "338-CPBV", 1), ("memory", "370-BBRN", 8), ("nic", "540-BCXV", 1),
+          ("nic", "540-BCXW", 1), ("storage", "161-BCPX", 3), ("storage", "400-AXTF", 1)]
+
+ACCEPTED_PDF_DEVIATIONS = {
+    "CityOfRogers_HC5650D_SR650V4_DR.pdf": dict(
+        extra=[("chassis", "C3RV", 1), ("chassis", "C46H", 1), ("cpu", "C5QV", 2), ("storage", "CFA5", 3)],
+        missing=[("chassis", None, 1), ("chassis", None, 1), ("cpu", None, 2), ("storage", None, 3)],
+        reason=_LENOVO_BUILD_FC),
+    "CityOfRogers_HC5650D_SR650V4_Production.pdf": dict(
+        extra=[("chassis", "C3RV", 3), ("chassis", "C46H", 3), ("cpu", "C5R6", 6), ("storage", "CFA5", 3)],
+        missing=[("chassis", None, 3), ("chassis", None, 3), ("cpu", None, 6), ("storage", None, 3)],
+        reason=_LENOVO_BUILD_FC),
+    "Heralex_1.pdf": dict(
+        extra=[("chassis", "338-CSXB", 3)], missing=[],
+        reason="'PowerEdge R360-Hauptplatine mit Broadcom 5720 …' is the motherboard module: chassis, as in "
+               "the xlsx export (parsers/dell_solution.py); the LLM dropped it"),
+    "NorthernHaserot_1-1.pdf": dict(
+        extra=[(c, p, q * 3) for c, p, q in _NH_G1] + [("chassis", "329-BKCH", 3), ("chassis", "329-BKCH", 1)],
+        missing=_NH_G1, reason=_DELL_SOLUTION_TOTALS),
+    "Sol Schwartz Scale nodes_1.pdf": dict(
+        extra=[(c, p, q * 3) for c, p, q in _SS_G1] + [("chassis", "338-CNWJ", 3), ("chassis", "338-CNWJ", 1)],
+        missing=_SS_G1, reason=_DELL_SOLUTION_TOTALS),
+}
+
+
+@archive_only
+def test_archive_lists_every_pdf():
+    present = sorted(f for f in os.listdir(ARCHIVE) if f.lower().endswith(".pdf"))
+    assert present == sorted(ARCHIVE_PDFS)
+
+
+@archive_only
+@pytest.mark.parametrize("filename", sorted(ARCHIVE_PDFS))
+def test_archive_pdf_parity(filename):
+    from bom.parsers import read_pdf
+    fmt, configs, min_score = ARCHIVE_PDFS[filename]
+    out = read_pdf(os.path.join(ARCHIVE, filename))
+    assert out.fmt == fmt
+    assert [(c.name, c.server_model, c.node_count) for c in out.bom.configs] == configs
+    assert out.certainty.score >= min_score, out.certainty.reasons
+    assert not out.evidence.checks_failed and not out.evidence.unexplained
+    ours = out.bom.to_dict()
+    ref_path = os.path.join(ARCHIVE_NORMALIZED, _safe(filename) + ".json")
+    if not os.path.isfile(ref_path):
+        assert filename.startswith("WHLeary"), "no reference JSON for %s" % filename
+        return
+    ref = _load(ref_path)
+    assert out.bom.vendor == ref["vendor"]
+    mine, theirs = _load_bearing(ours["configs"]), _load_bearing(ref["configs"])
+    accepted = ACCEPTED_PDF_DEVIATIONS.get(filename, dict(extra=[], missing=[]))
+    extra, missing = mine - theirs, theirs - mine
+    assert extra == Counter(accepted["extra"]) and missing == Counter(accepted["missing"]), (
+        "%s\n  extra: %s\n  missing: %s" % (filename, sorted(extra.elements(), key=str),
+                                           sorted(missing.elements(), key=str)))

@@ -88,8 +88,15 @@ def _sha256(path):
     return h.hexdigest()
 
 
+# PDFs have their own local parsers (bom/parsers/pdf_*.py), so they are
+# accepted with or without the agent.
+LOCAL_EXTENSIONS = PARSER_EXTENSIONS + (".pdf",)
+
+
 def accepted_extensions():
-    return agent_ingest.AGENT_EXTENSIONS if agent_ingest.available() else PARSER_EXTENSIONS
+    if agent_ingest.available():
+        return tuple(dict.fromkeys(LOCAL_EXTENSIONS + agent_ingest.AGENT_EXTENSIONS))
+    return LOCAL_EXTENSIONS
 
 
 def _save_upload(f, allowed):
@@ -151,7 +158,7 @@ def capabilities():
     caps = agent_ingest.capabilities()
     caps.update({
         "accepted_extensions": list(accepted_extensions()),
-        "parser_extensions": list(PARSER_EXTENSIONS),
+        "parser_extensions": list(LOCAL_EXTENSIONS),
         "max_bytes": MAX_BOM_BYTES,
         "formats": FORMAT_LABELS,
         "template_url": "/api/bom/template",
@@ -204,38 +211,66 @@ def list_checks(project_id):
 
 
 def _parse_upload(path, filename):
-    """(bom, fmt, None) from a deterministic parser, or (None, None, reply)
-    when the upload must be refused outright, or (None, None, None) when no
-    parser could read it and it is a case for the agent."""
+    """(bom, fmt, refusal, ingest_meta):
+      (bom, fmt, None, meta)   a local parser read it (meta: PDF certainty);
+      (None, None, reply, _)   refuse outright;
+      (None, None, None, meta) no parser could read it with confidence: a
+                               case for the agent (meta: why, for PDFs)."""
     from bom.parsers import UnrecognizedFormat, parse_file
     from bom.parsers.template import TemplateError
     from xlsx_utils import SheetTooLargeError
-    if os.path.splitext(filename or "")[1].lower() not in PARSER_EXTENSIONS:
-        return None, None, None                  # PDF, picture, docx: agent only
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext == ".pdf":
+        return _parse_pdf(path)
+    if ext not in PARSER_EXTENSIONS:
+        return None, None, None, None            # picture, docx, txt: agent only
     try:
         bom, fmt = parse_file(path, filename)
-        return bom, fmt, None
+        return bom, fmt, None, None
     except TemplateError as exc:
         # Our own template, filled in by hand: its errors are the user's to
         # fix, never something to hand to the agent.
         return None, None, (jsonify({
             "error": "The template has errors - fix the rows below and upload again.",
-            "details": list(exc.errors)}), 400)
+            "details": list(exc.errors)}), 400), None
     except SheetTooLargeError as exc:
         # Oversized sheet or a zip decompression bomb: a clear refusal.
-        return None, None, (jsonify({"error": str(exc), "details": []}), 400)
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
     except UnrecognizedFormat:
-        return None, None, None
+        return None, None, None, None
     except Exception as exc:                     # a parser crash: let the agent try
         from flask import current_app
         current_app.logger.warning("BOM parse failed, trying the agent: %s", exc)
-        return None, None, None
+        return None, None, None, None
 
 
-def _refuse_unrecognised():
-    return jsonify({"error": "This file is not a BOM format the checker recognises.",
+def _parse_pdf(path):
+    """A PDF through the local parsers and the certainty score: trusted at
+    or above the admin threshold, otherwise the agent's (bom/pdf_certainty)."""
+    from bom import pdf_certainty
+    from bom.parsers import read_pdf
+    from bom.parsers.pdf_common import NotAVendorBom
+    try:
+        outcome = read_pdf(path)
+    except NotAVendorBom as exc:
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
+    meta = {"pdf": dict(outcome.meta(), threshold=pdf_certainty.threshold())}
+    if outcome.bom is not None and pdf_certainty.passes(outcome.certainty):
+        return outcome.bom, outcome.fmt, None, meta
+    return None, None, None, meta
+
+
+def _refuse_unrecognised(local_meta=None):
+    details = []
+    pdf = (local_meta or {}).get("pdf") or {}
+    if pdf.get("format"):
+        # A layout we know, read with too little certainty to trust.
+        details = [r.get("text", "") for r in (pdf.get("reasons") or [])][:5]
+    return jsonify({"error": "This file is not a BOM format the checker recognises."
+                             if not pdf.get("format") else
+                             "The checker could not read this PDF with enough certainty.",
                     "hint": "Download the blank template, fill it in and upload that instead.",
-                    "retainable": True, "details": []}), 400
+                    "retainable": True, "details": details}), 400
 
 
 def _cap(setting):
@@ -272,12 +307,14 @@ def _agent_budget_error(user):
     return None
 
 
-def _agent_path(project, user, sizing, name, filename, path, digest):
+def _agent_path(project, user, sizing, name, filename, path, digest, local_meta=None):
     """Queue the file for the agent (202), reuse an earlier agent reading of
-    the same file (201), or refuse it."""
+    the same file (201), or refuse it. ``local_meta`` is what the local PDF
+    parse found (certainty and reasons), kept with the job and the check."""
     from bom.agent_worker import store_agent_check
-    if not agent_ingest.available():
-        return _refuse_unrecognised()
+    if not agent_ingest.available() or os.path.splitext(filename or "")[1].lower() \
+            not in agent_ingest.AGENT_EXTENSIONS:
+        return _refuse_unrecognised(local_meta)
 
     # The same file already read by the agent for this organisation: reuse
     # that reading, no second paid call (retries, another sizing, another
@@ -312,6 +349,7 @@ def _agent_path(project, user, sizing, name, filename, path, digest):
         filename=(filename or "bom")[:200], file_sha256=digest, content=content,
         notify_email=(request.form.get("notify") or "") in ("1", "true", "on"),
         lang=(request.form.get("lang") or "en")[:5],
+        meta={"pdf_local": local_meta["pdf"]} if local_meta and local_meta.get("pdf") else None,
     )
     db.session.add(job)
     db.session.commit()
@@ -339,11 +377,11 @@ def create_check(project_id):
     name = (request.form.get("name") or "").strip()[:200] or os.path.basename(f.filename or "BOM")[:200]
     try:
         digest = _sha256(path)
-        bom, fmt, refusal = _parse_upload(path, f.filename)
+        bom, fmt, refusal, local_meta = _parse_upload(path, f.filename)
         if refusal:
             return refusal
         if bom is None:
-            return _agent_path(project, user, sizing, name, f.filename, path, digest)
+            return _agent_path(project, user, sizing, name, f.filename, path, digest, local_meta)
         result = run_check(bom, sizing)
     except Exception as exc:
         from flask import current_app
@@ -361,6 +399,7 @@ def create_check(project_id):
         project_id=project.id, user_id=user.id, tenant_id=user.tenant_id,
         name=name, filename=(f.filename or "")[:200], file_sha256=digest,
         file_format=fmt, vendor=bom.vendor, normalized=bom.to_dict(), history=[],
+        ingest_meta=local_meta,
     )
     check.apply_result(result, sizing)
     check.history = [check.history_entry()]
@@ -540,7 +579,13 @@ def get_agent_settings():
         "tenant_daily_cap": _cap(AGENT_TENANT_CAP_SETTING),
         "global_daily_cap": _cap(AGENT_GLOBAL_CAP_SETTING),
         "user_hourly_limit": AGENT_JOBS_PER_USER_HOUR,
+        "pdf_threshold": _pdf_threshold(),
     })
+
+
+def _pdf_threshold():
+    from bom import pdf_certainty
+    return pdf_certainty.threshold()
 
 
 @bom_admin_bp.route("/agent-settings", methods=["PUT"])
@@ -557,6 +602,13 @@ def put_agent_settings():
                 return jsonify({"error": "%s must be a whole number from 0 (unlimited) to 100000" % key}), 400
             set_setting(setting, str(value))
             changes.append("%s=%d" % (key, value))
+    if "pdf_threshold" in data:
+        from bom import pdf_certainty
+        value = data["pdf_threshold"]
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+            return jsonify({"error": "pdf_threshold must be a whole number from 0 to 100"}), 400
+        set_setting(pdf_certainty.THRESHOLD_SETTING, str(value))
+        changes.append("pdf_threshold=%d" % value)
     if "always_review" in data:
         on = bool(data["always_review"])
         set_setting(AGENT_ALWAYS_REVIEW_SETTING, "1" if on else "0")

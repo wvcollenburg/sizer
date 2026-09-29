@@ -151,8 +151,9 @@ def test_capabilities_reports_catalog_and_no_agent_without_a_key(app):
     c = client_for(app, PARTNER)
     d = c.get("/api/bom/capabilities").get_json()
     assert d["agent_available"] is False
-    # Without the agent only what the parsers read is accepted.
-    assert d["accepted_extensions"] == [".xlsx", ".xls", ".csv"]
+    # Without the agent only what the local parsers read is accepted
+    # (spreadsheets and PDFs: bom/parsers/pdf_*.py).
+    assert d["accepted_extensions"] == [".xlsx", ".xls", ".csv", ".pdf"]
     assert d["catalog"]["platforms"] == 1 and d["catalog"]["components"] == 4
     assert d["template_url"] == "/api/bom/template"
 
@@ -506,9 +507,13 @@ def test_consent_post_validates_the_file(app):
                content_type="multipart/form-data")
     assert r.status_code == 400
     r = c.post(f"/api/projects/{project['id']}/bom-rejects",
-               data={"file": (io.BytesIO(b"%PDF-1.4"), "x.pdf")},
+               data={"file": (io.BytesIO(b"PK\x03\x04"), "x.pdf")},
                content_type="multipart/form-data")
-    assert r.status_code == 400
+    assert r.status_code == 400                     # named .pdf, is not one
+    r = c.post(f"/api/projects/{project['id']}/bom-rejects",
+               data={"file": (io.BytesIO(b"\x89PNG"), "x.png")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400                     # pictures only with the agent
 
 
 def test_rejected_files_age_out_after_retention(app):

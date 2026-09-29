@@ -119,3 +119,22 @@ def test_human_verdicts_against_our_catalog(catalog_app):
     print("\n" + "\n".join(rows))
     assert not mismatches, "\n".join(
         "%s: human %s, ours %s, codes %s — %s" % m for m in mismatches)
+
+
+def test_human_verdicts_on_our_own_pdf_parse(catalog_app):
+    """The PDFs again, but read by OUR parsers (bom/parsers/pdf_*.py) instead
+    of SC//Design's normalised JSON: the verdicts must still be the humans'."""
+    from bom.check import run_check
+    from bom.parsers import read_pdf
+    manifest = json.load(open(os.path.join(ARCHIVE, "eval-manifest.json")))
+    mismatches = []
+    with catalog_app.app_context():
+        for original, meta in sorted(manifest.items()):
+            if not original.lower().endswith(".pdf"):
+                continue
+            out = read_pdf(os.path.join(ARCHIVE, original))
+            assert out.bom is not None, original
+            ours = run_check(out.bom, None)["technical"]["verdict"]
+            if ours != meta["verdict"]:
+                mismatches.append("%s: human %s, ours %s" % (original, meta["verdict"], ours))
+    assert not mismatches, "\n".join(mismatches)

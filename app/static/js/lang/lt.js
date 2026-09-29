@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Kiekviena dalis tikrinama pagal Scale Computing HCL. Pasirinkite dydžio parinkimą, kad BOM būtų palygintas ir su tuo, kas buvo parinkta.",
   "bom.upload.drop_hint2": "Nuvilkite BOM arba pasiūlymą čia arba spustelėkite, kad naršytumėte",
   "bom.upload.accept_agent": "Excel, CSV, PDF arba paveikslėlis (PNG, JPEG, WebP) · iki 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) arba CSV · iki 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV arba PDF · iki 10 MB",
   "bom.help.layouts": "Atpažįstami išdėstymai ir tuščias šablonas",
-  "bom.help.agent_note": "Visa kita, įskaitant PDF ir paveikslėlius, perskaito Claude agentas. Rezultate tai nurodoma, o tai, ką agentas perskaitė, galite atsisiųsti kaip užpildytą šabloną.",
+  "bom.help.agent_note": "Šių išdėstymų PDF perskaitomi tiesiogiai. Visa kita, įskaitant paveikslėlius, perskaito Claude agentas: rezultate tai nurodoma, o tai, ką agentas perskaitė, galite atsisiųsti kaip užpildytą šabloną.",
   "bom.check_another": "Tikrinti kitą BOM",
   "bom.working_short": "Tikrinama…",
   "bom.section.title": "BOM patikros",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM patikros</strong> — kai tikrinate tiekėjo BOM arba pasiūlymą, saugome iš jo perskaitytų dalių sąrašą, patikros rezultatus, failo pavadinimą ir failo kontrolinį atspaudą. Pats failas po perskaitymo nesaugomas, nebent nuspręstumėte juo pasidalinti su mumis. Pasiūlymuose gali būti juos parengusių asmenų vardai, pavardės ir kontaktiniai duomenys.",
   "privacy.s3_li5": "<strong>BOM tikrinti</strong>, įskaitant DI paslaugos naudojimą failams, kurių išdėstymo tikrintuvas neatpažįsta, skaityti — <em>sutarties vykdymas</em>.",
   "privacy.s5_p2": "<strong>BOM failų tvarkymas naudojant DI.</strong> Kai tikrintuvas pats negali perskaityti įkelto BOM arba pasiūlymo (pavyzdžiui, PDF, paveikslėlio arba nepažįstamo skaičiuoklės išdėstymo), failo turinys siunčiamas bendrovei <strong>Anthropic</strong>, kuri jį mūsų vardu tvarko per savo Claude API tik tam, kad išgautų dalių sąrašą. Anthropic veikia kaip mūsų duomenų tvarkytojas ir nenaudoja šio turinio savo modeliams mokyti. Šis tvarkymas gali vykti už jūsų šalies ribų, įskaitant Jungtines Amerikos Valstijas, taikant tinkamas apsaugos priemones. Patikros rezultate nurodoma, kai failas buvo perskaitytas tokiu būdu.",
-  "privacy.s6_li5": "<strong>BOM patikros</strong> — saugomos kartu su projektu, kuriam priklauso. Failas, laukiantis, kol jį perskaitys DI paslauga, laikomas tik tol, kol bus perskaitytas, ir niekada ne ilgiau nei vieną dieną. Failai, kuriais pasidalinate su mumis, kad galėtume palaikyti jų išdėstymą, ir DI paslaugos perskaitytų failų įrašai (failo pavadinimas ir naudojimas) ištrinami po <strong>90 dienų</strong>."
+  "privacy.s6_li5": "<strong>BOM patikros</strong> — saugomos kartu su projektu, kuriam priklauso. Failas, laukiantis, kol jį perskaitys DI paslauga, laikomas tik tol, kol bus perskaitytas, ir niekada ne ilgiau nei vieną dieną. Failai, kuriais pasidalinate su mumis, kad galėtume palaikyti jų išdėstymą, ir DI paslaugos perskaitytų failų įrašai (failo pavadinimas ir naudojimas) ištrinami po <strong>90 dienų</strong>.",
+  "bom.result.pdf_certainty": "perskaityta iš PDF {score}% tikrumu",
+  "bom.agent.low_certainty": "Tikrintuvas žino šį PDF išdėstymą, bet negalėjo jo perskaityti pakankamu tikrumu ({score}%), todėl jį perskaitė Claude agentas:",
+  "bom.agent.hidden_words": "PDF buvo {n} nematomas (-i) žodis (-iai). Jie nebuvo perskaityti, o patikra išsiųsta Scale peržiūrai.",
+  "admin.bomagent.pdf_threshold": "Minimalus PDF tikrumas",
+  "admin.bomagent.pdf_threshold_hint": "Žinomo išdėstymo PDF perskaitomi vietoje, be agento, kai tikrumo balas (0–100) pasiekia šį minimumą. Žemiau jo arba jei failas atrodo suklastotas, failą perskaito agentas.",
+  "admin.bom.reason_pdf_suspicious": "PDF buvo nematomo teksto arba aktyvaus turinio"
 };

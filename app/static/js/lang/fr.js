@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Chaque pièce est vérifiée par rapport à la HCL de Scale Computing. Choisissez un dimensionnement pour comparer aussi la BOM à ce qui a été dimensionné.",
   "bom.upload.drop_hint2": "Déposez une BOM ou un devis ici ou cliquez pour parcourir",
   "bom.upload.accept_agent": "Excel, CSV, PDF ou une image (PNG, JPEG, WebP) · 10 MB max.",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) ou CSV · 10 MB max.",
+  "bom.upload.accept_plain": "Excel, CSV ou PDF · 10 MB max.",
   "bom.help.layouts": "Mises en page reconnues et modèle vierge",
-  "bom.help.agent_note": "Tout le reste, y compris les PDF et les images, est lu par un agent Claude. Le résultat l'indique alors, et vous pouvez télécharger ce que l'agent a lu sous forme de modèle rempli.",
+  "bom.help.agent_note": "Les PDF dans ces mises en page sont lus directement. Tout le reste, y compris les images, est lu par un agent Claude : le résultat l'indique alors, et vous pouvez télécharger ce que l'agent a lu sous forme de modèle rempli.",
   "bom.check_another": "Vérifier une autre BOM",
   "bom.working_short": "Vérification…",
   "bom.section.title": "Vérifications de BOM",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>Vérifications de BOM</strong> — lorsque vous vérifiez une BOM ou un devis fournisseur, nous enregistrons la liste des pièces qui en a été extraite, les résultats de la vérification, le nom du fichier et une empreinte du fichier. Le fichier lui-même n'est pas conservé une fois lu, sauf si vous choisissez de le partager avec nous. Les devis peuvent contenir les noms et coordonnées des personnes qui les ont établis.",
   "privacy.s3_li5": "<strong>Pour vérifier les BOM</strong>, y compris en faisant lire par un service d'IA les fichiers dont la mise en page n'est pas reconnue par le vérificateur — <em>exécution d'un contrat</em>.",
   "privacy.s5_p2": "<strong>Traitement par IA des fichiers BOM.</strong> Lorsque le vérificateur ne peut pas lire lui-même une BOM ou un devis téléversé (par exemple un PDF, une image ou une mise en page de tableur inconnue), le contenu du fichier est envoyé à <strong>Anthropic</strong>, qui le traite pour notre compte via son API Claude dans le seul but d'extraire la liste des pièces. Anthropic agit en tant que notre sous-traitant et n'utilise pas ce contenu pour entraîner ses modèles. Ce traitement peut avoir lieu en dehors de votre pays, y compris aux États-Unis, moyennant des garanties appropriées. Le résultat de la vérification vous indique lorsqu'un fichier a été lu de cette manière.",
-  "privacy.s6_li5": "<strong>Vérifications de BOM</strong> — conservées avec le projet auquel elles appartiennent. Un fichier en attente de lecture par le service d'IA n'est conservé que jusqu'à sa lecture, et jamais plus d'un jour. Les fichiers que vous partagez avec nous pour que nous puissions prendre en charge leur mise en page, ainsi que les enregistrements des fichiers lus par le service d'IA (nom du fichier et utilisation), sont supprimés après <strong>90 jours</strong>."
+  "privacy.s6_li5": "<strong>Vérifications de BOM</strong> — conservées avec le projet auquel elles appartiennent. Un fichier en attente de lecture par le service d'IA n'est conservé que jusqu'à sa lecture, et jamais plus d'un jour. Les fichiers que vous partagez avec nous pour que nous puissions prendre en charge leur mise en page, ainsi que les enregistrements des fichiers lus par le service d'IA (nom du fichier et utilisation), sont supprimés après <strong>90 jours</strong>.",
+  "bom.result.pdf_certainty": "lu dans le PDF avec {score} % de certitude",
+  "bom.agent.low_certainty": "Le vérificateur connaît cette mise en page PDF, mais n'a pas pu la lire avec une certitude suffisante ({score} %) ; un agent Claude l'a donc lue :",
+  "bom.agent.hidden_words": "Le PDF contenait {n} mot(s) invisible(s). Ils n'ont pas été lus, et la vérification a été envoyée à Scale pour examen.",
+  "admin.bomagent.pdf_threshold": "Certitude PDF minimale",
+  "admin.bomagent.pdf_threshold_hint": "Les PDF dans une mise en page connue sont lus localement, sans l'agent, lorsque le score de certitude (0–100) atteint ce minimum. En dessous, ou si le fichier semble falsifié, c'est l'agent qui lit le fichier.",
+  "admin.bom.reason_pdf_suspicious": "Le PDF contenait du texte invisible ou du contenu actif"
 };

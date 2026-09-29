@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Katra detaļa tiek pārbaudīta pret Scale Computing HCL. Izvēlieties aprēķinu, lai salīdzinātu BOM arī ar aprēķināto.",
   "bom.upload.drop_hint2": "Nometiet BOM vai piedāvājumu šeit vai noklikšķiniet, lai pārlūkotu",
   "bom.upload.accept_agent": "Excel, CSV, PDF vai attēls (PNG, JPEG, WebP) · maks. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) vai CSV · maks. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV vai PDF · maks. 10 MB",
   "bom.help.layouts": "Atpazītie izkārtojumi un tukšā veidne",
-  "bom.help.agent_note": "Visu pārējo, ieskaitot PDF un attēlus, nolasa Claude aģents. Rezultātā tas tiek norādīts, un jūs varat lejupielādēt aģenta nolasīto kā aizpildītu veidni.",
+  "bom.help.agent_note": "PDF šajos izkārtojumos tiek nolasīti tieši. Visu pārējo, ieskaitot attēlus, nolasa Claude aģents: rezultātā tas tiek norādīts, un jūs varat lejupielādēt aģenta nolasīto kā aizpildītu veidni.",
   "bom.check_another": "Pārbaudīt citu BOM",
   "bom.working_short": "Pārbauda…",
   "bom.section.title": "BOM pārbaudes",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM pārbaudes</strong> — kad pārbaudāt ražotāja BOM vai piedāvājumu, mēs saglabājam no tā nolasīto detaļu sarakstu, pārbaudes rezultātus, faila nosaukumu un faila nospiedumu. Pats fails pēc nolasīšanas netiek glabāts, ja vien jūs neizvēlaties to kopīgot ar mums. Piedāvājumos var būt to sagatavotāju vārdi un kontaktinformācija.",
   "privacy.s3_li5": "<strong>Lai pārbaudītu BOM</strong>, tostarp ļaujot AI pakalpojumam nolasīt failus izkārtojumā, ko pārbaudītājs neatpazīst — <em>līguma izpilde</em>.",
   "privacy.s5_p2": "<strong>BOM failu apstrāde ar AI.</strong> Ja pārbaudītājs pats nevar nolasīt augšupielādētu BOM vai piedāvājumu (piemēram, PDF, attēlu vai nepazīstamu izklājlapas izkārtojumu), faila saturs tiek nosūtīts uzņēmumam <strong>Anthropic</strong>, kas to mūsu vārdā apstrādā, izmantojot savu Claude API, tikai lai iegūtu detaļu sarakstu. Anthropic darbojas kā mūsu apstrādātājs un neizmanto šo saturu savu modeļu apmācībai. Šī apstrāde var notikt ārpus jūsu valsts, tostarp Amerikas Savienotajās Valstīs, ievērojot atbilstošus aizsardzības pasākumus. Pārbaudes rezultātā ir norādīts, ja fails tika nolasīts šādā veidā.",
-  "privacy.s6_li5": "<strong>BOM pārbaudes</strong> — tiek glabātas kopā ar projektu, kuram tās pieder. Fails, kas gaida nolasīšanu AI pakalpojumā, tiek glabāts tikai līdz tā nolasīšanai un nekad ilgāk par vienu dienu. Faili, ko kopīgojat ar mums, lai mēs varētu atbalstīt to izkārtojumu, un AI pakalpojuma nolasīto failu ieraksti (faila nosaukums un lietojums) tiek dzēsti pēc <strong>90 dienām</strong>."
+  "privacy.s6_li5": "<strong>BOM pārbaudes</strong> — tiek glabātas kopā ar projektu, kuram tās pieder. Fails, kas gaida nolasīšanu AI pakalpojumā, tiek glabāts tikai līdz tā nolasīšanai un nekad ilgāk par vienu dienu. Faili, ko kopīgojat ar mums, lai mēs varētu atbalstīt to izkārtojumu, un AI pakalpojuma nolasīto failu ieraksti (faila nosaukums un lietojums) tiek dzēsti pēc <strong>90 dienām</strong>.",
+  "bom.result.pdf_certainty": "nolasīts no PDF ar {score}% noteiktību",
+  "bom.agent.low_certainty": "Pārbaudītājs zina šo PDF izkārtojumu, bet nevarēja to nolasīt ar pietiekamu noteiktību ({score}%), tāpēc to nolasīja Claude aģents:",
+  "bom.agent.hidden_words": "PDF saturēja {n} neredzamu(s) vārdu(s). Tie netika nolasīti, un pārbaude ir nosūtīta Scale pārskatīšanai.",
+  "admin.bomagent.pdf_threshold": "Minimālā PDF noteiktība",
+  "admin.bomagent.pdf_threshold_hint": "Zināmā izkārtojumā esoši PDF tiek nolasīti lokāli, bez aģenta, ja noteiktības rādītājs (0–100) sasniedz šo minimumu. Zem tā vai ja fails šķiet viltots, failu nolasa aģents.",
+  "admin.bom.reason_pdf_suspicious": "PDF saturēja neredzamu tekstu vai aktīvu saturu"
 };

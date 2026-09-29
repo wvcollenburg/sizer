@@ -155,7 +155,7 @@ def test_xls_is_converted_and_strings_stay_text(tmp_path):
 
 
 def test_xls_text_reaches_the_agent():
-    kind, text = agent_ingest.extract_document(os.path.join(FIXTURES, "unknown-layout.xls"), "q.xls")
+    kind, text, _ = agent_ingest.extract_document(os.path.join(FIXTURES, "unknown-layout.xls"), "q.xls")
     assert kind == agent_ingest.SOURCE_TEXT and "BP8L" in text and "Quote for Acme" in text
 
 
@@ -236,7 +236,7 @@ def test_pictures_are_reencoded_and_bounded(tmp_path):
     Image.new("RGB", (3000, 1000), "white").save(src, pnginfo=None)
     with open(src, "ab") as fh:
         fh.write(b"trailing payload that must not travel")
-    kind, (media, data) = agent_ingest.extract_document(str(src), "shot.png")
+    kind, (media, data), _ = agent_ingest.extract_document(str(src), "shot.png")
     import base64
     raw = base64.b64decode(data)
     assert kind == agent_ingest.SOURCE_IMAGE and media == "image/png"
@@ -258,7 +258,11 @@ def test_without_the_agent_unknown_files_are_refused_as_before(app):
     p = make_project(c)
     r = post_file(c, p["id"], unknown_xlsx(), "offer.xlsx")
     assert r.status_code == 400 and r.get_json()["retainable"] is True
+    # A PDF is accepted (local PDF parsers) but this one is unreadable, and
+    # there is no agent to hand it to.
     r = post_file(c, p["id"], b"%PDF-1.4\n", "offer.pdf")
+    assert r.status_code == 400 and r.get_json()["retainable"] is True
+    r = post_file(c, p["id"], b"\x89PNG\r\n", "offer.png")
     assert r.status_code == 400 and "Unsupported file type" in r.get_json()["error"]
 
 

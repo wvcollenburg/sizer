@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Jokainen osa tarkistetaan Scale Computingin HCL:ää vasten. Valitse mitoitus, jos haluat myös verrata BOM:ia mitoitettuun.",
   "bom.upload.drop_hint2": "Pudota BOM tai tarjous tähän tai napsauta selataksesi",
   "bom.upload.accept_agent": "Excel, CSV, PDF tai kuva (PNG, JPEG, WebP) · enintään 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) tai CSV · enintään 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV tai PDF · enintään 10 MB",
   "bom.help.layouts": "Tunnistetut asettelut ja tyhjä malli",
-  "bom.help.agent_note": "Kaiken muun, myös PDF:t ja kuvat, lukee Claude-agentti. Tulos kertoo tästä, ja voit ladata agentin lukemat tiedot täytettynä mallina.",
+  "bom.help.agent_note": "Näissä asetteluissa olevat PDF:t luetaan suoraan. Kaiken muun, myös kuvat, lukee Claude-agentti: tulos kertoo tästä, ja voit ladata agentin lukemat tiedot täytettynä mallina.",
   "bom.check_another": "Tarkista toinen BOM",
   "bom.working_short": "Tarkistetaan…",
   "bom.section.title": "BOM-tarkistukset",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM-tarkistukset</strong> — kun tarkistat toimittajan BOM:in tai tarjouksen, tallennamme siitä luetun osaluettelon, tarkistuksen tulokset, tiedostonimen ja tiedoston sormenjäljen. Itse tiedostoa ei säilytetä sen jälkeen, kun se on luettu, ellet valitse jakaa sitä kanssamme. Tarjoukset voivat sisältää ne laatineiden henkilöiden nimiä ja yhteystietoja.",
   "privacy.s3_li5": "<strong>BOM:ien tarkistamiseksi</strong>, mukaan lukien sellaisten tiedostojen lukeminen tekoälypalvelulla, joiden asettelua tarkistus ei tunnista — <em>sopimuksen täytäntöönpano</em>.",
   "privacy.s5_p2": "<strong>BOM-tiedostojen tekoälykäsittely.</strong> Kun tarkistus ei itse pysty lukemaan ladattua BOM:ia tai tarjousta (esimerkiksi PDF:ää, kuvaa tai tuntematonta taulukkoasettelua), tiedoston sisältö lähetetään <strong>Anthropicille</strong>, joka käsittelee sen puolestamme Claude API -rajapintansa kautta ainoastaan osaluettelon poimimiseksi. Anthropic toimii henkilötietojen käsittelijänämme eikä käytä tätä sisältöä mallien kouluttamiseen. Tämä käsittely voi tapahtua kotimaasi ulkopuolella, myös Yhdysvalloissa, asianmukaisin suojatoimin. Tarkistuksen tulos kertoo, kun tiedosto on luettu tällä tavalla.",
-  "privacy.s6_li5": "<strong>BOM-tarkistukset</strong> — säilytetään sen projektin yhteydessä, johon ne kuuluvat. Tekoälypalvelun luettavaksi odottava tiedosto säilytetään vain, kunnes se on luettu, eikä koskaan yli yhtä päivää. Tiedostot, jotka jaat kanssamme, jotta voimme tukea niiden asettelua, sekä tekoälypalvelun lukemien tiedostojen tietueet (tiedostonimi ja käyttö) poistetaan <strong>90 päivän</strong> kuluttua."
+  "privacy.s6_li5": "<strong>BOM-tarkistukset</strong> — säilytetään sen projektin yhteydessä, johon ne kuuluvat. Tekoälypalvelun luettavaksi odottava tiedosto säilytetään vain, kunnes se on luettu, eikä koskaan yli yhtä päivää. Tiedostot, jotka jaat kanssamme, jotta voimme tukea niiden asettelua, sekä tekoälypalvelun lukemien tiedostojen tietueet (tiedostonimi ja käyttö) poistetaan <strong>90 päivän</strong> kuluttua.",
+  "bom.result.pdf_certainty": "luettu PDF:stä {score} %:n varmuudella",
+  "bom.agent.low_certainty": "Tarkistus tuntee tämän PDF-asettelun, mutta ei pystynyt lukemaan sitä riittävällä varmuudella ({score} %), joten sen luki Claude-agentti:",
+  "bom.agent.hidden_words": "PDF sisälsi {n} näkymätöntä sanaa. Niitä ei luettu, ja tarkistus on lähetetty Scalelle tarkastettavaksi.",
+  "admin.bomagent.pdf_threshold": "PDF:n vähimmäisvarmuus",
+  "admin.bomagent.pdf_threshold_hint": "Tunnetussa asettelussa olevat PDF:t luetaan paikallisesti ilman agenttia, kun varmuuspisteet (0–100) saavuttavat tämän vähimmäisarvon. Sen alapuolella, tai jos tiedostoa näyttää peukaloidun, agentti lukee tiedoston.",
+  "admin.bom.reason_pdf_suspicious": "PDF sisälsi näkymätöntä tekstiä tai aktiivista sisältöä"
 };

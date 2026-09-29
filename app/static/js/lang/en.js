@@ -1665,9 +1665,9 @@
   "bom.upload.intro2": "Every part is checked against the Scale Computing HCL. Pick a sizing to also compare the BOM with what was sized.",
   "bom.upload.drop_hint2": "Drop a BOM or quote here, or click to browse",
   "bom.upload.accept_agent": "Excel, CSV, PDF or a picture (PNG, JPEG, WebP) · max 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) or CSV · max 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV or PDF · max 10 MB",
   "bom.help.layouts": "Recognised layouts and the blank template",
-  "bom.help.agent_note": "Anything else, including PDFs and pictures, is read by a Claude agent. The result then says so, and you can download what the agent read as a filled-in template.",
+  "bom.help.agent_note": "PDFs in these layouts are read directly. Anything else, including pictures, is read by a Claude agent: the result then says so, and you can download what the agent read as a filled-in template.",
   "bom.check_another": "Check another BOM",
   "bom.working_short": "Checking…",
   "bom.section.title": "BOM checks",
@@ -1709,5 +1709,11 @@
   "privacy.s2_li4": "<strong>BOM checks</strong> — when you check a vendor BOM or quote, we store the list of parts read from it, the check results, the file name and a fingerprint of the file. The file itself is not kept once it has been read, unless you choose to share it with us. Quotes can contain the names and contact details of the people who prepared them.",
   "privacy.s3_li5": "<strong>To check BOMs</strong>, including having an AI service read files in a layout the checker does not recognise — <em>performance of a contract</em>.",
   "privacy.s5_p2": "<strong>AI processing of BOM files.</strong> When the checker cannot read an uploaded BOM or quote itself (for example a PDF, a picture or an unfamiliar spreadsheet layout), the file's contents are sent to <strong>Anthropic</strong>, which processes them on our behalf through its Claude API only to extract the list of parts. Anthropic acts as our processor and does not use this content to train its models. This processing may take place outside your country, including in the United States, under appropriate safeguards. The result of the check tells you when a file was read this way.",
-  "privacy.s6_li5": "<strong>BOM checks</strong> — kept with the project they belong to. A file waiting to be read by the AI service is held only until it has been read, and never longer than one day. Files you share with us so we can support their layout, and the records of files read by the AI service (file name and usage), are deleted after <strong>90 days</strong>."
+  "privacy.s6_li5": "<strong>BOM checks</strong> — kept with the project they belong to. A file waiting to be read by the AI service is held only until it has been read, and never longer than one day. Files you share with us so we can support their layout, and the records of files read by the AI service (file name and usage), are deleted after <strong>90 days</strong>.",
+  "bom.result.pdf_certainty": "read from the PDF with {score}% certainty",
+  "bom.agent.low_certainty": "The checker knows this PDF layout, but could not read it with enough certainty ({score}%), so a Claude agent read it instead:",
+  "bom.agent.hidden_words": "The PDF contained {n} invisible word(s). They were not read, and the check has been sent to Scale for review.",
+  "admin.bomagent.pdf_threshold": "Minimum PDF certainty",
+  "admin.bomagent.pdf_threshold_hint": "PDFs in a known layout are read locally, without the agent, when the certainty score (0–100) reaches this minimum. Below it, or when the file looks tampered with, the agent reads the file instead.",
+  "admin.bom.reason_pdf_suspicious": "The PDF contained invisible text or active content"
 };

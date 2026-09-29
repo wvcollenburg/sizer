@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Jedes Teil wird gegen die Scale Computing HCL geprüft. Wählen Sie ein Sizing, um die BOM zusätzlich mit dem Dimensionierten abzugleichen.",
   "bom.upload.drop_hint2": "BOM oder Angebot hier ablegen oder klicken, um zu durchsuchen",
   "bom.upload.accept_agent": "Excel, CSV, PDF oder ein Bild (PNG, JPEG, WebP) · max. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) oder CSV · max. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV oder PDF · max. 10 MB",
   "bom.help.layouts": "Erkannte Layouts und die leere Vorlage",
-  "bom.help.agent_note": "Alles andere, einschließlich PDFs und Bildern, wird von einem Claude-Agenten gelesen. Das Ergebnis weist dann darauf hin, und Sie können das vom Agenten Gelesene als ausgefüllte Vorlage herunterladen.",
+  "bom.help.agent_note": "PDFs in diesen Layouts werden direkt gelesen. Alles andere, einschließlich Bildern, wird von einem Claude-Agenten gelesen: Das Ergebnis weist dann darauf hin, und Sie können das vom Agenten Gelesene als ausgefüllte Vorlage herunterladen.",
   "bom.check_another": "Weitere BOM prüfen",
   "bom.working_short": "Wird geprüft…",
   "bom.section.title": "BOM-Prüfungen",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM-Prüfungen</strong> — wenn Sie eine Hersteller-BOM oder ein Angebot prüfen, speichern wir die daraus gelesene Teileliste, die Prüfergebnisse, den Dateinamen und einen Fingerabdruck der Datei. Die Datei selbst wird nach dem Lesen nicht aufbewahrt, es sei denn, Sie entscheiden sich, sie mit uns zu teilen. Angebote können die Namen und Kontaktdaten der Personen enthalten, die sie erstellt haben.",
   "privacy.s3_li5": "<strong>Zur Prüfung von BOMs</strong>, einschließlich des Lesens von Dateien in einem Layout, das die Prüfung nicht erkennt, durch einen KI-Dienst — <em>Erfüllung eines Vertrags</em>.",
   "privacy.s5_p2": "<strong>KI-Verarbeitung von BOM-Dateien.</strong> Wenn die Prüfung eine hochgeladene BOM oder ein Angebot nicht selbst lesen kann (zum Beispiel ein PDF, ein Bild oder ein unbekanntes Tabellenlayout), wird der Inhalt der Datei an <strong>Anthropic</strong> gesendet, das ihn in unserem Auftrag über seine Claude API ausschließlich zur Extraktion der Teileliste verarbeitet. Anthropic handelt als unser Auftragsverarbeiter und verwendet diese Inhalte nicht zum Training seiner Modelle. Diese Verarbeitung kann außerhalb Ihres Landes stattfinden, auch in den Vereinigten Staaten, unter geeigneten Garantien. Das Ergebnis der Prüfung weist Sie darauf hin, wenn eine Datei auf diese Weise gelesen wurde.",
-  "privacy.s6_li5": "<strong>BOM-Prüfungen</strong> — beim zugehörigen Projekt aufbewahrt. Eine Datei, die auf das Lesen durch den KI-Dienst wartet, wird nur bis zum Lesen aufbewahrt und nie länger als einen Tag. Dateien, die Sie mit uns teilen, damit wir ihr Layout unterstützen können, sowie die Aufzeichnungen über vom KI-Dienst gelesene Dateien (Dateiname und Nutzung) werden nach <strong>90 Tagen</strong> gelöscht."
+  "privacy.s6_li5": "<strong>BOM-Prüfungen</strong> — beim zugehörigen Projekt aufbewahrt. Eine Datei, die auf das Lesen durch den KI-Dienst wartet, wird nur bis zum Lesen aufbewahrt und nie länger als einen Tag. Dateien, die Sie mit uns teilen, damit wir ihr Layout unterstützen können, sowie die Aufzeichnungen über vom KI-Dienst gelesene Dateien (Dateiname und Nutzung) werden nach <strong>90 Tagen</strong> gelöscht.",
+  "bom.result.pdf_certainty": "aus dem PDF gelesen mit {score}% Sicherheit",
+  "bom.agent.low_certainty": "Die Prüfung kennt dieses PDF-Layout, konnte es aber nicht mit ausreichender Sicherheit lesen ({score}%), daher hat ein Claude-Agent es gelesen:",
+  "bom.agent.hidden_words": "Das PDF enthielt {n} unsichtbare(s) Wort/Wörter. Diese wurden nicht gelesen, und die Prüfung wurde zur Überprüfung an Scale gesendet.",
+  "admin.bomagent.pdf_threshold": "Mindestsicherheit für PDFs",
+  "admin.bomagent.pdf_threshold_hint": "PDFs in einem bekannten Layout werden lokal ohne den Agenten gelesen, wenn der Sicherheitswert (0–100) dieses Minimum erreicht. Darunter, oder wenn die Datei manipuliert wirkt, liest stattdessen der Agent die Datei.",
+  "admin.bom.reason_pdf_suspicious": "Das PDF enthielt unsichtbaren Text oder aktive Inhalte"
 };

@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Elk onderdeel wordt gecontroleerd tegen de Scale Computing HCL. Kies een sizing om de BOM ook te vergelijken met wat er gesized is.",
   "bom.upload.drop_hint2": "Sleep een BOM of offerte hierheen of klik om te bladeren",
   "bom.upload.accept_agent": "Excel, CSV, PDF of een afbeelding (PNG, JPEG, WebP) · max. 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) of CSV · max. 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV of PDF · max. 10 MB",
   "bom.help.layouts": "Herkende indelingen en het lege sjabloon",
-  "bom.help.agent_note": "Al het andere, inclusief PDF's en afbeeldingen, wordt gelezen door een Claude-agent. Het resultaat vermeldt dat dan, en u kunt wat de agent heeft gelezen downloaden als ingevuld sjabloon.",
+  "bom.help.agent_note": "PDF's in deze indelingen worden direct gelezen. Al het andere, inclusief afbeeldingen, wordt gelezen door een Claude-agent: het resultaat vermeldt dat dan, en u kunt wat de agent heeft gelezen downloaden als ingevuld sjabloon.",
   "bom.check_another": "Nog een BOM controleren",
   "bom.working_short": "Controleren…",
   "bom.section.title": "BOM-controles",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM-controles</strong> — wanneer u een BOM of offerte van een leverancier controleert, slaan wij de lijst met onderdelen op die eruit is gelezen, de controleresultaten, de bestandsnaam en een vingerafdruk van het bestand. Het bestand zelf wordt niet bewaard nadat het is gelezen, tenzij u ervoor kiest het met ons te delen. Offertes kunnen de namen en contactgegevens bevatten van de personen die ze hebben opgesteld.",
   "privacy.s3_li5": "<strong>Om BOM's te controleren</strong>, inclusief het laten lezen van bestanden in een indeling die de controle niet herkent door een AI-dienst — <em>uitvoering van een overeenkomst</em>.",
   "privacy.s5_p2": "<strong>AI-verwerking van BOM-bestanden.</strong> Wanneer de controle een geüploade BOM of offerte niet zelf kan lezen (bijvoorbeeld een PDF, een afbeelding of een onbekende spreadsheetindeling), wordt de inhoud van het bestand verzonden naar <strong>Anthropic</strong>, dat deze namens ons via zijn Claude API verwerkt, uitsluitend om de lijst met onderdelen te extraheren. Anthropic treedt op als onze verwerker en gebruikt deze inhoud niet om zijn modellen te trainen. Deze verwerking kan buiten uw land plaatsvinden, onder meer in de Verenigde Staten, met passende waarborgen. Het resultaat van de controle vermeldt wanneer een bestand op deze manier is gelezen.",
-  "privacy.s6_li5": "<strong>BOM-controles</strong> — bewaard bij het project waartoe ze behoren. Een bestand dat wacht om door de AI-dienst te worden gelezen, wordt alleen bewaard totdat het is gelezen, en nooit langer dan één dag. Bestanden die u met ons deelt zodat wij hun indeling kunnen ondersteunen, en de registraties van bestanden die door de AI-dienst zijn gelezen (bestandsnaam en gebruik), worden na <strong>90 dagen</strong> verwijderd."
+  "privacy.s6_li5": "<strong>BOM-controles</strong> — bewaard bij het project waartoe ze behoren. Een bestand dat wacht om door de AI-dienst te worden gelezen, wordt alleen bewaard totdat het is gelezen, en nooit langer dan één dag. Bestanden die u met ons deelt zodat wij hun indeling kunnen ondersteunen, en de registraties van bestanden die door de AI-dienst zijn gelezen (bestandsnaam en gebruik), worden na <strong>90 dagen</strong> verwijderd.",
+  "bom.result.pdf_certainty": "uit de PDF gelezen met {score}% zekerheid",
+  "bom.agent.low_certainty": "De controle kent deze PDF-indeling, maar kon hem niet met voldoende zekerheid lezen ({score}%), dus heeft een Claude-agent hem gelezen:",
+  "bom.agent.hidden_words": "De PDF bevatte {n} onzichtbare woord(en). Die zijn niet gelezen, en de controle is ter beoordeling naar Scale gestuurd.",
+  "admin.bomagent.pdf_threshold": "Minimale PDF-zekerheid",
+  "admin.bomagent.pdf_threshold_hint": "PDF's in een bekende indeling worden lokaal gelezen, zonder de agent, als de zekerheidsscore (0–100) dit minimum haalt. Daaronder, of als het bestand gemanipuleerd lijkt, leest de agent het bestand.",
+  "admin.bom.reason_pdf_suspicious": "De PDF bevatte onzichtbare tekst of actieve inhoud"
 };

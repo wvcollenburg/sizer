@@ -1664,9 +1664,9 @@
   "bom.upload.intro2": "Iga osa kontrollitakse Scale Computingu HCL-i vastu. Vali sizing, et võrrelda BOM-i ka sellega, mis sizingus arvutati.",
   "bom.upload.drop_hint2": "Lohista BOM või pakkumine siia või klõpsa sirvimiseks",
   "bom.upload.accept_agent": "Excel, CSV, PDF või pilt (PNG, JPEG, WebP) · max 10 MB",
-  "bom.upload.accept_plain": "Excel (.xlsx, .xls) või CSV · max 10 MB",
+  "bom.upload.accept_plain": "Excel, CSV või PDF · max 10 MB",
   "bom.help.layouts": "Tuntud paigutused ja tühi mall",
-  "bom.help.agent_note": "Kõike muud, sealhulgas PDF-e ja pilte, loeb Claude'i agent. Tulemus märgib selle ära ja saad agendi loetu alla laadida täidetud mallina.",
+  "bom.help.agent_note": "Nendes paigutustes PDF-e loetakse otse. Kõike muud, sealhulgas pilte, loeb Claude'i agent: tulemus märgib selle ära ja saad agendi loetu alla laadida täidetud mallina.",
   "bom.check_another": "Kontrolli teist BOM-i",
   "bom.working_short": "Kontrollin…",
   "bom.section.title": "BOM-i kontrollid",
@@ -1708,5 +1708,11 @@
   "privacy.s2_li4": "<strong>BOM-i kontrollid</strong> — kui kontrollite tarnija BOM-i või pakkumist, salvestame sellest loetud osade loendi, kontrolli tulemused, failinime ja faili sõrmejälje. Faili ennast pärast lugemist ei säilitata, välja arvatud juhul, kui otsustate selle meiega jagada. Pakkumised võivad sisaldada nende koostajate nimesid ja kontaktandmeid.",
   "privacy.s3_li5": "<strong>BOM-ide kontrollimiseks</strong>, sealhulgas selleks, et lasta AI-teenusel lugeda faile paigutuses, mida kontrollija ära ei tunne — <em>lepingu täitmine</em>.",
   "privacy.s5_p2": "<strong>BOM-failide töötlemine AI abil.</strong> Kui kontrollija ei suuda üleslaaditud BOM-i või pakkumist ise lugeda (näiteks PDF, pilt või tundmatu tabelipaigutus), saadetakse faili sisu ettevõttele <strong>Anthropic</strong>, kes töötleb seda meie nimel oma Claude API kaudu ainult osade loendi väljavõtmiseks. Anthropic tegutseb meie volitatud töötlejana ega kasuta seda sisu oma mudelite treenimiseks. See töötlemine võib toimuda väljaspool teie riiki, sealhulgas Ameerika Ühendriikides, asjakohaste kaitsemeetmete alusel. Kontrolli tulemus annab teile teada, kui fail loeti sel viisil.",
-  "privacy.s6_li5": "<strong>BOM-i kontrollid</strong> — säilitatakse koos projektiga, kuhu need kuuluvad. AI-teenuse poolt lugemist ootavat faili hoitakse ainult seni, kuni see on loetud, ja mitte kunagi kauem kui üks päev. Failid, mida jagate meiega, et saaksime nende paigutust toetada, ning AI-teenuse loetud failide kirjed (failinimi ja kasutus) kustutatakse <strong>90 päeva</strong> pärast."
+  "privacy.s6_li5": "<strong>BOM-i kontrollid</strong> — säilitatakse koos projektiga, kuhu need kuuluvad. AI-teenuse poolt lugemist ootavat faili hoitakse ainult seni, kuni see on loetud, ja mitte kunagi kauem kui üks päev. Failid, mida jagate meiega, et saaksime nende paigutust toetada, ning AI-teenuse loetud failide kirjed (failinimi ja kasutus) kustutatakse <strong>90 päeva</strong> pärast.",
+  "bom.result.pdf_certainty": "loetud PDF-ist {score}% kindlusega",
+  "bom.agent.low_certainty": "Kontrollija tunneb seda PDF-i paigutust, kuid ei suutnud seda piisava kindlusega lugeda ({score}%), seega luges selle Claude'i agent:",
+  "bom.agent.hidden_words": "PDF sisaldas {n} nähtamatut sõna. Neid ei loetud ja kontroll saadeti Scale'ile ülevaatamiseks.",
+  "admin.bomagent.pdf_threshold": "PDF-i minimaalne kindlus",
+  "admin.bomagent.pdf_threshold_hint": "Tuntud paigutusega PDF-e loetakse kohapeal ilma agendita, kui kindluse skoor (0–100) jõuab selle miinimumini. Sellest allpool või kui fail tundub võltsitud, loeb faili hoopis agent.",
+  "admin.bom.reason_pdf_suspicious": "PDF sisaldas nähtamatut teksti või aktiivset sisu"
 };

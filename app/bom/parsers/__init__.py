@@ -24,6 +24,7 @@ sheet we read (SheetTooLargeError propagates to the route).
 """
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from bom.normalize import NormalizedBOM
@@ -49,6 +50,10 @@ FORMAT_LABELS = {
     'dell_list_sku': 'Dell configuration list (QTY / Config / Available SKUs)',
     'dell_list_qty_desc_pn': 'Dell configuration list (QTY / Description / Part Number)',
     'dell_list_columns': 'Dell configuration list (one column per config)',
+    'dell_solution_pdf': 'Dell Solutions Configurator (PDF)',
+    'dell_quote_pdf': 'Dell quote e-mail (PDF)',
+    'lenovo_build_pdf': 'Lenovo build order (PDF)',
+    'supermicro_quote_pdf': 'Supermicro distributor quote (PDF)',
 }
 
 XLSX_MAGIC = b'PK\x03\x04'
@@ -206,3 +211,72 @@ def detect_vendor(bom: NormalizedBOM) -> str:
     if re.search(r'ProLiant|^P\d{5}-B21$', blob, re.M):
         return 'HPE'
     return 'Unknown'
+
+
+# ─── PDFs ──────────────────────────────────────────────────────────────────────
+# A PDF is read in a sandboxed child process (bom/pdf_doc.py), offered to each
+# PDF parser in turn, and the parse is scored (bom/pdf_certainty.py). The
+# caller decides what a score means (route: trust it, or hand the file to the
+# agent); nothing here trusts a parse on its own.
+
+@dataclass
+class PdfOutcome:
+    doc: Optional['object'] = None          # bom.pdf_doc.PdfDoc, None when unreadable
+    bom: Optional[NormalizedBOM] = None
+    fmt: Optional[str] = None
+    certainty: Optional['object'] = None    # bom.pdf_certainty.Certainty
+    evidence: Optional['object'] = None
+    error: Optional[str] = None
+
+    def meta(self) -> dict:
+        """What the check keeps about how the PDF was read."""
+        out = {'format': self.fmt, 'error': self.error}
+        if self.certainty is not None:
+            out.update(self.certainty.to_dict())
+        if self.evidence is not None:
+            out['checks_passed'] = list(self.evidence.checks_passed)[:20]
+            out['checks_failed'] = list(self.evidence.checks_failed)[:20]
+            out['rows'] = self.evidence.rows
+        if self.doc is not None:
+            out['producer'] = (self.doc.meta.get('producer') or '')[:80]
+            out['pages'] = self.doc.page_count
+        return out
+
+
+def _pdf_parsers():
+    from bom.parsers import (pdf_dell_quote, pdf_dell_solution, pdf_lenovo_build,
+                             pdf_scale_quote, pdf_supermicro_quote)
+    # The Scale quotation first: it is refused, never parsed as a BOM.
+    return [pdf_scale_quote, pdf_lenovo_build, pdf_dell_solution, pdf_dell_quote,
+            pdf_supermicro_quote]
+
+
+def read_pdf(path: str) -> PdfOutcome:
+    """Extract, detect, parse and score a PDF. Raises
+    pdf_common.NotAVendorBom for a document that is recognised but is not a
+    BOM to check; every other failure is reported in the outcome."""
+    from bom import pdf_certainty, pdf_doc
+    from bom.parsers.pdf_common import Evidence, NotAVendorBom
+    try:
+        doc = pdf_doc.read(path)
+    except (pdf_doc.PdfExtractError, OSError) as exc:
+        return PdfOutcome(error=str(exc)[:200])
+    for mod in _pdf_parsers():
+        try:
+            hit = mod.detect(doc)
+        except Exception:                      # a detector must never break the ladder
+            hit = False
+        if not hit:
+            continue
+        try:
+            bom, ev = mod.parse(doc)
+        except NotAVendorBom:
+            raise
+        except Exception as exc:               # parser bug on an odd file: agent's turn
+            ev = Evidence()
+            ev.unexplained.append('parser error: %s' % type(exc).__name__)
+            return PdfOutcome(doc=doc, fmt=mod.FORMAT, evidence=ev,
+                              certainty=pdf_certainty.assess(doc, ev, None))
+        return PdfOutcome(doc=doc, bom=bom, fmt=mod.FORMAT, evidence=ev,
+                          certainty=pdf_certainty.assess(doc, ev, bom))
+    return PdfOutcome(doc=doc, certainty=pdf_certainty.safety(doc))
