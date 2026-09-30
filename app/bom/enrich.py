@@ -28,6 +28,8 @@ from hcl_models import (HclComponent, HclPlatform, HclPlatformComponent, ORIGIN_
 # finding code -> component kind in the catalog
 SUGGESTABLE = {
     "nic_not_in_hcl": "nic",
+    # Too few ports: offer the platform's 4-port adapters of the same speed.
+    "nic_ports_vlan": "nic",
     "controller_not_in_hcl": "hba",
     "gpu_not_in_hcl": "gpu",
 }
@@ -43,13 +45,17 @@ CODE_PLATFORM_IDENTIFIED = "platform_identified"
 CODE_PLATFORM_UNKNOWN = "platform_unknown"
 CODE_SINGLE_DISK_MULTI_BAY = "single_disk_multi_bay"
 CODE_HYBRID_RATIO = "hybrid_hdd_ratio"
+CODE_NIC_SPEED_MISMATCH = "nic_speed_mismatch"
+CODE_NIC_PORTS_VLAN = "nic_ports_vlan"
+# Ports per node HyperCore wants for LAN and backplane on their own ports.
+MIN_NODE_PORTS = 4
 
 # Ported findings the owner has since overruled (apply_owner_rules).
 _RESOLVED_CODES = frozenset(["two_drives"])
 # On a NUC the NIC is onboard and a single disk is a supported build.
 _NUC_EXEMPT_CODES = frozenset([
     "nic_missing", "nic_not_in_hcl", "nic_lom", "nic_multiple_families",
-    "single_flash_drive", "single_hdd",
+    "single_flash_drive", "single_hdd", CODE_NIC_SPEED_MISMATCH, CODE_NIC_PORTS_VLAN,
 ])
 
 _CATEGORY_KINDS = {"nic": ("nic",), "controller": ("hba",), "gpu": ("gpu",),
@@ -209,12 +215,141 @@ def apply_owner_rules(config: BOMConfig, findings: List[Finding],
     * a hybrid node needs 2 HDDs per SSD/NVMe disk.
     """
     drop = set(_RESOLVED_CODES)
-    if is_nuc(platforms):
+    nuc = is_nuc(platforms)
+    if nuc:
         drop |= _NUC_EXEMPT_CODES
     out = [f for f in findings if f.code not in drop]
     for extra in (single_disk_finding(config, platforms), hybrid_ratio_finding(config)):
         if extra is not None:
             out.append(extra)
+    if not nuc:
+        out = nic_topology_findings(config, out)
+    return out
+
+
+# ── NIC speeds and port count (owner rule 2026-09-30) ────────────────────────
+# Owner rule: all ACTIVE ports on a node run at the same speed; 1-3 ports is
+# backplane over VLAN, 4 or more is dedicated failover for LAN and backplane.
+# A slower port next to a
+# faster adapter — typically the 1 GbE Broadcom 5720 LOM on the motherboard
+# next to a 10/25 GbE card, now that the 5720 is an accepted part — must be
+# disabled, and then only the fast adapter's ports count. Fewer than four of
+# those per node means the backplane shares the LAN ports over a VLAN, which
+# the owner wants flagged with the fix: two more ports (a 4-port adapter
+# instead, or a second 2-port adapter).
+
+_ONBOARD_RE = re.compile(r"\bLOM\b|\brNDC\b|on-?board|onboard|integrated|integriert", re.I)
+
+
+def _is_onboard(desc: str) -> bool:
+    from bom.rules import _LOM_KEYWORDS, matches_any
+    return bool(_ONBOARD_RE.search(desc or "")) or matches_any(desc or "", _LOM_KEYWORDS)
+
+
+def _nic_lines(config: BOMConfig):
+    """[(component, speed GbE, ports, onboard)] for every network port on the
+    BOM: NIC lines, and onboard ports named on another line (a motherboard
+    'with Broadcom 5720, 2 ports, 1 Gbit, integrated LOM'). Absence lines
+    ('LOM Blank') are not ports."""
+    from bom.fit import _parse_nic_ports
+    from bom.rules import is_absence_indicator
+    out = []
+    for c in config.components:
+        if is_absence_indicator(c):
+            continue
+        onboard = _is_onboard(c.description)
+        if c.category != "nic" and not onboard:
+            continue
+        speeds = _nic_speeds(c.description)
+        if not speeds:
+            continue
+        out.append((c, speeds, _parse_nic_ports(c.description), onboard))
+    return out
+
+
+def _nic_speeds(desc: str) -> set:
+    """Every speed a port can run at: '10/25GbE' -> {10, 25}, '1GbE' -> {1}."""
+    from bom.fit import _NIC_SPEED_RE
+    out = set()
+    for m in _NIC_SPEED_RE.finditer(desc or ""):
+        for part in m.group(1).split("/"):
+            try:
+                out.add(float(part.strip()))
+            except ValueError:
+                continue
+    return out
+
+
+def _gbe(value: float) -> str:
+    return ("%g" % value)
+
+
+def nic_topology_findings(config: BOMConfig, findings: List[Finding]) -> List[Finding]:
+    from bom.fit import _infer_node_count
+    from bom.rules import extract_nic_keywords
+    lines = _nic_lines(config)
+    if not lines:
+        return findings
+    # The fastest adapter sets the speeds on offer; ports that share one of
+    # them can run together (a 10 GbE X710 next to a 10/25 GbE E810 runs at
+    # 10), ports that share none must be disabled.
+    top = max(lines, key=lambda l: max(l[1]))[1]
+    slow = [(c, max(speeds), onboard) for c, speeds, _p, onboard in lines if not speeds & top]
+    kept = [(c, speeds, ports) for c, speeds, ports, _o in lines if speeds & top]
+    common = set(top)
+    for _c, speeds, _p in kept:
+        common &= speeds
+    fast = max(common) if common else max(top)
+    quick = [(c, ports) for c, _s, ports in kept]
+    out = list(findings)
+
+    slow_desc = {c.description for c, _s, _o in slow}
+    if slow:
+        # The ported "LOM limits you to backplane over VLAN" note is wrong once
+        # a faster adapter carries the traffic; the disable finding replaces it.
+        out = [f for f in out if not (f.code == "nic_lom" and f.component in slow_desc)]
+        for c, speed, onboard in slow:
+            if onboard:
+                fix = ("Disable these onboard ports in the BIOS before deployment: HyperCore "
+                       "should not mix port speeds on a node, and the %s GbE adapter carries "
+                       "the traffic." % _gbe(fast))
+            else:
+                fix = ("Remove this adapter, or disable it in the BIOS before deployment: "
+                       "HyperCore should not mix port speeds on a node, and the %s GbE "
+                       "adapter carries the traffic." % _gbe(fast))
+            out.append(Finding(severity="warning", component=c.description,
+                               issue="%s GbE ports next to a %s GbE adapter — must be disabled"
+                                     % (_gbe(speed), _gbe(fast)),
+                               remediation=fix, code=CODE_NIC_SPEED_MISMATCH))
+        # "Several NIC families — select one" counted the slow part too.
+        families = {tuple(extract_nic_keywords(c.description) or [c.description]) for c, _p in quick}
+        if len(families) <= 1:
+            out = [f for f in out if f.code != "nic_multiple_families"]
+
+    if any(ports is None for _c, ports in quick):
+        return out                            # cannot count what the BOM does not state
+    total = sum(ports * max(int(c.quantity or 1), 1) for c, ports in quick)
+    nodes = _infer_node_count(config, [c for c in config.components
+                                       if c.category in ("chassis", "cpu", "memory", "storage", "nic")], [])
+    if nodes:
+        per_node = total / float(nodes)
+    elif total < MIN_NODE_PORTS:
+        per_node = total                      # below the minimum even on one node
+    else:
+        return out
+    if per_node >= MIN_NODE_PORTS:
+        return out
+    shown = int(per_node) if float(per_node).is_integer() else round(per_node, 1)
+    why = (" once the slower ports are disabled" if slow else "")
+    out.append(Finding(
+        severity="warning", component=quick[0][0].description,
+        issue="Only %s %s GbE port(s) per node — Backplane over VLAN" % (shown, _gbe(fast)),
+        remediation=("Each node has %s usable %s GbE network port(s)%s. With 1 to 3 ports the "
+                     "backplane shares the LAN ports over a VLAN; 4 or more give LAN and backplane "
+                     "their own failover pairs. Add two more %s GbE ports per node: swap to a "
+                     "4-port adapter, or add a second 2-port adapter of the same speed."
+                     % (shown, _gbe(fast), why, _gbe(fast))),
+        code=CODE_NIC_PORTS_VLAN))
     return out
 
 
@@ -243,9 +378,15 @@ def suggestions_for(config: BOMConfig, result: ConfigResult,
     if not platforms:
         return []
     out = []  # type: List[Dict]
+    # A part that is off the HCL AND leaves the node short of ports gets one
+    # suggestion card, the HCL swap, with 4-port adapters first.
+    short_ports = {f.component for f in result.findings if f.code == CODE_NIC_PORTS_VLAN}
+    not_listed = {f.component for f in result.findings if f.code == "nic_not_in_hcl"}
     for f in result.findings:
         kind = SUGGESTABLE.get(f.code or "")
         if not kind:
+            continue
+        if f.code == CODE_NIC_PORTS_VLAN and f.component in not_listed:
             continue
         offending = next((c for c in config.components
                           if c.description == f.component), None)
@@ -256,6 +397,12 @@ def suggestions_for(config: BOMConfig, result: ConfigResult,
             need = off_attrs.get("speed_gbe")
             ff = off_attrs.get("form_factor")
             ports = off_attrs.get("ports")
+            if f.code == CODE_NIC_PORTS_VLAN:
+                # The fix is MORE ports at the same speed: 4-port adapters only.
+                pool = [p for p in pool if (p["attrs"].get("ports") or 0) >= MIN_NODE_PORTS]
+                ports = MIN_NODE_PORTS
+            elif f.component in short_ports:
+                ports = MIN_NODE_PORTS            # prefer, don't require, 4 ports
             if need:
                 fast_enough = [p for p in pool
                                if (p["attrs"].get("speed_gbe") or 0) >= need]

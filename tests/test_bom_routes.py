@@ -308,7 +308,8 @@ def test_unknown_nic_opens_a_review_the_user_can_follow(app):
     assert check["technical_verdict"] == "FAIL"
     assert "nic_not_in_hcl" in check["flag_reasons"]
     assert check["review_status"] == "open"
-    assert check["result"]["suggestions"][0]["candidates"][0]["part_number"] == "4XC7A08294"
+    # The unknown card is 2-port: the 4-port E810-DA4 leads (backplane over VLAN otherwise).
+    assert check["result"]["suggestions"][0]["candidates"][0]["part_number"] == "4XC7A80269"
 
     # partners cannot reach the admin queue
     assert c.get("/admin/api/bom-reviews").status_code == 403
