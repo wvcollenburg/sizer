@@ -47,6 +47,7 @@ FORMAT_LABELS = {
     'dh_bid': 'D&H bid quotation',
     'dell_vnet': 'Dell VNET configurator export',
     'dell_solution': 'Dell Solution (Smart Selection) export',
+    'dist_item_list': 'Distributor item list (Item # / Vendor Part # / Qty)',
     'dell_list_sku': 'Dell configuration list (QTY / Config / Available SKUs)',
     'dell_list_qty_desc_pn': 'Dell configuration list (QTY / Description / Part Number)',
     'dell_list_columns': 'Dell configuration list (one column per config)',
@@ -99,7 +100,7 @@ def _as_xlsx(path: str):
 
 def _detect_xlsx(path: str) -> Optional[str]:
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_dcsc, template)
     from bom.parsers.common import load_workbook_safe
     from xlsx_utils import SheetTooLargeError
     try:
@@ -126,6 +127,10 @@ def _detect_xlsx(path: str) -> Optional[str]:
         solution = dell_solution.detect(wb)
         if solution:
             return solution
+        # Before the hand-typed lists: an 'Item # | … | Vendor Part # |
+        # Description | Qty' sheet with N / N.M item numbers.
+        if item_list.detect(wb):
+            return item_list.FORMAT
         return dell_lists.detect(wb)
     finally:
         wb.close()
@@ -151,7 +156,7 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     template.TemplateError (our template, but invalid) or
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_dcsc, template)
     if _extension(filename, path) == '.xls':
         # Legacy workbook: parse its .xlsx copy with the same ladder.
         with _as_xlsx(path) as converted:
@@ -185,6 +190,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
         bom = dell_quote.parse_vnet(path)
     elif fmt == dell_solution.FORMAT_SOLUTION:
         bom = dell_solution.parse(path)
+    elif fmt == item_list.FORMAT:
+        bom = item_list.parse(path)
     else:
         bom = dell_lists.parse(path)
     return bom, fmt

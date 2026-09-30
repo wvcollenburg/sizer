@@ -1008,3 +1008,50 @@ def test_archive_pdf_parity(filename):
     assert extra == Counter(accepted["extra"]) and missing == Counter(accepted["missing"]), (
         "%s\n  extra: %s\n  missing: %s" % (filename, sorted(extra.elements(), key=str),
                                            sorted(missing.elements(), key=str)))
+
+
+# ─── distributor item list (Item # / Vendor Part # / Qty) ────────────────────
+
+def _item_list_workbook(path):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Quote"
+    rows = [
+        ["Item #", "IM Material", "Vendor Part #", "Description", "Qty"],
+        ["1", "210-BEQQ", "210-BEQQ", "PowerEdge R660", 3],
+        ["1.1", None, "210-BEQQ", "PowerEdge R660 Server", 3],
+        ["1.2", None, "338-CHTK", "Intel Xeon Gold 6430 2.1G, 32C/64T, 16GT/s, 60M Cache", 3],
+        ["1.3", None, "338-CHTK", "Intel Xeon Gold 6430 2.1G, 32C/64T, 16GT/s, 60M Cache", 3],
+        ["1.4", None, "370-BCCY", "32GB RDIMM, 6400MT/s, Dual Rank", 24],
+        ["1.5", None, "405-AAZB", "PERC H755 SAS Front", 3],
+        ["1.6", None, "400-AXSK", "3.84TB SSD SATA Read Intensive 6Gbps 512e 2.5in Hot-plug AG Drive", 12],
+        ["1.7", None, "540-BCOC", "Broadcom 57414 Dual Port 10/25GbE SFP28, OCP NIC 3.0", 3],
+        ["1.8", None, "709-BBHI", "Basic Next Business Day 36 Months", 3],
+        [None, None, None, "Propose Alternative Model", None],
+        ["2", "210-BNMR", "210-BNMR", "PowerEdge R470 - [ASPER470]", 1],
+        ["2.1", None, "210-BNMR", "PowerEdge R470 Server, Enterprise", 1],
+        ["2.2", None, "405-ABDU", "H965i Adapter Low Profile", 1],
+        ["2.3", None, "161-BCPH", "4TB Hard Drive SAS ISE 12Gbps 7.2K 512n 3.5in Hot-Plug, AG Drive", 4],
+    ]
+    for row in rows:
+        ws.append(row)
+    wb.save(path)
+
+
+def test_distributor_item_list(tmp_path):
+    path = str(tmp_path / "Spec 3 quote.xlsx")
+    _item_list_workbook(path)
+    assert detect_format(path, "q.xlsx") == "dist_item_list"
+    bom, fmt = parse_file(path, "q.xlsx")
+    assert bom.vendor == "Dell"
+    assert [(c.name, c.server_model, c.node_count) for c in bom.configs] == [
+        ("PowerEdge R660", "PowerEdge R660", 3),
+        ("Propose Alternative Model: PowerEdge R470 - [ASPER470]", "PowerEdge R470", 1)]
+    first = {c.part_number: (c.category, c.quantity) for c in bom.configs[0].components}
+    assert first["338-CHTK"] == ("cpu", 6)            # two CPU lines of 3 systems each
+    assert first["370-BCCY"] == ("memory", 24)
+    assert first["405-AAZB"] == ("controller", 3)
+    assert first["540-BCOC"] == ("nic", 3)
+    assert "709-BBHI" not in first                    # service line dropped
+    second = {c.part_number: c.category for c in bom.configs[1].components}
+    assert second["405-ABDU"] == "controller"         # bare 'H965i Adapter' is a PERC
