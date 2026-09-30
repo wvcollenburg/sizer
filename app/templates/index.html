@@ -1079,8 +1079,11 @@
                         <select id="exp-format" class="text-input inline-select">
                             <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
                             <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
-                            <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
-                            <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                            {# Editable formats: Scale Computing accounts and super admins
+                               only (projects.py queue_export); openExports hides them
+                               for everyone else. #}
+                            <option value="docx" data-editable data-i18n="project.export.fmt_docx">Word</option>
+                            <option value="pptx" data-editable data-i18n="project.export.fmt_pptx">PowerPoint</option>
                         </select>
                         <label class="notify-check">
                             <input type="checkbox" id="exp-notify">

@@ -41,9 +41,11 @@
     <dd>It belongs to someone else: a colleague's project, or one opened by code, is
         read-only. Use <em>Copy to mine</em> on a sizing to get your own copy.</dd>
 
-    <dt>I chose Word or PowerPoint and got an error.</dt>
-    <dd>The editable formats are for Scale Computing staff. Use <em>PDF document</em> or
-        <em>PDF slides</em>{% if not scale %}, or ask your Scale Computing contact{% endif %}.</dd>
+    <dt>I need an editable Word or PowerPoint file.</dt>
+    <dd>{% if scale %}Only Scale Computing accounts and super admins get those formats: copy
+        the partner's sizings into a project of your own and export from there.{% else %}The
+        editable formats are made by Scale Computing staff. Ask your Scale Computing
+        contact.{% endif %}</dd>
 
     <dt>My export says <em>Expired</em>.</dt>
     <dd>Downloads are kept for 24 hours. Make the export again.</dd>

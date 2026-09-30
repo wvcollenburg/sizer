@@ -862,6 +862,12 @@ let lastExportJobs = [];
 function openExports() {
     if (!currentProject) return;
     expState = { mode: null };
+    // Word and PowerPoint are refused by the server for anyone but Scale
+    // Computing accounts and super admins, so don't offer them to others.
+    const editable = typeof canExportEditable === 'function' && canExportEditable();
+    const fmt = document.getElementById('exp-format');
+    fmt.querySelectorAll('option[data-editable]').forEach(o => { o.hidden = o.disabled = !editable; });
+    if (fmt.selectedOptions[0] && fmt.selectedOptions[0].disabled) fmt.value = 'pdf';
     _expShowStep('mode');
     document.getElementById('exports-modal').style.display = 'flex';
     loadExports();

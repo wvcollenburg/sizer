@@ -15,17 +15,13 @@
             {% if scale %}
             <li><strong>Word</strong> and <strong>PowerPoint</strong>: editable versions of
                 the two. <span class="manual-staff-tag">Staff</span> Only Scale Computing
-                accounts and super admins can make these. Partners who pick them get the
-                message <em>The editable PowerPoint and Word files are available to Scale Computing
-                 users only</em>.</li>
-            {% else %}
-            <li><strong>Word</strong> and <strong>PowerPoint</strong> are listed too, but the
-                editable files are reserved for Scale Computing staff. Choosing them shows a
-                message asking you to use a PDF. Ask your Scale Computing contact if you need
-                an editable version.</li>
+                accounts and super admins get these two formats. Partners do not see
+                them.</li>
             {% endif %}
         </ul>
     </li>
+    {% if not scale %}<li>Need an editable Word or PowerPoint version? Those are made by
+        Scale Computing staff: ask your Scale Computing contact.</li>{% endif %}
     <li>Tick {{ m.ui("Email me when ready") }} if you do not want to wait.</li>
     <li>{{ m.ui("Export") }}. The document is built in the background, and you are taken back
         to the first step.</li>
