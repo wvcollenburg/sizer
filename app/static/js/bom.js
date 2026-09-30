@@ -771,7 +771,9 @@
         const metaBits = [];
         metaBits.push(escHtml(formatLabel(check.file_format)));
         if (check.pdf && check.pdf.score !== null && check.pdf.score !== undefined) {
-            metaBits.push(escHtml(t('bom.result.pdf_certainty', { score: check.pdf.score })));
+            // Why not 100: the score's reasons as a tooltip (server wording).
+            const why = (check.pdf.reasons || []).join('\n');
+            metaBits.push(`<span${why ? ` title="${escHtml(why)}" class="bom-certainty-why"` : ''}>${escHtml(t('bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
         }
         if (check.vendor) metaBits.push(escHtml(check.vendor));
         if (check.filename && check.filename !== check.name) metaBits.push(escHtml(check.filename));

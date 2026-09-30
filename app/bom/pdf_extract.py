@@ -78,6 +78,28 @@ def _is_white(color):
     return False
 
 
+def _rgb(color):
+    """A fill colour as (r, g, b) in 0..1: gray, RGB and CMYK by component
+    count; anything else (patterns, unknown spaces) as None."""
+    if color is None:
+        return None
+    if isinstance(color, (int, float)):
+        values = [float(color)]
+    else:
+        try:
+            values = [float(v) for v in color]
+        except (TypeError, ValueError):
+            return None
+    if len(values) == 1:
+        return [round(values[0], 3)] * 3
+    if len(values) == 3:
+        return [round(v, 3) for v in values]
+    if len(values) == 4:
+        c, m, y, k = values
+        return [round((1 - c) * (1 - k), 3), round((1 - m) * (1 - k), 3), round((1 - y) * (1 - k), 3)]
+    return None
+
+
 def _active_content(doc):
     """Names of active features found anywhere in the object graph."""
     from pdfminer.psparser import PSLiteral
@@ -125,10 +147,23 @@ def extract(path):
             self._render = textstate.render
             return super().render_string(textstate, seq, ncs, graphicstate)
 
+        _paint = 0                  # content-stream order: later paints over earlier
+
         def render_char(self, *args, **kwargs):
             adv = super().render_char(*args, **kwargs)
-            self.cur_item._objs[-1].render_mode = self._render
+            ch = self.cur_item._objs[-1]
+            ch.render_mode = self._render
+            self._paint += 1
+            ch.draw_index = self._paint
             return adv
+
+        def paint_path(self, *args, **kwargs):
+            before = len(self.cur_item._objs)
+            result = super().paint_path(*args, **kwargs)
+            self._paint += 1
+            for obj in self.cur_item._objs[before:]:
+                obj.draw_index = self._paint
+            return result
 
     out = {"pages": [], "meta": {}, "active": [], "encrypted": False,
            "truncated": False, "page_count": 0}
@@ -169,8 +204,9 @@ def extract(path):
                         elif w <= 2.0 and h > 4:
                             rules.append(["v", round((obj.x0 + obj.x1) / 2, 1), round(top, 1), round(bottom, 1)])
                         elif isinstance(obj, LTRect) and getattr(obj, "fill", False):
+                            color = getattr(obj, "non_stroking_color", None)
                             fills.append([round(obj.x0, 1), round(top, 1), round(obj.x1, 1), round(bottom, 1),
-                                          _is_white(getattr(obj, "non_stroking_color", None))])
+                                          _is_white(color), _rgb(color), getattr(obj, "draw_index", 0)])
                     elif isinstance(obj, LTFigure) or hasattr(obj, "_objs"):
                         walk(obj)
 
@@ -239,6 +275,10 @@ def _word(chars, width, height):
         "bottom": round(height - min(c.y0 for c in chars), 1),
         "size": round(sizes[len(sizes) // 2], 1),
         "flags": flags,
+        # Text colour and drawing order, to tell text a reader cannot see
+        # (same colour as what is behind it, or painted over afterwards).
+        "color": _rgb(getattr(chars[0].graphicstate, "ncolor", None)),
+        "z": max(getattr(c, "draw_index", 0) for c in chars),
         # Per-character centres: two table columns that almost touch can
         # merge into one "word" ('…1 or 2' + qty '1' -> '21'); the parent
         # cuts words at column edges with these.

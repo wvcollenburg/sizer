@@ -3591,6 +3591,7 @@ textarea.text-input:focus {
 .bom-modal .bom-result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border); }
 .bom-modal .bom-result-title h3 { margin: 0; font-size: var(--fs-base); font-weight: 600; }
 .bom-modal .bom-result-meta { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; }
+.bom-modal .bom-certainty-why { text-decoration: underline dotted; cursor: help; }
 .bom-modal .bom-result-chips { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
 /* Per-config blocks. */

@@ -12,14 +12,16 @@ Hard stops (score 0 — the parse is never trusted):
   * active content: JavaScript, launch actions, embedded files, forms that
     submit, rich media — nothing a generated quote contains;
   * encrypted PDFs, and PDFs cut off at the page/word limit;
-  * text a person cannot see (invisible render mode, white-on-white, sub-
-    1.5 pt, off-page) *inside the parts table* — the classic way to smuggle
+  * text a person cannot see (invisible render mode, text the colour of
+    what is behind it, text painted over, sub-1.5 pt, off-page) *inside the
+    parts table* — the classic way to smuggle
     parts or instructions past a human reviewer;
   * more than 5% of the text unreadable (missing font maps), or more than a
     fifth of the table's lines unexplained, or nothing read at all.
 
 Deductions (the rest):
-  * hidden text elsewhere on the page, document actions (OpenAction / AA),
+  * hidden text elsewhere on the page (low contrast, covered, tiny, off-
+    page), document actions (OpenAction / AA),
     an incremental update (the file was edited after it was generated);
   * each table line the parser could not place, each part number that does
     not look like the vendor's, each cross-check of the document's own
@@ -113,7 +115,12 @@ def assess(doc, ev, bom) -> Certainty:
             cost("hidden_text_in_table", 0, "Invisible text inside the parts table: %s"
                  % " ".join(w.text for w in inside[:12])[:200], hard=True)
         else:
-            cost("hidden_text", 20, "The PDF contains %d invisible word(s)." % len(hidden))
+            # Outside the parts table hidden text cannot change the parse (the
+            # parsers and the agent only see visible text), so it is a mark
+            # against the file, not a stop: e.g. Arrow's quote template keeps
+            # three stale lines in black on its black totals band.
+            cost("hidden_text", 10, "The PDF contains %d invisible word(s) outside the parts table: %s"
+                 % (len(hidden), " ".join(w.text for w in hidden[:12])[:160]))
 
     if bom is None or not bom.configs or ev.rows == 0:
         cost("nothing_read", 0, "No parts could be read from the table.", hard=True)

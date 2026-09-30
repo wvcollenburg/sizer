@@ -133,15 +133,44 @@ class PdfDoc:
         return bad / len(text)
 
 
-def _covered(box, fills):
-    """Is the word sitting on a filled, non-white box (e.g. a table header)?"""
-    x0, top, x1, bottom = box
-    for fx0, ftop, fx1, fbottom, white in fills:
-        if white:
+MIN_CONTRAST = 0.2          # luminance difference below which text does not read
+
+
+def _luminance(rgb):
+    r, g, b = rgb
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _unreadable(w, fills) -> Optional[str]:
+    """Why a person cannot read this word, or None.
+
+    'covered': a filled box painted after the text lies over it.
+    'low_contrast': the text colour is (nearly) the colour behind it — the
+    last box painted under it, or the white page. Black on black, white on
+    white, grey on grey: all the same trick."""
+    x0, top, x1, bottom = w["x0"], w["top"], w["x1"], w["bottom"]
+    cx, cy = (x0 + x1) / 2, (top + bottom) / 2
+    behind = None
+    for f in fills:
+        if len(f) < 7:
             continue
-        if fx0 - 1 <= x0 and x1 <= fx1 + 1 and ftop - 1 <= top and bottom <= fbottom + 1:
-            return True
-    return False
+        fx0, ftop, fx1, fbottom, _white, rgb, z = f[:7]
+        if not (fx0 - 0.5 <= cx <= fx1 + 0.5 and ftop - 0.5 <= cy <= fbottom + 0.5):
+            continue
+        if z > w.get("z", 0):
+            # Painted over the word: hides it unless the box is tiny.
+            if (fx1 - fx0) * (fbottom - ftop) >= 0.5 * (x1 - x0) * max(bottom - top, 1):
+                return "covered"
+            continue
+        if behind is None or z > behind[1]:
+            behind = (rgb, z)
+    text = w.get("color")
+    if text is None:
+        return None
+    background = behind[0] if behind and behind[0] is not None else [1.0, 1.0, 1.0]
+    if abs(_luminance(text) - _luminance(background)) < MIN_CONTRAST:
+        return "low_contrast"
+    return None
 
 
 def _lines(words: List[Word], page: int) -> List[Line]:
@@ -175,8 +204,7 @@ def from_json(data: dict, raw: bytes = b"") -> PdfDoc:
             flags = set(w.get("flags") or [])
             if not word.text.strip():
                 continue
-            if flags & HIDING_FLAGS or ("white" in flags and not _covered(
-                    (word.x0, word.top, word.x1, word.bottom), p.get("fills") or [])):
+            if flags & HIDING_FLAGS or _unreadable(w, p.get("fills") or []):
                 hidden.append(word)
             else:
                 visible.append(word)

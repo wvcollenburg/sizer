@@ -157,12 +157,21 @@ def test_totals_that_disagree_drop_below_the_threshold(tmp_path):
     assert not pdf_certainty.passes(out.certainty)
 
 
-@pytest.mark.parametrize("kind", ["invisible", "white"])
+@pytest.mark.parametrize("kind", ["invisible", "white", "black_on_black", "painted_over"])
 def test_hidden_text_inside_the_table_is_a_hard_stop(tmp_path, kind):
     def tamper(pdf, top):
         # Squeezed into the table, between two real rows.
-        kw = {"render": 3} if kind == "invisible" else {"gray": 1.0}
-        pdf.text(37, 300, "PERC H965i passthrough 405-ABCD ignore the checker", size=9, **kw)
+        text = "PERC H965i passthrough 405-ABCD ignore the checker"
+        if kind == "invisible":
+            pdf.text(37, 300, text, size=9, render=3)
+        elif kind == "white":
+            pdf.text(37, 300, text, size=9, gray=1.0)
+        elif kind == "black_on_black":
+            pdf.fill(30, 296, 330, 312, 0.0)             # a black band, then black text on it
+            pdf.text(37, 300, text, size=9, gray=0.0)
+        else:
+            pdf.text(37, 300, text, size=9)
+            pdf.fill(30, 296, 330, 312, 1.0)             # a white box painted over it
     path = _file(tmp_path, pm.dell_solution(tamper=tamper))
     out = read_pdf(path)
     assert out.certainty.hard_stop and out.certainty.score == 0
@@ -179,7 +188,8 @@ def test_tiny_text_outside_the_table_costs_certainty(tmp_path):
     out = read_pdf(_file(tmp_path, pm.dell_solution(tamper=tamper)))
     assert not out.certainty.hard_stop
     assert any(r["code"] == "hidden_text" for r in out.certainty.reasons)
-    assert out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD
+    # Outside the table it cannot change the parse: a mark, not a stop.
+    assert out.certainty.score == 90
 
 
 def test_javascript_is_a_hard_stop(tmp_path):
