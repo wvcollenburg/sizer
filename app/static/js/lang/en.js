@@ -1190,7 +1190,7 @@
   "wizard.intro.2": "Here's what we found. Confirm it looks right — and add source-CPU benchmark scores for a sharper performance comparison.",
   "wizard.intro.3": "Review the discovered VMs. Exclude anything that shouldn't be sized (powered-off, storage/controller VMs, templates) and edit figures where needed.",
   "wizard.intro.4": "Set the sizing and growth assumptions. Sensible defaults are already applied — open Advanced options only if you need them.",
-  "wizard.intro.5": "Your SC// recommendations, ranked. Compare the options; each card can be exported directly.",
+  "wizard.intro.5": "Your SC// recommendations, ranked. Compare the options, select one and save — exports are made from the project page.",
   "wizard.next": "Next",
   "wizard.options.hide_advanced": "Hide advanced options",
   "wizard.options.show_advanced": "Show advanced options",

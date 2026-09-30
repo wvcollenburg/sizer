@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Siin on, mida leidsime. Kinnitage, et see näeb õige välja — ja lisage lähte-CPU võrdlustesti skoorid täpsemaks jõudluse võrdluseks.",
   "wizard.intro.3": "Vaadake üle leitud VM-id. Jätke välja kõik, mida ei tuleks mõõta (väljalülitatud, salvestus-/kontrolleri-VM-id, mallid), ja muutke näitajaid, kus vaja.",
   "wizard.intro.4": "Määrake sizingu ja kasvu eeldused. Mõistlikud vaikeväärtused on juba rakendatud — avage täpsemad valikud ainult siis, kui vajate neid.",
-  "wizard.intro.5": "Teie SC// soovitused, pingereas. Võrrelge valikuid; iga kaardi saab otse eksportida.",
+  "wizard.intro.5": "Teie SC// soovitused, pingereas. Võrrelge valikuid, valige üks ja salvestage — eksport tehakse projekti lehelt.",
   "wizard.next": "Edasi",
   "wizard.options.hide_advanced": "Peida täpsemad valikud",
   "wizard.options.show_advanced": "Näita täpsemaid valikuid",

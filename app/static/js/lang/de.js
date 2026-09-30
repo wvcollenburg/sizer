@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Das haben wir gefunden. Bestätigen Sie, dass alles korrekt aussieht — und ergänzen Sie Benchmark-Werte der Quell-CPU für einen genaueren Leistungsvergleich.",
   "wizard.intro.3": "Prüfen Sie die erkannten VMs. Schließen Sie alles aus, was nicht dimensioniert werden soll (ausgeschaltet, Speicher-/Controller-VMs, Vorlagen), und bearbeiten Sie die Werte, wo nötig.",
   "wizard.intro.4": "Legen Sie die Sizing- und Wachstumsannahmen fest. Sinnvolle Standardwerte sind bereits angewendet — öffnen Sie die erweiterten Optionen nur, wenn Sie sie benötigen.",
-  "wizard.intro.5": "Ihre SC//-Empfehlungen, nach Rang sortiert. Vergleichen Sie die Optionen; jede Karte kann direkt exportiert werden.",
+  "wizard.intro.5": "Ihre SC//-Empfehlungen, nach Rang sortiert. Vergleichen Sie die Optionen, wählen Sie eine aus und speichern Sie — Exporte erstellen Sie auf der Projektseite.",
   "wizard.next": "Weiter",
   "wizard.options.hide_advanced": "Erweiterte Optionen ausblenden",
   "wizard.options.show_advanced": "Erweiterte Optionen anzeigen",

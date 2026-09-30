@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Veja o que encontramos. Confirme se está correto — e adicione pontuações de benchmark da CPU de origem para uma comparação de desempenho mais precisa.",
   "wizard.intro.3": "Revise as VMs descobertas. Exclua tudo o que não deve ser dimensionado (desligadas, VMs de armazenamento/controladora, templates) e edite os valores quando necessário.",
   "wizard.intro.4": "Defina as premissas de dimensionamento e crescimento. Padrões sensatos já foram aplicados — abra as opções avançadas apenas se precisar delas.",
-  "wizard.intro.5": "Suas recomendações SC//, ranqueadas. Compare as opções; cada card pode ser exportado diretamente.",
+  "wizard.intro.5": "Suas recomendações SC//, ranqueadas. Compare as opções, selecione uma e salve — as exportações são feitas na página do projeto.",
   "wizard.next": "Avançar",
   "wizard.options.hide_advanced": "Ocultar opções avançadas",
   "wizard.options.show_advanced": "Mostrar opções avançadas",

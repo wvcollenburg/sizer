@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Her er det vi fant. Bekreft at det ser riktig ut — og legg til benchmark-poeng for kilde-CPU for en skarpere ytelsessammenligning.",
   "wizard.intro.3": "Gjennomgå de oppdagede VM-ene. Ekskluder alt som ikke skal dimensjoneres (avslåtte, lagrings-/kontroller-VM-er, maler) og rediger tall der det trengs.",
   "wizard.intro.4": "Angi forutsetningene for dimensjonering og vekst. Fornuftige standardverdier er allerede brukt — åpne Avanserte alternativer bare hvis du trenger dem.",
-  "wizard.intro.5": "Dine SC//-anbefalinger, rangert. Sammenlign alternativene; hvert kort kan eksporteres direkte.",
+  "wizard.intro.5": "Dine SC//-anbefalinger, rangert. Sammenlign alternativene, velg ett og lagre — eksporter lages fra prosjektsiden.",
   "wizard.next": "Neste",
   "wizard.options.hide_advanced": "Skjul avanserte alternativer",
   "wizard.options.show_advanced": "Vis avanserte alternativer",

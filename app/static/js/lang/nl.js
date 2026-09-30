@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Dit is wat we hebben gevonden. Bevestig dat het klopt — en voeg benchmarkscores voor de bron-CPU toe voor een scherpere prestatievergelijking.",
   "wizard.intro.3": "Controleer de gevonden VM's. Sluit alles uit dat niet bemeten hoeft te worden (uitgeschakelde VM's, opslag-/controller-VM's, sjablonen) en pas de cijfers aan waar nodig.",
   "wizard.intro.4": "Stel de sizing- en groeiaannames in. Er zijn al zinvolle standaardwaarden toegepast — open Geavanceerde opties alleen als u ze nodig hebt.",
-  "wizard.intro.5": "Uw SC//-aanbevelingen, gerangschikt. Vergelijk de opties; elke kaart kan direct worden geëxporteerd.",
+  "wizard.intro.5": "Uw SC//-aanbevelingen, gerangschikt. Vergelijk de opties, selecteer er een en sla op — exports maakt u op de projectpagina.",
   "wizard.next": "Volgende",
   "wizard.options.hide_advanced": "Geavanceerde opties verbergen",
   "wizard.options.show_advanced": "Geavanceerde opties tonen",

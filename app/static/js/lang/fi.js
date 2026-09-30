@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Tässä on löytämämme. Vahvista, että tiedot näyttävät oikeilta — ja lisää lähde-CPU:n vertailupisteet tarkempaa suorituskykyvertailua varten.",
   "wizard.intro.3": "Tarkista löydetyt VM:t. Sulje pois kaikki, mitä ei pitäisi mitoittaa (pois päältä olevat, tallennus-/ohjain-VM:t, mallit) ja muokkaa lukuja tarvittaessa.",
   "wizard.intro.4": "Aseta mitoitus- ja kasvuoletukset. Järkevät oletukset on jo otettu käyttöön — avaa lisäasetukset vain, jos tarvitset niitä.",
-  "wizard.intro.5": "SC//-suosituksesi paremmuusjärjestyksessä. Vertaa vaihtoehtoja; jokainen kortti voidaan viedä suoraan.",
+  "wizard.intro.5": "SC//-suosituksesi paremmuusjärjestyksessä. Vertaa vaihtoehtoja, valitse yksi ja tallenna — viennit tehdään projektisivulta.",
   "wizard.next": "Seuraava",
   "wizard.options.hide_advanced": "Piilota lisäasetukset",
   "wizard.options.show_advanced": "Näytä lisäasetukset",

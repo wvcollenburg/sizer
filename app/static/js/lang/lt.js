@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Štai ką radome. Patvirtinkite, kad viskas atrodo teisingai — ir pridėkite šaltinio CPU etaloninio testo rezultatus, kad našumo palyginimas būtų tikslesnis.",
   "wizard.intro.3": "Peržiūrėkite aptiktus VM. Pašalinkite tai, ko nereikėtų įtraukti į dydžio parinkimą (išjungtus, saugyklos / valdiklio VM, šablonus), ir prireikus pakoreguokite skaičius.",
   "wizard.intro.4": "Nustatykite dydžio parinkimo ir augimo prielaidas. Protingi numatytieji nustatymai jau pritaikyti — atverkite Papildomas parinktis tik tada, jei jų reikia.",
-  "wizard.intro.5": "Jūsų SC// rekomendacijos, surikiuotos. Palyginkite parinktis; kiekvieną kortelę galima eksportuoti tiesiogiai.",
+  "wizard.intro.5": "Jūsų SC// rekomendacijos, surikiuotos. Palyginkite parinktis, pasirinkite vieną ir išsaugokite — eksportuojama iš projekto puslapio.",
   "wizard.next": "Toliau",
   "wizard.options.hide_advanced": "Slėpti papildomas parinktis",
   "wizard.options.show_advanced": "Rodyti papildomas parinktis",

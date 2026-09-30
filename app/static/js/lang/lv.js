@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Lūk, ko mēs atradām. Apstipriniet, ka viss izskatās pareizi — un pievienojiet avota CPU etalonrādītājus precīzākam veiktspējas salīdzinājumam.",
   "wizard.intro.3": "Pārskatiet atrastos VM. Izslēdziet visu, kas nav jāizmēro (izslēgtus, krātuves/kontroliera VM, veidnes), un rediģējiet skaitļus, kur nepieciešams.",
   "wizard.intro.4": "Iestatiet aprēķina un pieauguma pieņēmumus. Saprātīgas noklusējuma vērtības jau ir piemērotas — atveriet Papildu opcijas tikai tad, ja tās nepieciešamas.",
-  "wizard.intro.5": "Jūsu SC// ieteikumi, sarindoti. Salīdziniet opcijas; katru kartīti var eksportēt tieši.",
+  "wizard.intro.5": "Jūsu SC// ieteikumi, sarindoti. Salīdziniet opcijas, izvēlieties vienu un saglabājiet — eksportu veido projekta lapā.",
   "wizard.next": "Tālāk",
   "wizard.options.hide_advanced": "Slēpt papildu opcijas",
   "wizard.options.show_advanced": "Rādīt papildu opcijas",

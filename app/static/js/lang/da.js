@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Her er, hvad vi fandt. Bekræft, at det ser rigtigt ud — og tilføj benchmarkscorer for kilde-CPU'en for en skarpere ydelsessammenligning.",
   "wizard.intro.3": "Gennemgå de fundne VM'er. Udeluk alt, der ikke skal dimensioneres (slukkede VM'er, lager-/controller-VM'er, skabeloner), og rediger tal, hvor det er nødvendigt.",
   "wizard.intro.4": "Angiv antagelserne for dimensionering og vækst. Fornuftige standardværdier er allerede anvendt — åbn kun Avancerede indstillinger, hvis du har brug for dem.",
-  "wizard.intro.5": "Dine SC//-anbefalinger, rangeret. Sammenlign mulighederne; hvert kort kan eksporteres direkte.",
+  "wizard.intro.5": "Dine SC//-anbefalinger, rangeret. Sammenlign mulighederne, vælg én og gem — eksporter laves fra projektsiden.",
   "wizard.next": "Næste",
   "wizard.options.hide_advanced": "Skjul avancerede indstillinger",
   "wizard.options.show_advanced": "Vis avancerede indstillinger",
