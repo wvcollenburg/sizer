@@ -353,7 +353,7 @@
   "admin.users.none": "No users.",
   "admin.users.reset_email_confirm": "Email this user a password-reset link?",
   "admin.users.reset_password": "Reset password",
-  "admin.users.reset_prompt": "Reset password for {email}.\n\nEnter a new password (min 8 chars), or leave blank to email them a reset link (requires SMTP):",
+  "admin.users.reset_prompt": "Reset password for {email}.\n\nEnter a new password (at least 10 characters, with an uppercase and a lowercase letter, a number and a special character), or leave blank to email them a reset link (requires SMTP):",
   "admin.users.restore": "Restore",
   "admin.users.restored_ok": "User restored.",
   "admin.users.role_confirm": "Change this user's role to \"{role}\"?",
@@ -1190,7 +1190,7 @@
   "wizard.intro.2": "Here's what we found. Confirm it looks right — and add source-CPU benchmark scores for a sharper performance comparison.",
   "wizard.intro.3": "Review the discovered VMs. Exclude anything that shouldn't be sized (powered-off, storage/controller VMs, templates) and edit figures where needed.",
   "wizard.intro.4": "Set the sizing and growth assumptions. Sensible defaults are already applied — open Advanced options only if you need them.",
-  "wizard.intro.5": "Your SC// recommendations, ranked. Compare the options; each card can be exported directly.",
+  "wizard.intro.5": "Your SC// recommendations, ranked. Compare the options, select one and save — exports are made from the project page.",
   "wizard.next": "Next",
   "wizard.options.hide_advanced": "Hide advanced options",
   "wizard.options.show_advanced": "Show advanced options",
@@ -1715,5 +1715,11 @@
   "bom.agent.hidden_words": "The PDF contained {n} invisible word(s). They were not read, and the check has been sent to Scale Computing for review.",
   "admin.bomagent.pdf_threshold": "Minimum PDF certainty",
   "admin.bomagent.pdf_threshold_hint": "PDFs in a known layout are read locally, without the agent, when the certainty score (0–100) reaches this minimum. Below it, or when the file looks tampered with, the agent reads the file instead.",
-  "admin.bom.reason_pdf_suspicious": "The PDF contained invisible text or active content"
+  "admin.bom.reason_pdf_suspicious": "The PDF contained invisible text or active content",
+  "header.manual": "User manual",
+  "manual.badge_user": "User manual",
+  "manual.badge_scale": "Staff manual",
+  "manual.to_user": "Partner edition",
+  "manual.to_scale": "Staff edition",
+  "manual.back": "Back to the sizer"
 };

@@ -1,0 +1,67 @@
+{% import "manual/_macros.html" as m with context %}
+<dl class="manual-faq">
+    <dt>My import is refused.</dt>
+    <dd>Upload the <code>.xlsx</code> exactly as Live Optics, RVTools or Nutanix Collector
+        produced it. Files that were opened and re-saved in another tool, or exports that are
+        incomplete (for example a Live Optics export where the datastores cover only some of
+        the VMs), are refused with a message that says what is wrong. Run the collection again
+        where needed.</dd>
+
+    <dt>The recommendation looks too big.</dt>
+    <dd>Check, in this order: the VM review (powered-off VMs, VMware artifacts and old
+        controller VMs still included?), the vCPU:core ratio, the growth settings (10% for 5
+        years is 1.6 times today), the day-one caps, and the source CPU benchmark score on
+        step 2. The <em>Determined by</em> line and the <em>limiting</em> marker show which
+        resource drives the size.</dd>
+
+    <dt>The recommendation looks too small.</dt>
+    <dd>Check that the ratio is realistic for the workload (databases want close to 1:1),
+        that no VMs were excluded by mistake, and whether local storage should be included.
+        Remember that CPU and RAM are already sized for one node down.</dd>
+
+    <dt>What is the difference between <em>Alternative</em> and <em>Part of the total</em>?</dt>
+    <dd>Parts of the total add up to one estate (sites, clusters, phases). Alternatives
+        compete for the same workload and are never added up. See
+        <a href="#roles">Roles</a>.</dd>
+
+    <dt>A sizing says <em>Needs refresh</em>.</dt>
+    <dd>The catalog or the sizing rules changed after it was saved. Opening the project
+        recalculates it. If that fails, open the sizing: the reason is shown there. A DR
+        target must be opened and saved by hand.</dd>
+
+    <dt>A sizing says <em>Re-import</em>.</dt>
+    <dd>Its file was read by an older version of the importer that has since been fixed.
+        Import the same file again into a new sizing.</dd>
+
+    <dt>How do I rename a sizing?</dt>
+    <dd>You cannot rename it. Open it, choose {{ m.ui("Save sizing") }} →
+        {{ m.ui("Save as new") }} with the new name, and delete the old one.</dd>
+
+    <dt>I cannot change a project.</dt>
+    <dd>It belongs to someone else: a colleague's project, or one opened by code, is
+        read-only. Use <em>Copy to mine</em> on a sizing to get your own copy.</dd>
+
+    <dt>I need an editable Word or PowerPoint file.</dt>
+    <dd>{% if scale %}Only Scale Computing accounts and super admins get those formats: copy
+        the partner's sizings into a project of your own and export from there.{% else %}The
+        editable formats are made by Scale Computing staff. Ask your Scale Computing
+        contact.{% endif %}</dd>
+
+    <dt>My export says <em>Expired</em>.</dt>
+    <dd>Downloads are kept for 24 hours. Make the export again.</dd>
+
+    <dt>The BOM checker does not recognise my quote.</dt>
+    <dd>The AI agent reads it instead. If that fails or is not available, download the blank
+        template from the upload step, copy the parts into it, and check that file.</dd>
+
+    <dt>I did not get the verification or password-reset email.</dt>
+    <dd>Check your spam folder. Verification links last 24 hours and reset links 2 hours.
+        Request a new one from the sign-in dialog. If nothing arrives,
+        {% if scale %}check the <a href="#admin-email">Email</a> settings{% else %}ask your
+        tenant admin or your Scale Computing contact{% endif %}.</dd>
+
+    <dt>Who can see my work?</dt>
+    <dd>Everyone in your organisation (same email domain) can see your projects and sizings,
+        read-only. Scale Computing staff can open a project or sizing when they have its share
+        code. Nobody else can.</dd>
+</dl>

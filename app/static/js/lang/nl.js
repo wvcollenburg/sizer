@@ -352,7 +352,7 @@
   "admin.users.none": "Geen gebruikers.",
   "admin.users.reset_email_confirm": "Deze gebruiker een link voor het opnieuw instellen van het wachtwoord e-mailen?",
   "admin.users.reset_password": "Wachtwoord opnieuw instellen",
-  "admin.users.reset_prompt": "Wachtwoord opnieuw instellen voor {email}.\n\nVoer een nieuw wachtwoord in (min. 8 tekens), of laat leeg om hen een reset-link te e-mailen (vereist SMTP):",
+  "admin.users.reset_prompt": "Wachtwoord opnieuw instellen voor {email}.\n\nVoer een nieuw wachtwoord in (min. 10 tekens, met een hoofdletter, een kleine letter, een cijfer en een speciaal teken), of laat leeg om hen een reset-link te e-mailen (vereist SMTP):",
   "admin.users.restore": "Herstellen",
   "admin.users.restored_ok": "Gebruiker hersteld.",
   "admin.users.role_confirm": "De rol van deze gebruiker wijzigen naar \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Dit is wat we hebben gevonden. Bevestig dat het klopt — en voeg benchmarkscores voor de bron-CPU toe voor een scherpere prestatievergelijking.",
   "wizard.intro.3": "Controleer de gevonden VM's. Sluit alles uit dat niet bemeten hoeft te worden (uitgeschakelde VM's, opslag-/controller-VM's, sjablonen) en pas de cijfers aan waar nodig.",
   "wizard.intro.4": "Stel de sizing- en groeiaannames in. Er zijn al zinvolle standaardwaarden toegepast — open Geavanceerde opties alleen als u ze nodig hebt.",
-  "wizard.intro.5": "Uw SC//-aanbevelingen, gerangschikt. Vergelijk de opties; elke kaart kan direct worden geëxporteerd.",
+  "wizard.intro.5": "Uw SC//-aanbevelingen, gerangschikt. Vergelijk de opties, selecteer er een en sla op — exports maakt u op de projectpagina.",
   "wizard.next": "Volgende",
   "wizard.options.hide_advanced": "Geavanceerde opties verbergen",
   "wizard.options.show_advanced": "Geavanceerde opties tonen",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "De PDF bevatte {n} onzichtbare woord(en). Die zijn niet gelezen, en de controle is ter beoordeling naar Scale Computing gestuurd.",
   "admin.bomagent.pdf_threshold": "Minimale PDF-zekerheid",
   "admin.bomagent.pdf_threshold_hint": "PDF's in een bekende indeling worden lokaal gelezen, zonder de agent, als de zekerheidsscore (0–100) dit minimum haalt. Daaronder, of als het bestand gemanipuleerd lijkt, leest de agent het bestand.",
-  "admin.bom.reason_pdf_suspicious": "De PDF bevatte onzichtbare tekst of actieve inhoud"
+  "admin.bom.reason_pdf_suspicious": "De PDF bevatte onzichtbare tekst of actieve inhoud",
+  "header.manual": "Handleiding",
+  "manual.badge_user": "Handleiding",
+  "manual.badge_scale": "Medewerkershandleiding",
+  "manual.to_user": "Partnereditie",
+  "manual.to_scale": "Medewerkerseditie",
+  "manual.back": "Terug naar de sizer"
 };

@@ -89,7 +89,17 @@ function updateGate() {
     }
 }
 
+// Scale Computing accounts and super admins read the staff edition of the
+// manual; the server refuses it to anyone else (manual_routes.py).
+function updateManualLink() {
+    const link = document.getElementById('manual-link');
+    if (!link) return;
+    const staff = !!(currentAccount && (currentAccount.is_scale || currentAccount.role === 'super_admin'));
+    link.href = staff ? '/manual/scale' : '/manual/';
+}
+
 function renderAccountBar() {
+    updateManualLink();
     const bar = document.getElementById('account-bar');
     if (!bar) return;
     if (!currentAccount) {

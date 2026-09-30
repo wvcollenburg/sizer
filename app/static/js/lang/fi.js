@@ -352,7 +352,7 @@
   "admin.users.none": "Ei käyttäjiä.",
   "admin.users.reset_email_confirm": "Lähetetäänkö tälle käyttäjälle salasanan nollauslinkki sähköpostitse?",
   "admin.users.reset_password": "Nollaa salasana",
-  "admin.users.reset_prompt": "Nollaa salasana käyttäjälle {email}.\n\nSyötä uusi salasana (väh. 8 merkkiä) tai jätä tyhjäksi lähettääksesi heille nollauslinkin sähköpostitse (vaatii SMTP:n):",
+  "admin.users.reset_prompt": "Nollaa salasana käyttäjälle {email}.\n\nSyötä uusi salasana (väh. 10 merkkiä, jossa iso ja pieni kirjain, numero ja erikoismerkki) tai jätä tyhjäksi lähettääksesi heille nollauslinkin sähköpostitse (vaatii SMTP:n):",
   "admin.users.restore": "Palauta",
   "admin.users.restored_ok": "Käyttäjä palautettu.",
   "admin.users.role_confirm": "Muutetaanko tämän käyttäjän rooliksi \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Tässä on löytämämme. Vahvista, että tiedot näyttävät oikeilta — ja lisää lähde-CPU:n vertailupisteet tarkempaa suorituskykyvertailua varten.",
   "wizard.intro.3": "Tarkista löydetyt VM:t. Sulje pois kaikki, mitä ei pitäisi mitoittaa (pois päältä olevat, tallennus-/ohjain-VM:t, mallit) ja muokkaa lukuja tarvittaessa.",
   "wizard.intro.4": "Aseta mitoitus- ja kasvuoletukset. Järkevät oletukset on jo otettu käyttöön — avaa lisäasetukset vain, jos tarvitset niitä.",
-  "wizard.intro.5": "SC//-suosituksesi paremmuusjärjestyksessä. Vertaa vaihtoehtoja; jokainen kortti voidaan viedä suoraan.",
+  "wizard.intro.5": "SC//-suosituksesi paremmuusjärjestyksessä. Vertaa vaihtoehtoja, valitse yksi ja tallenna — viennit tehdään projektisivulta.",
   "wizard.next": "Seuraava",
   "wizard.options.hide_advanced": "Piilota lisäasetukset",
   "wizard.options.show_advanced": "Näytä lisäasetukset",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF sisälsi {n} näkymätöntä sanaa. Niitä ei luettu, ja tarkistus on lähetetty Scale Computingille tarkastettavaksi.",
   "admin.bomagent.pdf_threshold": "PDF:n vähimmäisvarmuus",
   "admin.bomagent.pdf_threshold_hint": "Tunnetussa asettelussa olevat PDF:t luetaan paikallisesti ilman agenttia, kun varmuuspisteet (0–100) saavuttavat tämän vähimmäisarvon. Sen alapuolella, tai jos tiedostoa näyttää peukaloidun, agentti lukee tiedoston.",
-  "admin.bom.reason_pdf_suspicious": "PDF sisälsi näkymätöntä tekstiä tai aktiivista sisältöä"
+  "admin.bom.reason_pdf_suspicious": "PDF sisälsi näkymätöntä tekstiä tai aktiivista sisältöä",
+  "header.manual": "Käyttöopas",
+  "manual.badge_user": "Käyttöopas",
+  "manual.badge_scale": "Henkilöstön opas",
+  "manual.to_user": "Kumppaniversio",
+  "manual.to_scale": "Henkilöstöversio",
+  "manual.back": "Takaisin sizeriin"
 };

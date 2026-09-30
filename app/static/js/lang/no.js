@@ -352,7 +352,7 @@
   "admin.users.none": "Ingen brukere.",
   "admin.users.reset_email_confirm": "Sende denne brukeren en lenke for tilbakestilling av passord på e-post?",
   "admin.users.reset_password": "Tilbakestill passord",
-  "admin.users.reset_prompt": "Tilbakestill passord for {email}.\n\nSkriv inn et nytt passord (min. 8 tegn), eller la stå tomt for å sende dem en tilbakestillingslenke på e-post (krever SMTP):",
+  "admin.users.reset_prompt": "Tilbakestill passord for {email}.\n\nSkriv inn et nytt passord (min. 10 tegn, med en stor og en liten bokstav, et tall og et spesialtegn), eller la stå tomt for å sende dem en tilbakestillingslenke på e-post (krever SMTP):",
   "admin.users.restore": "Gjenopprett",
   "admin.users.restored_ok": "Bruker gjenopprettet.",
   "admin.users.role_confirm": "Endre denne brukerens rolle til «{role}»?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Her er det vi fant. Bekreft at det ser riktig ut — og legg til benchmark-poeng for kilde-CPU for en skarpere ytelsessammenligning.",
   "wizard.intro.3": "Gjennomgå de oppdagede VM-ene. Ekskluder alt som ikke skal dimensjoneres (avslåtte, lagrings-/kontroller-VM-er, maler) og rediger tall der det trengs.",
   "wizard.intro.4": "Angi forutsetningene for dimensjonering og vekst. Fornuftige standardverdier er allerede brukt — åpne Avanserte alternativer bare hvis du trenger dem.",
-  "wizard.intro.5": "Dine SC//-anbefalinger, rangert. Sammenlign alternativene; hvert kort kan eksporteres direkte.",
+  "wizard.intro.5": "Dine SC//-anbefalinger, rangert. Sammenlign alternativene, velg ett og lagre — eksporter lages fra prosjektsiden.",
   "wizard.next": "Neste",
   "wizard.options.hide_advanced": "Skjul avanserte alternativer",
   "wizard.options.show_advanced": "Vis avanserte alternativer",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF-en inneholdt {n} usynlige ord. De ble ikke lest, og sjekken er sendt til Scale Computing for gjennomgang.",
   "admin.bomagent.pdf_threshold": "Minste PDF-sikkerhet",
   "admin.bomagent.pdf_threshold_hint": "PDF-er i et kjent oppsett leses lokalt, uten agenten, når sikkerhetsscoren (0–100) når dette minimumet. Under det, eller hvis filen ser manipulert ut, leser agenten filen i stedet.",
-  "admin.bom.reason_pdf_suspicious": "PDF-en inneholdt usynlig tekst eller aktivt innhold"
+  "admin.bom.reason_pdf_suspicious": "PDF-en inneholdt usynlig tekst eller aktivt innhold",
+  "header.manual": "Brukerhåndbok",
+  "manual.badge_user": "Brukerhåndbok",
+  "manual.badge_scale": "Håndbok for ansatte",
+  "manual.to_user": "Partnerutgave",
+  "manual.to_scale": "Utgave for ansatte",
+  "manual.back": "Tilbake til sizeren"
 };

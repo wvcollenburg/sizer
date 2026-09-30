@@ -2508,7 +2508,10 @@ body.auth-required footer { display: none; }
 #name-sizing-modal .modal-body,
 #leave-page-modal .modal-body,
 #source-cpu-modal .modal-body,
-#privacy-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+#privacy-modal .modal-body,
+#save-choice-modal .modal-body,
+#cluster-fanout-modal .modal-body,
+#org-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
 
 /* My data & privacy modal: stacked self-service actions. */
 #privacy-modal .modal-sep { border: 0; border-top: 1px solid var(--border); margin: 1.1rem 0; }
@@ -3028,6 +3031,10 @@ body.view-project  #project-screens { display: block; max-width: 64rem; margin: 
 body.view-projects main,
 body.view-project  main { display: none; }
 body.auth-required #project-screens { display: none; }
+/* The header's Save sizing saves what is open in the sizer; on a project
+   screen there is nothing to save. */
+body.view-projects .account-bar .btn-account,
+body.view-project  .account-bar .btn-account { display: none; }
 
 .project-screen { animation: fadeIn 0.15s ease-out; }
 

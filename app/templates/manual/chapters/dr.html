@@ -1,0 +1,51 @@
+{% import "manual/_macros.html" as m with context %}
+<p>A <strong>DR target</strong> is a site that holds replicas of other sizings' VMs, for
+   example a secondary data centre. It is sized from the capacity it must reserve for them,
+   not from an import.</p>
+
+<h3 id="dr-create">Setting up replication</h3>
+<ol>
+    <li>On the project page choose {{ m.ui("Add DR target") }} and give it a name (the
+        default is <em>DR site</em>). It appears in the table as a <em>Replication
+        target</em>, not sized yet.</li>
+    <li>Open the Options panel (sliders icon) of a sizing whose VMs must be replicated and set
+        {{ m.ui("Replicates to") }} to the DR target. Batch edit can do this for several
+        sizings at once.</li>
+    <li>Choose how much of the source to reserve: <strong>Compute %</strong> and
+        <strong>Storage %</strong> (100% each by default). Lower them when only part of the
+        workload has to run at the DR site.</li>
+    <li>Choose the <strong>mode</strong>:
+        <ul>
+            <li><strong>Reserved — hold capacity at N-1</strong> (default): the replicas'
+                compute fits even with one of the target's own nodes down.</li>
+            <li><strong>Failover only — replicas run after a site fails</strong>: the
+                replicas' compute only has to fit with all of the target's nodes up. That
+                needs less hardware, but leaves no headroom for a node failure during a
+                disaster.</li>
+        </ul>
+    </li>
+    <li>Save. The link appears under <strong>Replication</strong> on the project page.</li>
+</ol>
+{{ m.shot("sizing-panel-replication", "Production replicates to the DR site") }}
+<p>Replication is not limited to DR targets: any sizing can replicate into another sizing in
+   the same project (for example two production sites protecting each other). The receiving
+   sizing then shows the reserved capacity above its recommendations, and its bars include a
+   <em>replication</em> band.</p>
+
+<h3 id="dr-size">Sizing the DR target</h3>
+<p>Open the DR target from the table.</p>
+{{ m.shot("dr-target", "A DR target, sized from its inbound replication") }}
+<ul>
+    <li><strong>Inbound reserve</strong> lists what every source sends (vCPU, RAM, storage,
+        percentages and mode) and the total. A source that has not been sized yet is flagged,
+        because it contributes nothing until it is.</li>
+    <li>The options are a compact version of the normal ones: vCPU ratio, projection years,
+        growth, snapshot overhead, sizing mode (and vendor for validated), size for model, and
+        three checkboxes: <em>Allow a single-node target</em> (a DR cluster is already a
+        redundancy tier, so one node can be acceptable), <em>Allow storage-only nodes</em> and
+        <em>Include EOL/EOS models</em>.</li>
+    <li>Pick a recommendation and choose {{ m.ui("Save DR target") }}.</li>
+</ul>
+{% call m.note() %}A DR target is not recalculated automatically when its sources change.
+   Its state shows <em>Needs refresh</em>. Open it and save it again. A sizing that others
+   replicate into cannot be deleted until those links are removed.{% endcall %}

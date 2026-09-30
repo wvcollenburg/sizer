@@ -1,0 +1,200 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Choose {{ m.ui("New sizing") }} on a project (or {{ m.ui("Quick sizing") }} on the
+   Projects screen). The sizer opens with a bar showing the project and sizing you are in, a
+   {{ m.ui("← Back to project") }} button, and four <strong>modes</strong>.</p>
+{{ m.shot("sizer-appliance-empty", "A new sizing opens in Appliance mode") }}
+
+<h3 id="modes">The four modes</h3>
+<table class="manual-table">
+    <tr><th>Mode</th><th>Use it when</th></tr>
+    <tr><td>{{ m.ui("Appliance (Certified)") }}</td><td>You already know which SC// appliance
+        and how many nodes, and want to see what that cluster delivers. A calculator, not a
+        recommendation.</td></tr>
+    <tr><td>{{ m.ui("Software Only (Validated)") }}</td><td>You want to check a specific
+        software-only (validated) server configuration against the installer rules.</td></tr>
+    <tr><td>{{ m.ui("Assessment Import") }}</td><td>You have an assessment export of the
+        existing environment. <strong>This is the normal way to size.</strong></td></tr>
+    <tr><td>{{ m.ui("Manual Input") }}</td><td>You have no export, but you know the workload
+        totals (vCPUs, RAM, storage), or you want to type in a list of VMs.</td></tr>
+</table>
+<p>Switching modes starts from scratch: nothing carries over. If you have unsaved work, the
+   sizer asks first:</p>
+{{ m.shot("leave-page", "Unsaved work is never discarded without asking") }}
+<p>{{ m.ui("Stay here") }} cancels, {{ m.ui("Discard & switch") }} throws the work away, and
+   {{ m.ui("Save & switch") }} saves it first.</p>
+
+<h3 id="import">Assessment Import</h3>
+<p>Supported sources:</p>
+<ul>
+    <li><strong>Live Optics</strong>: the VMware collector, the Hyper-V collector, and the
+        physical-server scan. Live Optics exports are the richest source: they include
+        performance data (CPU, memory, IOPS).</li>
+    <li><strong>RVTools</strong>: inventory only. It has no performance data and no local
+        storage figures.</li>
+    <li><strong>Nutanix Collector</strong>.</li>
+</ul>
+<p>Upload the <code>.xlsx</code> file as it came out of the tool. Do not re-save or edit it
+   in Excel first. The sizer recognises the source by itself. An incomplete export is refused
+   with a message that says what is missing (for example <em>datastores account for only X
+   of Y VMs</em>).</p>
+
+<h4 id="wizard">The guided import wizard</h4>
+<p>By default an import runs as a five-step wizard. The steps are shown across the top. Once
+   you have reached a step you can click it to go back to it. {{ m.ui("Back") }} and
+   {{ m.ui("Next") }} move one step at a time.</p>
+{{ m.shot("wizard-upload", "Step 1: Upload") }}
+
+<h4 id="fanout">Several clusters in one file</h4>
+<p>When the export contains more than one cluster, the sizer asks what to do with them:</p>
+{{ m.shot("fanout", "Multiple clusters detected") }}
+<ul>
+    <li>{{ m.ui("Create N sizings") }} (recommended) creates <strong>one sizing per
+        ticked cluster</strong> in the project, each named after its cluster, with the role
+        <em>Part of the total</em> and the tag shown in {{ m.ui("Tag these sizings") }}. Untick
+        clusters you do not want. Clear the tag field to create them without a tag. You are
+        taken back to the project page, where the new sizings are marked <em>To be sized</em>.
+        Nothing is sized until you open each one and save it.</li>
+    <li>{{ m.ui("Size as one combined cluster") }} treats the whole file as a single workload.
+        Choose this only when the clusters really are being consolidated into one new
+        cluster.</li>
+</ul>
+{{ m.shot("project-to-be-sized", "One sizing per cluster, waiting to be reviewed") }}
+
+<h4 id="wizard-environment">Step 2: Environment</h4>
+<p>A summary of what the file contains. Check that it looks right before going on.</p>
+{{ m.shot("wizard-environment", "Step 2: the environment and the workload it runs") }}
+<ul>
+    <li>The top rows describe the <strong>current hardware</strong>: platform, cluster, hosts,
+        VMs, cores, threads, RAM, peak and average CPU and memory use, and IOPS.</li>
+    <li><strong>P95 IOPS</strong> can be typed in when you know it, for example from the Live
+        Optics dashboard. The export itself does not contain it.</li>
+    <li><strong>Source CPU · SPECrate2017</strong> is the benchmark score of the current CPUs.
+        It is filled in automatically when the CPU is recognised. Choose
+        {{ m.ui("edit / add") }} to check or enter it yourself (SPECrate2017 or PassMark,
+        per detected CPU). This score lets the sizer compare the performance of the old and
+        new CPUs, rather than only their clock speed.</li>
+    <li>The <strong>Workload Requirements</strong> row shows what will be sized: vCPUs,
+        provisioned and used RAM, provisioned storage, and datastore use.</li>
+    <li>A box headed <em>A few things to be aware of about this import</em> appears when the
+        data has gaps: for example no performance data, no IOPS data, storage that is only on
+        local disks, hosts that are not in a cluster, or a vCPU ratio that had to be assumed
+        (physical-server scans).</li>
+</ul>
+{{ m.shot("source-cpu", "Source CPU performance: benchmark scores per detected CPU") }}
+
+<h4 id="wizard-vms">Step 3: Review VMs</h4>
+<p>Every VM in the export, so you can leave out what should not be sized and correct what is
+   wrong.</p>
+{{ m.shot("wizard-vms", "Step 3: the VM list") }}
+<table class="manual-table">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>Search / power filter</td><td>Narrow the list by name, or show only powered-on or
+        powered-off VMs.</td></tr>
+    <tr><td>Excl. Compute / Excl. Storage</td><td>Leave a VM's CPU and RAM out of the sizing,
+        or its storage, or both. For example, a VM that is being retired excludes both. A VM
+        whose data moves elsewhere excludes only storage.</td></tr>
+    <tr><td>{{ m.ui("Select powered off") }}</td><td>Excludes every powered-off VM. With
+        {{ m.ui("Include storage in exclusions") }} ticked (the default) their storage is
+        excluded too. Untick it to keep sizing their disks.</td></tr>
+    <tr><td>{{ m.ui("Select likely CVMs") }}</td><td>Excludes the storage controller VMs of
+        the current platform (Nutanix CVMs, SimpliVity, vSAN witness and the like), which are
+        not needed on SC//HyperCore.</td></tr>
+    <tr><td>{{ m.ui("Remove VMware artifacts") }}</td><td>Removes the VMware infrastructure
+        VMs (vCLS, vCenter / VCSA) from compute and storage. They are struck through and can be
+        brought back with ↺.</td></tr>
+    <tr><td>{{ m.ui("+ Add VM") }}</td><td>Adds a VM that is not in the export yet (for example
+        a planned new server).</td></tr>
+    <tr><td>Model, Cores, RAM</td><td>Editable. Correct a VM that is over- or under-sized in
+        the source. Storage can only be edited on VMs you added yourself.</td></tr>
+    <tr><td>{{ m.ui("Clear all") }}</td><td>Clears all exclusions. It does not undo removals
+        or edits.</td></tr>
+</table>
+{{ m.shot("wizard-vms-artifacts", "Remove VMware artifacts: vCLS VMs struck through, restorable with ↺") }}
+<p>The line under the table sums up what is excluded and edited. Your changes are applied when
+   you go to the next step.</p>
+
+<h4 id="wizard-sizing">Step 4: Sizing</h4>
+<p>The sizing options, with sensible defaults already applied. Most sizings need no changes
+   here. {{ m.ui("Show advanced options") }} reveals the rest. Every option is explained in
+   <a href="#options">Sizing options</a>.</p>
+{{ m.shot("wizard-sizing", "Step 4 with the advanced options hidden") }}
+
+<h4 id="wizard-recs">Step 5: Recommendations</h4>
+<p>The ranked recommendations. Reading them is explained in
+   <a href="#results">Reading the results</a>. {{ m.ui("Save and close") }} saves the sizing
+   and takes you back to the project. {{ m.ui("Start over") }} returns to step 1.</p>
+
+<h4 id="classic">The classic view</h4>
+<p>{{ m.ui("Switch to classic view") }} (top right of the wizard) shows everything on one page:
+   upload, environment summary, sizing options on the left and recommendations on the right.
+   Experienced users often prefer it. The VM review is then behind a {{ m.ui("Configure VMs") }}
+   button, which opens the same list in a dialog. Its {{ m.ui("Apply Changes") }} button
+   applies your exclusions. {{ m.ui("Switch to guided wizard") }} goes back. Both views share
+   the same data, so switching never loses work. Your choice is remembered.</p>
+{{ m.shot("classic-view", "The classic view: everything on one page") }}
+
+<h3 id="manual-input">Manual Input</h3>
+<p>For when there is no assessment export.</p>
+{{ m.shot("manual-form", "Manual Input") }}
+<ul>
+    <li><strong>Current Environment</strong> (all optional): the existing platform, hosts,
+        cores, threads, GHz, RAM, CPU and memory use, IOPS and NIC speed. Filling in cores lets
+        the sizer show the current vCPU:core ratio. Filling in IOPS gives it a storage
+        performance target.</li>
+    <li><strong>Workload Requirements</strong>: the fields marked * are required: total vCPUs,
+        provisioned RAM, and datastore used.</li>
+    <li>{{ m.ui("+ Add / edit VMs") }} opens a VM list you can type into, with clone (copies
+        with automatic numbering, for example DC01 → DC02, DC03…) and remove per row.
+        {{ m.ui("Apply") }} raises the workload totals to at least the sum of the VMs, and the
+        totals cannot then be set lower than that sum.</li>
+    <li>{{ m.ui("Get Recommendations") }} sizes it. The options and results are the same as
+        for an import.</li>
+</ul>
+{{ m.shot("manual-vms", "Add VMs by hand") }}
+{{ m.shot("manual-results", "Manual input results: the same options and recommendations as an import") }}
+
+<h3 id="appliance-mode">Appliance (Certified)</h3>
+<p>A calculator for one fixed configuration. Choose {{ m.ui("Show Models") }} (active only, or
+   including end-of-life and end-of-support models), the {{ m.ui("Model") }} and the
+   {{ m.ui("Node Count") }}, then the CPU, RAM, NIC and drive options that model offers. You
+   can add storage-only nodes (at least two full nodes are required). Every change
+   recalculates straight away.</p>
+{{ m.shot("appliance-form", "Appliance mode: pick the model and its options") }}
+{{ m.shot("appliance-results", "Per node, the cluster total, and what is left with one node down") }}
+<p>The three cards show one node, the whole cluster (with the licence it needs), and
+   <strong>N-1</strong>: what is still available while one node is down for an update or a
+   failure. Size the workload against the N-1 figures. A two-node cluster also shows a
+   reminder that it needs a witness.</p>
+
+<h3 id="validated-mode">Software Only (Validated)</h3>
+<p>For checking a server configuration that is not an SC// appliance. Enter the node count,
+   cores, threads, base GHz, RAM and NIC per node, and the disk layout (single tier, or dual
+   tier/hybrid with a capacity tier and a fast tier). The <strong>Validated Installer
+   Rules</strong> checklist lights up as each rule is met:</p>
+<ul>
+    <li>At least 2 disks per node (3 or more preferred).</li>
+    <li>Hybrid: the fast tier must be between the configured minimum and maximum share of
+        capacity (7–25% by default), with at least 2 HDDs per flash disk.</li>
+    <li>JBOD and internal storage only.</li>
+    <li>At least 2 nodes (a 2-node cluster needs a witness).</li>
+</ul>
+<p>{{ m.ui("Calculate") }} shows the same three cards as Appliance mode.</p>
+{{ m.shot("validated-form", "Software Only (Validated): the configuration and the installer rules") }}
+
+<h3 id="saving">Saving a sizing</h3>
+<p>Save with {{ m.ui("Save sizing") }} in the header, the {{ m.ui("Save sizing") }} button
+   above the recommendations, or {{ m.ui("Save and close") }} at the end of the wizard.</p>
+<ul>
+    <li>A new sizing asks for a name, and is filed in the project you are in (or your
+        personal scratch project when you started a Quick sizing).</li>
+    <li>When you change a sizing you own, the sizer asks whether to {{ m.ui("Update") }} it
+        or {{ m.ui("Save as new") }}. Save as new is how you create an alternative: for
+        example the same import sized all-flash.</li>
+    <li>After saving you see the sizing's 12-digit <strong>share code</strong>, with a
+        {{ m.ui("Copy") }} button.</li>
+</ul>
+{{ m.shot("save-choice", "Update the sizing, or save a copy as a new one") }}
+{{ m.shot("name-sizing", "Naming a new sizing") }}
+{{ m.shot("saved-code", "Saved, with the share code") }}
+<p>The {{ m.ui("Save sizing") }} button above the recommendations shows a dot while there
+   are unsaved changes, and reads <em>Saved</em> when there are none.</p>

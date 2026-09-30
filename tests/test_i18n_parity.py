@@ -13,6 +13,7 @@ Run from the repo root:
 
     .venv/bin/python -m pytest tests/test_i18n_parity.py -q
 """
+import glob
 import json
 import os
 import re
@@ -159,7 +160,9 @@ def test_template_referenced_gui_keys_exist():
     base = _gui_catalog(BASE)
     attr = re.compile(r'data-i18n(?:-html|-title|-placeholder)?="([^"]+)"')
     missing = {}
-    for path in _source_files(os.path.join(APP, "templates"), ".html"):
+    # recursive, so the manual's frame (templates/manual/) is covered too
+    for path in sorted(glob.glob(os.path.join(APP, "templates", "**", "*.html"),
+                                 recursive=True)):
         with open(path, encoding="utf-8") as f:
             # A key built by concatenation leaves a trailing dot; skip those,
             # as the JS scan above does.

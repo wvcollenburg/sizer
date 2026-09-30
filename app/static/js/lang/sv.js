@@ -352,7 +352,7 @@
   "admin.users.none": "Inga användare.",
   "admin.users.reset_email_confirm": "Skicka en länk för lösenordsåterställning till denna användare via e-post?",
   "admin.users.reset_password": "Återställ lösenord",
-  "admin.users.reset_prompt": "Återställ lösenord för {email}.\n\nAnge ett nytt lösenord (minst 8 tecken), eller lämna tomt för att e-posta dem en återställningslänk (kräver SMTP):",
+  "admin.users.reset_prompt": "Återställ lösenord för {email}.\n\nAnge ett nytt lösenord (minst 10 tecken, med en versal, en gemen, en siffra och ett specialtecken), eller lämna tomt för att e-posta dem en återställningslänk (kräver SMTP):",
   "admin.users.restore": "Återställ",
   "admin.users.restored_ok": "Användare återställd.",
   "admin.users.role_confirm": "Ändra denna användares roll till \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Här är vad vi hittade. Bekräfta att det ser rätt ut — och lägg till benchmark-poäng för käll-CPU:er för en skarpare prestandajämförelse.",
   "wizard.intro.3": "Granska de upptäckta VM:arna. Exkludera sådant som inte ska dimensioneras (avstängda, lagrings-/controller-VM:ar, mallar) och redigera siffror där det behövs.",
   "wizard.intro.4": "Ställ in antaganden för dimensionering och tillväxt. Rimliga standardvärden är redan tillämpade — öppna Avancerade alternativ endast om du behöver dem.",
-  "wizard.intro.5": "Dina SC//-rekommendationer, rangordnade. Jämför alternativen; varje kort kan exporteras direkt.",
+  "wizard.intro.5": "Dina SC//-rekommendationer, rangordnade. Jämför alternativen, välj ett och spara — exporter görs från projektsidan.",
   "wizard.next": "Nästa",
   "wizard.options.hide_advanced": "Dölj avancerade alternativ",
   "wizard.options.show_advanced": "Visa avancerade alternativ",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF-filen innehöll {n} osynliga ord. De lästes inte, och kontrollen har skickats till Scale Computing för granskning.",
   "admin.bomagent.pdf_threshold": "Lägsta PDF-säkerhet",
   "admin.bomagent.pdf_threshold_hint": "PDF-filer i en känd layout läses lokalt, utan agenten, när säkerhetspoängen (0–100) når detta minimum. Under det, eller om filen verkar manipulerad, läser agenten filen i stället.",
-  "admin.bom.reason_pdf_suspicious": "PDF-filen innehöll osynlig text eller aktivt innehåll"
+  "admin.bom.reason_pdf_suspicious": "PDF-filen innehöll osynlig text eller aktivt innehåll",
+  "header.manual": "Användarhandbok",
+  "manual.badge_user": "Användarhandbok",
+  "manual.badge_scale": "Personalhandbok",
+  "manual.to_user": "Partnerutgåva",
+  "manual.to_scale": "Personalutgåva",
+  "manual.back": "Tillbaka till sizern"
 };

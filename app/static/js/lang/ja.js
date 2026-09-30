@@ -352,7 +352,7 @@
   "admin.users.none": "ユーザーがいません。",
   "admin.users.reset_email_confirm": "このユーザーにパスワードリセットリンクをメールで送信しますか?",
   "admin.users.reset_password": "パスワードをリセット",
-  "admin.users.reset_prompt": "{email} のパスワードをリセットします。\n\n新しいパスワード (8文字以上) を入力するか、空欄のままにするとリセットリンクをメールで送信します (SMTPが必要):",
+  "admin.users.reset_prompt": "{email} のパスワードをリセットします。\n\n新しいパスワード (10文字以上、英大文字・英小文字・数字・記号を含む) を入力するか、空欄のままにするとリセットリンクをメールで送信します (SMTPが必要):",
   "admin.users.restore": "復元",
   "admin.users.restored_ok": "ユーザーを復元しました。",
   "admin.users.role_confirm": "このユーザーの役割を「{role}」に変更しますか?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "検出結果は次のとおりです。内容が正しいことを確認し、より精密な性能比較のためにソースCPUのベンチマークスコアを追加してください。",
   "wizard.intro.3": "検出されたVMを確認してください。サイジング対象外のもの (電源オフ、ストレージ/コントローラーVM、テンプレート) を除外し、必要に応じて数値を編集してください。",
   "wizard.intro.4": "サイジングと成長の前提条件を設定してください。適切なデフォルトがすでに適用されています — 必要な場合のみ詳細オプションを開いてください。",
-  "wizard.intro.5": "SC// の推奨をランク付けして表示します。各オプションを比較してください。各カードは直接エクスポートできます。",
+  "wizard.intro.5": "SC// の推奨をランク付けして表示します。オプションを比較し、1 つを選択して保存してください。エクスポートはプロジェクトページから行います。",
   "wizard.next": "次へ",
   "wizard.options.hide_advanced": "詳細オプションを非表示",
   "wizard.options.show_advanced": "詳細オプションを表示",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDFに不可視の単語が{n}個含まれていました。それらは読み取られず、チェックはレビューのためScale Computingに送信されました。",
   "admin.bomagent.pdf_threshold": "PDFの最低確実度",
   "admin.bomagent.pdf_threshold_hint": "既知のレイアウトのPDFは、確実度スコア (0–100) がこの最低値に達するとエージェントを使わずローカルで読み取られます。それを下回る場合、またはファイルが改ざんされているように見える場合は、エージェントがファイルを読み取ります。",
-  "admin.bom.reason_pdf_suspicious": "PDFに不可視のテキストまたはアクティブコンテンツが含まれていました"
+  "admin.bom.reason_pdf_suspicious": "PDFに不可視のテキストまたはアクティブコンテンツが含まれていました",
+  "header.manual": "ユーザーマニュアル",
+  "manual.badge_user": "ユーザーマニュアル",
+  "manual.badge_scale": "社内向けマニュアル",
+  "manual.to_user": "パートナー版",
+  "manual.to_scale": "社内版",
+  "manual.back": "サイザーに戻る"
 };

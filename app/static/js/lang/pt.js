@@ -352,7 +352,7 @@
   "admin.users.none": "Nenhum usuário.",
   "admin.users.reset_email_confirm": "Enviar a este usuário um link de redefinição de senha por e-mail?",
   "admin.users.reset_password": "Redefinir senha",
-  "admin.users.reset_prompt": "Redefinir a senha de {email}.\n\nInsira uma nova senha (mín. 8 caracteres) ou deixe em branco para enviar um link de redefinição por e-mail (requer SMTP):",
+  "admin.users.reset_prompt": "Redefinir a senha de {email}.\n\nInsira uma nova senha (mín. 10 caracteres, com uma maiúscula, uma minúscula, um número e um caractere especial) ou deixe em branco para enviar um link de redefinição por e-mail (requer SMTP):",
   "admin.users.restore": "Restaurar",
   "admin.users.restored_ok": "Usuário restaurado.",
   "admin.users.role_confirm": "Alterar a função deste usuário para \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Veja o que encontramos. Confirme se está correto — e adicione pontuações de benchmark da CPU de origem para uma comparação de desempenho mais precisa.",
   "wizard.intro.3": "Revise as VMs descobertas. Exclua tudo o que não deve ser dimensionado (desligadas, VMs de armazenamento/controladora, templates) e edite os valores quando necessário.",
   "wizard.intro.4": "Defina as premissas de dimensionamento e crescimento. Padrões sensatos já foram aplicados — abra as opções avançadas apenas se precisar delas.",
-  "wizard.intro.5": "Suas recomendações SC//, ranqueadas. Compare as opções; cada card pode ser exportado diretamente.",
+  "wizard.intro.5": "Suas recomendações SC//, ranqueadas. Compare as opções, selecione uma e salve — as exportações são feitas na página do projeto.",
   "wizard.next": "Avançar",
   "wizard.options.hide_advanced": "Ocultar opções avançadas",
   "wizard.options.show_advanced": "Mostrar opções avançadas",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "O PDF continha {n} palavra(s) invisível(eis). Não foram lidas, e a verificação foi enviada à Scale Computing para revisão.",
   "admin.bomagent.pdf_threshold": "Certeza mínima de PDF",
   "admin.bomagent.pdf_threshold_hint": "Os PDFs num formato conhecido são lidos localmente, sem o agente, quando a pontuação de certeza (0–100) atinge este mínimo. Abaixo disso, ou se o ficheiro parecer adulterado, é o agente que lê o ficheiro.",
-  "admin.bom.reason_pdf_suspicious": "O PDF continha texto invisível ou conteúdo ativo"
+  "admin.bom.reason_pdf_suspicious": "O PDF continha texto invisível ou conteúdo ativo",
+  "header.manual": "Manual do utilizador",
+  "manual.badge_user": "Manual do utilizador",
+  "manual.badge_scale": "Manual da equipa",
+  "manual.to_user": "Edição para parceiros",
+  "manual.to_scale": "Edição para a equipa",
+  "manual.back": "Voltar ao sizer"
 };

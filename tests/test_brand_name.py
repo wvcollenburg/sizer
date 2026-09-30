@@ -53,7 +53,8 @@ def test_export_catalogs():
 
 def test_visible_template_text():
     bad = []
-    for path in sorted(glob.glob(os.path.join(APP, "templates", "*.html"))):
+    # recursive: the manual (templates/manual/) is the most prose of all
+    for path in sorted(glob.glob(os.path.join(APP, "templates", "**", "*.html"), recursive=True)):
         html = re.sub(r"<!--.*?-->", "", open(path, encoding="utf-8").read(), flags=re.S)
         html = re.sub(r"<script\b.*?</script>", "", html, flags=re.S)
         for m in BARE.finditer(ALLOWED.sub("", html)):

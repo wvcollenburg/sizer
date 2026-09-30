@@ -352,7 +352,7 @@
   "admin.users.none": "Nessun utente.",
   "admin.users.reset_email_confirm": "Inviare a questo utente un link di reimpostazione password via email?",
   "admin.users.reset_password": "Reimposta password",
-  "admin.users.reset_prompt": "Reimposti la password per {email}.\n\nInserisca una nuova password (min 8 caratteri), oppure la lasci vuota per inviare via email un link di reimpostazione (richiede SMTP):",
+  "admin.users.reset_prompt": "Reimposti la password per {email}.\n\nInserisca una nuova password (min 10 caratteri, con una maiuscola, una minuscola, un numero e un carattere speciale), oppure la lasci vuota per inviare via email un link di reimpostazione (richiede SMTP):",
   "admin.users.restore": "Ripristina",
   "admin.users.restored_ok": "Utente ripristinato.",
   "admin.users.role_confirm": "Modificare il ruolo di questo utente in \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Ecco cosa abbiamo trovato. Confermi che sia corretto — e aggiunga i punteggi di benchmark della CPU di origine per un confronto delle prestazioni più preciso.",
   "wizard.intro.3": "Riveda le VM rilevate. Escluda tutto ciò che non deve essere dimensionato (VM spente, di storage/controller, template) e modifichi i valori dove necessario.",
   "wizard.intro.4": "Imposti le ipotesi di sizing e crescita. Sono già applicati valori predefiniti sensati — apra le opzioni avanzate solo se ne ha bisogno.",
-  "wizard.intro.5": "Le sue raccomandazioni SC//, in ordine di classifica. Confronti le opzioni; ogni scheda può essere esportata direttamente.",
+  "wizard.intro.5": "Le sue raccomandazioni SC//, in ordine di classifica. Confronti le opzioni, ne selezioni una e salvi — le esportazioni si creano dalla pagina del progetto.",
   "wizard.next": "Avanti",
   "wizard.options.hide_advanced": "Nascondi opzioni avanzate",
   "wizard.options.show_advanced": "Mostra opzioni avanzate",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "Il PDF conteneva {n} parola/e invisibile/i. Non sono state lette e la verifica è stata inviata a Scale Computing per la revisione.",
   "admin.bomagent.pdf_threshold": "Certezza PDF minima",
   "admin.bomagent.pdf_threshold_hint": "I PDF in un layout noto vengono letti localmente, senza l'agente, quando il punteggio di certezza (0–100) raggiunge questo minimo. Al di sotto, o se il file sembra manomesso, il file viene letto dall'agente.",
-  "admin.bom.reason_pdf_suspicious": "Il PDF conteneva testo invisibile o contenuti attivi"
+  "admin.bom.reason_pdf_suspicious": "Il PDF conteneva testo invisibile o contenuti attivi",
+  "header.manual": "Manuale utente",
+  "manual.badge_user": "Manuale utente",
+  "manual.badge_scale": "Manuale del personale",
+  "manual.to_user": "Edizione partner",
+  "manual.to_scale": "Edizione personale",
+  "manual.back": "Torna al sizer"
 };

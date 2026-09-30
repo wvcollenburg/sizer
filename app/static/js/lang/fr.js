@@ -352,7 +352,7 @@
   "admin.users.none": "Aucun utilisateur.",
   "admin.users.reset_email_confirm": "Envoyer à cet utilisateur un lien de réinitialisation de mot de passe par e-mail ?",
   "admin.users.reset_password": "Réinitialiser le mot de passe",
-  "admin.users.reset_prompt": "Réinitialiser le mot de passe de {email}.\n\nSaisissez un nouveau mot de passe (8 caractères min.), ou laissez vide pour lui envoyer par e-mail un lien de réinitialisation (nécessite SMTP) :",
+  "admin.users.reset_prompt": "Réinitialiser le mot de passe de {email}.\n\nSaisissez un nouveau mot de passe (10 caractères min., avec une majuscule, une minuscule, un chiffre et un caractère spécial), ou laissez vide pour lui envoyer par e-mail un lien de réinitialisation (nécessite SMTP) :",
   "admin.users.restore": "Restaurer",
   "admin.users.restored_ok": "Utilisateur restauré.",
   "admin.users.role_confirm": "Changer le rôle de cet utilisateur en « {role} » ?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Voici ce que nous avons trouvé. Vérifiez que tout est correct — et ajoutez les scores de benchmark des CPU source pour une comparaison de performance plus précise.",
   "wizard.intro.3": "Vérifiez les VM découvertes. Excluez tout ce qui ne doit pas être dimensionné (VM désactivées, VM de stockage/contrôleur, modèles) et modifiez les valeurs si nécessaire.",
   "wizard.intro.4": "Définissez les hypothèses de dimensionnement et de croissance. Des valeurs par défaut pertinentes sont déjà appliquées — ouvrez les options avancées uniquement si nécessaire.",
-  "wizard.intro.5": "Vos recommandations SC//, classées. Comparez les options ; chaque carte peut être exportée directement.",
+  "wizard.intro.5": "Vos recommandations SC//, classées. Comparez les options, sélectionnez-en une et enregistrez — les exports se font depuis la page du projet.",
   "wizard.next": "Suivant",
   "wizard.options.hide_advanced": "Masquer les options avancées",
   "wizard.options.show_advanced": "Afficher les options avancées",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "Le PDF contenait {n} mot(s) invisible(s). Ils n'ont pas été lus, et la vérification a été envoyée à Scale Computing pour examen.",
   "admin.bomagent.pdf_threshold": "Certitude PDF minimale",
   "admin.bomagent.pdf_threshold_hint": "Les PDF dans une mise en page connue sont lus localement, sans l'agent, lorsque le score de certitude (0–100) atteint ce minimum. En dessous, ou si le fichier semble falsifié, c'est l'agent qui lit le fichier.",
-  "admin.bom.reason_pdf_suspicious": "Le PDF contenait du texte invisible ou du contenu actif"
+  "admin.bom.reason_pdf_suspicious": "Le PDF contenait du texte invisible ou du contenu actif",
+  "header.manual": "Manuel d'utilisation",
+  "manual.badge_user": "Manuel d'utilisation",
+  "manual.badge_scale": "Manuel du personnel",
+  "manual.to_user": "Édition partenaire",
+  "manual.to_scale": "Édition personnel",
+  "manual.back": "Retour au sizer"
 };

@@ -1,0 +1,73 @@
+{% import "manual/_macros.html" as m with context %}
+<p>The recommendations are the SC//HyperCore configurations that meet the workload with
+   N-1 redundancy, best first. Up to eight are shown.</p>
+{{ m.shot("wizard-recs", "Step 5: the recommendations, ranked") }}
+
+<h3 id="rec-list">The list</h3>
+<ul>
+    <li>Each row shows the model, its storage layout, the node count, the per-node shape
+        (cores, RAM, storage), how full the cluster will be (CPU, RAM, storage) and the
+        resulting vCPU:core ratio. Columns appear as the window gets wider.</li>
+    <li>The resource marked <strong>limiting</strong> is the one that decided the size of the
+        cluster.</li>
+    <li>Under every row but the selected one, a <strong>Δ per node</strong> line shows how it
+        differs from the selected option.</li>
+    <li>{{ m.ui("Select") }} makes a row the chosen option. It is not saved until you save
+        the sizing. The chosen option is what comparisons and exports use.</li>
+    <li>Click a model name or the arrow at the end of a row to open its details (one at a
+        time).</li>
+</ul>
+<p>Above the list:</p>
+<table class="manual-table">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>{{ m.ui("Rows") }} / {{ m.ui("Split") }}</td><td>Rows opens details inside the
+        list. Split shows the list on the left and the details of the highlighted option on
+        the right.</td></tr>
+    <tr><td>{{ m.ui("Wide") }}</td><td>Uses the full width of the window.</td></tr>
+    <tr><td>{{ m.ui("Save sizing") }}</td><td>Saves without leaving the screen.</td></tr>
+</table>
+{{ m.shot("rec-split", "The split view") }}
+<p>When other sizings replicate into this one, a bar above the list shows the capacity
+   reserved for them. See <a href="#dr">DR targets and replication</a>.</p>
+
+<h3 id="rec-card">The details of an option</h3>
+{{ m.shot("rec-card", "An opened recommendation") }}
+<ul>
+    <li><strong>Determined by</strong> says which resource sized the cluster, and how much
+        headroom is left on it.</li>
+    <li>The <strong>CPU performance</strong> and <strong>compute floor</strong> lines compare
+        the new CPUs with the current ones (see <a href="#opt-performance">CPU
+        performance</a>).</li>
+    <li>The <strong>licence line</strong> says what SC//HyperCore licensing the cluster needs:
+        cores per node for the term, or an Essentials kit for small clusters. Prices are
+        never shown.</li>
+    <li>Three tables: <strong>Per Node</strong>, <strong>Total</strong> and
+        <strong>N-1 available</strong>, the capacity left with one node down.</li>
+    <li>The <strong>utilization bars</strong> show, per resource, how the cluster is used:
+        today's workload, snapshots, growth, replication reserve, the high-availability
+        reserve (the node that may be down) and what is free. The first percentage is today,
+        the second is at the end of the projection.</li>
+    <li>The <strong>IOPS headroom</strong> compares what the cluster can deliver with what
+        the workload needs.</li>
+    <li>The footer names the form factor and chassis. For
+        validated sizings it says which SC// model is the equivalent.</li>
+</ul>
+<p>{{ m.ui("Network") }} opens a cabling diagram of the cluster: switches, LAN uplinks and the
+   backplane connections of every node. {{ m.ui("Download SVG") }} saves it as an image.</p>
+{{ m.shot("network-diagram", "The network diagram of a recommendation") }}
+
+<h3 id="rec-quoted">The Quoted row</h3>
+<p>When the exports of a saved sizing describe different hardware from the recommendation
+   (through a BOM check or a manual override, see <a href="#exports-as">Exports as</a>), a
+   row marked <strong>Quoted</strong> appears at the top of the list. It shows that hardware
+   measured against the same workload. Exports always use it, whichever option is selected.
+   Values over 100% are shown in red.</p>
+
+<h3 id="assumptions">Assumptions</h3>
+<p>Under the list, the <strong>Assumptions</strong> block repeats every input the sizing used
+   (ratio, growth, caps, storage type, sizing mode). Check it before you share a result.</p>
+
+<h3 id="no-results">When nothing fits</h3>
+<p>Warnings above the list explain when a setting cannot be met. For example, the target node
+   count is too small for the workload. When no configuration fits at all, try a higher vCPU
+   ratio, a different storage type, allowing storage-only nodes, or Validated mode.</p>

@@ -352,7 +352,7 @@
   "admin.users.none": "Kasutajaid pole.",
   "admin.users.reset_email_confirm": "Kas saata sellele kasutajale e-postiga parooli lähtestamise link?",
   "admin.users.reset_password": "Lähtesta parool",
-  "admin.users.reset_prompt": "Lähtestage parool kasutajale {email}.\n\nSisestage uus parool (min 8 tähemärki) või jätke tühjaks, et saata neile e-postiga lähtestamislink (nõuab SMTP-d):",
+  "admin.users.reset_prompt": "Lähtestage parool kasutajale {email}.\n\nSisestage uus parool (min 10 tähemärki, sealhulgas suur- ja väiketäht, number ja erimärk) või jätke tühjaks, et saata neile e-postiga lähtestamislink (nõuab SMTP-d):",
   "admin.users.restore": "Taasta",
   "admin.users.restored_ok": "Kasutaja taastatud.",
   "admin.users.role_confirm": "Kas muuta selle kasutaja roll rolliks \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Siin on, mida leidsime. Kinnitage, et see näeb õige välja — ja lisage lähte-CPU võrdlustesti skoorid täpsemaks jõudluse võrdluseks.",
   "wizard.intro.3": "Vaadake üle leitud VM-id. Jätke välja kõik, mida ei tuleks mõõta (väljalülitatud, salvestus-/kontrolleri-VM-id, mallid), ja muutke näitajaid, kus vaja.",
   "wizard.intro.4": "Määrake sizingu ja kasvu eeldused. Mõistlikud vaikeväärtused on juba rakendatud — avage täpsemad valikud ainult siis, kui vajate neid.",
-  "wizard.intro.5": "Teie SC// soovitused, pingereas. Võrrelge valikuid; iga kaardi saab otse eksportida.",
+  "wizard.intro.5": "Teie SC// soovitused, pingereas. Võrrelge valikuid, valige üks ja salvestage — eksport tehakse projekti lehelt.",
   "wizard.next": "Edasi",
   "wizard.options.hide_advanced": "Peida täpsemad valikud",
   "wizard.options.show_advanced": "Näita täpsemaid valikuid",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF sisaldas {n} nähtamatut sõna. Neid ei loetud ja kontroll saadeti Scale Computingule ülevaatamiseks.",
   "admin.bomagent.pdf_threshold": "PDF-i minimaalne kindlus",
   "admin.bomagent.pdf_threshold_hint": "Tuntud paigutusega PDF-e loetakse kohapeal ilma agendita, kui kindluse skoor (0–100) jõuab selle miinimumini. Sellest allpool või kui fail tundub võltsitud, loeb faili hoopis agent.",
-  "admin.bom.reason_pdf_suspicious": "PDF sisaldas nähtamatut teksti või aktiivset sisu"
+  "admin.bom.reason_pdf_suspicious": "PDF sisaldas nähtamatut teksti või aktiivset sisu",
+  "header.manual": "Kasutusjuhend",
+  "manual.badge_user": "Kasutusjuhend",
+  "manual.badge_scale": "Töötajate juhend",
+  "manual.to_user": "Partneri väljaanne",
+  "manual.to_scale": "Töötajate väljaanne",
+  "manual.back": "Tagasi sizerisse"
 };

@@ -43,6 +43,14 @@
             <div class="account-bar" id="account-bar">
                 <!-- populated by auth.js -->
             </div>
+            {# The online manual. auth.js points it at the staff edition for
+               Scale Computing accounts and super admins (manual_routes.py). #}
+            <a class="theme-btn manual-link" id="manual-link" href="/manual/"
+               target="_blank" rel="noopener"
+               data-i18n-title="header.manual" title="User manual"
+               data-i18n-aria="header.manual" aria-label="User manual">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </a>
             {# Sun/moon swap by theme — only one is ever visible (see .theme-btn
                in style.css), so the button reads correctly in both. #}
             <button class="theme-btn" data-click='["toggleTheme"]'
@@ -1071,8 +1079,11 @@
                         <select id="exp-format" class="text-input inline-select">
                             <option value="pdf" data-i18n="project.export.fmt_pdf">PDF document</option>
                             <option value="presentation-pdf" data-i18n="project.export.fmt_pres_pdf">PDF slides</option>
-                            <option value="docx" data-i18n="project.export.fmt_docx">Word</option>
-                            <option value="pptx" data-i18n="project.export.fmt_pptx">PowerPoint</option>
+                            {# Editable formats: Scale Computing accounts and super admins
+                               only (projects.py queue_export); openExports hides them
+                               for everyone else. #}
+                            <option value="docx" data-editable data-i18n="project.export.fmt_docx">Word</option>
+                            <option value="pptx" data-editable data-i18n="project.export.fmt_pptx">PowerPoint</option>
                         </select>
                         <label class="notify-check">
                             <input type="checkbox" id="exp-notify">

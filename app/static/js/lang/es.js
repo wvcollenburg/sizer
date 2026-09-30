@@ -352,7 +352,7 @@
   "admin.users.none": "No hay usuarios.",
   "admin.users.reset_email_confirm": "¿Enviar a este usuario por correo un enlace de restablecimiento de contraseña?",
   "admin.users.reset_password": "Restablecer contraseña",
-  "admin.users.reset_prompt": "Restablecer la contraseña de {email}.\n\nIngrese una nueva contraseña (mín. 8 caracteres), o deje en blanco para enviarles por correo un enlace de restablecimiento (requiere SMTP):",
+  "admin.users.reset_prompt": "Restablecer la contraseña de {email}.\n\nIngrese una nueva contraseña (mín. 10 caracteres, con una mayúscula, una minúscula, un número y un carácter especial), o deje en blanco para enviarles por correo un enlace de restablecimiento (requiere SMTP):",
   "admin.users.restore": "Restaurar",
   "admin.users.restored_ok": "Usuario restaurado.",
   "admin.users.role_confirm": "¿Cambiar el rol de este usuario a \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Esto es lo que encontramos. Confirme que se ve bien — y agregue las puntuaciones de referencia de la CPU de origen para una comparación de rendimiento más precisa.",
   "wizard.intro.3": "Revise las VM descubiertas. Excluya todo lo que no deba dimensionarse (VM apagadas, de almacenamiento/controladoras, plantillas) y edite las cifras donde sea necesario.",
   "wizard.intro.4": "Establezca las suposiciones de dimensionamiento y crecimiento. Ya se aplicaron valores predeterminados razonables: abra las opciones avanzadas solo si las necesita.",
-  "wizard.intro.5": "Sus recomendaciones SC//, clasificadas. Compare las opciones; cada tarjeta se puede exportar directamente.",
+  "wizard.intro.5": "Sus recomendaciones SC//, clasificadas. Compare las opciones, seleccione una y guarde — las exportaciones se hacen desde la página del proyecto.",
   "wizard.next": "Siguiente",
   "wizard.options.hide_advanced": "Ocultar opciones avanzadas",
   "wizard.options.show_advanced": "Mostrar opciones avanzadas",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "El PDF contenía {n} palabra(s) invisible(s). No se leyeron y la comprobación se ha enviado a Scale Computing para su revisión.",
   "admin.bomagent.pdf_threshold": "Certeza mínima de PDF",
   "admin.bomagent.pdf_threshold_hint": "Los PDF con un formato conocido se leen localmente, sin el agente, cuando la puntuación de certeza (0–100) alcanza este mínimo. Por debajo, o si el archivo parece manipulado, el agente lee el archivo.",
-  "admin.bom.reason_pdf_suspicious": "El PDF contenía texto invisible o contenido activo"
+  "admin.bom.reason_pdf_suspicious": "El PDF contenía texto invisible o contenido activo",
+  "header.manual": "Manual de usuario",
+  "manual.badge_user": "Manual de usuario",
+  "manual.badge_scale": "Manual del personal",
+  "manual.to_user": "Edición para partners",
+  "manual.to_scale": "Edición para el personal",
+  "manual.back": "Volver al sizer"
 };

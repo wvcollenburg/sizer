@@ -352,7 +352,7 @@
   "admin.users.none": "Nav lietotāju.",
   "admin.users.reset_email_confirm": "Nosūtīt šim lietotājam paroles atiestatīšanas saiti e-pastā?",
   "admin.users.reset_password": "Atiestatīt paroli",
-  "admin.users.reset_prompt": "Atiestatīt paroli lietotājam {email}.\n\nIevadiet jaunu paroli (min. 8 rakstzīmes) vai atstājiet tukšu, lai nosūtītu tam atiestatīšanas saiti e-pastā (nepieciešams SMTP):",
+  "admin.users.reset_prompt": "Atiestatīt paroli lietotājam {email}.\n\nIevadiet jaunu paroli (min. 10 rakstzīmes, ar lielo un mazo burtu, ciparu un speciālo rakstzīmi) vai atstājiet tukšu, lai nosūtītu tam atiestatīšanas saiti e-pastā (nepieciešams SMTP):",
   "admin.users.restore": "Atjaunot",
   "admin.users.restored_ok": "Lietotājs atjaunots.",
   "admin.users.role_confirm": "Mainīt šī lietotāja lomu uz \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Lūk, ko mēs atradām. Apstipriniet, ka viss izskatās pareizi — un pievienojiet avota CPU etalonrādītājus precīzākam veiktspējas salīdzinājumam.",
   "wizard.intro.3": "Pārskatiet atrastos VM. Izslēdziet visu, kas nav jāizmēro (izslēgtus, krātuves/kontroliera VM, veidnes), un rediģējiet skaitļus, kur nepieciešams.",
   "wizard.intro.4": "Iestatiet aprēķina un pieauguma pieņēmumus. Saprātīgas noklusējuma vērtības jau ir piemērotas — atveriet Papildu opcijas tikai tad, ja tās nepieciešamas.",
-  "wizard.intro.5": "Jūsu SC// ieteikumi, sarindoti. Salīdziniet opcijas; katru kartīti var eksportēt tieši.",
+  "wizard.intro.5": "Jūsu SC// ieteikumi, sarindoti. Salīdziniet opcijas, izvēlieties vienu un saglabājiet — eksportu veido projekta lapā.",
   "wizard.next": "Tālāk",
   "wizard.options.hide_advanced": "Slēpt papildu opcijas",
   "wizard.options.show_advanced": "Rādīt papildu opcijas",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF saturēja {n} neredzamu(s) vārdu(s). Tie netika nolasīti, un pārbaude ir nosūtīta Scale Computing pārskatīšanai.",
   "admin.bomagent.pdf_threshold": "Minimālā PDF noteiktība",
   "admin.bomagent.pdf_threshold_hint": "Zināmā izkārtojumā esoši PDF tiek nolasīti lokāli, bez aģenta, ja noteiktības rādītājs (0–100) sasniedz šo minimumu. Zem tā vai ja fails šķiet viltots, failu nolasa aģents.",
-  "admin.bom.reason_pdf_suspicious": "PDF saturēja neredzamu tekstu vai aktīvu saturu"
+  "admin.bom.reason_pdf_suspicious": "PDF saturēja neredzamu tekstu vai aktīvu saturu",
+  "header.manual": "Lietotāja rokasgrāmata",
+  "manual.badge_user": "Lietotāja rokasgrāmata",
+  "manual.badge_scale": "Darbinieku rokasgrāmata",
+  "manual.to_user": "Partneru izdevums",
+  "manual.to_scale": "Darbinieku izdevums",
+  "manual.back": "Atpakaļ uz sizer"
 };

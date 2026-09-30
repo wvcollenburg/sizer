@@ -352,7 +352,7 @@
   "admin.users.none": "Naudotojų nėra.",
   "admin.users.reset_email_confirm": "Išsiųsti šiam naudotojui slaptažodžio atkūrimo nuorodą el. paštu?",
   "admin.users.reset_password": "Atkurti slaptažodį",
-  "admin.users.reset_prompt": "Atkurti {email} slaptažodį.\n\nĮveskite naują slaptažodį (min. 8 simboliai) arba palikite tuščią, kad būtų išsiųsta atkūrimo nuoroda el. paštu (reikia SMTP):",
+  "admin.users.reset_prompt": "Atkurti {email} slaptažodį.\n\nĮveskite naują slaptažodį (min. 10 simbolių, su didžiąja ir mažąja raide, skaitmeniu ir specialiuoju simboliu) arba palikite tuščią, kad būtų išsiųsta atkūrimo nuoroda el. paštu (reikia SMTP):",
   "admin.users.restore": "Atkurti",
   "admin.users.restored_ok": "Naudotojas atkurtas.",
   "admin.users.role_confirm": "Pakeisti šio naudotojo rolę į \"{role}\"?",
@@ -1189,7 +1189,7 @@
   "wizard.intro.2": "Štai ką radome. Patvirtinkite, kad viskas atrodo teisingai — ir pridėkite šaltinio CPU etaloninio testo rezultatus, kad našumo palyginimas būtų tikslesnis.",
   "wizard.intro.3": "Peržiūrėkite aptiktus VM. Pašalinkite tai, ko nereikėtų įtraukti į dydžio parinkimą (išjungtus, saugyklos / valdiklio VM, šablonus), ir prireikus pakoreguokite skaičius.",
   "wizard.intro.4": "Nustatykite dydžio parinkimo ir augimo prielaidas. Protingi numatytieji nustatymai jau pritaikyti — atverkite Papildomas parinktis tik tada, jei jų reikia.",
-  "wizard.intro.5": "Jūsų SC// rekomendacijos, surikiuotos. Palyginkite parinktis; kiekvieną kortelę galima eksportuoti tiesiogiai.",
+  "wizard.intro.5": "Jūsų SC// rekomendacijos, surikiuotos. Palyginkite parinktis, pasirinkite vieną ir išsaugokite — eksportuojama iš projekto puslapio.",
   "wizard.next": "Toliau",
   "wizard.options.hide_advanced": "Slėpti papildomas parinktis",
   "wizard.options.show_advanced": "Rodyti papildomas parinktis",
@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF buvo {n} nematomas (-i) žodis (-iai). Jie nebuvo perskaityti, o patikra išsiųsta Scale Computing peržiūrai.",
   "admin.bomagent.pdf_threshold": "Minimalus PDF tikrumas",
   "admin.bomagent.pdf_threshold_hint": "Žinomo išdėstymo PDF perskaitomi vietoje, be agento, kai tikrumo balas (0–100) pasiekia šį minimumą. Žemiau jo arba jei failas atrodo suklastotas, failą perskaito agentas.",
-  "admin.bom.reason_pdf_suspicious": "PDF buvo nematomo teksto arba aktyvaus turinio"
+  "admin.bom.reason_pdf_suspicious": "PDF buvo nematomo teksto arba aktyvaus turinio",
+  "header.manual": "Naudotojo vadovas",
+  "manual.badge_user": "Naudotojo vadovas",
+  "manual.badge_scale": "Darbuotojų vadovas",
+  "manual.to_user": "Partnerių leidimas",
+  "manual.to_scale": "Darbuotojų leidimas",
+  "manual.back": "Atgal į sizer"
 };
