@@ -19,6 +19,7 @@
   "export.common.resource": "Resurssi",
   "export.common.single_cluster": "yksittäinen klusteri",
   "export.common.single_node_note": "Yksittäinen solmu — ei vikasiirtoredundanssia. Hyväksyttävää DR-tasolle, joka on itse redundanssi; ei suositella tuotantoklustereille.",
+  "export.common.agent_bom_note": "Tarjottu laitteisto on peräisin tukemattomassa muodossa olevasta osaluettelosta, jonka Claude-agentti on lukenut. Tarkista se alkuperäistä tarjousta vasten.",
   "export.common.storage": "Tallennustila",
   "export.common.threads": "Säikeet",
   "export.common.usable_storage": "Käytettävissä oleva tallennustila",

@@ -10,8 +10,12 @@ else sees anything.
 
 The uploaded file is parsed synchronously (deterministic parsers are fast)
 and then discarded; only its digest, the normalised BOM and the result are
-stored. Unrecognised files are refused with a hint towards the template —
-they never fall through to a best-effort parse.
+stored. A file no parser recognises (or a PDF / picture) is queued for the
+Claude agent instead (bom/agent_ingest.py, bom/agent_worker.py): the route
+answers 202 with the job, the upload bytes live on the job row until the
+worker is done, and the result is an ordinary check marked AGENT_FORMAT.
+Without an API key such files are refused with the blank template offered,
+as before.
 """
 import hashlib
 import io
@@ -24,10 +28,16 @@ from flask import Blueprint, jsonify, request, send_file
 from admin_routes import require_super_admin
 from auth import audit, current_user, login_required
 from auth_models import Configuration, _utcnow
-from bom import ai_prefill
+from bom import agent_ingest
 from bom.check import run_check
 from bom.normalize import NormalizedBOM
-from bom_models import (BomCheck, BomRejectedFile, REVIEW_CONFIRMED,
+# What the deterministic parsers read; with the agent configured, every
+# agent_ingest.AGENT_EXTENSIONS type is accepted too (see accepted_extensions).
+from bom.parsers import ACCEPTED_EXTENSIONS as PARSER_EXTENSIONS
+from bom_models import (AGENT_ALWAYS_REVIEW_SETTING, AGENT_FORMAT,
+                        AGENT_GLOBAL_CAP_SETTING, AGENT_TENANT_CAP_SETTING,
+                        BomAgentJob, BomCheck, BomRejectedFile, JOB_FAILED,
+                        JOB_QUEUED, JOB_RUNNING, REVIEW_CONFIRMED,
                         REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN)
 from database import db
 from extensions import limiter
@@ -36,6 +46,7 @@ from projects import _owned_project_or_error, _visible_project
 bom_bp = Blueprint("bom", __name__, url_prefix="/api/bom")
 bom_project_bp = Blueprint("bom_project", __name__, url_prefix="/api/projects")
 bom_checks_bp = Blueprint("bom_checks", __name__, url_prefix="/api/bom-checks")
+bom_jobs_bp = Blueprint("bom_agent_jobs", __name__, url_prefix="/api/bom-agent-jobs")
 bom_admin_bp = Blueprint("bom_admin", __name__, url_prefix="/admin/api/bom-reviews")
 bom_admin_bp.before_request(require_super_admin)
 bom_reject_admin_bp = Blueprint("bom_reject_admin", __name__,
@@ -50,7 +61,9 @@ bom_notes_admin_bp.before_request(require_super_admin)
 hcl_feed_bp = Blueprint("hcl_feed", __name__, url_prefix="/api/hcl")
 
 MAX_BOM_BYTES = 10 * 1024 * 1024
-ACCEPTED_EXTENSIONS = (".xlsx", ".csv")
+# Agent jobs per user per hour, on top of the route's request limit: each
+# one is a paid model call.
+AGENT_JOBS_PER_USER_HOUR = 20
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -58,6 +71,7 @@ def register_bom(app):
     app.register_blueprint(bom_bp)
     app.register_blueprint(bom_project_bp)
     app.register_blueprint(bom_checks_bp)
+    app.register_blueprint(bom_jobs_bp)
     app.register_blueprint(bom_admin_bp)
     app.register_blueprint(bom_reject_admin_bp)
     app.register_blueprint(bom_notes_admin_bp)
@@ -74,27 +88,42 @@ def _sha256(path):
     return h.hexdigest()
 
 
-def _save_upload(f, allowed, magic_xlsx=True):
+# PDFs have their own local parsers (bom/parsers/pdf_*.py), so they are
+# accepted with or without the agent.
+LOCAL_EXTENSIONS = PARSER_EXTENSIONS + (".pdf",)
+
+
+# Files worth keeping to teach the checker a layout: anything with text a
+# parser can be written for. Pictures are not (owner, 2026-09-30: a lost
+# cause — the agent reads them, nobody will write a parser for a photo).
+SHAREABLE_EXTENSIONS = LOCAL_EXTENSIONS + (".docx", ".txt")
+
+
+def accepted_extensions():
+    if agent_ingest.available():
+        return tuple(dict.fromkeys(LOCAL_EXTENSIONS + agent_ingest.AGENT_EXTENSIONS))
+    return LOCAL_EXTENSIONS
+
+
+def _save_upload(f, allowed):
     """Validate + spool the upload to a temp file. Returns (path, ext) or
-    raises ValueError with a user message. Caller unlinks the path."""
+    raises ValueError with a user message. Caller unlinks the path. The
+    bytes must match the extension (agent_ingest.sniff: ZIP for xlsx/docx,
+    OLE for xls, %PDF); pictures are decoded later, by the agent path."""
     name = f.filename or ""
     ext = os.path.splitext(name)[1].lower()
     if ext not in allowed:
         raise ValueError("Unsupported file type %s. Accepted: %s" % (ext or "(none)", ", ".join(allowed)))
-    head = f.stream.read(4)
-    f.stream.seek(0)
-    if ext == ".xlsx" and magic_xlsx and head != b"PK\x03\x04":
-        raise ValueError("File must be an .xlsx Excel file")
-    if ext == ".pdf" and head != b"%PDF":
-        raise ValueError("File must be a PDF")
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
     try:
         f.save(tmp.name)
     finally:
         tmp.close()
-    if os.path.getsize(tmp.name) > MAX_BOM_BYTES:
+    try:
+        agent_ingest.sniff(tmp.name, name)
+    except agent_ingest.AgentError as exc:
         os.unlink(tmp.name)
-        raise ValueError("File too large (max 10 MB)")
+        raise ValueError(str(exc))
     return tmp.name, ext
 
 
@@ -126,47 +155,24 @@ def _can_write(check, project, user):
     return user.is_super_admin or check.user_id == user.id or project.can_edit(user)
 
 
-def _apply_result(check, result, sizing):
-    check.result = result
-    check.configuration_id = sizing.id if sizing else None
-    check.technical_verdict = (result.get("technical") or {}).get("verdict")
-    fit = result.get("fit")
-    check.fit_verdict = fit.get("verdict") if fit else None
-    check.catalog_stamp = result.get("catalog_stamp")
-    check.checked_at = _utcnow()
-    flags = result.get("flag_reasons") or []
-    current = check.review_status or REVIEW_NONE   # None before the first flush
-    if flags and current == REVIEW_NONE:
-        check.review_status = REVIEW_OPEN
-    elif not flags and current == REVIEW_OPEN:
-        check.review_status = REVIEW_NONE
-    else:
-        check.review_status = current
-
-
-def _history_entry(check):
-    return {
-        "checked_at": check.checked_at.isoformat() if check.checked_at else None,
-        "technical_verdict": check.technical_verdict,
-        "fit_verdict": check.fit_verdict,
-        "catalog_stamp": check.catalog_stamp,
-        "sizing_id": check.configuration_id,
-    }
-
-
-# ── capabilities / template / pre-fill ───────────────────────────────────────
+# ── capabilities / template ──────────────────────────────────────────────────
 
 @bom_bp.route("/capabilities", methods=["GET"])
 @login_required
 def capabilities():
     from bom.parsers import FORMAT_LABELS
-    caps = ai_prefill.capabilities()
+    caps = agent_ingest.capabilities()
     caps.update({
-        "accepted_extensions": list(ACCEPTED_EXTENSIONS),
+        "accepted_extensions": list(accepted_extensions()),
+        "shareable_extensions": list(SHAREABLE_EXTENSIONS),
+        "parser_extensions": list(LOCAL_EXTENSIONS),
         "max_bytes": MAX_BOM_BYTES,
         "formats": FORMAT_LABELS,
         "template_url": "/api/bom/template",
     })
+    from auth import smtp_configured
+    # The "email me when done" option only shows when mail can be sent.
+    caps["notify_available"] = bool(caps["agent_available"] and smtp_configured())
     try:
         from bom.hcl_data import catalog_counts
         from auth import get_setting
@@ -191,39 +197,10 @@ def template_download():
                      download_name="sc-bom-template.xlsx", mimetype=XLSX_MIME)
 
 
-@bom_bp.route("/prefill", methods=["POST"])
-@login_required
-@limiter.limit("20 per hour")
-def prefill():
-    if not ai_prefill.available():
-        return jsonify({"error": "AI pre-fill is not configured on this server. "
-                                 "Download the blank template instead."}), 503
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    f = request.files["file"]
-    try:
-        path, ext = _save_upload(f, ai_prefill.PREFILL_EXTENSIONS)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    try:
-        data = ai_prefill.prefill_template(path, f.filename, lang=request.form.get("lang") or "en")
-    except ai_prefill.PrefillUnavailable as exc:
-        return jsonify({"error": str(exc)}), 503
-    except ai_prefill.PrefillError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:  # SDK/network errors: user-safe message, detail in log
-        from flask import current_app
-        current_app.logger.warning("BOM pre-fill failed: %s", exc)
-        return jsonify({"error": "The pre-fill service is unavailable right now. "
-                                 "Try again later or fill the blank template."}), 502
-    finally:
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
-    stem = os.path.splitext(os.path.basename(f.filename or "bom"))[0][:60] or "bom"
-    return send_file(io.BytesIO(data), as_attachment=True,
-                     download_name="%s-prefilled-template.xlsx" % stem, mimetype=XLSX_MIME)
+def _template_name(filename):
+    stem = os.path.splitext(os.path.basename(filename or "bom"))[0][:60] or "bom"
+    stem = "".join(ch if ch.isalnum() or ch in "._- " else "_" for ch in stem)
+    return "%s-prefilled-template.xlsx" % stem
 
 
 # ── checks on a project ──────────────────────────────────────────────────────
@@ -240,13 +217,156 @@ def list_checks(project_id):
     return jsonify([c.to_dict() for c in rows])
 
 
+def _parse_upload(path, filename):
+    """(bom, fmt, refusal, ingest_meta):
+      (bom, fmt, None, meta)   a local parser read it (meta: PDF certainty);
+      (None, None, reply, _)   refuse outright;
+      (None, None, None, meta) no parser could read it with confidence: a
+                               case for the agent (meta: why, for PDFs)."""
+    from bom.parsers import UnrecognizedFormat, parse_file
+    from bom.parsers.template import TemplateError
+    from xlsx_utils import SheetTooLargeError
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext == ".pdf":
+        return _parse_pdf(path)
+    if ext not in PARSER_EXTENSIONS:
+        return None, None, None, None            # picture, docx, txt: agent only
+    try:
+        bom, fmt = parse_file(path, filename)
+        return bom, fmt, None, None
+    except TemplateError as exc:
+        # Our own template, filled in by hand: its errors are the user's to
+        # fix, never something to hand to the agent.
+        return None, None, (jsonify({
+            "error": "The template has errors - fix the rows below and upload again.",
+            "details": list(exc.errors)}), 400), None
+    except SheetTooLargeError as exc:
+        # Oversized sheet or a zip decompression bomb: a clear refusal.
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
+    except UnrecognizedFormat:
+        return None, None, None, None
+    except Exception as exc:                     # a parser crash: let the agent try
+        from flask import current_app
+        current_app.logger.warning("BOM parse failed, trying the agent: %s", exc)
+        return None, None, None, None
+
+
+def _parse_pdf(path):
+    """A PDF through the local parsers and the certainty score: trusted at
+    or above the admin threshold, otherwise the agent's (bom/pdf_certainty)."""
+    from bom import pdf_certainty
+    from bom.parsers import read_pdf
+    from bom.parsers.pdf_common import NotAVendorBom
+    try:
+        outcome = read_pdf(path)
+    except NotAVendorBom as exc:
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
+    meta = {"pdf": dict(outcome.meta(), threshold=pdf_certainty.threshold())}
+    if outcome.bom is not None and pdf_certainty.passes(outcome.certainty):
+        return outcome.bom, outcome.fmt, None, meta
+    return None, None, None, meta
+
+
+def _refuse_unrecognised(local_meta=None):
+    details = []
+    pdf = (local_meta or {}).get("pdf") or {}
+    if pdf.get("format"):
+        # A layout we know, read with too little certainty to trust.
+        details = [r.get("text", "") for r in (pdf.get("reasons") or [])][:5]
+    return jsonify({"error": "This file is not a BOM format the checker recognises."
+                             if not pdf.get("format") else
+                             "The checker could not read this PDF with enough certainty.",
+                    "hint": "Download the blank template, fill it in and upload that instead.",
+                    "retainable": True, "details": details}), 400
+
+
+def _cap(setting):
+    from auth import get_setting
+    try:
+        return max(0, int(get_setting(setting, "0") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _agent_budget_error(user):
+    """A 429 reply when a limit is reached, else None. Caps count jobs per
+    UTC day; 0 means unlimited (the testing default)."""
+    from datetime import timedelta
+    now = _utcnow()
+    hour_ago = now - timedelta(hours=1)
+    recent = BomAgentJob.query.filter(BomAgentJob.user_id == user.id,
+                                      BomAgentJob.created_at >= hour_ago).count()
+    if recent >= AGENT_JOBS_PER_USER_HOUR:
+        return jsonify({"error": "You have sent many unrecognised files in the last hour. "
+                                 "Try again later, or fill in the blank template."}), 429
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tenant_cap = _cap(AGENT_TENANT_CAP_SETTING)
+    if tenant_cap and BomAgentJob.query.filter(
+            BomAgentJob.tenant_id == user.tenant_id,
+            BomAgentJob.created_at >= day_start).count() >= tenant_cap:
+        return jsonify({"error": "Your organisation reached today's limit for files read by "
+                                 "the agent. Try again tomorrow, or fill in the blank template."}), 429
+    global_cap = _cap(AGENT_GLOBAL_CAP_SETTING)
+    if global_cap and BomAgentJob.query.filter(
+            BomAgentJob.created_at >= day_start).count() >= global_cap:
+        return jsonify({"error": "Today's limit for files read by the agent has been reached. "
+                                 "Try again tomorrow, or fill in the blank template."}), 429
+    return None
+
+
+def _agent_path(project, user, sizing, name, filename, path, digest, local_meta=None):
+    """Queue the file for the agent (202), reuse an earlier agent reading of
+    the same file (201), or refuse it. ``local_meta`` is what the local PDF
+    parse found (certainty and reasons), kept with the job and the check."""
+    from bom.agent_worker import store_agent_check
+    if not agent_ingest.available() or os.path.splitext(filename or "")[1].lower() \
+            not in agent_ingest.AGENT_EXTENSIONS:
+        return _refuse_unrecognised(local_meta)
+
+    # The same file already read by the agent for this organisation: reuse
+    # that reading, no second paid call (retries, another sizing, another
+    # project of the same customer).
+    earlier = (BomCheck.query.filter_by(file_sha256=digest, file_format=AGENT_FORMAT,
+                                        tenant_id=user.tenant_id)
+               .filter(BomCheck.ingest_meta.isnot(None))
+               .order_by(BomCheck.created_at.desc()).first())
+    if earlier is not None:
+        meta = dict(earlier.ingest_meta or {})
+        meta.update({"reused_from_check": earlier.id, "input_tokens": 0, "output_tokens": 0})
+        check = store_agent_check(
+            project_id=project.id, user=user, name=name, filename=filename, digest=digest,
+            bom=NormalizedBOM.from_dict(earlier.normalized or {}), meta=meta, sizing=sizing)
+        db.session.commit()
+        return jsonify(check.to_dict(full=True)), 201
+
+    pending = BomAgentJob.query.filter(
+        BomAgentJob.project_id == project.id, BomAgentJob.file_sha256 == digest,
+        BomAgentJob.status.in_((JOB_QUEUED, JOB_RUNNING))).first()
+    if pending is not None:
+        return jsonify({"job": pending.to_dict()}), 202
+
+    refused = _agent_budget_error(user)
+    if refused:
+        return refused
+    with open(path, "rb") as fh:
+        content = fh.read()
+    job = BomAgentJob(
+        project_id=project.id, configuration_id=sizing.id if sizing else None,
+        user_id=user.id, tenant_id=user.tenant_id, name=name,
+        filename=(filename or "bom")[:200], file_sha256=digest, content=content,
+        notify_email=(request.form.get("notify") or "") in ("1", "true", "on"),
+        lang=(request.form.get("lang") or "en")[:5],
+        meta={"pdf_local": local_meta["pdf"]} if local_meta and local_meta.get("pdf") else None,
+    )
+    db.session.add(job)
+    db.session.commit()
+    return jsonify({"job": job.to_dict()}), 202
+
+
 @bom_project_bp.route("/<int:project_id>/bom-checks", methods=["POST"])
 @login_required
 @limiter.limit("30 per hour")
 def create_check(project_id):
-    from bom.parsers import UnrecognizedFormat, parse_file
-    from bom.parsers.template import TemplateError
-    from xlsx_utils import SheetTooLargeError
     user = current_user()
     project, err = _owned_project_or_error(project_id, user)
     if err:
@@ -258,25 +378,17 @@ def create_check(project_id):
     if err:
         return err
     try:
-        path, ext = _save_upload(f, ACCEPTED_EXTENSIONS)
+        path, ext = _save_upload(f, accepted_extensions())
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    name = (request.form.get("name") or "").strip()[:200] or os.path.basename(f.filename or "BOM")[:200]
     try:
         digest = _sha256(path)
-        try:
-            bom, fmt = parse_file(path, f.filename)
-        except TemplateError as exc:
-            return jsonify({"error": "The template has errors - fix the rows below and upload again.",
-                            "details": list(exc.errors)}), 400
-        except UnrecognizedFormat as exc:
-            return jsonify({"error": "This file is not a BOM format the checker recognises.",
-                            "hint": str(exc),
-                            "retainable": True,
-                            "details": []}), 400
-        except SheetTooLargeError as exc:
-            # Oversized sheet or a zip decompression bomb: a clear refusal,
-            # not the generic 'could not process' fallback below.
-            return jsonify({"error": str(exc), "details": []}), 400
+        bom, fmt, refusal, local_meta = _parse_upload(path, f.filename)
+        if refusal:
+            return refusal
+        if bom is None:
+            return _agent_path(project, user, sizing, name, f.filename, path, digest, local_meta)
         result = run_check(bom, sizing)
     except Exception as exc:
         from flask import current_app
@@ -290,17 +402,98 @@ def create_check(project_id):
         except OSError:
             pass
 
-    name = (request.form.get("name") or "").strip()[:200] or os.path.basename(f.filename or "BOM")[:200]
     check = BomCheck(
         project_id=project.id, user_id=user.id, tenant_id=user.tenant_id,
         name=name, filename=(f.filename or "")[:200], file_sha256=digest,
         file_format=fmt, vendor=bom.vendor, normalized=bom.to_dict(), history=[],
+        ingest_meta=local_meta,
     )
-    _apply_result(check, result, sizing)
-    check.history = [_history_entry(check)]
+    check.apply_result(result, sizing)
+    check.history = [check.history_entry()]
     db.session.add(check)
     db.session.commit()
     return jsonify(check.to_dict(full=True)), 201
+
+
+# ── agent jobs ───────────────────────────────────────────────────────────────
+
+@bom_project_bp.route("/<int:project_id>/bom-agent-jobs", methods=["GET"])
+@login_required
+def list_agent_jobs(project_id):
+    """Jobs still in the queue, plus failures of the last day (so a user who
+    closed the modal still learns what happened)."""
+    from datetime import timedelta
+    user = current_user()
+    project, source = _visible_project(project_id, user)
+    if project is None:
+        return jsonify({"error": "Project not found"}), 404
+    since = _utcnow() - timedelta(days=1)
+    rows = (BomAgentJob.query.filter(BomAgentJob.project_id == project.id)
+            .filter(BomAgentJob.status.in_((JOB_QUEUED, JOB_RUNNING))
+                    | ((BomAgentJob.status == JOB_FAILED) & (BomAgentJob.created_at >= since)))
+            .order_by(BomAgentJob.created_at.desc()).limit(50).all())
+    return jsonify([j.to_dict() for j in rows])
+
+
+def _visible_job(job_id, user):
+    job = db.session.get(BomAgentJob, job_id)
+    if job is None:
+        return None, None
+    project, source = _visible_project(job.project_id, user)
+    if project is None:
+        return None, None
+    return job, project
+
+
+@bom_jobs_bp.route("/<int:job_id>", methods=["GET"])
+@login_required
+def get_agent_job(job_id):
+    job, project = _visible_job(job_id, current_user())
+    if job is None:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job.to_dict())
+
+
+@bom_jobs_bp.route("/<int:job_id>/notify", methods=["POST"])
+@login_required
+def set_agent_job_notify(job_id):
+    """Opt in to (or out of) the done-email while the job is waiting. Only
+    the uploader: the mail goes to their own address."""
+    user = current_user()
+    job, project = _visible_job(job_id, user)
+    if job is None or job.user_id != user.id:
+        return jsonify({"error": "Job not found"}), 404
+    job.notify_email = bool((request.get_json(silent=True) or {}).get("notify"))
+    db.session.commit()
+    return jsonify(job.to_dict())
+
+
+@bom_jobs_bp.route("/<int:job_id>/template", methods=["GET"])
+@login_required
+def agent_job_template(job_id):
+    """The agent's pre-filled template of a job whose reading failed the
+    template parser, so the user can fix the rows and upload it."""
+    job, project = _visible_job(job_id, current_user())
+    if job is None or job.template is None:
+        return jsonify({"error": "Template not found"}), 404
+    return send_file(io.BytesIO(job.template), as_attachment=True,
+                     download_name=_template_name(job.filename), mimetype=XLSX_MIME)
+
+
+@bom_checks_bp.route("/<int:check_id>/template", methods=["GET"])
+@login_required
+def check_template(check_id):
+    """The check's BOM as a filled template, regenerated from the stored
+    normalised BOM (nothing extra is kept). Offered on agent-read checks:
+    when the agent misread a line, fix it here and upload the template."""
+    from bom.parsers.template import build_template_bytes
+    check, project = _visible_check(check_id, current_user())
+    if check is None:
+        return jsonify({"error": "BOM check not found"}), 404
+    data = build_template_bytes(bom=NormalizedBOM.from_dict(check.normalized or {}),
+                                lang=request.args.get("lang") or "en")
+    return send_file(io.BytesIO(data), as_attachment=True,
+                     download_name=_template_name(check.filename or check.name), mimetype=XLSX_MIME)
 
 
 @bom_checks_bp.route("/<int:check_id>", methods=["GET"])
@@ -352,9 +545,9 @@ def recheck(check_id):
             sizing = None
     bom = NormalizedBOM.from_dict(check.normalized or {})
     result = run_check(bom, sizing)
-    _apply_result(check, result, sizing)
+    check.apply_result(result, sizing)
     history = list(check.history or [])
-    history.append(_history_entry(check))
+    history.append(check.history_entry())
     check.history = history[-20:]
     db.session.commit()
     return jsonify(check.to_dict(full=True))
@@ -380,6 +573,88 @@ def list_reviews():
                         if c.project else None)
         d["tenant_domain"] = c.user.tenant.domain if (c.user and c.user.tenant) else None
         out.append(d)
+    return jsonify(out)
+
+
+@bom_admin_bp.route("/agent-settings", methods=["GET"])
+def get_agent_settings():
+    from auth import get_setting
+    return jsonify({
+        "available": agent_ingest.available(),
+        "model": agent_ingest.model_name() if agent_ingest.available() else None,
+        "always_review": (get_setting(AGENT_ALWAYS_REVIEW_SETTING, "1") or "1") != "0",
+        "tenant_daily_cap": _cap(AGENT_TENANT_CAP_SETTING),
+        "global_daily_cap": _cap(AGENT_GLOBAL_CAP_SETTING),
+        "user_hourly_limit": AGENT_JOBS_PER_USER_HOUR,
+        "pdf_threshold": _pdf_threshold(),
+    })
+
+
+def _pdf_threshold():
+    from bom import pdf_certainty
+    return pdf_certainty.threshold()
+
+
+@bom_admin_bp.route("/agent-settings", methods=["PUT"])
+def put_agent_settings():
+    """Caps are agent jobs per UTC day; 0 = unlimited."""
+    from auth import set_setting
+    data = request.get_json(silent=True) or {}
+    changes = []
+    for key, setting in (("tenant_daily_cap", AGENT_TENANT_CAP_SETTING),
+                         ("global_daily_cap", AGENT_GLOBAL_CAP_SETTING)):
+        if key in data:
+            value = data[key]
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100000:
+                return jsonify({"error": "%s must be a whole number from 0 (unlimited) to 100000" % key}), 400
+            set_setting(setting, str(value))
+            changes.append("%s=%d" % (key, value))
+    if "pdf_threshold" in data:
+        from bom import pdf_certainty
+        value = data["pdf_threshold"]
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+            return jsonify({"error": "pdf_threshold must be a whole number from 0 to 100"}), 400
+        set_setting(pdf_certainty.THRESHOLD_SETTING, str(value))
+        changes.append("pdf_threshold=%d" % value)
+    if "always_review" in data:
+        on = bool(data["always_review"])
+        set_setting(AGENT_ALWAYS_REVIEW_SETTING, "1" if on else "0")
+        changes.append("always_review=%s" % ("on" if on else "off"))
+    if not changes:
+        return jsonify({"error": "Nothing to change"}), 400
+    audit("bom_agent_settings", ", ".join(changes))
+    db.session.commit()
+    return get_agent_settings()
+
+
+@bom_admin_bp.route("/agent-usage", methods=["GET"])
+def agent_usage():
+    """Agent jobs of the last 30 days per UTC day and organisation: counts by
+    outcome and the tokens billed (cache reuses bill nothing and are not
+    jobs). Aggregated in Python: a few thousand rows at most."""
+    from datetime import timedelta
+    from auth_models import Tenant
+    since = _utcnow() - timedelta(days=30)
+    rows = BomAgentJob.query.filter(BomAgentJob.created_at >= since).all()
+    domains = {t.id: t.domain for t in Tenant.query.filter(
+        Tenant.id.in_({r.tenant_id for r in rows} or {-1})).all()}
+    buckets = {}
+    for job in rows:
+        key = (job.created_at.date().isoformat(), job.tenant_id)
+        b = buckets.setdefault(key, {"day": key[0], "tenant": domains.get(job.tenant_id),
+                                     "jobs": 0, "done": 0, "failed": 0, "pending": 0,
+                                     "input_tokens": 0, "output_tokens": 0})
+        b["jobs"] += 1
+        if job.status == JOB_FAILED:
+            b["failed"] += 1
+        elif job.status in (JOB_QUEUED, JOB_RUNNING):
+            b["pending"] += 1
+        else:
+            b["done"] += 1
+        meta = job.meta or {}
+        b["input_tokens"] += int(meta.get("input_tokens") or 0)
+        b["output_tokens"] += int(meta.get("output_tokens") or 0)
+    out = sorted(buckets.values(), key=lambda b: (b["day"], b["tenant"] or ""), reverse=True)
     return jsonify(out)
 
 
@@ -495,8 +770,11 @@ def retain_rejected(project_id):
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     f = request.files["file"]
+    if os.path.splitext(f.filename or "")[1].lower() in agent_ingest.IMAGE_EXTENSIONS:
+        return jsonify({"error": "Pictures are not kept: a layout can only be taught "
+                                 "from a file with text in it."}), 400
     try:
-        path, ext = _save_upload(f, ACCEPTED_EXTENSIONS)
+        path, ext = _save_upload(f, SHAREABLE_EXTENSIONS)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:
@@ -537,8 +815,10 @@ def download_reject(reject_id):
     row = db.session.get(BomRejectedFile, reject_id)
     if row is None:
         return jsonify({"error": "File not found"}), 404
+    import mimetypes
     safe = "".join(ch if ch.isalnum() or ch in "._- " else "_" for ch in row.filename) or "bom"
-    mime = XLSX_MIME if safe.lower().endswith(".xlsx") else "text/csv"
+    mime = XLSX_MIME if safe.lower().endswith(".xlsx") else (
+        mimetypes.guess_type(safe)[0] or "application/octet-stream")
     return send_file(io.BytesIO(row.content), as_attachment=True,
                      download_name=safe, mimetype=mime)
 

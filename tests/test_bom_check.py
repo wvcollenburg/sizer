@@ -190,7 +190,10 @@ def test_suggestions_come_from_the_identified_platform_only(app):
     assert len(sugg) == 1 and sugg[0]["kind"] == "nic" and sugg[0]["code"] == "nic_not_in_hcl"
     parts = [x["part_number"] for x in sugg[0]["candidates"]]
     # 25 GbE needed: the 10 GbE X710 and 1 GbE I350 are filtered out; OCP first.
-    assert parts == ["4XC7A08294", "4XC7A80269"]
+    # The offending card is 2-port, which leaves the node on backplane over
+    # VLAN (owner rule 2026-09-30), so the 4-port E810-DA4 leads: swapping to
+    # it fixes both findings. The port finding shares this one card.
+    assert parts == ["4XC7A80269", "4XC7A08294"]
     assert any(x["tce"] for x in sugg[0]["candidates"])
 
 
@@ -210,7 +213,7 @@ def test_nic_suggestions_never_lead_with_the_slowest_when_none_meet_the_speed(ap
     cands = sugg[0]["candidates"]
     assert cands, "the fallback pool is kept, not silently emptied"
     assert cands[0]["speed_gbe"] == 25, "fastest first — never the 1 GbE I350"
-    assert cands[0]["part_number"] == "4XC7A08294", "same form factor and port count still lead"
+    assert cands[0]["part_number"] == "4XC7A80269", "same form factor, 4 ports (the node is short of ports)"
     assert all(x.get("below_required_speed") is True for x in cands)
 
 
@@ -222,7 +225,7 @@ def test_nic_suggestions_that_meet_the_speed_are_not_flagged(app):
     result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]),
                        hcl=hcl_data(), platforms=platforms)
     cands = result["suggestions"][0]["candidates"]
-    assert [x["part_number"] for x in cands] == ["4XC7A08294", "4XC7A80269"]
+    assert [x["part_number"] for x in cands] == ["4XC7A80269", "4XC7A08294"]   # 4-port first: see above
     assert not any("below_required_speed" in x for x in cands)
 
 

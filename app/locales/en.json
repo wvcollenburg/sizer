@@ -19,6 +19,7 @@
   "export.common.resource": "Resource",
   "export.common.single_cluster": "single cluster",
   "export.common.single_node_note": "Single node — no failover redundancy. Acceptable for a DR tier that is itself the redundancy; not recommended for production clusters.",
+  "export.common.agent_bom_note": "The quoted hardware comes from a BOM in an unsupported layout that was read by a Claude agent. Check it against the original quote.",
   "export.common.storage": "Storage",
   "export.common.threads": "Threads",
   "export.common.usable_storage": "Usable Storage",

@@ -141,6 +141,76 @@ def load_workbook_safe(path: str):
         return load_workbook(path, read_only=True, data_only=True)
 
 
+XLS_MAGIC = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'    # OLE2 compound file (BIFF .xls)
+MAX_XLS_SHEETS = 20
+
+
+def is_xls(path: str) -> bool:
+    try:
+        with open(path, 'rb') as fh:
+            return fh.read(8) == XLS_MAGIC
+    except OSError:
+        return False
+
+
+def xls_to_xlsx(path: str) -> str:
+    """Copy a legacy .xls workbook into a temporary .xlsx (caller unlinks).
+
+    Every deterministic parser reads openpyxl workbooks; converting once lets
+    an .xls export of a known layout go through the same detector ladder as
+    its .xlsx twin instead of straight to the (paid) agent. Values only: the
+    parsers never look at styles. Strings are stored as text so a cell
+    reading '=...' stays literal (load_workbook_safe is data_only, and a
+    formula without a cached value would come back empty). The row/column
+    caps of the xlsx path apply; xlrd itself holds the whole file in memory,
+    which the 10 MB upload cap bounds."""
+    import os
+    import tempfile
+    import xlrd
+    from openpyxl import Workbook
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+    if not is_xls(path):
+        raise ValueError('not an .xls workbook')
+    try:
+        book = xlrd.open_workbook(path, on_demand=True)
+    except Exception as exc:                  # xlrd raises several unrelated types
+        raise ValueError('unreadable .xls workbook: %s' % exc)
+    wb = Workbook()
+    wb.remove(wb.active)
+    try:
+        for index in range(min(book.nsheets, MAX_XLS_SHEETS)):
+            sheet = book.sheet_by_index(index)
+            if sheet.nrows > MAX_SHEET_ROWS:
+                raise SheetTooLargeError(
+                    "Sheet '%s' exceeds the maximum of %d rows." % (sheet.name, MAX_SHEET_ROWS))
+            ws = wb.create_sheet(title=(sheet.name or 'Sheet%d' % (index + 1))[:31])
+            for r in range(sheet.nrows):
+                for c in range(min(sheet.ncols, MAX_SHEET_COLS)):
+                    cell_obj = sheet.cell(r, c)
+                    if cell_obj.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                        continue
+                    value = cell_obj.value
+                    if cell_obj.ctype == xlrd.XL_CELL_NUMBER and float(value).is_integer():
+                        value = int(value)
+                    elif cell_obj.ctype == xlrd.XL_CELL_ERROR:
+                        continue
+                    if isinstance(value, str):
+                        # Control characters are legal in BIFF, not in xlsx.
+                        value = ILLEGAL_CHARACTERS_RE.sub('', value)
+                    target = ws.cell(row=r + 1, column=c + 1, value=value)
+                    if isinstance(value, str):
+                        target.data_type = 's'
+            book.unload_sheet(index)
+    finally:
+        book.release_resources()
+    if not wb.worksheets:
+        wb.create_sheet('Sheet1')
+    fd, out = tempfile.mkstemp(suffix='.xlsx')
+    os.close(fd)
+    wb.save(out)
+    return out
+
+
 def sheet_matrix(ws, max_rows: int = MAX_SHEET_ROWS) -> List[Tuple]:
     """Materialise a worksheet as a list of row tuples, bounded by the same
     caps xlsx_utils applies to RVTools/LiveOptics uploads: an .xlsx is a ZIP
@@ -386,7 +456,10 @@ RULES = [
     ('gpu', re.compile(
         r'\b(?:GPU|NVIDIA|Tesla|RTX|L40S?|L4|A\d{2}|H100|H200|Instinct)\b', re.I)),
     ('controller', re.compile(
-        r'\b(?:HBA\s?\d{3}[a-z]*|PERC\s?H\d{3}[A-Z]?|4[34]0-\d+[ie]|4350-\d+[ie]|'
+        # Dell writes a PERC both as 'PERC H755 SAS Front' and bare, as
+        # 'H965i Adapter Low Profile' (Ingram Micro item list, 2026-09-30).
+        r'\b(?:HBA\s?\d{3}[a-z]*|PERC\s?H\d{3}[A-Z]?|H[3-9]\d{2}[a-zA-Z]?\s+(?:Adapter|Front|Controller|SAS)|'
+        r'4[34]0-\d+[ie]|4350-\d+[ie]|[59][34]0-\d+[ie]|'   # Lenovo RAID 530/540/930/940-8i
         r'9\d{3}-\d+[ie]|SAS3?\s+HBA|HBA ThinkSystem|RAID\s+(?:Controller|Adapter|Card)|'
         r'Storage Controller|MR216i|MR416i|AOC-S38\d\d|AOC-S3008|HBA\s*$)\b', re.I)),
     ('nic', re.compile(

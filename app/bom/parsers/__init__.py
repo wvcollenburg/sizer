@@ -23,6 +23,8 @@ text; uploads are untrusted and the sheet caps in xlsx_utils apply to every
 sheet we read (SheetTooLargeError propagates to the route).
 """
 import os
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from bom.normalize import NormalizedBOM
@@ -38,20 +40,27 @@ class UnrecognizedFormat(ValueError):
 
 
 FORMAT_LABELS = {
-    'template': 'Scale BOM template',
+    'template': 'Scale Computing BOM template',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
     'dh_bid': 'D&H bid quotation',
     'dell_vnet': 'Dell VNET configurator export',
     'dell_solution': 'Dell Solution (Smart Selection) export',
+    'dist_item_list': 'Distributor item list (Item # / Vendor Part # / Qty)',
     'dell_list_sku': 'Dell configuration list (QTY / Config / Available SKUs)',
     'dell_list_qty_desc_pn': 'Dell configuration list (QTY / Description / Part Number)',
     'dell_list_columns': 'Dell configuration list (one column per config)',
+    'dell_solution_pdf': 'Dell Solutions Configurator (PDF)',
+    'dell_quote_pdf': 'Dell quote e-mail (PDF)',
+    'lenovo_build_pdf': 'Lenovo build order (PDF)',
+    'lenovo_list_pdf': 'Lenovo DCSC configuration, numbered list (PDF)',
+    'supermicro_quote_pdf': 'Supermicro distributor quote (PDF)',
+    'dell_arrow_pdf': 'Dell system quote from Arrow (PDF)',
 }
 
 XLSX_MAGIC = b'PK\x03\x04'
-ACCEPTED_EXTENSIONS = ('.xlsx', '.csv')
+ACCEPTED_EXTENSIONS = ('.xlsx', '.xls', '.csv')
 
 
 def _extension(filename: Optional[str], path: str) -> str:
@@ -67,9 +76,33 @@ def _is_xlsx(path: str) -> bool:
         return False
 
 
+@contextmanager
+def _as_xlsx(path: str):
+    """Temporary .xlsx copy of an .xls (None when it is not a readable one);
+    SheetTooLargeError propagates like it does for .xlsx."""
+    from bom.parsers.common import is_xls, xls_to_xlsx
+    converted = None
+    if is_xls(path):
+        try:
+            converted = xls_to_xlsx(path)
+        except ValueError as exc:
+            from xlsx_utils import SheetTooLargeError
+            if isinstance(exc, SheetTooLargeError):
+                raise
+            converted = None
+    try:
+        yield converted
+    finally:
+        if converted:
+            try:
+                os.unlink(converted)
+            except OSError:
+                pass
+
+
 def _detect_xlsx(path: str) -> Optional[str]:
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_dcsc, template)
     from bom.parsers.common import load_workbook_safe
     from xlsx_utils import SheetTooLargeError
     try:
@@ -96,6 +129,10 @@ def _detect_xlsx(path: str) -> Optional[str]:
         solution = dell_solution.detect(wb)
         if solution:
             return solution
+        # Before the hand-typed lists: an 'Item # | … | Vendor Part # |
+        # Description | Qty' sheet with N / N.M item numbers.
+        if item_list.detect(wb):
+            return item_list.FORMAT
         return dell_lists.detect(wb)
     finally:
         wb.close()
@@ -105,6 +142,9 @@ def detect_format(path: str, filename: Optional[str] = None) -> Optional[str]:
     """Format id for a file, or None when nothing matches (PDF, docx, an
     unknown spreadsheet, a corrupt upload)."""
     ext = _extension(filename, path)
+    if ext == '.xls':
+        with _as_xlsx(path) as converted:
+            return _detect_xlsx(converted) if converted else None
     if ext == '.csv':
         from bom.parsers import dell_service_tag
         return dell_service_tag.FORMAT if dell_service_tag.detect_csv(path) else None
@@ -118,13 +158,19 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     template.TemplateError (our template, but invalid) or
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_dcsc, template)
+    if _extension(filename, path) == '.xls':
+        # Legacy workbook: parse its .xlsx copy with the same ladder.
+        with _as_xlsx(path) as converted:
+            if converted is None:
+                raise UnrecognizedFormat('The .xls file could not be read as an Excel workbook.')
+            stem = os.path.splitext(os.path.basename(filename or path))[0]
+            return parse_file(converted, stem + '.xlsx')
     fmt = detect_format(path, filename)
     if fmt is None:
         ext = _extension(filename, path)
         if ext not in ACCEPTED_EXTENSIONS:
-            raise UnrecognizedFormat('Only .xlsx and .csv BOM exports are parsed directly; '
-                                     'use the template (or the AI pre-fill) for other files.')
+            raise UnrecognizedFormat('Only .xlsx, .xls and .csv BOM exports are parsed directly.')
         raise UnrecognizedFormat()
     if fmt == template.FORMAT:
         bom = template.parse_template(path)
@@ -146,6 +192,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
         bom = dell_quote.parse_vnet(path)
     elif fmt == dell_solution.FORMAT_SOLUTION:
         bom = dell_solution.parse(path)
+    elif fmt == item_list.FORMAT:
+        bom = item_list.parse(path)
     else:
         bom = dell_lists.parse(path)
     return bom, fmt
@@ -172,3 +220,73 @@ def detect_vendor(bom: NormalizedBOM) -> str:
     if re.search(r'ProLiant|^P\d{5}-B21$', blob, re.M):
         return 'HPE'
     return 'Unknown'
+
+
+# ─── PDFs ──────────────────────────────────────────────────────────────────────
+# A PDF is read in a sandboxed child process (bom/pdf_doc.py), offered to each
+# PDF parser in turn, and the parse is scored (bom/pdf_certainty.py). The
+# caller decides what a score means (route: trust it, or hand the file to the
+# agent); nothing here trusts a parse on its own.
+
+@dataclass
+class PdfOutcome:
+    doc: Optional['object'] = None          # bom.pdf_doc.PdfDoc, None when unreadable
+    bom: Optional[NormalizedBOM] = None
+    fmt: Optional[str] = None
+    certainty: Optional['object'] = None    # bom.pdf_certainty.Certainty
+    evidence: Optional['object'] = None
+    error: Optional[str] = None
+
+    def meta(self) -> dict:
+        """What the check keeps about how the PDF was read."""
+        out = {'format': self.fmt, 'error': self.error}
+        if self.certainty is not None:
+            out.update(self.certainty.to_dict())
+        if self.evidence is not None:
+            out['checks_passed'] = list(self.evidence.checks_passed)[:20]
+            out['checks_failed'] = list(self.evidence.checks_failed)[:20]
+            out['rows'] = self.evidence.rows
+        if self.doc is not None:
+            out['producer'] = (self.doc.meta.get('producer') or '')[:80]
+            out['pages'] = self.doc.page_count
+        return out
+
+
+def _pdf_parsers():
+    from bom.parsers import (pdf_dell_arrow, pdf_dell_quote, pdf_dell_solution,
+                             pdf_lenovo_build, pdf_lenovo_list, pdf_scale_quote,
+                             pdf_supermicro_quote)
+    # The Scale quotation first: it is refused, never parsed as a BOM.
+    return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_dell_solution,
+            pdf_dell_quote, pdf_dell_arrow, pdf_supermicro_quote]
+
+
+def read_pdf(path: str) -> PdfOutcome:
+    """Extract, detect, parse and score a PDF. Raises
+    pdf_common.NotAVendorBom for a document that is recognised but is not a
+    BOM to check; every other failure is reported in the outcome."""
+    from bom import pdf_certainty, pdf_doc
+    from bom.parsers.pdf_common import Evidence, NotAVendorBom
+    try:
+        doc = pdf_doc.read(path)
+    except (pdf_doc.PdfExtractError, OSError) as exc:
+        return PdfOutcome(error=str(exc)[:200])
+    for mod in _pdf_parsers():
+        try:
+            hit = mod.detect(doc)
+        except Exception:                      # a detector must never break the ladder
+            hit = False
+        if not hit:
+            continue
+        try:
+            bom, ev = mod.parse(doc)
+        except NotAVendorBom:
+            raise
+        except Exception as exc:               # parser bug on an odd file: agent's turn
+            ev = Evidence()
+            ev.unexplained.append('parser error: %s' % type(exc).__name__)
+            return PdfOutcome(doc=doc, fmt=mod.FORMAT, evidence=ev,
+                              certainty=pdf_certainty.assess(doc, ev, None))
+        return PdfOutcome(doc=doc, bom=bom, fmt=mod.FORMAT, evidence=ev,
+                          certainty=pdf_certainty.assess(doc, ev, bom))
+    return PdfOutcome(doc=doc, certainty=pdf_certainty.safety(doc))

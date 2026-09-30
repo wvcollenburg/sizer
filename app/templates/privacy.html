@@ -40,7 +40,7 @@
     <main>
         <article class="legal-doc">
             <h1 data-i18n="privacy.doc_title">Privacy Policy</h1>
-            <p class="legal-meta" data-i18n-html="privacy.updated">Last updated: <strong>4 June 2026</strong></p>
+            <p class="legal-meta" data-i18n-html="privacy.updated">Last updated: <strong>29 September 2026</strong></p>
 
             <h2 data-i18n="privacy.s1_h">1. Who we are</h2>
             <p data-i18n-html="privacy.s1_p">
@@ -60,6 +60,11 @@
                 <li data-i18n-html="privacy.s2_li3"><strong>Usage &amp; security records</strong> — sign-in timestamps, an audit log
                     of account actions (sign-up, activation, password changes, administrative
                     actions), and limited technical data needed to operate the service.</li>
+                <li data-i18n-html="privacy.s2_li4"><strong>BOM checks</strong> — when you check a vendor BOM or
+                    quote, we store the list of parts read from it, the check results, the file name and a
+                    fingerprint of the file. The file itself is not kept once it has been read, unless you
+                    choose to share it with us. Quotes can contain the names and contact details of the
+                    people who prepared them.</li>
             </ul>
 
             <h2 data-i18n="privacy.s3_h">3. Why we use it, and our lawful basis</h2>
@@ -73,6 +78,9 @@
                 <li data-i18n-html="privacy.s3_li4"><strong>To send product update emails</strong> — for example, a notification when
                     new hardware models become available — where you have opted in. This is based on
                     your <em>consent</em>, and you can opt out at any time.</li>
+                <li data-i18n-html="privacy.s3_li5"><strong>To check BOMs</strong>, including having an AI
+                    service read files in a layout the checker does not recognise —
+                    <em>performance of a contract</em>.</li>
             </ul>
 
             <h2 data-i18n="privacy.s4_h">4. Cookies and local storage</h2>
@@ -106,7 +114,17 @@
                 organisation (your email domain) and to our administrators for support. Beyond your
                 own organisation, your data is shared <strong>only with Scale Computing</strong>, the
                 vendor whose hardware this tool sizes, to provide and support the sizing service. We
-                do not share your data with any other third parties.
+                do not share your data with any other third parties, except the service provider
+                described below.
+            </p>
+            <p data-i18n-html="privacy.s5_p2">
+                <strong>AI processing of BOM files.</strong> When the checker cannot read an uploaded
+                BOM or quote itself (for example a PDF, a picture or an unfamiliar spreadsheet layout),
+                the file's contents are sent to <strong>Anthropic</strong>, which processes them on our
+                behalf through its Claude API only to extract the list of parts. Anthropic acts as our
+                processor and does not use this content to train its models. This processing may take
+                place outside your country, including in the United States, under appropriate
+                safeguards. The result of the check tells you when a file was read this way.
             </p>
 
             <h2 data-i18n="privacy.s6_h">6. How long we keep it (retention)</h2>
@@ -121,6 +139,11 @@
                     personal identifier of a deleted user is <strong>automatically anonymised exactly
                     365 days after that user is deleted</strong>; the (now non-personal) action record
                     is kept.</li>
+                <li data-i18n-html="privacy.s6_li5"><strong>BOM checks</strong> — kept with the project they
+                    belong to. A file waiting to be read by the AI service is held only until it has been
+                    read, and never longer than one day. Files you share with us so we can support their
+                    layout, and the records of files read by the AI service (file name and usage), are
+                    deleted after <strong>90 days</strong>.</li>
             </ul>
 
             <h2 data-i18n="privacy.s7_h">7. Your rights</h2>

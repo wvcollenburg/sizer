@@ -1,22 +1,26 @@
-/* BOM checker — project-page UI (docs/bom-checker-build.md §7).
+/* BOM checker — project-page UI (docs/bom-checker-build.md §7,
+ * docs/bomchecker-polish-plan.md).
  *
  * Pure view layer over:
  *   GET  /api/bom/capabilities            (cached per page load)
  *   GET  /api/bom/template                (plain <a download> in the markup)
- *   POST /api/bom/prefill                 (AI pre-fill, only when capabilities allow)
- *   GET  /api/projects/<id>/bom-checks    (history list + header badge)
- *   POST /api/projects/<id>/bom-checks    (multipart: file, sizing_id?, name?)
- *   GET  /api/bom-checks/<id>             (full result)
- *   POST /api/bom-checks/<id>/recheck     (json {sizing_id})
+ *   GET  /api/projects/<id>/bom-checks    (project section + header badge)
+ *   POST /api/projects/<id>/bom-checks    (multipart: file, sizing_id?, name?, notify?)
+ *        201 = checked; 202 = {job}: no parser knows the layout, the Claude
+ *        agent reads it in the background
+ *   GET  /api/projects/<id>/bom-agent-jobs  (jobs still running / failed today)
+ *   GET  /api/bom-agent-jobs/<id>          (poll)   POST .../notify   GET .../template
+ *   GET  /api/bom-checks/<id>              (full result)   GET .../template
+ *   POST /api/bom-checks/<id>/recheck      (json {sizing_id})
  *   DELETE /api/bom-checks/<id>
  *
  * Classic script sharing one global scope with projects.js — everything lives
  * inside this IIFE and only the delegate handlers are exported (all carrying a
  * "bom"/"Bom" name so they cannot collide). Helpers that projects.js already
- * defines (api, escHtml, tt, info, _downloadBlob, currentProject) are CALLED,
- * never redeclared. Result payload keys are read defensively in both the §5
- * snake_case spelling and the camelCase spelling normalize.py emits
- * (config_results / configResults, config_name / configName).
+ * defines (api, escHtml, tt, currentProject) are CALLED, never redeclared.
+ * Result payload keys are read defensively in both the §5 snake_case spelling
+ * and the camelCase spelling normalize.py emits (config_results /
+ * configResults, config_name / configName).
  */
 (function () {
     'use strict';
@@ -25,28 +29,31 @@
         capabilities: null,     // /api/bom/capabilities payload, cached per page load
         capsPromise: null,
         checks: [],             // summary rows for the open project
+        jobs: [],               // agent jobs queued/running/failed for the open project
         checksProjectId: null,
         current: null,          // full check shown in the result step
         file: null,             // File chosen for the check
-        prefillFile: null,      // File chosen for the AI pre-fill
+        uploadedCheckId: null,  // check made from bomState.file in this session
         sizingId: '',           // '' = compatibility only; otherwise sizing id as string
+        jobId: null,            // agent job the modal is waiting on
+        pollTimer: null,
+        listTimer: null,
         dropBound: false,
         busy: false,
     };
 
-    const DEFAULT_ACCEPT = ['.xlsx', '.csv'];
-    const DEFAULT_PREFILL_ACCEPT = ['.xlsx', '.csv', '.pdf', '.docx', '.txt'];
+    const DEFAULT_ACCEPT = ['.xlsx', '.xls', '.csv'];
+    const POLL_MS = 3000;
+    const LIST_REFRESH_MS = 8000;
     const SEVERITY_RANK = { error: 0, warning: 1, info: 2 };
     const VERDICT_CLASS = { PASS: 'badge-pass', FAIL: 'badge-fail', INCONCLUSIVE: 'badge-warn' };
     const FIT_CLASS = { match: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const RELATION_CLASS = { equal: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const SEVERITY_CLASS = { error: 'badge-fail', warning: 'badge-warn', info: 'badge-info' };
-    const KNOWN_FORMATS = ['lenovo_dcsc', 'dell_service_tag', 'dell_quote', 'template'];
+    const KNOWN_FORMATS = ['lenovo_dcsc', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent'];
     const KNOWN_DIMS = ['nodes', 'cores', 'compute', 'ram', 'largest_vm', 'storage', 'nic'];
     const UNIT_KEYS = { nodes: 'nodes', cores: 'cores', GB: 'gb', TB: 'tb', GbE: 'gbe', '%': 'pct' };
 
-    // Local alias so string literals are statically discoverable by the i18n
-    // parity gate (`t('bom.…')`); resolves through the page's translator.
     function t(key, vars) { return window.t ? window.t(key, vars) : key; }
 
     function $(id) { return document.getElementById(id); }
@@ -127,16 +134,24 @@
 
     function bomClearError() { bomShowError('', []); bomShowRetainOffer(false); }
 
-    // ── rejected-file retention offer ────────────────────────────────────────
-    // Shown only when the server marked the failure retainable (unrecognised
-    // format / parse crash). Consent is the button press: it re-posts the file
-    // the user already picked to a dedicated endpoint; nothing is stored by
-    // the failed check itself.
-    function bomShowRetainOffer(on, errorText) {
+    // ── file-sharing offer ───────────────────────────────────────────────────
+    // Consent is the button press: it re-posts the file the user already
+    // picked to a dedicated endpoint; nothing is kept by the check itself.
+    // Offered when a file was refused (no agent on this server) and on a
+    // result the agent had to read: a layout Scale teaches the parsers is one
+    // the agent never has to read again.
+    function bomShowRetainOffer(on, errorText, textKey) {
         const box = $('bom-retain-offer');
         if (!box) return;
         const done = $('bom-retain-done');
         if (done) { done.hidden = true; done.textContent = ''; }
+        const p = box.querySelector('p[data-i18n^="bom.retain.offer"]');
+        if (p && on) {
+            p.setAttribute('data-i18n', textKey || 'bom.retain.offer');
+            p.textContent = t(textKey || 'bom.retain.offer');
+            p.hidden = false;
+        }
+        box.querySelectorAll('button').forEach(b => { b.hidden = false; });
         box.hidden = !on;
         bomState.retainError = on ? (errorText || '') : '';
     }
@@ -159,7 +174,7 @@
             const box = $('bom-retain-offer');
             if (box) {
                 box.querySelectorAll('button').forEach(b => { b.hidden = true; });
-                const p = box.querySelector('p[data-i18n="bom.retain.offer"]');
+                const p = box.querySelector('p[data-i18n^="bom.retain.offer"]');
                 if (p) p.hidden = true;
             }
             if (done) { done.textContent = t('bom.retain.thanks'); done.hidden = false; }
@@ -171,6 +186,18 @@
 
     function bomDismissRetain() { bomShowRetainOffer(false); }
 
+    // Only files with text can teach the checker a layout: never a picture,
+    // and not a PDF the agent had to read as an image (a scan).
+    const SHAREABLE_DEFAULT = ['.xlsx', '.xls', '.csv', '.pdf', '.docx', '.txt'];
+
+    function shareable(file, agent) {
+        if (!file) return false;
+        const caps = bomState.capabilities || {};
+        const exts = Array.isArray(caps.shareable_extensions) ? caps.shareable_extensions : SHAREABLE_DEFAULT;
+        if (!hasExtension(file.name, exts.map(e => String(e).toLowerCase()))) return false;
+        return !(agent && agent.source_kind === 'pdf' && agent.pdf_mode === 'document');
+    }
+
     function setStatus(msg, isError) {
         const el = $('bom-upload-status');
         if (!el) return;
@@ -181,12 +208,12 @@
 
     function setBusy(on) {
         bomState.busy = !!on;
+        ['bom-run-btn', 'bom-recheck-btn', 'bom-delete-btn'].forEach(id => {
+            const el = $(id);
+            if (el) el.disabled = !!on;
+        });
         const run = $('bom-run-btn');
-        const recheck = $('bom-recheck-btn');
-        const del = $('bom-delete-btn');
-        if (run) run.disabled = !!on;
-        if (recheck) recheck.disabled = !!on;
-        if (del) del.disabled = !!on;
+        if (run) run.textContent = on ? t('bom.working_short') : t('bom.run');
         const modal = $('bom-modal');
         if (modal) modal.classList.toggle('bom-busy', !!on);
     }
@@ -198,15 +225,14 @@
         if (bomState.capsPromise) return bomState.capsPromise;
         bomState.capsPromise = api('/api/bom/capabilities').then(({ ok, data }) => {
             bomState.capabilities = (ok && data) ? data : {
-                ai_prefill_available: false,
+                agent_available: false,
                 accepted_extensions: DEFAULT_ACCEPT,
-                prefill_extensions: DEFAULT_PREFILL_ACCEPT,
             };
             bomState.capsPromise = null;
             return bomState.capabilities;
         }).catch(() => {
             bomState.capsPromise = null;
-            return { ai_prefill_available: false, accepted_extensions: DEFAULT_ACCEPT };
+            return { agent_available: false, accepted_extensions: DEFAULT_ACCEPT };
         });
         return bomState.capsPromise;
     }
@@ -215,13 +241,6 @@
         const caps = bomState.capabilities || {};
         const list = Array.isArray(caps.accepted_extensions) && caps.accepted_extensions.length
             ? caps.accepted_extensions : DEFAULT_ACCEPT;
-        return list.map(e => String(e).toLowerCase());
-    }
-
-    function prefillExtensions() {
-        const caps = bomState.capabilities || {};
-        const list = Array.isArray(caps.prefill_extensions) && caps.prefill_extensions.length
-            ? caps.prefill_extensions : DEFAULT_PREFILL_ACCEPT;
         return list.map(e => String(e).toLowerCase());
     }
 
@@ -235,13 +254,18 @@
         const input = $('bom-file-input');
         if (input) input.setAttribute('accept', acceptedExtensions().join(','));
         const hint = $('bom-accept-hint');
-        if (hint) hint.textContent = t('bom.upload.accept_hint', { formats: acceptedExtensions().join(', ') });
-        const panel = $('bom-prefill-panel');
-        if (panel) {
-            panel.hidden = !caps.ai_prefill_available;
-            const pin = $('bom-prefill-input');
-            if (pin) pin.setAttribute('accept', prefillExtensions().join(','));
+        if (hint) hint.textContent = t(caps.agent_available ? 'bom.upload.accept_agent' : 'bom.upload.accept_plain');
+        const drop = document.querySelector('#bom-upload-area .upload-text');
+        if (drop) drop.textContent = t(caps.agent_available ? 'bom.upload.drop_hint2' : 'bom.upload.drop_hint');
+        const list = $('bom-formats-list');
+        if (list) {
+            const labels = Object.keys(caps.formats || {}).map(k => formatLabel(k));
+            list.innerHTML = labels.map(l => `<li>${escHtml(l)}</li>`).join('');
         }
+        const agentNote = $('bom-formats-agent');
+        if (agentNote) agentNote.hidden = !caps.agent_available;
+        const notify = $('bom-agent-notify-wrap');
+        if (notify) notify.hidden = !caps.notify_available;
         const cat = $('bom-catalog-line');
         if (cat) {
             const c = caps.catalog || null;
@@ -261,69 +285,52 @@
     // ── step switching ───────────────────────────────────────────────────────
 
     function showStep(step) {
-        const upload = $('bom-step-upload');
-        const result = $('bom-step-result');
-        if (upload) upload.style.display = step === 'upload' ? '' : 'none';
-        if (result) result.style.display = step === 'result' ? '' : 'none';
         const show = (id, on) => { const el = $(id); if (el) el.style.display = on ? '' : 'none'; };
+        show('bom-step-upload', step === 'upload');
+        show('bom-step-agent', step === 'agent');
+        show('bom-step-result', step === 'result');
         show('bom-run-btn', step === 'upload');
-        show('bom-back-btn', step === 'result');
-        show('bom-recheck-btn', step === 'result');
+        show('bom-back-btn', step === 'result' || step === 'agent');
         show('bom-delete-btn', step === 'result');
-        show('bom-recheck-wrap', step === 'result');
         bomClearError();
     }
 
-    // ── sizing picker ────────────────────────────────────────────────────────
+    // ── sizing dropdowns ─────────────────────────────────────────────────────
+    // One option list feeds both the upload dropdown and the footer's
+    // re-check dropdown. A sizing without a calculated result stays listed
+    // (so the user sees it exists) but cannot be picked.
 
     function sizingOptions() {
         return (currentProject && currentProject.sizings) ? currentProject.sizings : [];
     }
 
-    function renderSizingPicker() {
-        const host = $('bom-sizing-pick');
-        if (!host) return;
-        const rows = [];
-        const noneChecked = bomState.sizingId === '' ? ' checked' : '';
-        rows.push(`<label class="fanout-row bom-pick-row">
-            <input type="radio" name="bom-sizing" value=""${noneChecked} data-change='["bomPickSizing","$value"]'>
-            <span class="fanout-name">${escHtml(t('bom.pick.none'))}</span>
-            <span class="fanout-meta">${escHtml(t('bom.pick.none_hint'))}</span>
-        </label>`);
-        sizingOptions().forEach(s => {
-            const enabled = !!s.has_result;
-            const checked = String(s.id) === String(bomState.sizingId) ? ' checked' : '';
-            const meta = [];
-            if (s.role) meta.push(escHtml(tt('project.role.' + s.role)));
-            if (s.is_dr_target) meta.push(escHtml(tt('project.table.dr_target')));
-            if (!enabled) meta.push(escHtml(t('bom.pick.no_result')));
-            rows.push(`<label class="fanout-row bom-pick-row${enabled ? '' : ' bom-pick-disabled'}">
-                <input type="radio" name="bom-sizing" value="${s.id}"${checked}${enabled ? '' : ' disabled'} data-change='["bomPickSizing","$value"]'>
-                <span class="fanout-name">${escHtml(s.name)}</span>
-                <span class="fanout-meta">${meta.join(' · ')}</span>
-            </label>`);
-        });
-        host.innerHTML = rows.join('');
-        renderRecheckSelect();
-    }
-
-    function renderRecheckSelect() {
-        const sel = $('bom-recheck-sizing');
+    function renderSizingSelect(id) {
+        const sel = $(id);
         if (!sel) return;
         const opts = [`<option value="">${escHtml(t('bom.pick.none'))}</option>`];
         sizingOptions().forEach(s => {
             const enabled = !!s.has_result;
-            opts.push(`<option value="${s.id}"${enabled ? '' : ' disabled'}>${escHtml(s.name)}${enabled ? '' : ' — ' + escHtml(t('bom.pick.no_result'))}</option>`);
+            const meta = [];
+            if (s.role) meta.push(tt('project.role.' + s.role));
+            if (s.is_dr_target) meta.push(tt('project.table.dr_target'));
+            if (!enabled) meta.push(t('bom.pick.no_result'));
+            const label = s.name + (meta.length ? ' — ' + meta.join(' · ') : '');
+            opts.push(`<option value="${Number(s.id)}"${enabled ? '' : ' disabled'}>${escHtml(label)}</option>`);
         });
         sel.innerHTML = opts.join('');
         sel.value = String(bomState.sizingId || '');
         if (sel.value !== String(bomState.sizingId || '')) sel.value = '';
     }
 
+    function renderSizingPicker() {
+        renderSizingSelect('bom-sizing-select');
+        renderSizingSelect('bom-recheck-sizing');
+    }
+
+    function renderRecheckSelect() { renderSizingSelect('bom-recheck-sizing'); }
+
     function bomPickSizing(value) {
         bomState.sizingId = value == null ? '' : String(value);
-        const sel = $('bom-recheck-sizing');
-        if (sel) sel.value = bomState.sizingId;
     }
 
     // ── file selection + drag/drop ───────────────────────────────────────────
@@ -352,6 +359,7 @@
             return;
         }
         bomState.file = file;
+        bomState.uploadedCheckId = null;
         bomShowRetainOffer(false);
         setStatus('', false);
         bomClearError();
@@ -363,13 +371,10 @@
     function showFileName() {
         const el = $('bom-file-name');
         if (!el) return;
-        if (bomState.file) {
-            el.textContent = bomState.file.name;
-            el.hidden = false;
-        } else {
-            el.textContent = '';
-            el.hidden = true;
-        }
+        el.textContent = bomState.file ? bomState.file.name : '';
+        el.hidden = !bomState.file;
+        const area = $('bom-upload-area');
+        if (area) area.classList.toggle('has-file', !!bomState.file);
     }
 
     function bomFileChosen(input) {
@@ -382,7 +387,11 @@
         const input = $('bom-file-input');
         if (!area || !input) return;
         bomState.dropBound = true;
-        area.addEventListener('click', () => { if (!bomState.busy) input.click(); });
+        area.addEventListener('click', (e) => {
+            // The input sits inside the area: its own click must not re-open the picker.
+            if (e.target === input || bomState.busy) return;
+            input.click();
+        });
         area.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!bomState.busy) input.click(); }
         });
@@ -398,41 +407,50 @@
 
     // ── open / close ─────────────────────────────────────────────────────────
 
-    function openBomChecker() {
-        if (!currentProject) return;
+    function resetUploadForm() {
         bomState.file = null;
-        bomState.prefillFile = null;
-        bomState.current = null;
+        bomState.uploadedCheckId = null;
         bomState.sizingId = '';
         const fi = $('bom-file-input');
         if (fi) fi.value = '';
-        const pi = $('bom-prefill-input');
-        if (pi) pi.value = '';
-        const pn = $('bom-prefill-name');
-        if (pn) { pn.textContent = ''; pn.hidden = true; }
         const nameInput = $('bom-name');
-        if (nameInput) { nameInput.value = ''; nameInput.placeholder = ''; }
+        if (nameInput) { nameInput.value = ''; nameInput.placeholder = t('bom.name_hint'); }
         showFileName();
         setStatus('', false);
-        setBusy(false);
-        renderSizingPicker();
-        renderHistory();
-        showStep('upload');
+    }
+
+    function showModal() {
         bindDropZone();
         const modal = $('bom-modal');
         if (modal) modal.style.display = 'flex';
         loadCapabilities().then(applyCapabilities);
-        loadBomChecks();
+    }
+
+    function openBomChecker() {
+        if (!currentProject) return;
+        stopPolling();
+        bomState.current = null;
+        resetUploadForm();
+        setBusy(false);
+        renderSizingPicker();
+        showStep('upload');
+        showModal();
     }
 
     function closeBomChecker() {
         const modal = $('bom-modal');
         if (modal) modal.style.display = 'none';
+        stopPolling();
         bomState.current = null;
+        setBusy(false);
     }
 
     function bomBack() {
+        // Leaving the agent wait is fine: the job carries on and its result
+        // lands in the project's BOM checks list.
+        stopPolling();
         bomState.current = null;
+        resetUploadForm();
         renderSizingPicker();
         showStep('upload');
     }
@@ -452,6 +470,7 @@
         const nameInput = $('bom-name');
         const name = nameInput ? nameInput.value.trim() : '';
         if (name) fd.append('name', name);
+        fd.append('lang', (currentProject && currentProject.lang) || window.I18N_ACTIVE || 'en');
 
         setBusy(true);
         setStatus(t('bom.working'), false);
@@ -469,13 +488,130 @@
         if (!res.ok || !res.data) {
             const d = res.data || {};
             bomShowError(d.error || t('bom.err.failed'), d.details || []);
-            if (d.retainable) bomShowRetainOffer(true, [d.error, d.hint].filter(Boolean).join(' — '));
+            if (d.retainable && shareable(bomState.file, null)) {
+                bomShowRetainOffer(true, [d.error, d.hint].filter(Boolean).join(' — '));
+            }
             return;
         }
-        bomState.current = res.data;
-        renderResult(res.data);
-        showStep('result');
+        if (res.data.job) {
+            startAgentWait(res.data.job);
+            loadBomChecks();
+            return;
+        }
+        showCheck(res.data, true);
         loadBomChecks();
+    }
+
+    function showCheck(check, fromUpload) {
+        bomState.current = check;
+        if (fromUpload) bomState.uploadedCheckId = check.id;
+        renderResult(check);
+        showStep('result');
+        // A file the agent had to read: ask to share it so the layout can be
+        // taught to the parsers (only while we still hold the file).
+        if (check.agent && bomState.file && bomState.uploadedCheckId === check.id
+                && shareable(bomState.file, check.agent)) {
+            bomShowRetainOffer(true, 'agent-read: ' + (check.filename || ''), 'bom.retain.offer_agent');
+        }
+    }
+
+    // ── waiting on the Claude agent ──────────────────────────────────────────
+
+    function stopPolling() {
+        if (bomState.pollTimer) clearTimeout(bomState.pollTimer);
+        bomState.pollTimer = null;
+        bomState.jobId = null;
+    }
+
+    function startAgentWait(job) {
+        stopPolling();
+        bomState.jobId = job.id;
+        const box = $('bom-agent-notify');
+        if (box) box.checked = !!job.notify_email;
+        showStep('agent');
+        bomState.pollTimer = setTimeout(pollJob, POLL_MS);
+    }
+
+    async function pollJob() {
+        const id = bomState.jobId;
+        if (!id) return;
+        let res;
+        try {
+            res = await api(`/api/bom-agent-jobs/${Number(id)}`);
+        } catch (e) {
+            res = { ok: false };
+        }
+        if (bomState.jobId !== id) return;          // closed or replaced meanwhile
+        const job = res.ok ? res.data : null;
+        if (job && job.status === 'done' && job.check_id) {
+            stopPolling();
+            const r = await api(`/api/bom-checks/${Number(job.check_id)}`);
+            loadBomChecks();
+            if (r.ok && r.data) {
+                bomState.uploadedCheckId = r.data.id;
+                showCheck(r.data, false);
+            }
+            return;
+        }
+        if (job && job.status === 'failed') {
+            stopPolling();
+            showStep('upload');
+            bomShowError(job.error || t('bom.agent.failed'), []);
+            if (job.has_template) showJobTemplateLink(job);
+            if (bomState.file && shareable(bomState.file, null)) {
+                bomShowRetainOffer(true, 'agent failed: ' + (job.error || ''));
+            }
+            loadBomChecks();
+            return;
+        }
+        bomState.pollTimer = setTimeout(pollJob, POLL_MS);
+    }
+
+    function showJobTemplateLink(job) {
+        const list = $('bom-error-details');
+        if (!list) return;
+        list.innerHTML = `<li><a href="/api/bom-agent-jobs/${Number(job.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a> — ${escHtml(t('bom.agent.template_fix_hint'))}</li>`;
+        list.hidden = false;
+    }
+
+    async function bomAgentNotify(input) {
+        const id = bomState.jobId;
+        if (!id || !input) return;
+        await api(`/api/bom-agent-jobs/${Number(id)}/notify`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notify: !!input.checked }),
+        });
+    }
+
+    function agentBanner(check) {
+        const a = check.agent;
+        if (!a) return '';
+        const lines = [`<p class="bom-agent-banner-title">${escHtml(t('bom.agent.banner'))}</p>`];
+        if (a.pdf_certainty !== null && a.pdf_certainty !== undefined) {
+            // A PDF layout we parse locally, not trusted this time: say why.
+            lines.push(`<p>${escHtml(t('bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
+            if ((a.pdf_reasons || []).length) {
+                lines.push(`<ul class="bom-agent-dropped">${a.pdf_reasons.map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>`);
+            }
+        }
+        if (a.hidden_words) {
+            lines.push(`<p class="bom-agent-alert">${escHtml(t('bom.agent.hidden_words', { n: a.hidden_words }))}</p>`);
+        }
+        if (!a.grounded) {
+            lines.push(`<p>${escHtml(t('bom.agent.not_grounded'))}</p>`);
+        }
+        if (a.instructions_detected) {
+            lines.push(`<p class="bom-agent-alert">${escHtml(t('bom.agent.instructions'))}</p>`);
+        }
+        const dropped = (a.dropped || []).concat(a.model_changed || []);
+        if (dropped.length) {
+            lines.push(`<p>${escHtml(t('bom.agent.dropped', { n: dropped.length }))}</p>
+                <ul class="bom-agent-dropped">${dropped.map(d => `<li>${escHtml(d)}</li>`).join('')}</ul>`);
+        }
+        lines.push(`<p class="bom-agent-actions">
+            <a class="btn btn-soft btn-xs" href="/api/bom-checks/${Number(check.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a>
+            <span class="field-hint">${escHtml(t('bom.agent.template_hint'))}</span></p>`);
+        return `<div class="bom-agent-banner" role="note">${lines.join('')}</div>`;
     }
 
     // ── result step ──────────────────────────────────────────────────────────
@@ -631,10 +767,14 @@
         const techVerdict = check.technical_verdict || tech.verdict;
         const fit = result.fit || null;
         const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
-        const sizingName = check.sizing_name || (fit && fit.sizing && fit.sizing.name) || '';
 
         const metaBits = [];
         metaBits.push(escHtml(formatLabel(check.file_format)));
+        if (check.pdf && check.pdf.score !== null && check.pdf.score !== undefined) {
+            // Why not 100: the score's reasons as a tooltip (server wording).
+            const why = (check.pdf.reasons || []).join('\n');
+            metaBits.push(`<span${why ? ` title="${escHtml(why)}" class="bom-certainty-why"` : ''}>${escHtml(t('bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
+        }
         if (check.vendor) metaBits.push(escHtml(check.vendor));
         if (check.filename && check.filename !== check.name) metaBits.push(escHtml(check.filename));
         const when = check.checked_at || (result.checked_at) || check.created_at;
@@ -660,6 +800,7 @@
         const orphan = suggestions.filter(s => !rendered.has(configNameOf(s)));
 
         host.innerHTML = `
+            ${agentBanner(check)}
             <div class="bom-result-head">
                 <div class="bom-result-title">
                     <h3>${escHtml(check.name || check.filename || '')}</h3>
@@ -667,7 +808,7 @@
                 </div>
                 <div class="bom-result-chips">
                     <span class="bom-chip-label">${escHtml(t('bom.result.technical'))}</span>${verdictChip(techVerdict)}
-                    ${fit ? `<span class="bom-chip-label">${escHtml(t('bom.result.fit'))}</span>${fitChip(check.fit_verdict || fit.verdict, sizingName)}` : ''}
+                    ${fit ? `<span class="bom-chip-label">${escHtml(t('bom.result.fit'))}</span>${fitChip(check.fit_verdict || fit.verdict, '')}` : ''}
                 </div>
             </div>
             ${configBlocks || `<p class="import-info muted">${escHtml(t('bom.result.no_configs'))}</p>`}
@@ -679,25 +820,37 @@
         renderRecheckSelect();
     }
 
-    // ── history + badge ──────────────────────────────────────────────────────
+    // ── project page: BOM checks section + header badge ─────────────────────
 
     async function loadBomChecks() {
         if (!currentProject) return;
         const pid = currentProject.id;
-        const { ok, data } = await api(`/api/projects/${pid}/bom-checks`);
+        const [checks, jobs] = await Promise.all([
+            api(`/api/projects/${pid}/bom-checks`),
+            api(`/api/projects/${pid}/bom-agent-jobs`),
+        ]);
         if (!currentProject || currentProject.id !== pid) return;
-        if (!ok) {
-            // A missing backend (404) or a transient error: keep the UI usable.
-            bomState.checks = [];
-            bomState.checksProjectId = pid;
-            renderHistory();
-            updateBadge();
-            return;
-        }
-        bomState.checks = Array.isArray(data) ? data : [];
+        // A missing backend (404) or a transient error: keep the UI usable.
+        bomState.checks = (checks.ok && Array.isArray(checks.data)) ? checks.data : [];
+        bomState.jobs = (jobs.ok && Array.isArray(jobs.data)) ? jobs.data : [];
         bomState.checksProjectId = pid;
-        renderHistory();
+        renderBomSection();
         updateBadge();
+        scheduleListRefresh();
+    }
+
+    // While an agent job is still running, refresh the section now and then
+    // so its result appears without a reload, even with the modal closed.
+    function scheduleListRefresh() {
+        if (bomState.listTimer) clearTimeout(bomState.listTimer);
+        bomState.listTimer = null;
+        const pending = bomState.jobs.some(j => j.status === 'queued' || j.status === 'running');
+        if (!pending) return;
+        const pid = bomState.checksProjectId;
+        bomState.listTimer = setTimeout(() => {
+            const view = $('project-view');
+            if (currentProject && currentProject.id === pid && view && !view.hidden) loadBomChecks();
+        }, LIST_REFRESH_MS);
     }
 
     function updateBadge() {
@@ -708,39 +861,61 @@
         badge.textContent = n;
     }
 
-    function historyRow(c) {
+    function checkRow(c) {
         const when = fmtWhen(c.checked_at || c.created_at);
         const sizing = c.sizing_name
-            ? `<span class="export-note">${escHtml(t('bom.history.against', { sizing: c.sizing_name }))}</span>`
-            : `<span class="export-note">${escHtml(t('bom.history.compat_only'))}</span>`;
+            ? t('bom.history.against', { sizing: c.sizing_name })
+            : t('bom.history.compat_only');
         const review = c.review_status === 'open'
             ? `<span class="state-badge badge-warn bom-chip-sm">${escHtml(t('bom.review.open'))}</span>` : '';
-        const openLabel = escHtml(t('bom.history.open'));
-        return `<li>
-            <span class="bom-history-main">
-                <span class="bom-history-name">${escHtml(c.name || c.filename || '')}</span>
-                ${verdictChip(c.technical_verdict)}${c.fit_verdict ? fitChip(c.fit_verdict, '') : ''}${review}
-            </span>
-            ${sizing}
-            <span class="export-note">${escHtml(when)}</span>
-            <button class="btn btn-soft btn-xs" data-click='["openBomCheckResult",${Number(c.id)}]' aria-label="${openLabel} ${escHtml(c.name || '')}">${openLabel}</button>
+        const agent = c.agent
+            ? `<span class="state-badge badge-accent bom-chip-sm" title="${escHtml(t('bom.agent.banner'))}">${escHtml(t('bom.agent.chip'))}</span>` : '';
+        return `<li class="bom-row">
+            <button class="bom-row-open" data-click='["openBomCheckResult",${Number(c.id)}]'>
+                <span class="bom-row-name">${escHtml(c.name || c.filename || '')}</span>
+                <span class="bom-row-chips">${verdictChip(c.technical_verdict)}${c.fit_verdict ? fitChip(c.fit_verdict, '') : ''}${agent}${review}</span>
+                <span class="bom-row-meta">${escHtml(sizing)} · ${escHtml(when)}</span>
+            </button>
         </li>`;
     }
 
-    function renderHistory() {
-        const host = $('bom-history-list');
-        const empty = $('bom-history-empty');
+    function jobRow(j) {
+        if (j.status === 'failed') {
+            const tpl = j.has_template
+                ? ` <a href="/api/bom-agent-jobs/${Number(j.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a>` : '';
+            return `<li class="bom-row bom-row-failed">
+                <span class="bom-row-name">${escHtml(j.name || j.filename || '')}</span>
+                <span class="bom-row-chips"><span class="state-badge badge-fail bom-chip-sm">${escHtml(t('bom.agent.failed_chip'))}</span></span>
+                <span class="bom-row-meta">${escHtml(j.error || t('bom.agent.failed'))}${tpl}</span>
+            </li>`;
+        }
+        return `<li class="bom-row bom-row-pending">
+            <span class="bom-row-name">${escHtml(j.name || j.filename || '')}</span>
+            <span class="bom-row-chips"><span class="bom-spinner bom-spinner-sm" aria-hidden="true"></span>
+                <span class="state-badge badge-neutral bom-chip-sm">${escHtml(t('bom.agent.reading_chip'))}</span></span>
+            <span class="bom-row-meta">${escHtml(fmtWhen(j.created_at))}</span>
+        </li>`;
+    }
+
+    function renderBomSection() {
+        const host = $('project-bom-checks');
         if (!host) return;
-        const rows = (currentProject && bomState.checksProjectId === currentProject.id) ? bomState.checks : [];
-        host.innerHTML = rows.map(historyRow).join('');
-        if (empty) empty.hidden = rows.length > 0;
+        const mine = currentProject && bomState.checksProjectId === currentProject.id;
+        const checks = mine ? bomState.checks : [];
+        const jobs = mine ? bomState.jobs : [];
+        if (!checks.length && !jobs.length) { host.innerHTML = ''; return; }
+        host.innerHTML = `<h3 class="rep-heading">${escHtml(t('bom.section.title'))}</h3>
+            <ul class="bom-list">${jobs.map(jobRow).join('')}${checks.map(checkRow).join('')}</ul>`;
     }
 
     async function openBomCheckResult(id) {
         if (!currentProject || bomState.busy) return;
+        stopPolling();
         const host = $('bom-result');
         if (host) host.innerHTML = `<p class="project-empty">${escHtml(t('bom.loading'))}</p>`;
+        renderSizingPicker();
         showStep('result');
+        showModal();
         // formatLabel() reads capabilities.formats; make sure they are in
         // before the header renders (cached after the first load).
         await loadCapabilities();
@@ -750,8 +925,7 @@
             if (host) host.innerHTML = '';
             return;
         }
-        bomState.current = data;
-        renderResult(data);
+        showCheck(data, false);
     }
 
     // ── re-check / delete ────────────────────────────────────────────────────
@@ -796,76 +970,14 @@
         bomState.current = null;
         if (window.toast) window.toast(t('bom.deleted'), 'success');
         await loadBomChecks();
-        bomBack();
-    }
-
-    // ── AI pre-fill (Tier 3) ─────────────────────────────────────────────────
-
-    function bomPrefillFileChosen(input) {
-        const el = $('bom-prefill-name');
-        if (!input || !input.files || !input.files.length) {
-            bomState.prefillFile = null;
-            if (el) { el.textContent = ''; el.hidden = true; }
-            return;
-        }
-        const f = input.files[0];
-        if (!hasExtension(f.name, prefillExtensions())) {
-            bomState.prefillFile = null;
-            bomShowError(t('bom.prefill.bad_extension', { formats: prefillExtensions().join(', ') }), []);
-            if (el) { el.textContent = ''; el.hidden = true; }
-            return;
-        }
-        bomClearError();
-        bomState.prefillFile = f;
-        if (el) { el.textContent = f.name; el.hidden = false; }
-    }
-
-    function filenameFromDisposition(resp, fallback) {
-        const cd = resp.headers && resp.headers.get ? resp.headers.get('Content-Disposition') : null;
-        if (!cd) return fallback;
-        const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
-        return m ? decodeURIComponent(m[1]) : fallback;
-    }
-
-    async function bomRunPrefill() {
-        if (bomState.busy) return;
-        bomClearError();
-        if (!bomState.prefillFile) {
-            bomShowError(t('bom.prefill.no_file'), []);
-            return;
-        }
-        const btn = $('bom-prefill-btn');
-        const status = $('bom-prefill-status');
-        if (btn) btn.disabled = true;
-        if (status) { status.textContent = t('bom.prefill.working'); status.hidden = false; }
-        const fd = new FormData();
-        fd.append('file', bomState.prefillFile);
-        try {
-            const resp = await fetch('/api/bom/prefill', { method: 'POST', body: fd, credentials: 'same-origin' });
-            if (!resp.ok) {
-                let msg = t('bom.prefill.failed');
-                try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* not json */ }
-                bomShowError(msg, []);
-                if (status) status.hidden = true;
-                return;
-            }
-            const blob = await resp.blob();
-            _downloadBlob(blob, filenameFromDisposition(resp, 'sc-bom-template-prefilled.xlsx'));
-            if (status) { status.textContent = t('bom.prefill.done'); status.hidden = false; }
-        } catch (e) {
-            bomShowError(t('bom.err.network', { error: e.message || String(e) }), []);
-            if (status) status.hidden = true;
-        } finally {
-            if (btn) btn.disabled = false;
-        }
+        closeBomChecker();
     }
 
     Object.assign(window, {
         openBomChecker, closeBomChecker, bomBack,
         bomPickSizing, bomFileChosen, bomRunCheck,
-        bomShareRejected, bomDismissRetain,
+        bomShareRejected, bomDismissRetain, bomAgentNotify,
         openBomCheckResult, bomRecheck, bomRecheckSizingChanged, bomDelete,
-        bomPrefillFileChosen, bomRunPrefill,
         loadBomChecks,
     });
 })();

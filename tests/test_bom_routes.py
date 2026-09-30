@@ -147,11 +147,13 @@ def upload(c, project_id, bom=None, **form):
 
 # ── capabilities / template / pre-fill gating ────────────────────────────────
 
-def test_capabilities_reports_catalog_and_no_prefill_without_a_key(app):
+def test_capabilities_reports_catalog_and_no_agent_without_a_key(app):
     c = client_for(app, PARTNER)
     d = c.get("/api/bom/capabilities").get_json()
-    assert d["ai_prefill_available"] is False
-    assert ".xlsx" in d["accepted_extensions"]
+    assert d["agent_available"] is False
+    # Without the agent only what the local parsers read is accepted
+    # (spreadsheets and PDFs: bom/parsers/pdf_*.py).
+    assert d["accepted_extensions"] == [".xlsx", ".xls", ".csv", ".pdf"]
     assert d["catalog"]["platforms"] == 1 and d["catalog"]["components"] == 4
     assert d["template_url"] == "/api/bom/template"
 
@@ -164,11 +166,12 @@ def test_template_downloads_as_xlsx(app):
     assert "sc-bom-template.xlsx" in r.headers["Content-Disposition"]
 
 
-def test_prefill_is_503_when_not_configured(app):
+def test_manual_prefill_route_is_gone(app):
+    # Replaced by the automatic agent fallback on the check route.
     c = client_for(app, PARTNER)
     r = c.post("/api/bom/prefill", data={"file": (io.BytesIO(b"hello"), "quote.txt")},
                content_type="multipart/form-data")
-    assert r.status_code == 503
+    assert r.status_code in (404, 405)
 
 
 def test_routes_require_login(app):
@@ -305,7 +308,8 @@ def test_unknown_nic_opens_a_review_the_user_can_follow(app):
     assert check["technical_verdict"] == "FAIL"
     assert "nic_not_in_hcl" in check["flag_reasons"]
     assert check["review_status"] == "open"
-    assert check["result"]["suggestions"][0]["candidates"][0]["part_number"] == "4XC7A08294"
+    # The unknown card is 2-port: the 4-port E810-DA4 leads (backplane over VLAN otherwise).
+    assert check["result"]["suggestions"][0]["candidates"][0]["part_number"] == "4XC7A80269"
 
     # partners cannot reach the admin queue
     assert c.get("/admin/api/bom-reviews").status_code == 403
@@ -504,9 +508,13 @@ def test_consent_post_validates_the_file(app):
                content_type="multipart/form-data")
     assert r.status_code == 400
     r = c.post(f"/api/projects/{project['id']}/bom-rejects",
-               data={"file": (io.BytesIO(b"%PDF-1.4"), "x.pdf")},
+               data={"file": (io.BytesIO(b"PK\x03\x04"), "x.pdf")},
                content_type="multipart/form-data")
-    assert r.status_code == 400
+    assert r.status_code == 400                     # named .pdf, is not one
+    r = c.post(f"/api/projects/{project['id']}/bom-rejects",
+               data={"file": (io.BytesIO(b"\x89PNG"), "x.png")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400                     # pictures only with the agent
 
 
 def test_rejected_files_age_out_after_retention(app):

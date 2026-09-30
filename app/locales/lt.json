@@ -19,6 +19,7 @@
   "export.common.resource": "Išteklius",
   "export.common.single_cluster": "vienas klasteris",
   "export.common.single_node_note": "Vienas mazgas — be perjungimo pertekliaus. Priimtina DR lygiui, kuris pats yra pertekliaus priemonė; nerekomenduojama gamybiniams klasteriams.",
+  "export.common.agent_bom_note": "Pasiūlyta įranga paimta iš nepalaikomo formato komplektacijos sąrašo, kurį nuskaitė „Claude“ agentas. Patikrinkite ją pagal pradinį pasiūlymą.",
   "export.common.storage": "Saugykla",
   "export.common.threads": "Gijos",
   "export.common.usable_storage": "Naudojama saugykla",

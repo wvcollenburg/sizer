@@ -19,6 +19,7 @@
   "export.common.resource": "Resource",
   "export.common.single_cluster": "één cluster",
   "export.common.single_node_note": "Enkele node — geen failover-redundantie. Aanvaardbaar voor een DR-laag die zelf de redundantie is; niet aanbevolen voor productieclusters.",
+  "export.common.agent_bom_note": "De geoffreerde hardware komt uit een BOM in een niet-ondersteunde opmaak die door een Claude-agent is gelezen. Controleer deze aan de hand van de oorspronkelijke offerte.",
   "export.common.storage": "Opslag",
   "export.common.threads": "Threads",
   "export.common.usable_storage": "Bruikbare opslag",

@@ -961,6 +961,8 @@ def _slide_sizing(prs, r, s, t=None, lang="en"):
     # Single-node DR target: call out that there is no failover redundancy.
     if r.get("single_node"):
         lines.append((t("export.common.single_node_note"), 11, ORANGE, False))
+    if (r.get("export_override") or {}).get("bom_agent_read"):
+        lines.append((t("export.common.agent_bom_note"), 11, MID_GRAY, False))
     lines.append((t("export.pptx.bar_legend"), 11, MID_GRAY, False))
     _add_textbox(slide, 0.6, top, 12.1, 1.8, lines, lang=lang)
 

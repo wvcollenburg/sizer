@@ -318,6 +318,9 @@ def resolve(sizing, checks=None) -> Optional[Dict[str, Any]]:
             "bom_auto": auto,
             "bom_technical_verdict": check.technical_verdict if check is not None else None,
             "bom_fit_verdict": check.fit_verdict if check is not None else None,
+            # The quoted hardware came from a file the Claude agent read: the
+            # exports say so in a footnote (owner decision B, 2026-09-29).
+            "bom_agent_read": bool(check is not None and check.is_agent_read),
         }
     except Exception:  # pragma: no cover - defensive
         return None
@@ -771,7 +774,8 @@ def _rebuild_iops(out, rec, hw) -> None:
 
 
 def _badge(override: Dict[str, Any]) -> Dict[str, Any]:
-    """What the screen shows about an applied override (never in the export)."""
+    """What the screen shows about an applied override. Only
+    ``bom_agent_read`` reaches the exports, as a footnote."""
     values = override.get("values") or {}
     return {
         "chassis": values.get("chassis"),
@@ -779,6 +783,7 @@ def _badge(override: Dict[str, Any]) -> Dict[str, Any]:
         "bom_check_id": override.get("bom_check_id"),
         "bom_check_name": override.get("bom_check_name"),
         "bom_auto": override.get("bom_auto"),
+        "bom_agent_read": bool(override.get("bom_agent_read")),
         "fields": sorted(k for k in values if k in MANUAL_FIELDS),
     }
 

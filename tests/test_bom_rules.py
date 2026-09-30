@@ -14,6 +14,7 @@ Two layers:
 Run: .venv/bin/python -m pytest tests/test_bom_rules.py -q
 """
 import json
+import re
 import os
 import sys
 
@@ -92,9 +93,16 @@ def snapshot_hcl():
     return HclData.from_dict(_load(HCL_SNAPSHOT))
 
 
+def _brand(text):
+    # Marketing rule (2026-09-30): product copy always says "Scale Computing",
+    # never bare "Scale" (another US company is called Scale). SC//Design's
+    # archived findings predate that, so compare on the full name.
+    return re.sub(r"\bScale\b(?! Computing)", "Scale Computing", text or "")
+
+
 def _findings_tuples(config_result_dict):
     return [
-        (f["severity"], f["component"], f["issue"], f["remediation"])
+        (f["severity"], f["component"], _brand(f["issue"]), _brand(f["remediation"]))
         for f in config_result_dict["findings"]
     ]
 

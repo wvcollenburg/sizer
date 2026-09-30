@@ -675,6 +675,9 @@ def _delete_user_cascade(user):
     # project, so without this an admin's "delete user" fails on the FK.
     owned_projects = Project.query.filter_by(owner_id=user.id).all()
     project_ids = [p.id for p in owned_projects]
+    # BOM rows reference both the user and their projects (no ON DELETE
+    # rule): they go before either is deleted.
+    _delete_bom_rows(user.id, project_ids)
     if project_ids:
         # A colleague's sizing can live in a project this user owns; move it to
         # the sizing owner's own scratch project rather than destroying someone
@@ -1267,6 +1270,7 @@ def _detach_configuration_refs(config_ids):
     on Postgres — and takes the rest of the purge down with it. SQLite doesn't
     enforce foreign keys by default, which is why tests never saw it.
     """
+    from bom_models import BomAgentJob, BomCheck
     from project_models import ConfigurationTag, ReplicationLink
     ConfigurationTag.query.filter(
         ConfigurationTag.configuration_id.in_(config_ids)).delete(
@@ -1275,6 +1279,45 @@ def _detach_configuration_refs(config_ids):
         (ReplicationLink.source_configuration_id.in_(config_ids))
         | (ReplicationLink.target_configuration_id.in_(config_ids))
     ).delete(synchronize_session=False)
+    # A BOM check keeps its own verdicts; it only loses the sizing it was
+    # compared against (a re-check then runs compatibility-only).
+    for model in (BomCheck, BomAgentJob):
+        model.query.filter(model.configuration_id.in_(config_ids)).update(
+            {"configuration_id": None}, synchronize_session=False)
+
+
+def _delete_bom_rows(user_id, project_ids):
+    """BOM rows of a user being hard-deleted: their checks, agent jobs and
+    consented reject files, plus every BOM row in projects they owned.
+    Admin-side references (reviewer, note author, HCL run/decision actor)
+    are NULLed instead, so the review and HCL history survive."""
+    from bom_models import BomAgentJob, BomCheck, BomPartNote, BomRejectedFile
+    from hcl_models import HclPendingChange, HclScrapeRun
+
+    def owned(model):
+        cond = model.user_id == user_id
+        if project_ids:
+            cond = cond | model.project_id.in_(project_ids)
+        return model.query.filter(cond)
+
+    check_ids = [c.id for c in owned(BomCheck).with_entities(BomCheck.id).all()]
+    if check_ids:
+        BomPartNote.query.filter(BomPartNote.source_check_id.in_(check_ids)).update(
+            {"source_check_id": None}, synchronize_session=False)
+        BomAgentJob.query.filter(BomAgentJob.check_id.in_(check_ids)).update(
+            {"check_id": None}, synchronize_session=False)
+    owned(BomAgentJob).delete(synchronize_session=False)
+    owned(BomRejectedFile).delete(synchronize_session=False)
+    owned(BomCheck).delete(synchronize_session=False)
+
+    BomCheck.query.filter_by(reviewed_by_user_id=user_id).update(
+        {"reviewed_by_user_id": None}, synchronize_session=False)
+    BomPartNote.query.filter_by(created_by_user_id=user_id).update(
+        {"created_by_user_id": None}, synchronize_session=False)
+    HclScrapeRun.query.filter_by(triggered_by_user_id=user_id).update(
+        {"triggered_by_user_id": None}, synchronize_session=False)
+    HclPendingChange.query.filter_by(decided_by_user_id=user_id).update(
+        {"decided_by_user_id": None}, synchronize_session=False)
 
 
 def _purge_expired_bom_rejects():
@@ -1285,7 +1328,24 @@ def _purge_expired_bom_rejects():
     cutoff = _utcnow() - timedelta(days=BomRejectedFile.RETENTION_DAYS)
     count = BomRejectedFile.query.filter(
         BomRejectedFile.created_at < cutoff).delete(synchronize_session=False)
+    _purge_bom_agent_jobs()
     return count
+
+
+def _purge_bom_agent_jobs():
+    """Agent job rows are the usage record for the daily caps and the admin
+    usage table; they carry a quote's file name, so they age out with the
+    reject files. Upload bytes never outlive a day even if a job got stuck:
+    the worker nulls them when it finishes, this is the backstop."""
+    from bom_models import BomAgentJob, BomRejectedFile
+    now = _utcnow()
+    BomAgentJob.query.filter(
+        BomAgentJob.created_at < now - timedelta(days=1),
+        BomAgentJob.content.isnot(None)).update(
+            {"content": None}, synchronize_session=False)
+    BomAgentJob.query.filter(
+        BomAgentJob.created_at < now - timedelta(days=BomRejectedFile.RETENTION_DAYS)
+    ).delete(synchronize_session=False)
 
 
 def _purge_expired_exports():

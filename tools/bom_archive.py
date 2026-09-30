@@ -13,8 +13,8 @@ tests/test_bom_archive.py holds every later parser change to it.
     .venv/bin/python tools/bom_archive.py --bless FILE...  # sign off after checking the report
     .venv/bin/python tools/bom_archive.py --unsupported FILE --reason "PDF quote"
 
-``--unsupported`` records a file the checker is NOT expected to read (a PDF
-quote, a layout we chose not to support). The test then asserts it stays
+``--unsupported`` records a file the checker is NOT expected to read locally
+(a scanned PDF, a layout we chose not to support: the agent's job). The test then asserts it stays
 unrecognised, so supporting it later is noticed rather than silently skipped.
 
 Only bless what you have checked against the spreadsheet: the expectation is
@@ -73,7 +73,7 @@ def report(paths):
                   else "marked unsupported" if exp else "NOT SIGNED OFF")
         print("%s   [%s]" % (_rel(path), status))
         if not path.lower().endswith(ARCHIVE_EXTENSIONS):
-            print("   not a spreadsheet: the checker only reads .xlsx/.csv")
+            print("   not a file the checker reads locally (.xlsx/.xls/.csv/.pdf)")
             continue
         try:
             facts = bom_facts(path)

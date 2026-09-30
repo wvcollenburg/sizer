@@ -3460,9 +3460,12 @@ textarea.text-input:focus {
    run/re-check buttons sit at the right of the footer like the other wizards. */
 .cmp-modal.bom-modal .modal-body { padding: 1.1rem 1.5rem 1.35rem; max-height: min(78vh, 900px); overflow-y: auto; }
 .bom-modal .modal-footer-actions.bom-footer { width: 100%; align-items: center; flex-wrap: wrap; }
-.bom-modal #bom-run-btn { margin-left: auto; }
-.bom-modal #bom-recheck-wrap { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; }
-.bom-modal #bom-recheck-wrap .inline-select { min-width: 12rem; }
+.bom-modal #bom-close-btn { margin-left: auto; }
+/* Re-check: a quiet bar above the result, not a footer control. */
+.bom-modal .bom-recheck-bar { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.8rem; }
+.bom-modal .bom-recheck-bar .field-label-inline { color: var(--text-muted); font-size: 0.85rem; }
+.bom-modal .bom-recheck-bar .inline-select { width: auto; min-width: 14rem; max-width: 100%; }
+.bom-modal .bom-recheck-bar .btn { width: auto; }
 .bom-modal.bom-busy #bom-upload-area { opacity: 0.6; pointer-events: none; }
 
 /* Error block: message plus the template row errors as a list. */
@@ -3504,46 +3507,91 @@ textarea.text-input:focus {
 .bom-modal .bom-field { margin-top: 0.9rem; }
 .bom-modal .bom-field .text-input { width: 100%; }
 
-/* Sizing picker: radio rows on the shared fanout card. Compound selector so
-   the late .fanout-row rule cannot re-style the disabled state. */
-.bom-modal .fanout-list.bom-pick-list { margin: 0.4rem 0 0.8rem; }
-.bom-modal .fanout-row.bom-pick-row input[type="radio"] { width: auto; height: auto; box-shadow: none; margin: 0; accent-color: var(--accent); }
-.bom-modal .fanout-row.bom-pick-row.bom-pick-disabled { opacity: 0.55; cursor: not-allowed; background: var(--surface2); }
-.bom-modal .fanout-row.bom-pick-row .fanout-meta { text-align: right; }
+.bom-modal #bom-step-upload > .import-info { margin: 0 0 0.8rem; }
 
-/* Help block (accepted formats + template download). */
-.bom-modal .bom-help { margin: 0.8rem 0 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); }
-.bom-modal .bom-help summary { cursor: pointer; padding: 0.55rem 0.9rem; font-size: 0.85rem; font-weight: 500; color: var(--text); }
-.bom-modal .bom-help summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); border-radius: var(--radius); }
-.bom-modal .bom-help-body { padding: 0 0.9rem 0.8rem; font-size: 0.85rem; color: var(--text-muted); }
-.bom-modal .bom-help-body p { margin: 0.35rem 0; }
-.bom-modal .bom-help-actions .btn { width: auto; }
+/* Drop zone once a file is picked: the file name chip is the focus. */
+.bom-modal .upload-area.bom-upload-area.has-file { border-style: solid; border-color: var(--accent); }
 
-/* AI pre-fill panel: boxed like the other .panel-section groups; the mandatory
-   review warning uses the orange callout. */
-.bom-modal .panel-section.bom-prefill { margin-top: 0.9rem; }
-.bom-modal .bom-prefill .rec-warning.bom-prefill-warning { margin: 0.5rem 0 0.7rem; }
-.bom-modal .bom-prefill-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.bom-modal .bom-file-btn { position: relative; overflow: hidden; }
-.bom-modal .bom-file-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.bom-modal .bom-file-btn:focus-within { box-shadow: 0 0 0 3px var(--ring); }
-.bom-modal .bom-prefill-row .bom-file-name { margin-top: 0; }
+/* Sizing dropdown + name: a two-column label/field grid, one row each. */
+.bom-modal .bom-form-grid {
+    display: grid; grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center; gap: 0.6rem 1rem; margin-top: 1rem;
+}
+.bom-modal .bom-form-grid .field-label { margin: 0; }
+.bom-modal .bom-form-grid .text-input { width: 100%; }
 
-/* History list (past checks) — the Exports "Downloads" layout. */
-.bom-modal #bom-history { margin-top: 1.2rem; }
-.bom-modal .export-list.bom-history-list { margin: 0.4rem 0 0; }
-.bom-modal .bom-history-main { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
-.bom-modal .bom-history-name { font-weight: 600; }
+/* Recognised layouts + blank template: one quiet line that opens. */
+.bom-modal .bom-formats { margin: 1rem 0 0; font-size: 0.85rem; }
+.bom-modal .bom-formats summary { cursor: pointer; color: var(--accent); font-weight: 500; width: max-content; }
+.bom-modal .bom-formats summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); border-radius: var(--radius); }
+.bom-modal .bom-formats-body { margin-top: 0.5rem; padding: 0.6rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); color: var(--text-muted); }
+.bom-modal .bom-formats-body ul { margin: 0 0 0.4rem; padding-left: 1.1rem; }
+.bom-modal .bom-formats-body p { margin: 0.35rem 0; }
+.bom-modal .bom-formats-body .btn { width: auto; }
+
+/* Waiting on the Claude agent. */
+.bom-modal .bom-agent-wait { display: flex; gap: 0.9rem; align-items: flex-start; padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); }
+.bom-modal .bom-agent-wait p { margin: 0; }
+.bom-modal .bom-agent-wait-title { font-weight: 500; margin-bottom: 0.3rem !important; }
+.bom-modal .notify-check { display: inline-flex; align-items: center; gap: 0.45rem; margin-top: 0.9rem; font-size: 0.88rem; }
+.bom-modal .notify-check input[type="checkbox"] { width: auto; height: auto; box-shadow: none; margin: 0; accent-color: var(--accent); }
+.bom-spinner {
+    flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    animation: bom-spin 0.9s linear infinite;
+}
+.bom-spinner.bom-spinner-sm { width: 0.85rem; height: 0.85rem; border-width: 2px; }
+@keyframes bom-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bom-spinner { animation-duration: 3s; } }
+
+/* Result of an agent-read file: warning callout above the verdicts. */
+.bom-modal .bom-agent-banner {
+    margin: 0 0 1rem; padding: 0.75rem 1rem; border-radius: var(--radius);
+    border: 1px solid var(--orange); border-left-width: 4px; background: var(--orange-bg); color: var(--text);
+    font-size: 0.87rem;
+}
+.bom-modal .bom-agent-banner p { margin: 0.25rem 0; }
+.bom-modal .bom-agent-banner-title { font-weight: 600; }
+.bom-modal .bom-agent-banner .bom-agent-alert { color: var(--red); font-weight: 500; }
+.bom-modal .bom-agent-dropped { margin: 0.2rem 0 0.4rem; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-muted); }
+.bom-modal .bom-agent-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.5rem !important; }
+.bom-modal .bom-agent-actions .btn { width: auto; }
+
+/* Project page: BOM checks section under the sizings. Rows are buttons that
+   open the check in the modal; running/failed agent jobs sit on top. */
+.project-bom-checks .bom-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.project-bom-checks .bom-row { border-top: 1px solid var(--border); }
+.project-bom-checks .bom-row:first-child { border-top: 0; }
+.project-bom-checks .bom-row-open, .project-bom-checks .bom-row-pending, .project-bom-checks .bom-row-failed {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name chips" "meta meta";
+    gap: 0.15rem 0.8rem; align-items: center; width: 100%; padding: 0.6rem 0.9rem; text-align: left;
+}
+.project-bom-checks .bom-row-open { background: none; border: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 0; }
+.project-bom-checks .bom-row-open:hover { background: var(--accent-tint); }
+.project-bom-checks .bom-row-open:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ring); }
+.project-bom-checks .bom-row-name { grid-area: name; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-bom-checks .bom-row-chips { grid-area: chips; display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+.project-bom-checks .bom-row-meta { grid-area: meta; font-size: 0.82rem; color: var(--text-muted); }
+.project-bom-checks .bom-row-failed .bom-row-meta { color: var(--red); }
+@media (max-width: 640px) {
+    .project-bom-checks .bom-row-open, .project-bom-checks .bom-row-pending, .project-bom-checks .bom-row-failed {
+        grid-template-columns: minmax(0, 1fr); grid-template-areas: "name" "chips" "meta";
+    }
+    .project-bom-checks .bom-row-chips { justify-content: flex-start; }
+}
 
 /* Verdict chips: the shared .state-badge pill with the semantic fills. */
-.bom-modal .state-badge.bom-chip { font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-.bom-modal .state-badge.bom-chip-sm { font-weight: 500; }
+.bom-modal .state-badge.bom-chip,
+.project-bom-checks .state-badge.bom-chip { font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.bom-modal .state-badge.bom-chip-sm,
+.project-bom-checks .state-badge.bom-chip-sm { font-weight: 500; }
 .bom-modal .bom-chip-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.15rem; }
 
 /* Result header: name + meta left, verdict chips right. */
 .bom-modal .bom-result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border); }
 .bom-modal .bom-result-title h3 { margin: 0; font-size: var(--fs-base); font-weight: 600; }
 .bom-modal .bom-result-meta { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; }
+.bom-modal .bom-certainty-why { text-decoration: underline dotted; cursor: help; }
 .bom-modal .bom-result-chips { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
 /* Per-config blocks. */
@@ -3586,14 +3634,14 @@ textarea.text-input:focus {
 
 @media (max-width: 640px) {
     .bom-modal .bom-result-head { flex-direction: column; }
-    .bom-modal #bom-recheck-wrap, .bom-modal #bom-run-btn { margin-left: 0; }
-    .bom-modal .fanout-row.bom-pick-row .fanout-meta { margin-left: 0; text-align: left; flex-basis: 100%; }
+    .bom-modal .bom-recheck-bar { justify-content: flex-start; }
+    .bom-modal .bom-form-grid { grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
 }
 
 /* BOM checker: consent offer after a rejected upload (see bom.js). Compound
    selector so the app-wide resets can't swallow it. */
 .bom-modal .bom-retain-offer {
-    margin: 0.6rem 0 0;
+    margin: 0.6rem 0 0.9rem;
     padding: 0.7rem 0.9rem;
     border: 1px solid var(--border);
     border-left: 3px solid var(--info);

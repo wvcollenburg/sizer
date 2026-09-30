@@ -189,6 +189,9 @@ def _migrate_schema():
         # provenance marker (delist immunity until a scrape lists them).
         "ALTER TABLE hcl_platforms ADD COLUMN IF NOT EXISTS "
         "origin VARCHAR(10) NOT NULL DEFAULT 'scrape'",
+        # BOM checks read by the Claude agent (rework/bomchecker-polish-up):
+        # how the file was read, kept apart from the re-checkable result.
+        "ALTER TABLE bom_checks ADD COLUMN IF NOT EXISTS ingest_meta JSONB",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

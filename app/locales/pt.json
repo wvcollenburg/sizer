@@ -19,6 +19,7 @@
   "export.common.resource": "Recurso",
   "export.common.single_cluster": "cluster único",
   "export.common.single_node_note": "Nó único — sem redundância de failover. Aceitável para um nível de DR que é, ele próprio, a redundância; não recomendado para clusters de produção.",
+  "export.common.agent_bom_note": "O hardware cotado provém de uma lista de materiais num formato não suportado, lida por um agente Claude. Confirme-o com a cotação original.",
   "export.common.storage": "Armazenamento",
   "export.common.threads": "Threads",
   "export.common.usable_storage": "Armazenamento Utilizável",

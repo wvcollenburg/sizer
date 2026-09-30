@@ -151,28 +151,12 @@ def _components(child_rows, drop_m2: bool = True,
     return [acc[k] for k in order]
 
 
-def parse(path: str) -> NormalizedBOM:
-    from bom.parsers import UnrecognizedFormat  # local import: package imports us
-    from bom.parsers.common import load_workbook_safe
-
-    wb = load_workbook_safe(path)
-    try:
-        ws = pick_sheet(wb)
-        if ws is None:
-            raise UnrecognizedFormat('Not a Lenovo DCSC quote export.')
-        rows = sheet_matrix(ws)
-    finally:
-        wb.close()
-
-    hdr = _header_row(rows)
-    # Description-only variant: the part-number column is missing entirely
-    # (header cell A is blank instead of 'Part number'/'Número de peça').
-    has_part_col = cell(rows, hdr, 1) != ''
-    blocks = _blocks(rows, hdr + 1)
-    machines = [b for b in blocks if _is_machine(b, has_part_col)]
-    if not machines:
-        raise UnrecognizedFormat('DCSC quote has no ThinkSystem machine block.')
-
+def configs_from_blocks(blocks: List[dict], has_part_col: bool = True,
+                        names: Optional[List[str]] = None) -> List[BOMConfig]:
+    """Machine blocks -> configs; software CTO blocks folded into the machine
+    they follow; service/instruction blocks dropped. Shared with the PDF
+    print of the same configuration (parsers/pdf_lenovo_list.py). ``names``
+    overrides generic machine titles ('Server') in order."""
     configs: List[BOMConfig] = []
     generic = 0
     current: Optional[BOMConfig] = None
@@ -182,7 +166,8 @@ def parse(path: str) -> NormalizedBOM:
             name, rest = _split_title(block['title'])
             if not name or name.lower() in _GENERIC_NAMES:
                 generic += 1
-                name = 'Config %d' % len(configs + [None])
+                name = (names[len(configs)] if names and len(configs) < len(names)
+                        else 'Config %d' % len(configs + [None]))
             model = server_model_from_text(rest) or server_model_from_text(block['title'])
             current = BOMConfig(
                 name=name,
@@ -206,6 +191,33 @@ def parse(path: str) -> NormalizedBOM:
         # Service / instruction blocks (7Q01CTS*, 5WS7*, 5641*, 5374CM1): dropped.
     if pending and configs:
         configs[0].components.extend(pending)
+
+    return configs
+
+
+def parse(path: str) -> NormalizedBOM:
+    from bom.parsers import UnrecognizedFormat  # local import: package imports us
+    from bom.parsers.common import load_workbook_safe
+
+    wb = load_workbook_safe(path)
+    try:
+        ws = pick_sheet(wb)
+        if ws is None:
+            raise UnrecognizedFormat('Not a Lenovo DCSC quote export.')
+        rows = sheet_matrix(ws)
+    finally:
+        wb.close()
+
+    hdr = _header_row(rows)
+    # Description-only variant: the part-number column is missing entirely
+    # (header cell A is blank instead of 'Part number'/'Número de peça').
+    has_part_col = cell(rows, hdr, 1) != ''
+    blocks = _blocks(rows, hdr + 1)
+    machines = [b for b in blocks if _is_machine(b, has_part_col)]
+    if not machines:
+        raise UnrecognizedFormat('DCSC quote has no ThinkSystem machine block.')
+
+    configs = configs_from_blocks(blocks, has_part_col)
 
     return NormalizedBOM(vendor='Lenovo', configs=configs,
                          raw_text=raw_text_from_rows(rows[:max(len(rows) and (blocks[-1]['row'] + len(blocks[-1]['rows']) + 2), 0)]))

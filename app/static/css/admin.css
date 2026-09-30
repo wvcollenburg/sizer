@@ -978,3 +978,12 @@ body { padding-bottom: 64px; }
 .bom-review-findings .bom-note-add { white-space: nowrap; }
 #bom-note-modal .modal-body { padding: 1.25rem 1.5rem; }
 #bom-notes-tbody .col-actions { white-space: nowrap; }
+
+/* BOM reviews → Claude agent card: the review checkbox sits in the inputs
+   row but must not take the uppercase form-label style of its neighbours. */
+#bom-agent-card .checkbox-inline.bom-agent-review {
+    display: inline-flex; align-items: center; gap: 0.45rem; align-self: flex-end;
+    margin: 0 0 0.55rem; text-transform: none; letter-spacing: normal;
+    font-weight: 400; font-size: 0.88rem; color: var(--text);
+}
+#bom-agent-card .checkbox-inline.bom-agent-review input { width: auto; height: auto; margin: 0; }

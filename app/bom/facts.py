@@ -21,7 +21,7 @@ from bom import fit
 from bom.parsers import parse_file
 from bom.rules import is_hardware_config
 
-ARCHIVE_EXTENSIONS = (".xlsx", ".csv")
+ARCHIVE_EXTENSIONS = (".xlsx", ".xls", ".csv", ".pdf")
 
 
 def config_facts(config) -> Dict[str, Any]:
@@ -58,11 +58,40 @@ def config_facts(config) -> Dict[str, Any]:
 def bom_facts(path: str) -> Dict[str, Any]:
     """Facts for one BOM file. Raises parsers.UnrecognizedFormat when no
     parser recognises it."""
+    if path.lower().endswith(".pdf"):
+        return _pdf_facts(path)
     bom, fmt = parse_file(path, path)
     return {
         "format": fmt,
         "vendor": bom.vendor,
         "configs": [config_facts(c) for c in bom.configs if is_hardware_config(c)],
+    }
+
+
+def _pdf_facts(path: str) -> Dict[str, Any]:
+    """A PDF counts as read only when the check route would trust the local
+    parse (bom/pdf_certainty.py, default threshold); the score is part of
+    the facts, so a change in how sure we are shows up in the archive test."""
+    from bom import pdf_certainty
+    from bom.parsers import UnrecognizedFormat, read_pdf
+    from bom.parsers.pdf_common import NotAVendorBom
+    try:
+        out = read_pdf(path)
+    except NotAVendorBom as exc:
+        raise UnrecognizedFormat(str(exc))
+    if out.bom is None and out.fmt is None:
+        raise UnrecognizedFormat("PDF in a layout no parser knows%s"
+                                 % (" (%s)" % out.error if out.error else ""))
+    if out.bom is None or out.certainty is None or out.certainty.hard_stop \
+            or out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD:
+        why = "; ".join(r["text"] for r in (out.certainty.reasons if out.certainty else []))
+        raise UnrecognizedFormat("PDF not read with enough certainty (%s): %s"
+                                 % (out.certainty.score if out.certainty else "-", why or out.error or "unknown layout"))
+    return {
+        "format": out.fmt,
+        "vendor": out.bom.vendor,
+        "certainty": out.certainty.score,
+        "configs": [config_facts(c) for c in out.bom.configs if is_hardware_config(c)],
     }
 
 

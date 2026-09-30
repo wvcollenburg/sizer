@@ -43,7 +43,7 @@ function switchTab(tab) {
     if (tab === 'tuning') loadTunables();
     else if (tab === 'pricebook') loadPricebook();
     else if (tab === 'hcl') loadHcl();
-    else if (tab === 'bomreviews') { loadBomReviews(); loadBomNotes(); loadBomRejects(); }
+    else if (tab === 'bomreviews') { loadBomReviews(); loadBomAgent(); loadBomNotes(); loadBomRejects(); }
     else if (tab === 'users') loadAdminUsers();
     else if (tab === 'stale') loadStaleUsers();
     else if (tab === 'tenants') loadAdminTenants();
@@ -3013,6 +3013,70 @@ async function bomNoteDelete(id) {
     const { ok, data } = await adminApi(`/admin/api/bom-part-notes/${id}`, { method: 'DELETE' });
     if (!ok) { setStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     loadBomNotes();
+}
+
+// ── Claude agent: settings + usage (bom_routes agent-settings / agent-usage) ─
+
+async function loadBomAgent() {
+    const state = document.getElementById('bom-agent-state');
+    const [settings, usage] = await Promise.all([
+        adminApi('/admin/api/bom-reviews/agent-settings'),
+        adminApi('/admin/api/bom-reviews/agent-usage'),
+    ]);
+    if (settings.ok && settings.data) {
+        const d = settings.data;
+        document.getElementById('bom-agent-tenant-cap').value = d.tenant_daily_cap;
+        document.getElementById('bom-agent-global-cap').value = d.global_daily_cap;
+        document.getElementById('bom-agent-always-review').checked = !!d.always_review;
+        document.getElementById('bom-agent-pdf-threshold').value = d.pdf_threshold;
+        if (state) {
+            state.textContent = d.available
+                ? t('admin.bomagent.on', { model: d.model || '' })
+                : t('admin.bomagent.off');
+        }
+    }
+    const body = document.getElementById('bom-agent-usage-tbody');
+    if (!body) return;
+    if (!usage.ok || !Array.isArray(usage.data)) {
+        body.innerHTML = `<tr><td colspan="7">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        return;
+    }
+    const n = (v) => Number(v || 0).toLocaleString();
+    body.innerHTML = usage.data.map(r => `
+        <tr>
+            <td>${adminEsc(r.day)}</td>
+            <td>${adminEsc(r.tenant || '')}</td>
+            <td>${n(r.jobs)}</td>
+            <td>${n(r.done)}</td>
+            <td>${n(r.failed)}</td>
+            <td>${n(r.input_tokens)}</td>
+            <td>${n(r.output_tokens)}</td>
+        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.bomagent.no_usage'))}</td></tr>`;
+}
+
+async function bomAgentSaveSettings() {
+    const cap = (id) => {
+        const v = document.getElementById(id).value.trim();
+        const num = v === '' ? 0 : Number(v);
+        return Number.isInteger(num) && num >= 0 ? num : NaN;
+    };
+    const tenant = cap('bom-agent-tenant-cap');
+    const global = cap('bom-agent-global-cap');
+    const threshold = cap('bom-agent-pdf-threshold');
+    if (isNaN(tenant) || isNaN(global) || isNaN(threshold) || threshold > 100) {
+        setStatus('bom-review-status', t('admin.bomagent.cap_invalid'), true);
+        return;
+    }
+    const btn = document.getElementById('bom-agent-save');
+    btn.disabled = true;
+    const { ok, data } = await hclJson('/admin/api/bom-reviews/agent-settings', 'PUT', {
+        tenant_daily_cap: tenant, global_daily_cap: global, pdf_threshold: threshold,
+        always_review: document.getElementById('bom-agent-always-review').checked,
+    });
+    btn.disabled = false;
+    if (!ok) { setStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
+    toast(t('admin.msg.saved'), 'success');
+    loadBomAgent();
 }
 
 async function loadBomRejects() {

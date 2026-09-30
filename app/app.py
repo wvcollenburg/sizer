@@ -181,6 +181,10 @@ def create_app():
         # times over (docs/projects-plan.md §7.2).
         from export_worker import start_export_worker
         start_export_worker(app)
+        # BOM uploads no parser recognises, read by the Claude agent
+        # (bom/agent_worker.py). Same claim discipline as the exports.
+        from bom.agent_worker import start_bom_agent_worker
+        start_bom_agent_worker(app)
 
     # Cache-bust static assets by file mtime so a rebuild always serves fresh
     # JS/CSS (no more stale-cache surprises during iteration).

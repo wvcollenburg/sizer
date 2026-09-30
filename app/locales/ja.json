@@ -19,6 +19,7 @@
   "export.common.resource": "リソース",
   "export.common.single_cluster": "単一クラスター",
   "export.common.single_node_note": "シングルノード — フェイルオーバーの冗長性なし。それ自体が冗長性である DR ティアには許容できますが、本番クラスターには推奨されません。",
+  "export.common.agent_bom_note": "見積もりのハードウェアは、未対応のレイアウトの BOM を Claude エージェントが読み取ったものです。元の見積もりと照合してください。",
   "export.common.storage": "ストレージ",
   "export.common.threads": "スレッド",
   "export.common.usable_storage": "使用可能ストレージ",

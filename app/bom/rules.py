@@ -682,7 +682,7 @@ def validate_config(config: BOMConfig, vendor: str, hcl: HclData,
                 findings.append(finding('info', 'Storage', 'High flash ratio (%d%% flash) — storage is lopsided' % pct, 'More SSDs/NVMe than HDDs may impact SCRIBE tiering efficiency. Verify this matches the intended workload profile.', 'high_flash_ratio'))
         sata_drives = [c for c in components if c.category == 'storage' and matches_any(c.description, ['SATA']) and is_hdd(c)]
         if len(sata_drives) > 0:
-            findings.append(finding('info', 'Storage', 'SATA HDDs detected', 'SAS HDDs are strongly recommended over SATA: they are dual-ported, have better error detection, handle atomic actions more reliably, and Scale has better drive health reporting for SAS.', 'sata_hdd'))
+            findings.append(finding('info', 'Storage', 'SATA HDDs detected', 'SAS HDDs are strongly recommended over SATA: they are dual-ported, have better error detection, handle atomic actions more reliably, and Scale Computing has better drive health reporting for SAS.', 'sata_hdd'))
 
     # 5. Drive endurance (DWPD) and SED checks
     threshold = dwpd_threshold(config, form_factor)
