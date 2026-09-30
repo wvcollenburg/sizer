@@ -175,10 +175,27 @@
 }
 
 @media print {
-    header, .manual-toc { display: none; }
-    .manual-layout { display: block; padding: 0; }
-    .manual-shot img { box-shadow: none; }
-    .manual-chapter { break-before: page; }
+    @page { size: A4; margin: 16mm 14mm 18mm; }
+    header, .manual-lightbox, .manual-staff-tag + .manual-staff-tag { display: none; }
+    body { background: #fff; padding-bottom: 0; }
+    .manual-layout { display: block; padding: 0; max-width: none; }
+    /* The contents become a page of their own, before the text. */
+    .manual-toc {
+        position: static; max-height: none; overflow: visible;
+        break-after: page; font-size: 11pt;
+    }
+    .manual-toc-title { font-size: 16pt; text-transform: none; letter-spacing: 0;
+                        color: var(--text); margin-bottom: 12px; }
+    .manual-toc a { padding: 4px 0; color: var(--text); }
+    .manual-toc a.active { background: none; font-weight: normal; color: var(--text); }
+    .manual-body { font-size: 10pt; line-height: 1.5; }
+    .manual-body p, .manual-body li { max-width: none; }
+    .manual-chapter { break-before: page; border-bottom: 0; margin: 0; padding: 0; }
+    .manual-body h2, .manual-body h3, .manual-body h4, .manual-faq dt { break-after: avoid; }
+    .manual-shot, .manual-callout, .manual-table tr, .manual-faq dd { break-inside: avoid; }
+    .manual-shot img { box-shadow: none; max-height: 190mm; width: auto; margin: 0 auto; }
+    .manual-shot figcaption { text-align: center; }
+    .manual-intro { border-bottom: 0; }
 }
 
 /* ── FAQ ─────────────────────────────────────────────────────────────────── */
