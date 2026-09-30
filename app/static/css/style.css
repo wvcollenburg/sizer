@@ -2508,7 +2508,10 @@ body.auth-required footer { display: none; }
 #name-sizing-modal .modal-body,
 #leave-page-modal .modal-body,
 #source-cpu-modal .modal-body,
-#privacy-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
+#privacy-modal .modal-body,
+#save-choice-modal .modal-body,
+#cluster-fanout-modal .modal-body,
+#org-modal .modal-body { padding: 1.25rem 1.5rem 1.5rem; }
 
 /* My data & privacy modal: stacked self-service actions. */
 #privacy-modal .modal-sep { border: 0; border-top: 1px solid var(--border); margin: 1.1rem 0; }
