@@ -186,6 +186,18 @@
 
     function bomDismissRetain() { bomShowRetainOffer(false); }
 
+    // Only files with text can teach the checker a layout: never a picture,
+    // and not a PDF the agent had to read as an image (a scan).
+    const SHAREABLE_DEFAULT = ['.xlsx', '.xls', '.csv', '.pdf', '.docx', '.txt'];
+
+    function shareable(file, agent) {
+        if (!file) return false;
+        const caps = bomState.capabilities || {};
+        const exts = Array.isArray(caps.shareable_extensions) ? caps.shareable_extensions : SHAREABLE_DEFAULT;
+        if (!hasExtension(file.name, exts.map(e => String(e).toLowerCase()))) return false;
+        return !(agent && agent.source_kind === 'pdf' && agent.pdf_mode === 'document');
+    }
+
     function setStatus(msg, isError) {
         const el = $('bom-upload-status');
         if (!el) return;
@@ -476,7 +488,9 @@
         if (!res.ok || !res.data) {
             const d = res.data || {};
             bomShowError(d.error || t('bom.err.failed'), d.details || []);
-            if (d.retainable) bomShowRetainOffer(true, [d.error, d.hint].filter(Boolean).join(' — '));
+            if (d.retainable && shareable(bomState.file, null)) {
+                bomShowRetainOffer(true, [d.error, d.hint].filter(Boolean).join(' — '));
+            }
             return;
         }
         if (res.data.job) {
@@ -495,7 +509,8 @@
         showStep('result');
         // A file the agent had to read: ask to share it so the layout can be
         // taught to the parsers (only while we still hold the file).
-        if (check.agent && bomState.file && bomState.uploadedCheckId === check.id) {
+        if (check.agent && bomState.file && bomState.uploadedCheckId === check.id
+                && shareable(bomState.file, check.agent)) {
             bomShowRetainOffer(true, 'agent-read: ' + (check.filename || ''), 'bom.retain.offer_agent');
         }
     }
@@ -543,7 +558,9 @@
             showStep('upload');
             bomShowError(job.error || t('bom.agent.failed'), []);
             if (job.has_template) showJobTemplateLink(job);
-            if (bomState.file) bomShowRetainOffer(true, 'agent failed: ' + (job.error || ''));
+            if (bomState.file && shareable(bomState.file, null)) {
+                bomShowRetainOffer(true, 'agent failed: ' + (job.error || ''));
+            }
             loadBomChecks();
             return;
         }

@@ -13,7 +13,7 @@ FORMAT = 'scale_quote_pdf'
 
 MESSAGE = ("This is a Scale Computing quotation, not a hardware vendor's BOM. The BOM "
            "checker validates third-party servers (Dell, Lenovo, Supermicro, HPE) against "
-           "the HCL; certified Scale appliances need no check.")
+           "the HCL; certified Scale Computing appliances need no check.")
 
 
 def detect(doc) -> bool:

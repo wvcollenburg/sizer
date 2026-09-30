@@ -1851,7 +1851,7 @@ def queue_export(project_id):
     # single-sizing exports.
     if fmt in ("pptx", "docx") and not (user.is_scale or user.is_super_admin):
         return jsonify({"error": "The editable PowerPoint and Word files are "
-                                 "available to Scale users only. Use a PDF."}), 403
+                                 "available to Scale Computing users only. Use a PDF."}), 403
 
     wanted = data.get("sizing_ids") or []
     sizings = Configuration.query.filter(

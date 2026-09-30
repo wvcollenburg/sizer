@@ -153,6 +153,7 @@ class BomCheck(db.Model):
         local = meta.get("pdf_local") or {}
         return {
             "source_kind": meta.get("source_kind"),
+            "pdf_mode": meta.get("pdf_mode"),
             "grounded": meta.get("grounded"),
             "dropped": list(meta.get("dropped") or [])[:50],
             "model_changed": list(meta.get("model_changed") or [])[:20],

@@ -93,6 +93,12 @@ def _sha256(path):
 LOCAL_EXTENSIONS = PARSER_EXTENSIONS + (".pdf",)
 
 
+# Files worth keeping to teach the checker a layout: anything with text a
+# parser can be written for. Pictures are not (owner, 2026-09-30: a lost
+# cause — the agent reads them, nobody will write a parser for a photo).
+SHAREABLE_EXTENSIONS = LOCAL_EXTENSIONS + (".docx", ".txt")
+
+
 def accepted_extensions():
     if agent_ingest.available():
         return tuple(dict.fromkeys(LOCAL_EXTENSIONS + agent_ingest.AGENT_EXTENSIONS))
@@ -158,6 +164,7 @@ def capabilities():
     caps = agent_ingest.capabilities()
     caps.update({
         "accepted_extensions": list(accepted_extensions()),
+        "shareable_extensions": list(SHAREABLE_EXTENSIONS),
         "parser_extensions": list(LOCAL_EXTENSIONS),
         "max_bytes": MAX_BOM_BYTES,
         "formats": FORMAT_LABELS,
@@ -763,8 +770,11 @@ def retain_rejected(project_id):
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     f = request.files["file"]
+    if os.path.splitext(f.filename or "")[1].lower() in agent_ingest.IMAGE_EXTENSIONS:
+        return jsonify({"error": "Pictures are not kept: a layout can only be taught "
+                                 "from a file with text in it."}), 400
     try:
-        path, ext = _save_upload(f, accepted_extensions())
+        path, ext = _save_upload(f, SHAREABLE_EXTENSIONS)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:

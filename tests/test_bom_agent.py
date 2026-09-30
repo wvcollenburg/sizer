@@ -452,3 +452,19 @@ def test_agent_read_check_is_flagged_for_the_exports(app, agent_on):
         sizing.export_override = {"bom": done["check_id"]}
         override = export_override.resolve(sizing)
     assert override is not None and override["bom_agent_read"] is True
+
+
+def test_pictures_are_never_kept_for_layout_sharing(app, agent_on):
+    """The agent reads pictures, but a picture can't teach the checker a
+    layout, so the consent offer never keeps one (text-based files only)."""
+    from PIL import Image
+    c = client_for(app, PARTNER)
+    p = make_project(c)
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(buf, format="PNG")
+    r = c.post("/api/projects/%d/bom-rejects" % p["id"], data={"file": (io.BytesIO(buf.getvalue()), "x.png")},
+               content_type="multipart/form-data")
+    assert r.status_code == 400 and "Pictures" in r.get_json()["error"]
+    caps = c.get("/api/bom/capabilities").get_json()
+    assert ".png" in caps["accepted_extensions"] and ".png" not in caps["shareable_extensions"]
+    assert ".pdf" in caps["shareable_extensions"]

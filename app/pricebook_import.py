@@ -173,7 +173,7 @@ def parse_pricebook(file_path, sheet=None):
     if result["counts"]["license_rows"] == 0:
         raise PricebookFormatError(
             f"no rows in the '{LICENSE_FAMILY}' product family — this does not "
-            "look like a Scale price list, or the family name changed"
+            "look like a Scale Computing price list, or the family name changed"
         )
     return result
 

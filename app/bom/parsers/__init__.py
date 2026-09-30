@@ -40,7 +40,7 @@ class UnrecognizedFormat(ValueError):
 
 
 FORMAT_LABELS = {
-    'template': 'Scale BOM template',
+    'template': 'Scale Computing BOM template',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
