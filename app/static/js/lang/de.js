@@ -352,7 +352,7 @@
   "admin.users.none": "Keine Benutzer.",
   "admin.users.reset_email_confirm": "Diesem Benutzer einen Link zum Zurücksetzen des Passworts per E-Mail senden?",
   "admin.users.reset_password": "Passwort zurücksetzen",
-  "admin.users.reset_prompt": "Passwort für {email} zurücksetzen.\n\nGeben Sie ein neues Passwort ein (min. 8 Zeichen), oder lassen Sie das Feld leer, um einen Zurücksetzungs-Link per E-Mail zu senden (erfordert SMTP):",
+  "admin.users.reset_prompt": "Passwort für {email} zurücksetzen.\n\nGeben Sie ein neues Passwort ein (min. 10 Zeichen, mit Groß- und Kleinbuchstaben, einer Ziffer und einem Sonderzeichen), oder lassen Sie das Feld leer, um einen Zurücksetzungs-Link per E-Mail zu senden (erfordert SMTP):",
   "admin.users.restore": "Wiederherstellen",
   "admin.users.restored_ok": "Benutzer wiederhergestellt.",
   "admin.users.role_confirm": "Rolle dieses Benutzers auf „{role}“ ändern?",

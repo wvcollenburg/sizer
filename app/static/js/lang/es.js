@@ -352,7 +352,7 @@
   "admin.users.none": "No hay usuarios.",
   "admin.users.reset_email_confirm": "¿Enviar a este usuario por correo un enlace de restablecimiento de contraseña?",
   "admin.users.reset_password": "Restablecer contraseña",
-  "admin.users.reset_prompt": "Restablecer la contraseña de {email}.\n\nIngrese una nueva contraseña (mín. 8 caracteres), o deje en blanco para enviarles por correo un enlace de restablecimiento (requiere SMTP):",
+  "admin.users.reset_prompt": "Restablecer la contraseña de {email}.\n\nIngrese una nueva contraseña (mín. 10 caracteres, con una mayúscula, una minúscula, un número y un carácter especial), o deje en blanco para enviarles por correo un enlace de restablecimiento (requiere SMTP):",
   "admin.users.restore": "Restaurar",
   "admin.users.restored_ok": "Usuario restaurado.",
   "admin.users.role_confirm": "¿Cambiar el rol de este usuario a \"{role}\"?",

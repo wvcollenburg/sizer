@@ -352,7 +352,7 @@
   "admin.users.none": "Nav lietotāju.",
   "admin.users.reset_email_confirm": "Nosūtīt šim lietotājam paroles atiestatīšanas saiti e-pastā?",
   "admin.users.reset_password": "Atiestatīt paroli",
-  "admin.users.reset_prompt": "Atiestatīt paroli lietotājam {email}.\n\nIevadiet jaunu paroli (min. 8 rakstzīmes) vai atstājiet tukšu, lai nosūtītu tam atiestatīšanas saiti e-pastā (nepieciešams SMTP):",
+  "admin.users.reset_prompt": "Atiestatīt paroli lietotājam {email}.\n\nIevadiet jaunu paroli (min. 10 rakstzīmes, ar lielo un mazo burtu, ciparu un speciālo rakstzīmi) vai atstājiet tukšu, lai nosūtītu tam atiestatīšanas saiti e-pastā (nepieciešams SMTP):",
   "admin.users.restore": "Atjaunot",
   "admin.users.restored_ok": "Lietotājs atjaunots.",
   "admin.users.role_confirm": "Mainīt šī lietotāja lomu uz \"{role}\"?",

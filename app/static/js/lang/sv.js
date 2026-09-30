@@ -352,7 +352,7 @@
   "admin.users.none": "Inga användare.",
   "admin.users.reset_email_confirm": "Skicka en länk för lösenordsåterställning till denna användare via e-post?",
   "admin.users.reset_password": "Återställ lösenord",
-  "admin.users.reset_prompt": "Återställ lösenord för {email}.\n\nAnge ett nytt lösenord (minst 8 tecken), eller lämna tomt för att e-posta dem en återställningslänk (kräver SMTP):",
+  "admin.users.reset_prompt": "Återställ lösenord för {email}.\n\nAnge ett nytt lösenord (minst 10 tecken, med en versal, en gemen, en siffra och ett specialtecken), eller lämna tomt för att e-posta dem en återställningslänk (kräver SMTP):",
   "admin.users.restore": "Återställ",
   "admin.users.restored_ok": "Användare återställd.",
   "admin.users.role_confirm": "Ändra denna användares roll till \"{role}\"?",

@@ -352,7 +352,7 @@
   "admin.users.none": "Aucun utilisateur.",
   "admin.users.reset_email_confirm": "Envoyer à cet utilisateur un lien de réinitialisation de mot de passe par e-mail ?",
   "admin.users.reset_password": "Réinitialiser le mot de passe",
-  "admin.users.reset_prompt": "Réinitialiser le mot de passe de {email}.\n\nSaisissez un nouveau mot de passe (8 caractères min.), ou laissez vide pour lui envoyer par e-mail un lien de réinitialisation (nécessite SMTP) :",
+  "admin.users.reset_prompt": "Réinitialiser le mot de passe de {email}.\n\nSaisissez un nouveau mot de passe (10 caractères min., avec une majuscule, une minuscule, un chiffre et un caractère spécial), ou laissez vide pour lui envoyer par e-mail un lien de réinitialisation (nécessite SMTP) :",
   "admin.users.restore": "Restaurer",
   "admin.users.restored_ok": "Utilisateur restauré.",
   "admin.users.role_confirm": "Changer le rôle de cet utilisateur en « {role} » ?",

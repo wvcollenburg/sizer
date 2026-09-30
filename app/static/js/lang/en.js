@@ -353,7 +353,7 @@
   "admin.users.none": "No users.",
   "admin.users.reset_email_confirm": "Email this user a password-reset link?",
   "admin.users.reset_password": "Reset password",
-  "admin.users.reset_prompt": "Reset password for {email}.\n\nEnter a new password (min 8 chars), or leave blank to email them a reset link (requires SMTP):",
+  "admin.users.reset_prompt": "Reset password for {email}.\n\nEnter a new password (at least 10 characters, with an uppercase and a lowercase letter, a number and a special character), or leave blank to email them a reset link (requires SMTP):",
   "admin.users.restore": "Restore",
   "admin.users.restored_ok": "User restored.",
   "admin.users.role_confirm": "Change this user's role to \"{role}\"?",

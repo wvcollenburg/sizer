@@ -352,7 +352,7 @@
   "admin.users.none": "Kasutajaid pole.",
   "admin.users.reset_email_confirm": "Kas saata sellele kasutajale e-postiga parooli lähtestamise link?",
   "admin.users.reset_password": "Lähtesta parool",
-  "admin.users.reset_prompt": "Lähtestage parool kasutajale {email}.\n\nSisestage uus parool (min 8 tähemärki) või jätke tühjaks, et saata neile e-postiga lähtestamislink (nõuab SMTP-d):",
+  "admin.users.reset_prompt": "Lähtestage parool kasutajale {email}.\n\nSisestage uus parool (min 10 tähemärki, sealhulgas suur- ja väiketäht, number ja erimärk) või jätke tühjaks, et saata neile e-postiga lähtestamislink (nõuab SMTP-d):",
   "admin.users.restore": "Taasta",
   "admin.users.restored_ok": "Kasutaja taastatud.",
   "admin.users.role_confirm": "Kas muuta selle kasutaja roll rolliks \"{role}\"?",

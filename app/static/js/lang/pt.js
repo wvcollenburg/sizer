@@ -352,7 +352,7 @@
   "admin.users.none": "Nenhum usuário.",
   "admin.users.reset_email_confirm": "Enviar a este usuário um link de redefinição de senha por e-mail?",
   "admin.users.reset_password": "Redefinir senha",
-  "admin.users.reset_prompt": "Redefinir a senha de {email}.\n\nInsira uma nova senha (mín. 8 caracteres) ou deixe em branco para enviar um link de redefinição por e-mail (requer SMTP):",
+  "admin.users.reset_prompt": "Redefinir a senha de {email}.\n\nInsira uma nova senha (mín. 10 caracteres, com uma maiúscula, uma minúscula, um número e um caractere especial) ou deixe em branco para enviar um link de redefinição por e-mail (requer SMTP):",
   "admin.users.restore": "Restaurar",
   "admin.users.restored_ok": "Usuário restaurado.",
   "admin.users.role_confirm": "Alterar a função deste usuário para \"{role}\"?",

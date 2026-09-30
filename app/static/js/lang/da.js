@@ -352,7 +352,7 @@
   "admin.users.none": "Ingen brugere.",
   "admin.users.reset_email_confirm": "Send denne bruger et link til nulstilling af adgangskode via e-mail?",
   "admin.users.reset_password": "Nulstil adgangskode",
-  "admin.users.reset_prompt": "Nulstil adgangskode for {email}.\n\nIndtast en ny adgangskode (min. 8 tegn), eller lad stå tom for at sende dem et nulstillingslink via e-mail (kræver SMTP):",
+  "admin.users.reset_prompt": "Nulstil adgangskode for {email}.\n\nIndtast en ny adgangskode (min. 10 tegn, med et stort og et lille bogstav, et tal og et specialtegn), eller lad stå tom for at sende dem et nulstillingslink via e-mail (kræver SMTP):",
   "admin.users.restore": "Gendan",
   "admin.users.restored_ok": "Bruger gendannet.",
   "admin.users.role_confirm": "Ændr denne brugers rolle til \"{role}\"?",

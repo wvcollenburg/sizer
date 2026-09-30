@@ -352,7 +352,7 @@
   "admin.users.none": "Naudotojų nėra.",
   "admin.users.reset_email_confirm": "Išsiųsti šiam naudotojui slaptažodžio atkūrimo nuorodą el. paštu?",
   "admin.users.reset_password": "Atkurti slaptažodį",
-  "admin.users.reset_prompt": "Atkurti {email} slaptažodį.\n\nĮveskite naują slaptažodį (min. 8 simboliai) arba palikite tuščią, kad būtų išsiųsta atkūrimo nuoroda el. paštu (reikia SMTP):",
+  "admin.users.reset_prompt": "Atkurti {email} slaptažodį.\n\nĮveskite naują slaptažodį (min. 10 simbolių, su didžiąja ir mažąja raide, skaitmeniu ir specialiuoju simboliu) arba palikite tuščią, kad būtų išsiųsta atkūrimo nuoroda el. paštu (reikia SMTP):",
   "admin.users.restore": "Atkurti",
   "admin.users.restored_ok": "Naudotojas atkurtas.",
   "admin.users.role_confirm": "Pakeisti šio naudotojo rolę į \"{role}\"?",

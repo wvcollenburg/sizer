@@ -352,7 +352,7 @@
   "admin.users.none": "ユーザーがいません。",
   "admin.users.reset_email_confirm": "このユーザーにパスワードリセットリンクをメールで送信しますか?",
   "admin.users.reset_password": "パスワードをリセット",
-  "admin.users.reset_prompt": "{email} のパスワードをリセットします。\n\n新しいパスワード (8文字以上) を入力するか、空欄のままにするとリセットリンクをメールで送信します (SMTPが必要):",
+  "admin.users.reset_prompt": "{email} のパスワードをリセットします。\n\n新しいパスワード (10文字以上、英大文字・英小文字・数字・記号を含む) を入力するか、空欄のままにするとリセットリンクをメールで送信します (SMTPが必要):",
   "admin.users.restore": "復元",
   "admin.users.restored_ok": "ユーザーを復元しました。",
   "admin.users.role_confirm": "このユーザーの役割を「{role}」に変更しますか?",

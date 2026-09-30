@@ -352,7 +352,7 @@
   "admin.users.none": "Geen gebruikers.",
   "admin.users.reset_email_confirm": "Deze gebruiker een link voor het opnieuw instellen van het wachtwoord e-mailen?",
   "admin.users.reset_password": "Wachtwoord opnieuw instellen",
-  "admin.users.reset_prompt": "Wachtwoord opnieuw instellen voor {email}.\n\nVoer een nieuw wachtwoord in (min. 8 tekens), of laat leeg om hen een reset-link te e-mailen (vereist SMTP):",
+  "admin.users.reset_prompt": "Wachtwoord opnieuw instellen voor {email}.\n\nVoer een nieuw wachtwoord in (min. 10 tekens, met een hoofdletter, een kleine letter, een cijfer en een speciaal teken), of laat leeg om hen een reset-link te e-mailen (vereist SMTP):",
   "admin.users.restore": "Herstellen",
   "admin.users.restored_ok": "Gebruiker hersteld.",
   "admin.users.role_confirm": "De rol van deze gebruiker wijzigen naar \"{role}\"?",

@@ -352,7 +352,7 @@
   "admin.users.none": "Ingen brukere.",
   "admin.users.reset_email_confirm": "Sende denne brukeren en lenke for tilbakestilling av passord på e-post?",
   "admin.users.reset_password": "Tilbakestill passord",
-  "admin.users.reset_prompt": "Tilbakestill passord for {email}.\n\nSkriv inn et nytt passord (min. 8 tegn), eller la stå tomt for å sende dem en tilbakestillingslenke på e-post (krever SMTP):",
+  "admin.users.reset_prompt": "Tilbakestill passord for {email}.\n\nSkriv inn et nytt passord (min. 10 tegn, med en stor og en liten bokstav, et tall og et spesialtegn), eller la stå tomt for å sende dem en tilbakestillingslenke på e-post (krever SMTP):",
   "admin.users.restore": "Gjenopprett",
   "admin.users.restored_ok": "Bruker gjenopprettet.",
   "admin.users.role_confirm": "Endre denne brukerens rolle til «{role}»?",

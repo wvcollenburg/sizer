@@ -352,7 +352,7 @@
   "admin.users.none": "Ei käyttäjiä.",
   "admin.users.reset_email_confirm": "Lähetetäänkö tälle käyttäjälle salasanan nollauslinkki sähköpostitse?",
   "admin.users.reset_password": "Nollaa salasana",
-  "admin.users.reset_prompt": "Nollaa salasana käyttäjälle {email}.\n\nSyötä uusi salasana (väh. 8 merkkiä) tai jätä tyhjäksi lähettääksesi heille nollauslinkin sähköpostitse (vaatii SMTP:n):",
+  "admin.users.reset_prompt": "Nollaa salasana käyttäjälle {email}.\n\nSyötä uusi salasana (väh. 10 merkkiä, jossa iso ja pieni kirjain, numero ja erikoismerkki) tai jätä tyhjäksi lähettääksesi heille nollauslinkin sähköpostitse (vaatii SMTP:n):",
   "admin.users.restore": "Palauta",
   "admin.users.restored_ok": "Käyttäjä palautettu.",
   "admin.users.role_confirm": "Muutetaanko tämän käyttäjän rooliksi \"{role}\"?",

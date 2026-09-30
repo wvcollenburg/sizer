@@ -352,7 +352,7 @@
   "admin.users.none": "Nessun utente.",
   "admin.users.reset_email_confirm": "Inviare a questo utente un link di reimpostazione password via email?",
   "admin.users.reset_password": "Reimposta password",
-  "admin.users.reset_prompt": "Reimposti la password per {email}.\n\nInserisca una nuova password (min 8 caratteri), oppure la lasci vuota per inviare via email un link di reimpostazione (richiede SMTP):",
+  "admin.users.reset_prompt": "Reimposti la password per {email}.\n\nInserisca una nuova password (min 10 caratteri, con una maiuscola, una minuscola, un numero e un carattere speciale), oppure la lasci vuota per inviare via email un link di reimpostazione (richiede SMTP):",
   "admin.users.restore": "Ripristina",
   "admin.users.restored_ok": "Utente ripristinato.",
   "admin.users.role_confirm": "Modificare il ruolo di questo utente in \"{role}\"?",
