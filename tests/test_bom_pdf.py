@@ -117,6 +117,23 @@ def test_lenovo_list_with_a_missing_row_is_not_trusted(tmp_path):
     assert out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD
 
 
+def test_dell_system_on_the_arrow_quote_sheet(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.dell_arrow(nodes=3)))
+    assert out.fmt == "dell_arrow_pdf" and out.certainty.score == 100
+    cfg = out.bom.configs[0]
+    assert (cfg.server_model, cfg.node_count) == ("PowerEdge R760xs", 3)
+    got = {c.description: (c.category, c.quantity) for c in cfg.components}
+    assert got["Intel Xeon Gold 5418Y 2G, 24C/48T, 16GT/s, 45M Cache"] == ("cpu", 6)   # 2 per server
+    assert got["32GB RDIMM, 6400MT/s, Dual Rank"] == ("memory", 24)
+    assert got["PERC H355 Adapter, Low Profile"] == ("controller", 3)
+    assert "Performance BIOS Settings" not in got      # wrapped 'BIOS and Advanced…' module: dropped
+
+
+def test_arrow_total_that_disagrees_is_not_trusted(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.dell_arrow(nodes=3, total=61000.0)))
+    assert out.evidence.checks_failed and not pdf_certainty.passes(out.certainty)
+
+
 def test_scale_quotation_is_refused_not_parsed(tmp_path):
     with pytest.raises(NotAVendorBom):
         read_pdf(_file(tmp_path, pm.scale_quotation()))

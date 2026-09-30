@@ -267,6 +267,34 @@ def lenovo_list(machines=3, gap_at=None):
     return pdf
 
 
+def dell_arrow(nodes=3, total=None):
+    """The Arrow quote sheet with a Dell system as module/option rows."""
+    pdf = PdfMaker()
+    unit = 20000.0
+    pdf.row(56, [(3, "Customer Name"), (107, "Acme")], size=7)
+    pdf.row(120, [(3, "Product"), (107, "Part / Project Description"), (477, "Qty"), (520, "Unit Price"),
+                  (568, "Total Price")], size=7)
+    pdf.row(131, [(107, "PowerEdge R760xs [EMEA_R760XS] (210-BGLV)"), (480, nodes), (513, "EUR"),
+                  (526, format(unit, ",.2f")), (560, "EUR"),
+                  (579, format(total if total is not None else unit * nodes, ",.2f"))], size=7)
+    rows = [("Base", "PowerEdge R760xs", 1),
+            ("Processor", "Intel Xeon Gold 5418Y 2G, 24C/48T, 16GT/s, 45M Cache", 1),
+            ("Additional Processor", "Intel Xeon Gold 5418Y 2G, 24C/48T, 16GT/s, 45M Cache", 1),
+            ("Memory Capacity", "32GB RDIMM, 6400MT/s, Dual Rank", 8),
+            ("RAID Controller", "PERC H355 Adapter, Low Profile", 1),
+            ("Hard Drives", "4TB Hard Drive SAS ISE 12Gbps 7.2K 512n 3.5in Hot-Plug", 3),
+            ("BIOS and Advanced System", None, None),
+            ("Configuration Settings", "Performance BIOS Settings", 1),
+            ("OCP 3.0 Network Adapters", "Broadcom 57504 Quad Port 10/25GbE, SFP28, OCP 3.0 NIC", 1)]
+    top = 140
+    for module, desc, qty in rows:
+        pdf.row(top, [(3, module)] + ([(107, desc), (480, qty)] if desc else []), size=7)
+        top += 8.8
+    pdf.row(top + 10, [(3, "FREIGHT_CHARGE"), (107, "Freight charges calculated at time of shipping")], size=7)
+    pdf.row(top + 26, [(469, "Sub-Total"), (514, "EUR"), (579, format(unit * nodes, ",.2f"))], size=7)
+    return pdf
+
+
 def scale_quotation():
     pdf = PdfMaker()
     pdf.row(40, [(400, "Quotation")])
