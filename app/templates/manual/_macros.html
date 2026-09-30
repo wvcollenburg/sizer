@@ -4,10 +4,11 @@
     shot(name, caption, "scale")   one from app/manual/img/scale/ — only ever
                                    inside a staff-only chapter or a staff()
                                    aside, since that folder is gated
-    Images are captured by tools/manual_shots.py under the same names. -#}
+    Images are captured by tools/manual_shots.py under the same names. A
+    dialog-sized picture floats beside the text (manual_routes.is_narrow). -#}
 
 {% macro shot(name, caption, edition="user") -%}
-<figure class="manual-shot">
+<figure class="manual-shot{% if is_narrow(edition, name) %} manual-shot-narrow{% endif %}">
     <a href="/manual/img/{{ edition }}/{{ name }}.png" class="manual-zoom" data-click='["manualZoom","$event","$this"]'>
         <img src="/manual/img/{{ edition }}/{{ name }}.png" alt="{{ caption }}" loading="lazy">
     </a>

@@ -149,15 +149,34 @@ def _tidy(par):
 
 # ── blocks ─────────────────────────────────────────────────────────────────
 
+def _stops_float(el):
+    """What the web page clears below a floated picture (manual.css)."""
+    cls = _classes(el)
+    return (el.tag in ("h2", "h3", "h4", "figure", "dl")
+            or (el.tag == "div" and "manual-callout" in cls))
+
+
+def _drop_leading_empty(cell):
+    """A new cell starts with an empty paragraph; drop it once filled."""
+    first = cell.paragraphs[0] if cell.paragraphs else None
+    if first is not None and not first.text and len(cell._tc) > 2 \
+            and not first._p.xpath(".//w:drawing"):
+        first._p.getparent().remove(first._p)
+
+
 class Writer:
     def __init__(self, doc, edition):
         self.doc = doc
         self.edition = edition
         self.cw = ex._content_width(doc)
+        # where blocks go and how wide they may be: the page, or the text
+        # column beside a dialog-sized picture (see side_by_side)
+        self.out = doc
+        self.width = self.cw
         self.chapters = []          # (number-and-title, toc paragraph)
 
     def para(self, el, style=None, **kw):
-        p = self.doc.add_paragraph(style=style)
+        p = self.out.add_paragraph(style=style)
         add_inline(p, el, **kw)
         return _tidy(p)
 
@@ -180,32 +199,104 @@ class Writer:
         from PIL import Image
         with Image.open(path) as im:
             w_px, h_px = im.size
+        caption = fig.find("figcaption")
+        caption = re.sub(r"\s+", " ", caption.text_content()).strip() if caption is not None else ""
         # a screenshot at ~150 dpi, never wider than the text or taller than
         # most of a page
-        width = min(self.cw, w_px / 150.0)
+        width = min(self.width, w_px / 150.0)
         if width * h_px / w_px > 7.2:
             width = 7.2 * w_px / h_px
-        p = self.doc.add_paragraph()
+        p = self.out.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.keep_with_next = True
         p.paragraph_format.space_before = Pt(6)
         p.add_run().add_picture(path, width=Inches(width))
+        if caption:
+            self._caption(self.out.add_paragraph(), caption)
+
+    @staticmethod
+    def _caption(par, text):
+        par.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = par.add_run(text)
+        r.italic = True
+        r.font.size = Pt(8.5)
+        r.font.color.rgb = ex.MUTED
+        par.paragraph_format.space_after = Pt(10)
+
+    def side_by_side(self, fig, followers):
+        """A dialog-sized screenshot beside the text that follows it, like the
+        web page's float: a borderless two-column table, text on the left,
+        picture and caption on the right. Not a Word float: LibreOffice will
+        not set a table beside a floating one, and a float that misses the
+        page leaves its heading stranded; a plain table lands the same way in
+        Word and LibreOffice every time."""
+        img = fig.find(".//img")
+        m = re.match(r"/manual/img/(user|scale)/(.+)$", img.get("src") or "")
+        path = os.path.join(IMG, m.group(1), m.group(2))
+        from PIL import Image
+        with Image.open(path) as im:
+            w_px, h_px = im.size
+        pic_w = min(0.42 * self.cw, w_px / 150.0)
+        if pic_w * h_px / w_px > 7.0:
+            pic_w = 7.0 * w_px / h_px
+        gap = 0.25
+        text_w = self.cw - pic_w - gap
+        t = self.out.add_table(1, 2)
+        ex._cell_margins(t, 0, 0, 0, 0)
+        ex._fixed_layout(t, [text_w + gap, pic_w])
+        left, right = t.rows[0].cells
+        # the text column: the same block writers, aimed at the cell
+        outer = (self.out, self.width)
+        self.out, self.width = left, text_w
+        try:
+            for el in followers:
+                self.block(el)
+        finally:
+            self.out, self.width = outer
+        _drop_leading_empty(left)
+        for par in left.paragraphs:
+            par.paragraph_format.right_indent = Inches(gap)
+        p = right.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(path, width=Inches(pic_w))
         cap = fig.find("figcaption")
         if cap is not None:
-            c = self.doc.add_paragraph()
-            c.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r = c.add_run(re.sub(r"\s+", " ", cap.text_content()).strip())
-            r.italic = True
-            r.font.size = Pt(8.5)
-            r.font.color.rgb = ex.MUTED
-            c.paragraph_format.space_after = Pt(10)
+            self._caption(right.add_paragraph(),
+                          re.sub(r"\s+", " ", cap.text_content()).strip())
+        ex._pin_heading_to_table(t)
+        self._space(4)
+
+    def blocks(self, children):
+        """Write a run of blocks. A dialog-sized picture takes the blocks after
+        it, up to the next heading, picture or call-out, into its text column
+        (as the web page floats it); with nothing to sit beside it stands
+        alone."""
+        children = [c for c in children if isinstance(c.tag, str)]
+        i = 0
+        while i < len(children):
+            el = children[i]
+            if el.tag == "figure" and "manual-shot-narrow" in _classes(el):
+                j = i + 1
+                while j < len(children) and not _stops_float(children[j]):
+                    j += 1
+                if j > i + 1:
+                    self.side_by_side(el, children[i + 1:j])
+                    i = j
+                    continue
+            self.block(el)
+            i += 1
+
+    def _space(self, pts):
+        p = self.out.add_paragraph()
+        p.paragraph_format.space_after = Pt(pts)
+        p.paragraph_format.space_before = Pt(0)
 
     def table(self, tbl):
         rows = tbl.findall(".//tr")
         if not rows:
             return
         ncols = max(len(r.findall("./th") + r.findall("./td")) for r in rows)
-        t = self.doc.add_table(rows=0, cols=ncols)
+        t = self.out.add_table(0, ncols)
         ex._set_table_borders(t)
         ex._cell_margins(t)
         for r in rows:
@@ -229,7 +320,7 @@ class Writer:
                     run.font.size = Pt(9)
         # the first column holds labels: narrower than the explanations
         weights = {2: [1, 2.6], 3: [1, 0.8, 2.6]}.get(ncols, [1] * ncols)
-        scale = self.cw / sum(weights)
+        scale = self.width / sum(weights)
         ex._fixed_layout(t, [w * scale for w in weights])
         # header row repeats on every page a long table runs over
         trPr = t.rows[0]._tr.get_or_add_trPr()
@@ -237,11 +328,11 @@ class Writer:
         for row in t.rows:
             row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         ex._pin_heading_to_table(t)
-        ex._spacer(self.doc, 4)
+        self._space(4)
 
     def callout(self, div):
         kind = next((k for k in CALLOUT_FILL if k in _classes(div)), "manual-tip")
-        t = self.doc.add_table(rows=1, cols=1)
+        t = self.out.add_table(1, 1)
         ex._cell_margins(t, 90, 90, 160, 160)
         borders = ex._set_tblpr_child(t._tbl.tblPr, "w:tblBorders")
         left = OxmlElement("w:left")
@@ -256,14 +347,14 @@ class Writer:
         _tidy(p)
         for run in p.runs:
             run.font.size = Pt(9.5)
-        ex._fixed_layout(t, [self.cw])
+        ex._fixed_layout(t, [self.width])
         t.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
-        ex._spacer(self.doc, 4)
+        self._space(4)
 
     def list(self, lst, depth=0):
         ordered = lst.tag == "ol"
         for n, li in enumerate(lst.findall("./li"), 1):
-            p = self.doc.add_paragraph()
+            p = self.out.add_paragraph()
             pf = p.paragraph_format
             indent = 0.25 + 0.3 * depth
             pf.left_indent = Inches(indent + 0.22)
@@ -313,8 +404,7 @@ class Writer:
         elif tag == "dl":
             self.faq(el)
         elif tag in ("div", "section"):
-            for ch in el:
-                self.block(ch)
+            self.blocks(list(el))
 
     def chapter(self, sec):
         h2 = sec.find("h2")
@@ -322,9 +412,7 @@ class Writer:
         self.page_break()
         h = self.doc.add_heading(title, level=1)
         self.chapters.append(title)
-        for ch in sec:
-            if ch is not h2:
-                self.block(ch)
+        self.blocks([ch for ch in sec if ch is not h2])
 
     def page_break(self):
         p = self.doc.add_paragraph()
@@ -364,9 +452,7 @@ def build(edition, pages=None):
 
     # the intro under the title (the page's own <h1> is the cover now)
     intro = body.find_class("manual-intro")[0]
-    for ch in intro:
-        if ch.tag != "h1":
-            w.block(ch)
+    w.blocks([ch for ch in intro if ch.tag != "h1"])
 
     # contents: filled in on the second pass
     chapters = body.find_class("manual-chapter")

@@ -87,7 +87,10 @@
 /* ── tables ───────────────────────────────────────────────────────────────── */
 .manual-body table.manual-table {
     border-collapse: collapse;
-    width: 100%;
+    /* auto, not 100%: a 100% table will not fit beside a floated picture and
+       drops below it; an auto one takes the width that is left (the long
+       explanation column fills the full width when nothing floats). */
+    width: auto;
     margin: 12px 0 20px;
     font-size: var(--fs-sm);
 }
@@ -117,6 +120,20 @@
     font-size: var(--fs-xs);
     margin-top: 8px;
 }
+
+/* Dialog-sized pictures float beside the text they illustrate. Headings,
+   tables, call-outs and wide pictures always start below them. */
+.manual-shot-narrow {
+    float: right;
+    width: auto;
+    max-width: 45%;
+    margin: 4px 0 16px 28px;
+    clear: right;
+}
+.manual-shot-narrow img { width: auto; max-width: 100%; }
+.manual-chapter h3, .manual-chapter h4, .manual-callout,
+.manual-shot:not(.manual-shot-narrow), .manual-faq { clear: both; }
+.manual-chapter { display: flow-root; }   /* a float never leaks into the next chapter */
 
 .manual-lightbox {
     position: fixed;
@@ -170,6 +187,7 @@
     .manual-page .account-bar { margin-left: auto; }
     .manual-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px 16px 64px; }
     .manual-body table.manual-table { display: block; overflow-x: auto; }
+    .manual-shot-narrow { float: none; max-width: 100%; margin: 16px 0 24px; }
     .manual-toc { position: static; max-height: none; }
     .manual-table td:first-child { white-space: normal; }
 }

@@ -15,6 +15,8 @@ app/manual/img/<edition>/ and are served here with the same check as the page
 that shows them. Regenerate them with tools/manual_shots.py.
 """
 import os
+import struct
+from functools import lru_cache
 
 from flask import Blueprint, abort, render_template, send_from_directory
 
@@ -26,6 +28,27 @@ IMG_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "manual", "i
 EDITIONS = ("user", "scale")
 
 
+# A screenshot at most this wide (a dialog) floats beside the text instead of
+# standing alone; wider ones would get too small at float width. Used by the
+# shot() macro, and read back from its class by tools/manual_docx.py.
+NARROW_MAX_PX = 660
+
+
+@lru_cache(maxsize=256)
+def _png_width(path, mtime):
+    with open(path, "rb") as fh:
+        head = fh.read(24)
+    return struct.unpack(">I", head[16:20])[0] if head[:8] == b"\x89PNG\r\n\x1a\n" else 0
+
+
+def is_narrow(edition, name):
+    path = os.path.join(IMG_ROOT, edition, name + ".png")
+    try:
+        return 0 < _png_width(path, os.path.getmtime(path)) <= NARROW_MAX_PX
+    except OSError:
+        return False
+
+
 def can_read_scale_edition(user):
     return user is not None and (user.is_scale or user.is_super_admin)
 
@@ -33,7 +56,8 @@ def can_read_scale_edition(user):
 def _render(edition):
     return render_template("manual/manual.html", edition=edition,
                            scale=(edition == "scale"),
-                           can_read_scale=can_read_scale_edition(current_user()))
+                           can_read_scale=can_read_scale_edition(current_user()),
+                           is_narrow=is_narrow)
 
 
 @manual_bp.route("/")
