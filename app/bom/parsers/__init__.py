@@ -54,6 +54,7 @@ FORMAT_LABELS = {
     'dell_solution_pdf': 'Dell Solutions Configurator (PDF)',
     'dell_quote_pdf': 'Dell quote e-mail (PDF)',
     'lenovo_build_pdf': 'Lenovo build order (PDF)',
+    'lenovo_list_pdf': 'Lenovo DCSC configuration, numbered list (PDF)',
     'supermicro_quote_pdf': 'Supermicro distributor quote (PDF)',
 }
 
@@ -252,10 +253,10 @@ class PdfOutcome:
 
 def _pdf_parsers():
     from bom.parsers import (pdf_dell_quote, pdf_dell_solution, pdf_lenovo_build,
-                             pdf_scale_quote, pdf_supermicro_quote)
+                             pdf_lenovo_list, pdf_scale_quote, pdf_supermicro_quote)
     # The Scale quotation first: it is refused, never parsed as a BOM.
-    return [pdf_scale_quote, pdf_lenovo_build, pdf_dell_solution, pdf_dell_quote,
-            pdf_supermicro_quote]
+    return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_dell_solution,
+            pdf_dell_quote, pdf_supermicro_quote]
 
 
 def read_pdf(path: str) -> PdfOutcome:

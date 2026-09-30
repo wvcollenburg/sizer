@@ -459,7 +459,7 @@ RULES = [
         # Dell writes a PERC both as 'PERC H755 SAS Front' and bare, as
         # 'H965i Adapter Low Profile' (Ingram Micro item list, 2026-09-30).
         r'\b(?:HBA\s?\d{3}[a-z]*|PERC\s?H\d{3}[A-Z]?|H[3-9]\d{2}[a-zA-Z]?\s+(?:Adapter|Front|Controller|SAS)|'
-        r'4[34]0-\d+[ie]|4350-\d+[ie]|'
+        r'4[34]0-\d+[ie]|4350-\d+[ie]|[59][34]0-\d+[ie]|'   # Lenovo RAID 530/540/930/940-8i
         r'9\d{3}-\d+[ie]|SAS3?\s+HBA|HBA ThinkSystem|RAID\s+(?:Controller|Adapter|Card)|'
         r'Storage Controller|MR216i|MR416i|AOC-S38\d\d|AOC-S3008|HBA\s*$)\b', re.I)),
     ('nic', re.compile(

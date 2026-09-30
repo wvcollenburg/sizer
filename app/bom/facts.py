@@ -79,6 +79,9 @@ def _pdf_facts(path: str) -> Dict[str, Any]:
         out = read_pdf(path)
     except NotAVendorBom as exc:
         raise UnrecognizedFormat(str(exc))
+    if out.bom is None and out.fmt is None:
+        raise UnrecognizedFormat("PDF in a layout no parser knows%s"
+                                 % (" (%s)" % out.error if out.error else ""))
     if out.bom is None or out.certainty is None or out.certainty.hard_stop \
             or out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD:
         why = "; ".join(r["text"] for r in (out.certainty.reasons if out.certainty else []))

@@ -237,6 +237,36 @@ def supermicro_quote(nodes=3):
     return pdf
 
 
+def lenovo_list(machines=3, gap_at=None):
+    """A DCSC configuration retyped as a numbered, ruled table. ``gap_at``
+    leaves one S/N out (a row the reader lost)."""
+    pdf = PdfMaker()
+    pdf.row(60, [(54, "S/N"), (79, "Part Number"), (227, "Description"), (369, "Qty")], size=7)
+    pdf.row(72, [(187, "Lenovo Server - 12C")], size=7)
+    rows = [("7D73CTO1WW", "Server : ThinkSystem SR630 V3-3yr Base Warranty", 1),
+            ("BLK3", "ThinkSystem V3 1U 4x3.5\" Chassis", 1),
+            ("BQ67", "Intel Xeon Silver 4410Y 12C 150W 2.0GHz Processor", 1),
+            ("BKTM", "ThinkSystem 32GB TruDDR5 4800MHz (2Rx8) RDIMM", 4),
+            ("B8NY", "ThinkSystem RAID 940-8i 4GB Flash PCIe Gen4 12Gb Adapter", 1),
+            ("C5X9", "ThinkSystem 3.5\" 4TB 7.2K SAS 12Gb Hot Swap 512e HDD v2", 4),
+            ("BPPY", "ThinkSystem Intel X710-T4L 10GBase-T 4-Port OCP Ethernet Adapter", 1),
+            ("7S0XCTO5WW", "XClarity Controller Platin-FOD", 1),
+            ("SBCV", "Lenovo XClarity XCC2 Platinum Upgrade (FOD)", 1),
+            ("7Q01CTS2WW", "SERVER PREMIER NBD RESP", 1),
+            ("QA0Y", "Months", 36)]
+    top = 80
+    pdf.hline(50, 380, top - 1)
+    sn = 0
+    for part, desc, per_node in rows:
+        sn += 1
+        if gap_at == sn:
+            sn += 1
+        pdf.row(top, [(58, sn), (80, part), (140, desc), (369, per_node * machines)], size=7)
+        top += 8
+        pdf.hline(50, 380, top - 1)
+    return pdf
+
+
 def scale_quotation():
     pdf = PdfMaker()
     pdf.row(40, [(400, "Quotation")])

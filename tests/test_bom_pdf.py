@@ -98,6 +98,25 @@ def test_supermicro_distributor_quote(tmp_path):
     assert [c.part_number for c in cfg.components if c.category == "chassis"] == ["511R-M-OTO-17"]
 
 
+def test_lenovo_dcsc_numbered_list(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.lenovo_list(machines=35)))
+    assert out.fmt == "lenovo_list_pdf" and out.certainty.score == 100
+    cfg = out.bom.configs[0]
+    assert (cfg.name, cfg.server_model, cfg.node_count) == ("Lenovo Server - 12C", "ThinkSystem SR630 V3", 35)
+    got = {c.part_number: (c.category, c.quantity) for c in cfg.components}
+    assert got["BQ67"] == ("cpu", 35) and got["BKTM"] == ("memory", 140)
+    assert got["B8NY"] == ("controller", 35)             # Lenovo RAID 940-8i
+    assert got["C5X9"] == ("storage", 140) and got["BPPY"] == ("nic", 35)
+    assert "SBCV" not in got                             # XClarity licence: dropped, as in the xlsx
+    assert "QA0Y" not in got                             # service block dropped
+
+
+def test_lenovo_list_with_a_missing_row_is_not_trusted(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.lenovo_list(gap_at=4)))
+    assert any("S/N" in c for c in out.evidence.checks_failed)
+    assert out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD
+
+
 def test_scale_quotation_is_refused_not_parsed(tmp_path):
     with pytest.raises(NotAVendorBom):
         read_pdf(_file(tmp_path, pm.scale_quotation()))
