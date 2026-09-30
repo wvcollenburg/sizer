@@ -1,0 +1,50 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Accounts on the <code>scalecomputing.com</code> domain are Scale Computing accounts. They
+   carry a blue <em>Scale Computing</em> badge. Super admins have all of the features below
+   as well. Everything else in the sizer works for you exactly as it does for partners, so
+   the earlier chapters apply.</p>
+{{ m.shot("header-staff", "A Scale Computing account's header", "scale") }}
+
+<h3 id="staff-by-code">Opening a partner's work by code</h3>
+<p>Partners can only open their own organisation's work. Scale Computing accounts can open
+   <strong>any</strong> organisation's project or sizing with its 12-digit share code. That
+   is how you help a partner: ask for the project code shown on their project page.</p>
+<ul>
+    <li><strong>A project</strong>: {{ m.ui("Open by code") }} on the Projects screen. The
+        project is added to your project list, marked <em>Shared</em>, and stays there.</li>
+    <li><strong>A single sizing</strong>: {{ m.ui("My Sizings") }} → type the code in
+        <em>Enter 12-digit code</em> → {{ m.ui("Retrieve") }}. It opens straight away and is
+        listed under <em>My Sizings</em> with the source <em>By code</em>. Removing it from
+        your list only removes your link, not the partner's sizing.</li>
+</ul>
+{{ m.shot("staff-my-sizings", "My Sizings with the retrieve-by-code box", "scale") }}
+<p>A partner's project is always <strong>read-only</strong> for you. You can look at every
+   sizing, recommendation, comparison and BOM check, but to change something use
+   <em>Copy to mine</em> on the row. The copy goes into a project of your own.</p>
+{{ m.shot("staff-shared-project", "A partner's project opened by code: read-only, with Copy to mine", "scale") }}
+{% call m.note() %}Sizings of an organisation that has been blocked (see
+   <a href="#admin-tenants">Tenants</a>) cannot be retrieved.{% endcall %}
+
+<h3 id="staff-org">Your colleagues' work</h3>
+<p>For Scale Computing accounts, <em>My Organization</em> in My Sizings, and
+   <em>Also show my colleagues' projects</em> on the Projects screen, cover every Scale Computing
+    user.</p>
+
+<h3 id="staff-editable">Editable exports</h3>
+<p>Only Scale Computing accounts and super admins can export <strong>Word</strong> and
+   <strong>PowerPoint</strong> files. Partners see the options but get a message asking them
+   to use a PDF. When a partner needs an editable version, open their project by code, copy
+   the sizings you need into a project of your own, and export from there.</p>
+
+<h3 id="staff-salesforce">Salesforce link</h3>
+<p>Project {{ m.ui("Details") }} has an extra field for you: <strong>Salesforce opportunity
+   link</strong>. It accepts salesforce.com and force.com addresses. Once set, the project
+   header shows an {{ m.ui("Opportunity") }} link. Partners never see this field or the link,
+   not even on a project they share with you.</p>
+{{ m.shot("staff-project-details", "Project details with the Salesforce opportunity link", "scale") }}
+
+<h3 id="staff-manual">This manual</h3>
+<p>The <strong>?</strong> in the header opens this staff edition for you. When you point a
+   partner to the manual, send <code>/manual/</code>, the partner edition. The
+   {{ m.ui("Partner edition") }} button at the top of this page shows you what they
+   see.</p>

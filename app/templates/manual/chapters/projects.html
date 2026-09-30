@@ -1,0 +1,137 @@
+{% import "manual/_macros.html" as m with context %}
+<p>After signing in you land on the <strong>Projects</strong> screen. A project holds the
+   sizings for one customer: several imports, the options you want to compare, and the
+   replication between them.</p>
+{{ m.shot("projects-home", "The Projects screen") }}
+
+<h3 id="projects-home">The Projects screen</h3>
+<table class="manual-table">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>{{ m.ui("New project") }}</td><td>Asks for a project name and opens the new,
+        empty project.</td></tr>
+    <tr><td>{{ m.ui("Open by code") }}</td><td>Opens a project from its 12-digit share code.
+        You can open projects of your own organisation this way{% if scale %}; Scale Computing
+        accounts can open any organisation's project (see
+        <a href="#staff-by-code">Opening a partner's work by code</a>){% endif %}.</td></tr>
+    <tr><td>{{ m.ui("Quick sizing") }}</td><td>Starts a blank sizing without choosing a
+        project. It is filed in your personal scratch project, marked
+        <em>Personal</em>.</td></tr>
+    <tr><td>{{ m.ui("Also show my colleagues' projects") }}</td><td>Off by default: you see
+        your own projects. Tick it to also see the projects of everyone in your organisation.
+        The setting is remembered in your browser.</td></tr>
+</table>
+<p>Each card shows the project name, the customer, the number of sizings, the number of BOM
+   checks and the date of the last change. Projects are sorted by most recently changed. A
+   <em>Shared</em> badge means the project belongs to someone else. You can look at it, but
+   not change it.</p>
+{{ m.shot("projects-colleagues", "With colleagues' projects shown. Theirs carry a Shared badge") }}
+
+<h3 id="new-project">Creating a project</h3>
+{{ m.shot("new-project", "Only a name is needed to start") }}
+<p>Type a name and choose {{ m.ui("Create") }}. Customer, opportunity reference, notes and
+   the export language can be added later under {{ m.ui("Details") }}. The project remembers
+   the language the sizer was in when you created it and uses it for exports, until you
+   change it.</p>
+
+<h3 id="project-view">The project page</h3>
+{{ m.shot("project-view", "A project with three imported clusters, an alternative and a DR target") }}
+<p>Under the project name you see the opportunity reference and the project's
+   <strong>share code</strong>. The buttons along the top:</p>
+<table class="manual-table">
+    <tr><th>Button</th><th>What it does</th></tr>
+    <tr><td>{{ m.ui("New sizing") }}</td><td>Opens a blank sizer inside this project. See
+        <a href="#sizing">Creating a sizing</a>.</td></tr>
+    <tr><td>{{ m.ui("Add DR target") }}</td><td>Adds a replication target site. See
+        <a href="#dr">DR targets and replication</a>.</td></tr>
+    <tr><td>{{ m.ui("Comparisons") }}</td><td>Compares sizings or tag groups side by side. See
+        <a href="#comparisons">Comparisons</a>.</td></tr>
+    <tr><td>{{ m.ui("Exports") }}</td><td>Builds proposal documents. The badge counts finished
+        downloads. See <a href="#exports">Exports</a>.</td></tr>
+    <tr><td>{{ m.ui("Check a BOM") }}</td><td>Checks a partner quote against the HCL and the
+        sizing. See <a href="#bom">Checking a BOM</a>.</td></tr>
+    <tr><td>{{ m.ui("Details") }}</td><td>The project's name, customer, notes and export
+        language. See <a href="#project-details">Project details</a>.</td></tr>
+</table>
+<p>A row of <strong>tag chips</strong> under the buttons filters the table. Click a tag to
+   show only the sizings carrying it, and click it again (or {{ m.ui("Show all") }}) to clear
+   the filter.</p>
+
+<h4 id="sizings-table">The sizings table</h4>
+<table class="manual-table">
+    <tr><th>Column</th><th>Meaning</th></tr>
+    <tr><td>Checkbox</td><td>Selects the sizing for batch editing (see
+        <a href="#batch-edit">Batch edit</a>).</td></tr>
+    <tr><td>Sizing</td><td>The name. Click it to open the sizing. A dot after the name means
+        it has notes; hover over it to read them. An <em>Exports as …</em> badge means the
+        exports describe different hardware from the recommendation (see
+        <a href="#exports-as">Exports as</a>).</td></tr>
+    <tr><td>Tags</td><td>The sizing's tags.</td></tr>
+    <tr><td>Role</td><td><em>Part of total</em> (a site or phase that adds up with the others)
+        or <em>Alternative</em> (one of several competing options). See
+        <a href="#roles">Roles</a>.</td></tr>
+    <tr><td>Source</td><td>The imported file name, <em>Manual</em>, or <em>Replication
+        target</em>.</td></tr>
+    <tr><td>State</td><td>See below.</td></tr>
+</table>
+<p>The <strong>State</strong> column tells you whether a sizing's result can be trusted:</p>
+<table class="manual-table">
+    <tr><th>State</th><th>Meaning and what to do</th></tr>
+    <tr><td><em>To be sized</em></td><td>Created from a multi-cluster import and not reviewed
+        yet. Open it, check it and save it.</td></tr>
+    <tr><td><em>Re-import</em></td><td>The file was read by an older version of the importer
+        that has since been corrected. Recalculating cannot fix this: import the file
+        again.</td></tr>
+    <tr><td><em>Not sized</em></td><td>No result has been saved yet.</td></tr>
+    <tr><td><em>Needs refresh</em></td><td>The hardware catalog, the sizing rules or a
+        replication source changed after this sizing was saved. Opening the project
+        recalculates these automatically.</td></tr>
+    <tr><td><em>Current</em></td><td>Up to date.</td></tr>
+</table>
+<p>When you open a project that has sizings in the <em>Needs refresh</em> state, a bar shows
+   <em>Recalculating 1 of 3…</em> while the sizer brings them up to date in the background. If
+   one cannot be recalculated automatically, the bar says so. Open that sizing to see why. DR
+   targets and <em>Re-import</em> rows are never refreshed automatically.</p>
+
+<h4 id="row-actions">Row actions</h4>
+<p>On your own projects each row has four icons on the right:</p>
+<table class="manual-table">
+    <tr><th>Icon</th><th>What it does</th></tr>
+    <tr><td>Sliders (Options)</td><td>Role, tags, notes and replication for this sizing. See
+        <a href="#sizing-options-panel">The Options panel</a>.</td></tr>
+    <tr><td>Server (Exports as)</td><td>Which hardware the exports describe. See
+        <a href="#exports-as">Exports as</a>.</td></tr>
+    <tr><td>Copy (Duplicate)</td><td>Makes a copy of the sizing in the same project, named
+        <em>… (copy)</em>.</td></tr>
+    <tr><td>Bin (Delete)</td><td>Deletes the sizing after a confirmation. A sizing that
+        other sizings replicate into cannot be deleted until those replication links are
+        removed. The sizer names them.</td></tr>
+</table>
+<p>On a project that is not yours (a colleague's{% if scale %}, or one you opened by
+   code{% endif %}) the only action is <strong>Copy to mine</strong>. It copies the sizing
+   into a project of your own and takes you there, so you can change it without touching the
+   original.</p>
+{% call m.note() %}A sizing cannot be renamed once it is saved. To give it a different name,
+   open it and use {{ m.ui("Save sizing") }} → {{ m.ui("Save as new") }}, then delete the
+   old one.{% endcall %}
+
+<p>Below the table the project page lists the <strong>replication links</strong> between
+   sizings and the project's <strong>BOM checks</strong>.</p>
+
+<h3 id="project-details">Project details</h3>
+{{ m.shot("project-details", "Project details") }}
+<table class="manual-table">
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td>Name</td><td>The project name, shown everywhere and on the exports.</td></tr>
+    <tr><td>Customer</td><td>The end customer; printed on the exports.</td></tr>
+    <tr><td>Opportunity reference</td><td>Your own reference, for example a quote or deal
+        number.</td></tr>
+    <tr><td>Prepared by</td><td>The name on the proposal. It starts as your name.
+        {{ m.ui("Use my name") }} puts your current name back.</td></tr>
+    <tr><td>Export language</td><td>The language of every document exported from this
+        project, whatever language the sizer itself is in.</td></tr>
+    <tr><td>Notes</td><td>Free text for yourself and your colleagues.</td></tr>
+    {% if scale %}<tr><td>Salesforce opportunity link <span class="manual-staff-tag">Staff</span></td>
+        <td>See <a href="#staff-salesforce">Salesforce link</a>.</td></tr>{% endif %}
+</table>
+<p>{{ m.ui("Delete project") }} deletes the project and all its sizings, after a
+   confirmation.</p>

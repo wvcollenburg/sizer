@@ -1,0 +1,129 @@
+{#- The online user manual. One template, two editions: `scale` adds the
+    staff-only chapters and asides (see app/manual_routes.py for who may read
+    it). Chapters live in manual/chapters/, one file each, and are listed ONCE
+    in the `chapters` table below, which drives both the sidebar and the body.
+
+    Pictures go through the shot() macro, never /static: see manual_routes.
+
+    The manual text is English only; the frame around it (header, language
+    menu) follows the chosen language like every other page. -#}
+{%- import "manual/_macros.html" as m with context -%}
+{%- set chapters = [
+    ("getting-started", "Getting started",            "manual/chapters/getting_started.html", False),
+    ("projects",        "Projects",                   "manual/chapters/projects.html",        False),
+    ("sizing",          "Creating a sizing",          "manual/chapters/sizing.html",          False),
+    ("options",         "Sizing options",             "manual/chapters/options.html",         False),
+    ("results",         "Reading the results",        "manual/chapters/results.html",         False),
+    ("project-tools",   "Working with sizings",       "manual/chapters/project_tools.html",   False),
+    ("dr",              "DR targets and replication", "manual/chapters/dr.html",              False),
+    ("comparisons",     "Comparisons",                "manual/chapters/comparisons.html",     False),
+    ("exports",         "Exports",                    "manual/chapters/exports.html",         False),
+    ("bom",             "Checking a BOM",             "manual/chapters/bom.html",             False),
+    ("account",         "Your account and privacy",   "manual/chapters/account.html",         False),
+    ("tenant-admin",    "For tenant admins",          "manual/chapters/tenant_admin.html",    False),
+    ("staff",           "Scale Computing staff features", "manual/chapters/staff.html",      True),
+    ("admin",           "The admin panel (super admins)", "manual/chapters/admin.html",      True),
+    ("faq",             "Troubleshooting and FAQ",    "manual/chapters/faq.html",             False),
+] -%}
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if scale %}Staff manual{% else %}User manual{% endif %} — SC// Infrastructure Sizer</title>
+    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/manual.css') }}">
+    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
+    <script src="{{ asset('js/theme.js') }}"></script>
+    <script src="{{ asset('js/lang/en.js') }}"></script>
+    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
+    <script src="{{ asset('js/i18n.js') }}"></script>
+</head>
+<body class="manual-page">
+    <header>
+        <div class="header-content">
+            <h1 class="brand">
+                <img class="brand-logo" src="{{ asset('img/scale-computing-logo-white.svg') }}" alt="">
+                <span class="brand-name" data-i18n="header.title">SC// Infrastructure Sizer</span>
+            </h1>
+            {% if scale %}
+            <span class="version" data-i18n="manual.badge_scale">Staff manual</span>
+            {% else %}
+            <span class="version" data-i18n="manual.badge_user">User manual</span>
+            {% endif %}
+            <div class="account-bar">
+                {% if can_read_scale %}
+                    {% if scale %}
+                    <a class="btn btn-sm btn-ghost" href="/manual/" data-i18n="manual.to_user">Partner edition</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-ghost" href="/manual/scale" data-i18n="manual.to_scale">Staff edition</a>
+                    {% endif %}
+                {% endif %}
+                <a class="btn btn-sm" href="/" data-i18n="manual.back">Back to the sizer</a>
+            </div>
+            <button class="theme-btn" data-click='["toggleTheme"]'
+                    data-i18n-title="header.theme" title="Theme"
+                    data-i18n-aria="header.theme" aria-label="Theme">
+                <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <div class="lang-menu">
+                <button class="lang-btn" data-click='["toggleLangMenu"]'
+                        data-i18n-aria="header.language" aria-label="Language"
+                        data-i18n-title="header.language" title="Language">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </button>
+                <ul class="lang-dropdown" id="lang-dropdown" hidden>
+                    {% for code in supported_langs %}
+                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <div class="manual-layout">
+        <nav class="manual-toc" aria-label="Contents">
+            <p class="manual-toc-title">Contents</p>
+            <ol>
+            {% for id, title, tpl, staff_only in chapters if scale or not staff_only %}
+                <li><a href="#{{ id }}">{{ title }}{% if staff_only %} <span class="manual-staff-tag">Staff</span>{% endif %}</a></li>
+            {% endfor %}
+            </ol>
+        </nav>
+
+        <main class="manual-body">
+            <div class="manual-intro">
+                <h1>{% if scale %}SC// Infrastructure Sizer — staff manual{% else %}SC// Infrastructure Sizer — user manual{% endif %}</h1>
+                {% if scale %}
+                <p>This is the edition for Scale Computing staff. It contains everything in the
+                   partner edition, plus the features only Scale Computing accounts and super admins
+                   see. Those parts are marked <span class="manual-staff-tag">Staff</span>. Partners
+                   and customers cannot open this edition: when you send someone a link to the manual,
+                   send <code>/manual/</code>.</p>
+                {% else %}
+                <p>This manual walks you through every part of the sizer: from creating a project
+                   and importing an environment assessment, through the sizing options and results, to
+                   exports, BOM checks and account management. Read it front to back once, then use the
+                   contents on the left to jump to what you need.</p>
+                {% endif %}
+                <p class="manual-note">Screens change as the tool improves. If a screenshot looks
+                   slightly different from what you see, the text is leading.</p>
+            </div>
+
+            {% for id, title, tpl, staff_only in chapters if scale or not staff_only %}
+            <section class="manual-chapter" id="{{ id }}">
+                <h2>{{ loop.index }}. {{ title }}{% if staff_only %} <span class="manual-staff-tag">Staff</span>{% endif %}</h2>
+                {% include tpl %}
+            </section>
+            {% endfor %}
+        </main>
+    </div>
+
+    <script src="{{ asset('js/delegate.js') }}"></script>
+    <script src="{{ asset('js/manual.js') }}"></script>
+</body>
+</html>

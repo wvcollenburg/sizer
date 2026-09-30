@@ -1,0 +1,58 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Proposal documents are made on the project page, with {{ m.ui("Exports") }}. One document
+   can hold several sizings: the whole estate, or one solution set.</p>
+
+<h3 id="exp-make">Making an export</h3>
+<ol>
+    <li>Choose {{ m.ui("Exports") }}, then {{ m.ui("Individual sizings") }} or
+        {{ m.ui("Tag groups") }}. With tag groups, every sizing that carries one of the
+        chosen tags is included, in project order.</li>
+    <li>Tick what to include.</li>
+    <li>Choose the format:
+        <ul>
+            <li><strong>PDF document</strong>: the full proposal.</li>
+            <li><strong>PDF slides</strong>: the same content as a presentation.</li>
+            {% if scale %}
+            <li><strong>Word</strong> and <strong>PowerPoint</strong>: editable versions of
+                the two. <span class="manual-staff-tag">Staff</span> Only Scale Computing
+                accounts and super admins can make these. Partners who pick them get the
+                message <em>The editable PowerPoint and Word files are available to Scale Computing
+                 users only</em>.</li>
+            {% else %}
+            <li><strong>Word</strong> and <strong>PowerPoint</strong> are listed too, but the
+                editable files are reserved for Scale Computing staff. Choosing them shows a
+                message asking you to use a PDF. Ask your Scale Computing contact if you need
+                an editable version.</li>
+            {% endif %}
+        </ul>
+    </li>
+    <li>Tick {{ m.ui("Email me when ready") }} if you do not want to wait.</li>
+    <li>{{ m.ui("Export") }}. The document is built in the background, and you are taken back
+        to the first step.</li>
+</ol>
+{{ m.shot("export-pick", "Choosing the sizings and the format") }}
+
+<h3 id="exp-downloads">Downloads</h3>
+<p>The first step of the dialog lists your recent exports of this project. Each one shows
+   <em>Generating…</em> while it is being built, then {{ m.ui("Download") }}. A download
+   is kept for 24 hours. After that it says it has expired: make it again when you need
+   it. A failed
+   export shows <em>Failed</em>. Hover over it for the reason. The badge on the
+   {{ m.ui("Exports") }} button counts downloads that are ready.</p>
+{{ m.shot("export-downloads", "The Downloads list, with an export still being built") }}
+
+<h3 id="exp-content">What is in the document</h3>
+<ul>
+    <li>It is written in the project's <strong>export language</strong> (see
+        <a href="#project-details">Project details</a>), whatever language the sizer is in.
+        The customer, <em>Prepared by</em> and the project name come from the project
+        details.</li>
+    <li>Each sizing describes its <strong>selected</strong> recommendation, or the quoted
+        hardware when <a href="#exports-as">Exports as</a> is set: configuration, capacity and
+        utilization, growth, licensing, the network diagram, and the replication between the
+        sizings.</li>
+    <li>A sizing with no saved result is left out of the document, and the export says
+        which ones were skipped. Size and save them first.</li>
+    <li>One document holds at most 50 sections (one per cluster). For a larger selection
+        the sizer asks you to export in parts.</li>
+</ul>

@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "De PDF bevatte {n} onzichtbare woord(en). Die zijn niet gelezen, en de controle is ter beoordeling naar Scale Computing gestuurd.",
   "admin.bomagent.pdf_threshold": "Minimale PDF-zekerheid",
   "admin.bomagent.pdf_threshold_hint": "PDF's in een bekende indeling worden lokaal gelezen, zonder de agent, als de zekerheidsscore (0–100) dit minimum haalt. Daaronder, of als het bestand gemanipuleerd lijkt, leest de agent het bestand.",
-  "admin.bom.reason_pdf_suspicious": "De PDF bevatte onzichtbare tekst of actieve inhoud"
+  "admin.bom.reason_pdf_suspicious": "De PDF bevatte onzichtbare tekst of actieve inhoud",
+  "header.manual": "Handleiding",
+  "manual.badge_user": "Handleiding",
+  "manual.badge_scale": "Medewerkershandleiding",
+  "manual.to_user": "Partnereditie",
+  "manual.to_scale": "Medewerkerseditie",
+  "manual.back": "Terug naar de sizer"
 };

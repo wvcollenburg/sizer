@@ -1,0 +1,44 @@
+{% import "manual/_macros.html" as m with context %}
+
+<h3 id="my-sizings">My Sizings</h3>
+<p>{{ m.ui("My Sizings") }} in the header lists sizings across all projects.</p>
+{{ m.shot("my-sizings", "My Sizings") }}
+<ul>
+    <li><strong>My Sizings</strong> tab: the sizings you own{% if scale %}, plus the ones you
+        retrieved by code{% endif %}.</li>
+    <li><strong>My Organization</strong> tab: sizings of your colleagues (same email
+        domain){% if scale %}. For Scale Computing accounts this tab lists the sizings of the
+        other Scale Computing users instead{% endif %}.</li>
+    <li>The search box filters on name and share code.</li>
+    <li>{{ m.ui("Load") }} opens a sizing. {{ m.ui("Delete") }} deletes one of your
+        own.</li>
+</ul>
+<p>Sharing inside your organisation needs no action: your colleagues see your projects (with
+   <em>Also show my colleagues' projects</em>) and your sizings (in <em>My Organization</em>),
+   read-only. To work on a colleague's sizing, use <em>Copy to mine</em>.</p>
+
+<h3 id="share-codes">Share codes</h3>
+<p>Every project and every sizing has a 12-digit share code, shown on the project page and
+   after saving. Colleagues in your organisation can open a project by its code with
+   {{ m.ui("Open by code") }}. Your Scale Computing contact can use the code to look at your
+   project or sizing when you ask for help.</p>
+
+<h3 id="your-name">Your name on proposals</h3>
+<p>Click your name (or email address) in the header to set the name that goes on your
+   proposals. It fills <em>Prepared by</em> on the projects you create from then on. Existing
+   projects keep the name they have. Change it there under
+   {{ m.ui("Details") }}.</p>
+
+<h3 id="privacy">Your data</h3>
+<p>{{ m.ui("Privacy & data") }} in the header:</p>
+{{ m.shot("privacy-data", "My data & privacy") }}
+<ul>
+    <li><strong>Product update emails</strong>: tick or untick at any time.</li>
+    <li>{{ m.ui("Download my data") }}: a JSON file with your account, your projects and
+        sizings, and your own audit trail.</li>
+    <li>{{ m.ui("Delete my account") }}: closes your account and signs you out. Your projects
+        and sizings are removed. An administrator can still undo this for 90 days, after which
+        everything is deleted permanently.</li>
+</ul>
+<p>The full <a href="/privacy">Privacy Policy</a> is linked at the bottom of every
+   page.</p>

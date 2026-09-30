@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF sisaldas {n} nähtamatut sõna. Neid ei loetud ja kontroll saadeti Scale Computingule ülevaatamiseks.",
   "admin.bomagent.pdf_threshold": "PDF-i minimaalne kindlus",
   "admin.bomagent.pdf_threshold_hint": "Tuntud paigutusega PDF-e loetakse kohapeal ilma agendita, kui kindluse skoor (0–100) jõuab selle miinimumini. Sellest allpool või kui fail tundub võltsitud, loeb faili hoopis agent.",
-  "admin.bom.reason_pdf_suspicious": "PDF sisaldas nähtamatut teksti või aktiivset sisu"
+  "admin.bom.reason_pdf_suspicious": "PDF sisaldas nähtamatut teksti või aktiivset sisu",
+  "header.manual": "Kasutusjuhend",
+  "manual.badge_user": "Kasutusjuhend",
+  "manual.badge_scale": "Töötajate juhend",
+  "manual.to_user": "Partneri väljaanne",
+  "manual.to_scale": "Töötajate väljaanne",
+  "manual.back": "Tagasi sizerisse"
 };

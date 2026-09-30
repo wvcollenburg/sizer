@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF sisälsi {n} näkymätöntä sanaa. Niitä ei luettu, ja tarkistus on lähetetty Scale Computingille tarkastettavaksi.",
   "admin.bomagent.pdf_threshold": "PDF:n vähimmäisvarmuus",
   "admin.bomagent.pdf_threshold_hint": "Tunnetussa asettelussa olevat PDF:t luetaan paikallisesti ilman agenttia, kun varmuuspisteet (0–100) saavuttavat tämän vähimmäisarvon. Sen alapuolella, tai jos tiedostoa näyttää peukaloidun, agentti lukee tiedoston.",
-  "admin.bom.reason_pdf_suspicious": "PDF sisälsi näkymätöntä tekstiä tai aktiivista sisältöä"
+  "admin.bom.reason_pdf_suspicious": "PDF sisälsi näkymätöntä tekstiä tai aktiivista sisältöä",
+  "header.manual": "Käyttöopas",
+  "manual.badge_user": "Käyttöopas",
+  "manual.badge_scale": "Henkilöstön opas",
+  "manual.to_user": "Kumppaniversio",
+  "manual.to_scale": "Henkilöstöversio",
+  "manual.back": "Takaisin sizeriin"
 };

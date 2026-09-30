@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDFに不可視の単語が{n}個含まれていました。それらは読み取られず、チェックはレビューのためScale Computingに送信されました。",
   "admin.bomagent.pdf_threshold": "PDFの最低確実度",
   "admin.bomagent.pdf_threshold_hint": "既知のレイアウトのPDFは、確実度スコア (0–100) がこの最低値に達するとエージェントを使わずローカルで読み取られます。それを下回る場合、またはファイルが改ざんされているように見える場合は、エージェントがファイルを読み取ります。",
-  "admin.bom.reason_pdf_suspicious": "PDFに不可視のテキストまたはアクティブコンテンツが含まれていました"
+  "admin.bom.reason_pdf_suspicious": "PDFに不可視のテキストまたはアクティブコンテンツが含まれていました",
+  "header.manual": "ユーザーマニュアル",
+  "manual.badge_user": "ユーザーマニュアル",
+  "manual.badge_scale": "社内向けマニュアル",
+  "manual.to_user": "パートナー版",
+  "manual.to_scale": "社内版",
+  "manual.back": "サイザーに戻る"
 };

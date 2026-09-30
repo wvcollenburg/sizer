@@ -1,0 +1,95 @@
+{% import "manual/_macros.html" as m with context %}
+<p>The SC// Infrastructure Sizer turns a description of an existing environment (usually an
+   assessment export from Live Optics, RVTools or Nutanix Collector) into ranked
+   SC//HyperCore cluster recommendations, with growth, redundancy and licensing already
+   accounted for. It then helps you compare options, check a partner quote (BOM) against
+   the Scale Computing hardware compatibility list (HCL), and produce a proposal document.</p>
+
+<h3 id="signin">Signing in</h3>
+<p>An account is required for everything in the sizer. When you are signed out, the sign-in
+   dialog is always shown.</p>
+{{ m.shot("signin", "The sign-in dialog") }}
+<ul>
+    <li>Enter your <strong>work email</strong> and <strong>password</strong> and choose
+        {{ m.ui("Sign in") }}.</li>
+    <li>A wrong email and a wrong password give the same message, <em>Invalid email or
+        password</em>, so the form cannot be used to find out who has an account.</li>
+    <li>If your address has not been verified yet, the dialog offers
+        {{ m.ui("Resend verification email") }}.</li>
+</ul>
+
+<h3 id="signup">Creating an account</h3>
+<p>Choose the {{ m.ui("Sign up") }} tab.</p>
+{{ m.shot("signup", "Sign up: the password checklist turns green as each rule is met") }}
+<ul>
+    <li><strong>Your name</strong> (optional) is used as <em>Prepared by</em> on new projects.
+        You can change it later by clicking your name in the header.</li>
+    <li><strong>Work email</strong> must be on your organisation's own domain. Addresses at
+        public providers (Gmail, Outlook and the like) are refused, because your email domain
+        decides which organisation (tenant) you belong to.</li>
+    <li><strong>Password</strong>: at least 10 characters, with an uppercase letter, a
+        lowercase letter, a number and a special character. The checklist under the fields
+        shows which rules are met.</li>
+    <li>Tick <strong>I have read and accept the Privacy Policy</strong> (required). The
+        product-update emails checkbox is optional and never pre-ticked.</li>
+</ul>
+<p>The <strong>first person</strong> to sign up from a domain automatically becomes that
+   organisation's <strong>tenant admin</strong> (see <a href="#tenant-admin">For tenant
+   admins</a>). Everyone after that is a regular user.</p>
+<p>When email verification is switched on, you get a message with a verification link. The
+   link is valid for 24 hours. You cannot sign in until you have clicked it.</p>
+
+<h3 id="password-reset">Forgotten password</h3>
+<ol>
+    <li>Type your email address in the sign-in dialog.</li>
+    <li>Choose {{ m.ui("Forgot password?") }}. You always get the same confirmation, whether or
+        not the address has an account.</li>
+    <li>Open the link in the email (valid for 2 hours) and set a new password. The same
+        password rules apply.</li>
+</ol>
+{% call m.note() %}Password reset and verification emails only work when the sizer's mail
+   server has been configured. If no email arrives, ask your tenant admin or your Scale Computing
+    contact.{% endcall %}
+
+<h3 id="header">The header</h3>
+<p>Once you are signed in, the header gives you these controls, from left to right:</p>
+{{ m.shot("header", "The header for a regular user") }}
+<table class="manual-table">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>{{ m.ui("Save sizing") }}</td><td>Saves the sizing that is open in the sizer. See
+        <a href="#saving">Saving a sizing</a>.</td></tr>
+    <tr><td>{{ m.ui("My Sizings") }}</td><td>A searchable list of your sizings and your
+        colleagues'. See <a href="#my-sizings">My Sizings</a>.</td></tr>
+    <tr><td>{{ m.ui("Privacy & data") }}</td><td>Marketing preference, data download and account
+        deletion. See <a href="#privacy">Your data</a>.</td></tr>
+    <tr><td>{{ m.ui("Organization") }}</td><td>Tenant admins only: the members of your
+        organisation.</td></tr>
+    <tr><td>Your name</td><td>Click it to set the name that goes on your proposals.</td></tr>
+    <tr><td>Badge</td><td>Your role: <em>User</em>, <em>Admin</em> (tenant admin){% if scale %},
+        <em>Scale Computing</em> or <em>Super admin</em>{% endif %}.</td></tr>
+    <tr><td>{{ m.ui("Sign out") }}</td><td>Ends your session.</td></tr>
+    <tr><td>? icon</td><td>Opens this manual in a new tab.</td></tr>
+    <tr><td>Moon / sun</td><td>Switches between the light and dark theme.</td></tr>
+    <tr><td>Globe</td><td>Changes the language of the sizer. Fifteen languages are available.
+        The language of exported documents is set per project, separately (see
+        <a href="#project-details">Project details</a>).</td></tr>
+</table>
+
+<h3 id="how-it-fits">How the pieces fit together</h3>
+<p>Everything you size lives in a <strong>project</strong>, normally one per customer or
+   opportunity. A project holds any number of <strong>sizings</strong>. A sizing is one
+   workload (for example one source cluster), sized into one recommended SC//HyperCore
+   cluster. A typical workflow:</p>
+<ol>
+    <li>Create a project for the customer.</li>
+    <li>Add a sizing and import the customer's assessment export. If the export contains
+        several clusters, the sizer can create one sizing per cluster.</li>
+    <li>Review the environment and the VMs, adjust the sizing options, and pick a
+        recommendation.</li>
+    <li>Optionally add alternatives (for example all-flash as well as hybrid), a DR target, and
+        a BOM check of the partner's quote.</li>
+    <li>Compare the options and export a proposal.</li>
+</ol>
+{% call m.note() %}The sizer is still in development. Every recommendation is best-effort:
+   always validate the result before you rely on it. That notice is shown at the bottom of
+   every screen.{% endcall %}

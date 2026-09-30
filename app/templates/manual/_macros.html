@@ -1,0 +1,32 @@
+{#- Building blocks for the manual chapters.
+
+    shot(name, caption)            a screenshot from app/manual/img/user/
+    shot(name, caption, "scale")   one from app/manual/img/scale/ — only ever
+                                   inside a staff-only chapter or a staff()
+                                   aside, since that folder is gated
+    Images are captured by tools/manual_shots.py under the same names. -#}
+
+{% macro shot(name, caption, edition="user") -%}
+<figure class="manual-shot">
+    <a href="/manual/img/{{ edition }}/{{ name }}.png" class="manual-zoom" data-click='["manualZoom","$event","$this"]'>
+        <img src="/manual/img/{{ edition }}/{{ name }}.png" alt="{{ caption }}" loading="lazy">
+    </a>
+    <figcaption>{{ caption }}</figcaption>
+</figure>
+{%- endmacro %}
+
+{% macro tip() -%}
+<div class="manual-callout manual-tip"><strong>Tip</strong> {{ caller() }}</div>
+{%- endmacro %}
+
+{% macro note() -%}
+<div class="manual-callout manual-warn"><strong>Note</strong> {{ caller() }}</div>
+{%- endmacro %}
+
+{#- A staff-only aside inside a chapter both editions share. Renders nothing
+    in the partner edition. -#}
+{% macro staff() -%}
+{% if scale %}<div class="manual-callout manual-staff"><span class="manual-staff-tag">Staff</span> {{ caller() }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro ui(label) -%}<span class="manual-ui">{{ label }}</span>{%- endmacro %}

@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF saturēja {n} neredzamu(s) vārdu(s). Tie netika nolasīti, un pārbaude ir nosūtīta Scale Computing pārskatīšanai.",
   "admin.bomagent.pdf_threshold": "Minimālā PDF noteiktība",
   "admin.bomagent.pdf_threshold_hint": "Zināmā izkārtojumā esoši PDF tiek nolasīti lokāli, bez aģenta, ja noteiktības rādītājs (0–100) sasniedz šo minimumu. Zem tā vai ja fails šķiet viltots, failu nolasa aģents.",
-  "admin.bom.reason_pdf_suspicious": "PDF saturēja neredzamu tekstu vai aktīvu saturu"
+  "admin.bom.reason_pdf_suspicious": "PDF saturēja neredzamu tekstu vai aktīvu saturu",
+  "header.manual": "Lietotāja rokasgrāmata",
+  "manual.badge_user": "Lietotāja rokasgrāmata",
+  "manual.badge_scale": "Darbinieku rokasgrāmata",
+  "manual.to_user": "Partneru izdevums",
+  "manual.to_scale": "Darbinieku izdevums",
+  "manual.back": "Atpakaļ uz sizer"
 };

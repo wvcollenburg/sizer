@@ -1,0 +1,66 @@
+{% import "manual/_macros.html" as m with context %}
+<p>A BOM check reads a partner's bill of materials or quote and checks every part against the
+   Scale Computing hardware compatibility list (HCL). When you link it to a sizing, it also
+   checks whether the quoted hardware is big enough for that sizing.</p>
+
+<h3 id="bom-run">Running a check</h3>
+<ol>
+    <li>On the project page choose {{ m.ui("Check a BOM") }}.</li>
+    <li>Drop the file on the upload area, or click it to browse. Excel, CSV and PDF are
+        accepted, up to 10 MB. When the AI reader is available, pictures (PNG, JPEG, WebP)
+        are accepted too.</li>
+    <li>Under {{ m.ui("Check against a sizing") }}, choose the sizing the quote is for, or
+        <em>Compatibility check only (no sizing)</em>.</li>
+    <li>Optionally give the check a name. It defaults to the file name.</li>
+    <li>Choose {{ m.ui("Check BOM") }}.</li>
+</ol>
+{{ m.shot("bom-upload", "Check a BOM: the upload step") }}
+<p>The formats the checker reads directly are listed under
+   <em>Recognised layouts and the blank template</em>: the Lenovo DCSC export, the Dell
+   service-tag export, Dell quotes, and the SC// BOM template. For any other layout,
+   {{ m.ui("Download the blank template") }} gives you a spreadsheet to fill in.</p>
+
+<h3 id="bom-agent">Files in another layout</h3>
+<p>When the checker does not recognise the layout, a Claude AI agent reads the file
+   instead. That takes a little longer. You can close the dialog: the result appears under
+   <strong>BOM checks</strong> on the project page. Tick
+   {{ m.ui("Email me when the check is done") }} to be notified.</p>
+<p>A check read by the agent carries a banner saying so. It can also warn about lines it
+   could not match to the document, text hidden in the file, or content that looked like
+   instructions to the agent. Such lines are dropped. {{ m.ui("Download the pre-filled template") }}
+   gives you the parts as the agent read them, in the template layout, so you can correct
+   them and check the file again. Agent-read checks may be reviewed by Scale Computing. The
+   result then shows <em>Reviewed by Scale Computing</em> with the reviewer's note.</p>
+<p>When a file cannot be read at all, you are asked whether Scale Computing may keep a copy
+   to improve the checker ({{ m.ui("Share the file with Scale Computing") }} or
+   {{ m.ui("No thanks") }}). A shared file is deleted after 90 days. The agent has daily
+   limits. When they are reached, the checker says so. Try again later or use the
+   template.</p>
+
+<h3 id="bom-result">The result</h3>
+{{ m.shot("bom-result", "A BOM check result") }}
+<ul>
+    <li><strong>Technical</strong>: <em>PASS</em>, <em>FAIL</em> or <em>INCONCLUSIVE</em>.
+        Did every part check out against the HCL?</li>
+    <li><strong>Fit</strong>: compared with the linked sizing: <em>Matches sizing</em>,
+        <em>Fits</em>, <em>Bigger than sized</em>, <em>Undersized</em> or <em>Fit
+        unknown</em>.</li>
+    <li>Per configuration in the quote, the platform it was identified as, and a table of
+        <strong>findings</strong>: severity (Error, Warning, Info), component, issue and what
+        to do about it.</li>
+    <li><strong>Suggested swaps</strong> propose HCL-listed parts to use instead of a
+        problem part. A <em>TCE</em> badge marks a Trusted Compatibility Entry.</li>
+    <li>The <strong>Sizing fit</strong> table compares the quote with the requirement and with
+        the recommendation, per dimension: nodes, CPU cores, compute performance, RAM with a
+        node down, largest VM, usable storage and NIC speed.</li>
+</ul>
+<p>{{ m.ui("Re-check against") }} runs the same file against another sizing, or against the
+   current HCL after it has changed. {{ m.ui("Check another BOM") }} starts a new check,
+   and {{ m.ui("Delete") }} removes this one.</p>
+
+<h3 id="bom-list">BOM checks on the project page</h3>
+<p>Every check is listed on the project page with its verdicts. Click one to open it again.
+   The {{ m.ui("Check a BOM") }} button shows how many checks the project has.</p>
+{{ m.shot("project-bom-list", "The project's BOM checks") }}
+{% call m.tip() %}A passing check linked to a sizing is used by the exports automatically.
+   See <a href="#exports-as">Exports as</a>.{% endcall %}

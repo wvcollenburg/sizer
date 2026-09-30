@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "Das PDF enthielt {n} unsichtbare(s) Wort/Wörter. Diese wurden nicht gelesen, und die Prüfung wurde zur Überprüfung an Scale Computing gesendet.",
   "admin.bomagent.pdf_threshold": "Mindestsicherheit für PDFs",
   "admin.bomagent.pdf_threshold_hint": "PDFs in einem bekannten Layout werden lokal ohne den Agenten gelesen, wenn der Sicherheitswert (0–100) dieses Minimum erreicht. Darunter, oder wenn die Datei manipuliert wirkt, liest stattdessen der Agent die Datei.",
-  "admin.bom.reason_pdf_suspicious": "Das PDF enthielt unsichtbaren Text oder aktive Inhalte"
+  "admin.bom.reason_pdf_suspicious": "Das PDF enthielt unsichtbaren Text oder aktive Inhalte",
+  "header.manual": "Benutzerhandbuch",
+  "manual.badge_user": "Benutzerhandbuch",
+  "manual.badge_scale": "Mitarbeiterhandbuch",
+  "manual.to_user": "Partnerausgabe",
+  "manual.to_scale": "Mitarbeiterausgabe",
+  "manual.back": "Zurück zum Sizer"
 };

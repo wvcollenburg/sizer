@@ -1,0 +1,150 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Super admins get an {{ m.ui("Admin") }} link in the header. It opens the admin panel at
+   <code>/admin/</code>. Nobody else can open it: other accounts are sent back to the sizer,
+   where the sign-in dialog asks for a super-admin account.</p>
+{{ m.shot("header-super", "A super admin's header, with the Admin link", "scale") }}
+{% call m.note() %}Changes in the admin panel apply to everyone, straight away. Sizings saved
+   before a catalog or tuning change are marked <em>Needs refresh</em> and are recalculated
+   when their project is opened.{% endcall %}
+<p>The panel has tabs for the hardware catalog on the left, and for accounts and operations
+   on the right.</p>
+
+<h3 id="admin-models">Models</h3>
+{{ m.shot("admin-models", "Models: the SC// appliance catalog", "scale") }}
+<p>Every appliance model the sizer can recommend, filterable by status (Active, EOL, EOS) and
+   category. The {{ m.ui("Do not recommend") }} checkbox keeps a model out of recommendations
+   without deleting it. {{ m.ui("Add Model") }} and the edit button open the model form:</p>
+{{ m.shot("admin-model-edit", "Editing a model", "scale") }}
+<ul>
+    <li>Name, status, category, form factor, chassis, socket (single, dual or virtual), PSU,
+        RAM slots, minimum nodes, cost and notes.</li>
+    <li><strong>Validated-only</strong> for a model with no certified equivalent. It then
+        needs a vendor.</li>
+    <li>The CPU, RAM, storage (type, drives per node, counts per drive type) and NIC options
+        the model can be ordered with, picked from the catalog tabs.</li>
+</ul>
+<p>{{ m.ui("Export Excel") }} downloads the whole catalog. {{ m.ui("Import Excel") }} loads a
+   catalog workbook ({{ m.ui("Template") }} gives the layout). <em>Restore mode</em>
+   overwrites entries that already exist. Use it only to move a catalog between
+   installations, not as a backup.</p>
+
+<h3 id="admin-catalog">CPUs, NICs and Drives</h3>
+<p>The parts the models are built from, each with the number of models using it. CPUs carry
+   generation, cores, threads, base / all-core / maximum clocks, P- and E-cores, and the
+   SPECrate and PassMark benchmark scores. The CPU form can fill in the benchmarks
+   automatically for known CPUs. A part still in use cannot be deleted.</p>
+{{ m.shot("admin-cpus", "The CPU catalog", "scale") }}
+
+<h3 id="admin-tuning">Tuning</h3>
+{{ m.shot("admin-tuning", "Tuning: IOPS assumptions and the sizing tunables", "scale") }}
+<ul>
+    <li><strong>IOPS per Drive Type</strong>: the IOPS the sizer assumes per HDD, SSD and
+        NVMe drive. <strong>Cluster IOPS Adjustments</strong>: derating %, replication factor
+        and read %. Each field has an <em>i</em> button that explains what it does and what
+        to watch out for. {{ m.ui("Save IOPS") }} stores them.</li>
+    <li><strong>Sizing &amp; Scoring Tunables</strong>: the weights and limits of the
+        recommendation engine, in groups: scoring weights, sizing overheads (OS cores and
+        RAM per node), sizing defaults (default vCPU ratio, day-one caps, licence term, CPU
+        performance scaling), advisory thresholds, cluster topology (maximum nodes, minimum
+        full nodes, storage-only RAM), validated limits (maximum disks, hybrid flash band) and
+        core weighting (P- and E-cores). Hover over a label for what it does.
+        {{ m.ui("Save Tunables") }} applies them. {{ m.ui("Reset to defaults") }} restores the
+        shipped values.</li>
+</ul>
+{% call m.tip() %}Change one tunable at a time and compare a known sizing before and after.
+   Every saved sizing is marked for a refresh after a change.{% endcall %}
+
+<h3 id="admin-pricebook">Pricebook</h3>
+<p>The licence price list used for licence-aware ranking. Prices are never shown to users.
+   They only decide which option ranks first. The table shows the installed feed per region.
+   To install a new list: choose the price list (.xlsx), the region and a label, then
+   {{ m.ui("Preview") }} to see what changes and {{ m.ui("Apply") }} to install it. The old
+   feed is kept, so existing sizings still reproduce. Without a feed, licence-aware scoring is
+   switched off.</p>
+{{ m.shot("admin-pricebook", "Pricebook", "scale") }}
+
+<h3 id="admin-hcl">HCL</h3>
+{{ m.shot("admin-hcl", "HCL: scrape, pending changes and the catalog", "scale") }}
+<ul>
+    <li>{{ m.ui("Scrape hcl.scalecomputing.com now") }} reads the public HCL (about 65 pages).
+        Nothing changes in the live catalog yet: differences land in <strong>Pending
+        changes</strong>. For installations without internet access, import a snapshot file
+        made elsewhere.</li>
+    <li><strong>Pending changes</strong>: added, updated, delisted and relisted platforms,
+        components and PCI devices. Approve or reject them one by one, per selection, or
+        {{ m.ui("Approve all pending") }}.</li>
+    <li><strong>HCL catalog</strong>: browse platforms, components and PCI devices, active
+        or delisted.</li>
+    <li><strong>BOM check settings</strong>: <em>Blocked vendors</em> (every BOM from these
+        vendors fails) and the <em>HCL team feed token</em>, which lets the HCL team pull
+        pre-publication entries.</li>
+    <li><strong>Pre-publication entries</strong>: parts and platforms accepted from BOM
+        reviews before the public HCL lists them. {{ m.ui("Withdraw") }} removes one.</li>
+</ul>
+
+<h3 id="admin-bomreviews">BOM reviews</h3>
+{{ m.shot("admin-bomreviews", "BOM reviews", "scale") }}
+<ul>
+    <li><strong>The review queue</strong> lists BOM checks that need a human: for example
+        parts that are delisted or not on the HCL, an unknown CPU, an inconclusive result,
+        or a file read by the AI agent. {{ m.ui("Review") }} opens the findings. There you can
+        add a note for the user, accept parts or a platform into the catalog as
+        pre-publication entries, and close the review with {{ m.ui("Confirm findings") }},
+        {{ m.ui("Mark incorrect") }} or {{ m.ui("Reopen") }}. The user sees the outcome on
+        their check.</li>
+    <li><strong>Claude agent</strong>: whether the AI reader is on, its daily limits (per
+        organisation and overall), the minimum PDF certainty, whether every agent-read check
+        goes to the queue, and 30 days of usage.</li>
+    <li><strong>Part notes</strong>: a standing note on a specific part (matched by exact part
+        number or description, or by keywords), with a severity, a title and what to do. It
+        replaces the generic finding for that part in every later check. Use this rather than
+        asking for rule changes.</li>
+    <li><strong>Rejected uploads</strong>: files users agreed to share because the checker
+        could not read them. Download them to improve the parsers. They are deleted after 90
+        days.</li>
+</ul>
+
+<h3 id="admin-users">Users</h3>
+{{ m.shot("admin-users", "Users", "scale") }}
+<ul>
+    <li>Filter on disabled users, unactivated (unverified) users, or one tenant.</li>
+    <li>Change a user's <strong>role</strong> in place: User, Tenant admin or Super admin. The
+        last active super admin cannot be demoted.</li>
+    <li>{{ m.ui("Reset password") }}: type a new password (10 characters minimum, with the
+        usual complexity rules, whatever the prompt says), or leave it empty to email the user
+        a reset link.</li>
+    <li>{{ m.ui("Disable") }} blocks sign-in. A disabled user can be {{ m.ui("Restore") }}d, or
+        permanently {{ m.ui("Delete") }}d.</li>
+</ul>
+
+<h3 id="admin-stale">Inactive 1yr+</h3>
+<p>Users who have not signed in for a year (super admins excepted). Select them, per domain
+   if you like, and {{ m.ui("Purge selected") }} to delete them and their sizings
+   permanently.</p>
+
+<h3 id="admin-tenants">Tenants</h3>
+<p>Every organisation (email domain), its members, and whether it is the Scale Computing
+   tenant. {{ m.ui("Block") }} stops everyone on the domain from signing in or signing up.
+   {{ m.ui("Unblock") }} reverses it.</p>
+{{ m.shot("admin-tenants", "Tenants", "scale") }}
+
+<h3 id="admin-sizings">Saved Sizings</h3>
+<p>All sizings of all tenants. <em>Show deleted</em> includes sizings deleted in the last 90
+   days, which can still be recovered. {{ m.ui("Purge") }} deletes one permanently.
+   {{ m.ui("Run retention purge") }} runs the daily clean-up now: sizings and accounts deleted
+   more than 90 days ago, expired exports and shared BOM files are removed, and old personal
+   data in the audit log is anonymised.</p>
+
+<h3 id="admin-email">Email</h3>
+<p>The mail server (SMTP host, port, sender, optional username and password, STARTTLS) used
+   for verification, password reset, export and BOM notifications. {{ m.ui("Send test email") }}
+   checks the settings. <em>Require email verification on signup</em> can be switched off
+   only temporarily: it switches itself back on after 30 minutes. The status line says
+   whether verification is active.</p>
+{{ m.shot("admin-email", "Email settings", "scale") }}
+
+<h3 id="admin-audit">Audit Log</h3>
+<p>The latest administrative and account events: sign-ups, activations, password changes,
+   role changes, disabled and blocked accounts, settings changes, BOM reviews, part notes and
+   HCL acceptances, each with who did it and when.</p>
+{{ m.shot("admin-audit", "Audit Log", "scale") }}

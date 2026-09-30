@@ -171,6 +171,8 @@ def create_app():
     app.register_blueprint(hcl_admin_bp)
     from bom_routes import register_bom  # BOM checks on projects + review queue
     register_bom(app)
+    from manual_routes import manual_bp  # the online user manual, two editions
+    app.register_blueprint(manual_bp)
 
     # Daily retention/GDPR-anonymization scheduler. Disabled (ENABLE_SCHEDULER=0)
     # for one-off processes like seeding/CLI; on by default for the web server.

@@ -1,0 +1,23 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Every organisation (tenant) is defined by its email domain. The first person to sign up
+   from a domain becomes its <strong>tenant admin</strong>, shown with an <em>Admin</em>
+   badge. There can be more than one. {% if scale %}Super admins can change roles in the
+   admin panel (see <a href="#admin-users">Users</a>).{% else %}Ask your Scale Computing
+   contact if the role needs to move to someone else.{% endif %}</p>
+{{ m.shot("header-tenant-admin", "A tenant admin's header, with the Organization button") }}
+
+<h3 id="org-members">Managing members</h3>
+<p>{{ m.ui("Organization") }} in the header lists the active members of your organisation,
+   with their role and last sign-in.</p>
+{{ m.shot("org-modal", "Organization: your organisation's members") }}
+<ul>
+    <li>{{ m.ui("Disable") }} revokes a member's access immediately, for example when they
+        leave the company. Their projects and sizings stay.</li>
+    <li>You cannot disable yourself{% if scale %} or a super admin{% endif %}.</li>
+    <li>New colleagues do not need an invitation: they sign up with their work email and join
+        your organisation automatically.</li>
+</ul>
+{% call m.note() %}A tenant admin cannot re-enable a disabled member, change roles or delete
+   accounts. {% if scale %}Those are super-admin actions (see <a href="#admin-users">Users</a>).{% else %}Ask your Scale Computing contact for those.{% endif %}
+   Apart from managing members, a tenant admin works like any other user. They cannot edit
+   colleagues' projects.{% endcall %}

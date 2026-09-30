@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF buvo {n} nematomas (-i) žodis (-iai). Jie nebuvo perskaityti, o patikra išsiųsta Scale Computing peržiūrai.",
   "admin.bomagent.pdf_threshold": "Minimalus PDF tikrumas",
   "admin.bomagent.pdf_threshold_hint": "Žinomo išdėstymo PDF perskaitomi vietoje, be agento, kai tikrumo balas (0–100) pasiekia šį minimumą. Žemiau jo arba jei failas atrodo suklastotas, failą perskaito agentas.",
-  "admin.bom.reason_pdf_suspicious": "PDF buvo nematomo teksto arba aktyvaus turinio"
+  "admin.bom.reason_pdf_suspicious": "PDF buvo nematomo teksto arba aktyvaus turinio",
+  "header.manual": "Naudotojo vadovas",
+  "manual.badge_user": "Naudotojo vadovas",
+  "manual.badge_scale": "Darbuotojų vadovas",
+  "manual.to_user": "Partnerių leidimas",
+  "manual.to_scale": "Darbuotojų leidimas",
+  "manual.back": "Atgal į sizer"
 };

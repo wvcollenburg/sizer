@@ -1,0 +1,103 @@
+{% import "manual/_macros.html" as m with context %}
+<p>The options apply to Assessment Import and Manual Input. In the wizard they are on step 4.
+   In the classic view they are in the column left of the recommendations, in three panels
+   you can fold open. Every change recalculates the recommendations straight away.</p>
+{{ m.shot("wizard-sizing-advanced", "All sizing options, with the advanced ones shown") }}
+
+<h3 id="opt-platform">Platform</h3>
+<table class="manual-table">
+    <tr><th>Option</th><th>Default</th><th>What it does</th></tr>
+    <tr><td>Sizing Mode</td><td>Certified</td><td><strong>Certified</strong> sizes on SC//
+        appliances with their fixed hardware. <strong>Validated (Software-Only)</strong> uses
+        the same models but allows the disk count per node to be <em>reduced</em> (never
+        increased), so storage fits the need more closely. It keeps to the hybrid flash band
+        and the maximum number of disks per cluster, and leaves out models that mix NVMe and
+        SSD.</td></tr>
+    <tr><td>Vendor</td><td>—</td><td>Validated only. The server vendor to build on. Only
+        models the HCL lists for that vendor are recommended, and they are named after the
+        vendor's chassis (for example a Dell or Lenovo model) rather than the SC//
+        name.</td></tr>
+    <tr><td>Size For Model</td><td>All models (best fit)</td><td>Restricts the recommendations
+        to one model. Leave it on <em>All models</em> to let the sizer pick the best
+        fit.</td></tr>
+    <tr><td>Include EOL / EOS systems</td><td>Off</td><td>Also considers models that are
+        end-of-life or end-of-support. Useful when extending an existing cluster.</td></tr>
+</table>
+
+<h3 id="opt-sizing">Sizing Options</h3>
+<table class="manual-table">
+    <tr><th>Option</th><th>Default</th><th>What it does</th></tr>
+    <tr><td>Target vCPU : Core ratio</td><td>3 : 1 (set by the administrators)</td><td>How many
+        virtual CPUs share one physical core. Slide left (towards 1:1) for demanding workloads
+        such as databases, right (towards 8:1) for light ones such as VDI or test. The marker
+        labelled <em>Current</em> shows the ratio of the existing environment. Every sizing
+        starts at the default, not at the current ratio.</td></tr>
+    <tr><td>Target Node Count <em>(advanced)</em></td><td>blank</td><td>Sizes to exactly this
+        many nodes (minimum 2). Larger clusters are only offered, with a warning, when the
+        workload does not fit. Leave it blank for the best-fitting, best-priced
+        solution.</td></tr>
+    <tr><td>Size CPU for full cluster <em>(advanced)</em></td><td>Off</td><td>Normally CPU is
+        sized so the workload keeps full performance with one node down (N-1). Ticking this
+        sizes CPU across all nodes instead. That needs fewer or smaller nodes, but during a
+        node failure the vCPU:core ratio rises and performance can drop. The cards then show
+        the ratio you would run at with a node down.</td></tr>
+    <tr><td>Storage Type</td><td>Auto</td><td>Prefer <strong>All-Flash</strong>,
+        <strong>Hybrid</strong> (HDD with a flash tier) or <strong>All-Spinning</strong>.
+        <em>Auto</em> considers all of them.</td></tr>
+    <tr><td>Allow storage-only nodes <em>(advanced)</em></td><td>Off</td><td>When storage needs
+        more nodes than compute does, the extra nodes (beyond two full nodes per cluster)
+        become storage-only nodes: no VMs, a single small CPU and minimal RAM, but full storage
+        and IOPS. This lowers compute licensing for storage-heavy workloads.</td></tr>
+    <tr><td>Include … GB found on local storage <em>(advanced)</em></td><td>Off</td><td>Only
+        shown when the import found VM data on the hosts' local disks. Tick it to size that
+        data as well. RVTools exports do not report local storage.</td></tr>
+</table>
+
+<h3 id="opt-growth">Growth Projection</h3>
+<table class="manual-table">
+    <tr><th>Option</th><th>Default</th><th>What it does</th></tr>
+    <tr><td>Projection Years</td><td>5</td><td>How many years of growth the cluster must
+        absorb (1–5).</td></tr>
+    <tr><td>YoY Growth %</td><td>10</td><td>Growth per year, compounded. 10% over 5 years is
+        about 1.61 times today's workload.</td></tr>
+    <tr><td>Snapshot Overhead %</td><td>20</td><td>Extra storage reserved for snapshots, on
+        top of the grown data.</td></tr>
+    <tr><td>Max Day-One Storage % <em>(advanced)</em></td><td>50</td><td>A cap on how full the
+        storage may be on day one, before growth, as a share of the whole cluster's usable
+        capacity. It adds headroom on top of growth and snapshots. 100 means no
+        cap.</td></tr>
+    <tr><td>Max Day-One RAM % <em>(advanced)</em></td><td>50</td><td>The same for RAM, but
+        measured against the RAM that is left with one node down (N-1). That is why the RAM
+        bar on the cards, which is drawn against the full cluster, reads lower than this
+        percentage. 100 means no cap.</td></tr>
+    <tr><td>Licence Term <em>(advanced)</em></td><td>5 years</td><td>How many years of
+        SC//HyperCore licence and support to price (1–5). This is independent of Projection
+        Years: a customer can buy 3 years of licence on a cluster sized for 5 years of
+        growth.</td></tr>
+    <tr><td>Guest Licensing <em>(advanced)</em></td><td>Detected, else Windows</td><td>Software
+        in the VMs that is licensed per physical core: <em>None (Linux/BSD)</em>,
+        <em>Windows</em>, or <em>Windows + core-billed DB</em> (SQL Server, Oracle). Many cores
+        per node make such software more expensive, so the sizer weighs that when ranking.
+        It is detected from the imported guest operating systems. A core-billed database
+        cannot be detected, so select it yourself when there is one. Once you change it,
+        your choice sticks.</td></tr>
+</table>
+<p>Under the growth options, four cards show the workload today and at the end of the
+   projection: vCPUs, RAM, GHz and storage (including snapshots), plus the IOPS the workload
+   needs.</p>
+
+<h3 id="opt-performance">CPU performance</h3>
+<p>Newer CPUs do more work per GHz than old ones. When the source CPU's benchmark score is
+   known (step 2, <a href="#wizard-environment">Source CPU</a>), each recommendation shows how
+   the new CPUs compare with the current ones, and the {{ m.ui("Explanation") }} button shows
+   the calculation. Depending on how the administrators have configured the sizer, the score
+   can also lower the amount of compute needed. The card then shows a <em>compute floor</em>
+   line and can say <em>Determined by Compute</em>.</p>
+{% call m.tip() %}Always check the source CPU score on step 2. A missing or wrong score
+   makes the performance comparison meaningless.{% endcall %}
+
+<h3 id="opt-redundancy">Redundancy is built in</h3>
+<p>There is no switch for redundancy: every recommendation keeps the workload running with
+   one node down (N-1) for RAM and, unless you tick <em>Size CPU for full cluster</em>, for
+   CPU. Data is always stored twice, on different nodes, so it survives a node loss. The
+   <em>usable storage</em> figures already account for that second copy.</p>

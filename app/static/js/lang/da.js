@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "PDF'en indeholdt {n} usynlige ord. De blev ikke læst, og tjekket er sendt til Scale Computing til gennemgang.",
   "admin.bomagent.pdf_threshold": "Mindste PDF-sikkerhed",
   "admin.bomagent.pdf_threshold_hint": "PDF'er i et kendt layout læses lokalt, uden agenten, når sikkerhedsscoren (0–100) når dette minimum. Under det, eller hvis filen ser manipuleret ud, læser agenten filen i stedet.",
-  "admin.bom.reason_pdf_suspicious": "PDF'en indeholdt usynlig tekst eller aktivt indhold"
+  "admin.bom.reason_pdf_suspicious": "PDF'en indeholdt usynlig tekst eller aktivt indhold",
+  "header.manual": "Brugervejledning",
+  "manual.badge_user": "Brugervejledning",
+  "manual.badge_scale": "Medarbejdervejledning",
+  "manual.to_user": "Partnerudgave",
+  "manual.to_scale": "Medarbejderudgave",
+  "manual.back": "Tilbage til sizeren"
 };

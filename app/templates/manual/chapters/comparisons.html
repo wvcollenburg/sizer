@@ -1,0 +1,36 @@
+{% import "manual/_macros.html" as m with context %}
+<p>{{ m.ui("Comparisons") }} on the project page puts sizings side by side. It is a
+   three-step dialog.</p>
+{{ m.shot("compare-mode", "Step 1: compare individual sizings, or tag groups") }}
+
+<h3 id="cmp-sizings">Comparing individual sizings</h3>
+<ol>
+    <li>Choose {{ m.ui("Individual sizings") }}.</li>
+    <li>Tick two or more sizings. {{ m.ui("Compare") }} becomes available once two are
+        ticked.</li>
+    <li>The table shows the chosen option of each sizing: model, clusters, nodes, cores, RAM,
+        usable storage, and cores and RAM with one node down. The <em>Why this option</em> row
+        shows the notes from the Options panel.</li>
+</ol>
+{{ m.shot("compare-pick", "Step 2: pick what to compare") }}
+{{ m.shot("compare-result", "Two alternatives side by side") }}
+<p>Under the table the sizer adds up the sizings that are <em>Part of the total</em>. If
+   they are all alternatives, it says there is no combined total, because competing options
+   are never summed.</p>
+
+<h3 id="cmp-tags">Comparing tag groups</h3>
+<p>When the sizings are tagged into solution sets (for example <em>Option A</em> and
+   <em>Option B</em>, each made of several sizings), choose {{ m.ui("Tag groups") }}. All tags
+   start ticked. Untick the ones you do not want. Each column is then a whole solution set,
+   with its members listed.</p>
+{{ m.shot("compare-tags", "Comparing two tag groups") }}
+
+<h3 id="cmp-reading">Reading the comparison</h3>
+<ul>
+    <li>Every column after the first shows the difference (Δ) from the first column.</li>
+    <li>Warnings appear above the table when the comparison may mislead: sizings with mixed
+        roles, sizings sized under different sizing rules, sizings that are not sized, need a
+        refresh, or need a re-import.</li>
+    <li>{{ m.ui("Export CSV") }} and {{ m.ui("Export Excel") }} download the table.</li>
+    <li>{{ m.ui("Back") }} returns to the previous step. Closing the dialog clears it.</li>
+</ul>

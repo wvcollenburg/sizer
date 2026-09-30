@@ -1,0 +1,62 @@
+{% import "manual/_macros.html" as m with context %}
+<p>Back on the project page, a few tools organise the sizings so they compare and export
+   correctly.</p>
+
+<h3 id="roles">Roles: part of the total, or an alternative</h3>
+<p>Every sizing has a role that tells the comparison and the exports how to treat it:</p>
+<ul>
+    <li><strong>Part of the total</strong>: a site, cluster or phase. These add up. For
+        example Production + Remote-Office + Test-Dev is the whole estate.</li>
+    <li><strong>Alternative</strong>: one of several competing options for the same
+        workload, for example hybrid versus all-flash. Alternatives are never added
+        together.</li>
+</ul>
+<p>Sizings created from a multi-cluster import start as <em>Part of the total</em>.</p>
+
+<h3 id="sizing-options-panel">The Options panel</h3>
+<p>The sliders icon on a row opens the sizing's panel:</p>
+{{ m.shot("sizing-panel", "The Options panel of a sizing") }}
+<table class="manual-table">
+    <tr><th>Field</th><th>What it does</th></tr>
+    <tr><td>Counts towards the total?</td><td>The role (see above).</td></tr>
+    <tr><td>Tags</td><td>Tags on this sizing (× removes one), tags used elsewhere in the
+        project (click to add), and a box to create a new tag. Tags group sizings into
+        solution sets, for example <em>Option A</em> and <em>Option B</em>, which you can then
+        compare and export as a group.</td></tr>
+    <tr><td>Why this option</td><td>A note. It appears in the <em>Why this option</em> row of
+        a comparison, and as a dot next to the name.</td></tr>
+    <tr><td>Replicates to</td><td>Replication to another sizing in the project (see
+        <a href="#dr">DR targets and replication</a>).</td></tr>
+</table>
+<p>{{ m.ui("Save") }} stores everything in the panel at once.</p>
+
+<h3 id="batch-edit">Batch edit</h3>
+<p>Tick the checkboxes of several sizings. A bar appears with the number selected,
+   {{ m.ui("Batch edit") }} and {{ m.ui("Clear") }}.</p>
+{{ m.shot("selection-bar", "Two sizings selected") }}
+{{ m.shot("batch-edit", "Batch edit: every field starts at Leave unchanged") }}
+<p>Batch edit changes the role, adds or removes tags, and sets or removes replication for
+   all selected sizings at once. Anything left at <em>Leave unchanged</em> is not touched.
+   {{ m.ui("Apply to selection") }} applies it.</p>
+
+<h3 id="exports-as">Exports as</h3>
+<p>By default an export describes the <strong>recommended</strong> hardware. When the
+   customer is actually buying something slightly different, for example a partner's quote
+   for a comparable server, the server icon on the row sets what the exports describe:</p>
+{{ m.shot("export-as", "Exports as: choose the hardware the documents describe") }}
+<ul>
+    <li><strong>Hardware source</strong>: <em>Automatic</em> (the default) uses the most
+        recent BOM check of this sizing that passed and does not come out smaller than
+        required, and otherwise the recommendation. A failing check is never picked
+        automatically. You can also pick <em>The recommendation</em> or one specific BOM
+        check. Checks that failed, or that come out smaller than required, are flagged in
+        the list.</li>
+    <li><strong>Override by hand</strong>: fill in any field (chassis, vendor, form factor,
+        CPU, cores, threads, RAM, nodes, and up to two disk tiers) and it wins over the
+        source, field by field. Leave a field empty to keep what the source says. The chassis
+        field suggests models from the HCL as you type.</li>
+    <li>{{ m.ui("Use the recommendation") }} removes every override.</li>
+</ul>
+<p>While an override is active, the row shows an <em>Exports as …</em> badge, the sizing
+   shows a <a href="#rec-quoted">Quoted row</a>, and every export describes that hardware:
+   capacity bars, licensing and compute all follow the quoted hardware.</p>

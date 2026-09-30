@@ -1714,5 +1714,11 @@
   "bom.agent.hidden_words": "El PDF contenía {n} palabra(s) invisible(s). No se leyeron y la comprobación se ha enviado a Scale Computing para su revisión.",
   "admin.bomagent.pdf_threshold": "Certeza mínima de PDF",
   "admin.bomagent.pdf_threshold_hint": "Los PDF con un formato conocido se leen localmente, sin el agente, cuando la puntuación de certeza (0–100) alcanza este mínimo. Por debajo, o si el archivo parece manipulado, el agente lee el archivo.",
-  "admin.bom.reason_pdf_suspicious": "El PDF contenía texto invisible o contenido activo"
+  "admin.bom.reason_pdf_suspicious": "El PDF contenía texto invisible o contenido activo",
+  "header.manual": "Manual de usuario",
+  "manual.badge_user": "Manual de usuario",
+  "manual.badge_scale": "Manual del personal",
+  "manual.to_user": "Edición para partners",
+  "manual.to_scale": "Edición para el personal",
+  "manual.back": "Volver al sizer"
 };

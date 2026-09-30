@@ -1715,5 +1715,11 @@
   "bom.agent.hidden_words": "The PDF contained {n} invisible word(s). They were not read, and the check has been sent to Scale Computing for review.",
   "admin.bomagent.pdf_threshold": "Minimum PDF certainty",
   "admin.bomagent.pdf_threshold_hint": "PDFs in a known layout are read locally, without the agent, when the certainty score (0–100) reaches this minimum. Below it, or when the file looks tampered with, the agent reads the file instead.",
-  "admin.bom.reason_pdf_suspicious": "The PDF contained invisible text or active content"
+  "admin.bom.reason_pdf_suspicious": "The PDF contained invisible text or active content",
+  "header.manual": "User manual",
+  "manual.badge_user": "User manual",
+  "manual.badge_scale": "Staff manual",
+  "manual.to_user": "Partner edition",
+  "manual.to_scale": "Staff edition",
+  "manual.back": "Back to the sizer"
 };
