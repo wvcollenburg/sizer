@@ -99,7 +99,22 @@ function inlineRailDescriptions() {
             const p = document.createElement('p');
             p.className = 'field-desc';
             p.textContent = text;
-            (host.closest('.form-group') || host).appendChild(p);
+            // Directly under the control it explains: a toggle inside a larger
+            // .form-group gets it right after itself, not at the group's end
+            // (below whatever else the group holds). The text can then sit
+            // outside the wizard's advanced-only (.wiz-adv) control, so it
+            // carries the marker and both hide together.
+            if (icon.closest('.wiz-adv')) p.classList.add('wiz-adv');
+            const group = host.closest('.form-group');
+            if (group && group !== host) {
+                host.after(p);
+            } else {
+                // The group's own text goes above any toggles nested in it.
+                const box = group || host;
+                const toggle = [...box.children].find(c =>
+                    c.classList.contains('toggle-item') || c.classList.contains('checkbox-inline'));
+                if (toggle) toggle.before(p); else box.appendChild(p);
+            }
             icon.remove();
         });
     });
