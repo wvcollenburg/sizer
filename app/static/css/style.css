@@ -3031,6 +3031,10 @@ body.view-project  #project-screens { display: block; max-width: 64rem; margin: 
 body.view-projects main,
 body.view-project  main { display: none; }
 body.auth-required #project-screens { display: none; }
+/* The header's Save sizing saves what is open in the sizer; on a project
+   screen there is nothing to save. */
+body.view-projects .account-bar .btn-account,
+body.view-project  .account-bar .btn-account { display: none; }
 
 .project-screen { animation: fadeIn 0.15s ease-out; }
 
