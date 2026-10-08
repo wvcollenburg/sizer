@@ -9,7 +9,10 @@ Pinned here:
     hold more than one disk; the model's certified disk count stands in when
     the HCL does not say;
   * such a node never gets 1 disk; 3+ is preferred and 2 is used only when no
-    3+ build works — on a Single Node System too (owner, 2026-09-29);
+    3+ build works — and never on a Single Node System (owner, 2026-10-08);
+  * a Single Node System is recommended only when asked for, and then it
+    must come out (also with the perf_scaling compute floor on); a model with a
+    fixed 2-disk build is never recommended, or calculated, as one;
   * a box certified with ONE disk (the HE15x NUCs) keeps it: Validated only
     removes disks from the certified build;
   * the manual Validated calculator accepts 2 disks;
@@ -53,10 +56,17 @@ def test_a_single_disk_node_keeps_one():
     assert preferred == [1] and fallback == []
 
 
-def test_two_disks_are_allowed_on_a_single_node_system():
-    # Owner, 2026-09-29: the 2-disk SNS restriction is resolved. A box
-    # certified with 2 disks keeps its 2-disk build as a single node.
+def test_no_two_disk_fallback_on_a_single_node_system():
+    # Owner, 2026-10-08: 2 disks is fine in a cluster, never as a single node.
+    _preferred, fallback = _validated_disk_counts(12, multi_disk=True, single_node=True)
+    assert fallback == []
+
+
+def test_a_single_node_system_never_falls_back_to_two():
     pick = _pick_uniform_drives([1.92, 3.84], 2, 1.0, [1], "nvme",
+                                validated=True, multi_disk=True)
+    assert pick is None
+    pick = _pick_uniform_drives([1.92, 3.84], 2, 1.0, [2], "nvme",
                                 validated=True, multi_disk=True)
     assert pick is not None and pick["drive_counts"] == {"NVMe": 2}
 
@@ -183,7 +193,69 @@ def test_validated_recommendations_for_a_12_bay_node_have_more_than_one_disk(app
             rec["storage_config"]["desc"]
 
 
+def _seed_small_nvme(drives_per_node, **settings):
+    import orm_models as om
+    from database import db
+    from tunables import DEFAULTS
+
+    for key, value in dict(DEFAULTS, **settings).items():
+        db.session.add(om.SizingSetting(key=key, value=float(value)))
+    cpu = om.CpuCatalog(description="Xeon Silver 4410Y", cores=12, threads=24, ghz=2.0)
+    db.session.add(cpu)
+    db.session.flush()
+    m = om.Model(name="HC1250", status="Active", category="1XXX", form_factor="1U",
+                 chassis="Dell R660xs", min_nodes=1, cost_tier=1.0, validated_only=False)
+    db.session.add(m)
+    db.session.flush()
+    db.session.add(om.ModelCpuOption(model_id=m.id, cpu_id=cpu.id, quantity=1))
+    db.session.add(om.RamOption(model_id=m.id, size_gb=256))
+    sc = om.StorageConfig(model_id=m.id, storage_type="nvme_only", drives_per_node=drives_per_node)
+    db.session.add(sc)
+    db.session.flush()
+    for size in (3.84, 7.68):
+        drive = om.DriveCatalog(drive_type="NVMe", size_tb=size)
+        db.session.add(drive)
+        db.session.flush()
+        db.session.add(om.StorageConfigDrive(storage_config_id=sc.id, drive_id=drive.id))
+    db.session.commit()
+
+
+TINY_WORKLOAD = dict(SMALL_WORKLOAD, total_vcpus=8, total_ram_gb=32, peak_ram_gb=32,
+                     total_vm_provisioned_memory_gb=32, used_storage_tb=0.5,
+                     total_storage_tb=1.0, datastore_used_tb=0.5, peak_cpu_ghz=4.0)
+
+
+@pytest.mark.parametrize("drives, single_node_ok", [(2, False), (3, True)])
+def test_a_two_disk_model_is_never_recommended_as_a_single_node_system(app, drives, single_node_ok):
+    _seed_small_nvme(drives)
+    recs = recommend.generate_recommendations(TINY_WORKLOAD, 3.0,
+                                              allow_single_node=True)["recommendations"]
+    assert recs, "no candidates"
+    assert any(r["node_count"] == 1 for r in recs) is single_node_ok
+
+
+@pytest.mark.parametrize("perf_scaling", [0, 1])
+def test_a_single_node_system_only_when_asked_for(app, perf_scaling):
+    _seed_small_nvme(3, perf_scaling=perf_scaling)
+    recs = recommend.generate_recommendations(TINY_WORKLOAD, 3.0)["recommendations"]
+    assert recs and all(r["node_count"] >= 2 for r in recs)
+    recs = recommend.generate_recommendations(TINY_WORKLOAD, 3.0,
+                                              allow_single_node=True)["recommendations"]
+    assert any(r["node_count"] == 1 for r in recs)
+
+
 # ── manual calculator and BOM checker ────────────────────────────────────────
+
+def test_the_appliance_calculator_refuses_a_two_disk_single_node_system():
+    from calc import _sns_storage_error
+    assert "2-disk node" in _sns_storage_error(
+        {"type": "nvme_only", "drives_per_node": 2}, "HC1250")["error"]
+    assert _sns_storage_error({"type": "nvme_only", "drives_per_node": 1}, "HE153") is None
+    assert _sns_storage_error({"type": "nvme_only", "drives_per_node": 3}, "HC1250") is None
+    # NVMe+SSD (1+1) is a 2-disk node as well; a 3+1 hybrid runs as SNS.
+    assert "2-disk node" in _sns_storage_error({"type": "nvme_and_ssd"}, "X")["error"]
+    assert _sns_storage_error({"type": "hybrid", "hdd_count": 3, "ssd_count": 1}, "X") is None
+
 
 def test_the_manual_validated_calculator_accepts_two_disks(app):
     from calc import calculate_validated

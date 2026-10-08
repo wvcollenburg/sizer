@@ -51,7 +51,7 @@ CODE_NIC_PORTS_VLAN = "nic_ports_vlan"
 MIN_NODE_PORTS = 4
 
 # Ported findings the owner has since overruled (apply_owner_rules).
-_RESOLVED_CODES = frozenset(["two_drives"])
+_RESOLVED_CODES = frozenset()  # type: frozenset
 # On a NUC the NIC is onboard and a single disk is a supported build.
 _NUC_EXEMPT_CODES = frozenset([
     "nic_missing", "nic_not_in_hcl", "nic_lom", "nic_multiple_families",
@@ -207,14 +207,18 @@ def apply_owner_rules(config: BOMConfig, findings: List[Finding],
     """Owner decisions layered over the ported rules, which stay a faithful
     1:1 port so the 26-BOM replay holds:
 
-    * a 2-drive Single Node System is supported (2026-09-29) — the port's
-      ``two_drives`` warning is dropped;
+    * 2 drives per node is supported in a multi-node cluster but not on a
+      Single Node System (2026-10-08) — the port's ``two_drives`` warning is
+      dropped only when the BOM is clearly a cluster of 2 or more nodes;
     * on a NUC every NIC is onboard (LOM) and one disk is fine, so the NIC and
       single-drive findings do not apply there;
     * a node with more bays than disks must not run on one disk;
     * a hybrid node needs 2 HDDs per SSD/NVMe disk.
     """
     drop = set(_RESOLVED_CODES)
+    from bom.fit import derive_nodes
+    if (derive_nodes(config).get("node_count") or 0) >= 2:
+        drop.add("two_drives")
     nuc = is_nuc(platforms)
     if nuc:
         drop |= _NUC_EXEMPT_CODES

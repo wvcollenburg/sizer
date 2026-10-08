@@ -330,7 +330,10 @@ def test_one_or_two_disks_in_a_nuc_are_both_fine(app):
         result = run_check(NormalizedBOM(vendor="Lenovo", configs=[nuc_config(disks=disks)]),
                            hcl=hcl_data(), platforms=platforms)
         codes = _codes(result)
-        assert not {"single_flash_drive", "two_drives", "single_disk_multi_bay"} & set(codes), codes
+        assert not {"single_flash_drive", "single_disk_multi_bay"} & set(codes), codes
+        # ...but a single NUC with 2 disks is a 2-disk Single Node System,
+        # which is not supported (owner, 2026-10-08).
+        assert ("two_drives" in codes) is (disks == 2), codes
 
 
 def test_the_nuc_exemption_does_not_leak_to_rack_servers(app):
@@ -339,7 +342,7 @@ def test_the_nuc_exemption_does_not_leak_to_rack_servers(app):
     assert "nic_not_in_hcl" in _codes(result)
 
 
-def test_a_two_drive_single_node_is_supported(app):
+def test_a_two_drive_single_node_is_flagged(app):
     cfg = lenovo_config("ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter")
     cfg.node_count = 1
     cfg.components = [
@@ -350,7 +353,7 @@ def test_a_two_drive_single_node_is_supported(app):
         c("nic", "ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter", "BXXX", 1),
     ]
     result = run_check(NormalizedBOM(vendor="Lenovo", configs=[cfg]), hcl=hcl_data())
-    assert "two_drives" not in _codes(result)
+    assert "two_drives" in _codes(result)
 
 
 def test_a_hybrid_node_needs_two_hdds_per_flash_disk(app):

@@ -118,7 +118,10 @@ def calculate_appliance(data, node_count):
         # Single Node System. Any disk layout the model is certified with runs
         # as SNS (owner, 2026-09-29: the old "2+ disks of every tier" rule is
         # resolved; hybrids only need 2 slow disks per fast one, which the
-        # certified layouts already meet).
+        # certified layouts already meet) — except a 2-disk node (2026-10-08).
+        sns_err = _sns_storage_error(storage, model_name)
+        if sns_err:
+            return sns_err
         # RF2 still mirrors across the node's own drives (usable = raw/2), but
         # reserves no rebuild disk — there's no peer node to rebuild onto, so the
         # largest-disk reserve that multi-node clusters hold back doesn't apply. A
@@ -302,6 +305,20 @@ def compute_raw_per_node_appliance(data, storage):
     return 0
 
 
+def _sns_storage_error(storage, model_name):
+    """Validate that a model can run as a Single Node System (SNS). A 2-disk
+    node is supported in a multi-node cluster but not as an SNS (owner,
+    2026-10-08; same rule as the BOM checker's two_drives warning). Any other
+    certified layout runs as SNS (owner, 2026-09-29)."""
+    if compute_drive_count_appliance({}, storage) == 2:
+        return {"error": (
+            f"{model_name} can't be configured as a single node: a 2-disk node is "
+            f"not supported as a Single Node System. Use 2 or more nodes for this "
+            f"model."
+        )}
+    return None
+
+
 def compute_drive_count_appliance(data, storage):
     """Number of physical drives in one node — used to decide whether a Single
     Node System can mirror (RF2). A single-disk node has no second drive to
@@ -352,8 +369,9 @@ def calculate_validated(data, node_count):
         return {"error": "At least 1 disk required per node"}
 
     disk_count = len(disks)
-    # 2 disks per node is supported, on a Single Node System too (owner,
-    # 2026-09-29). A 1-disk node still calculates, but the GUI warns that a
+    # 2 disks per node is supported in a multi-node cluster (Validated here is
+    # always 2+ nodes) but not on a Single Node System (owner, 2026-10-08). A
+    # 1-disk node still calculates, but the GUI warns that a
     # disk failure then takes the whole node down (owner decision 2026-09-17).
 
     # Optional storage-only nodes: same disks, virtualization disabled. They add

@@ -667,6 +667,7 @@ def cluster_from_nodes(node_model: Dict[str, Any],
             "hdd_per_flash": round(hdd_n / flash_n, 2) if flash_n else None,
             "hybrid_flash_in_band": hybrid_in_band,
             "hybrid_hdd_ratio_ok": hdd_ratio_ok,
+            "exactly_two_disks": bays == 2,
             "cluster_disks": cluster_disks,
             "max_cluster_disks": T.max_cluster_disks,
             "disk_cap_ok": cluster_disks <= T.max_cluster_disks,
@@ -1112,8 +1113,11 @@ def compare(config: BOMConfig, configuration_or_requirements: Any,
     b_cat = cluster["storage_category"]
     if s_cat and b_cat and s_cat != b_cat:
         notes.append(f"Storage tier differs: BOM is {b_cat}, the sizing is {s_cat}.")
-    # 2 disks per node is supported, on a Single Node System too (owner,
-    # 2026-09-29), so it earns no note.
+    # 2 disks per node is supported in a multi-node cluster; only a 2-drive
+    # Single Node System is not (owner, 2026-10-08; same rule as the technical
+    # check's two_drives warning and the engine).
+    if feas["exactly_two_disks"] and cluster["node_count"] == 1:
+        notes.append("Exactly 2 disks is not a supported layout for a Single Node System.")
     if not feas["disk_cap_ok"]:
         notes.append(f"{feas['cluster_disks']} disks in the largest cluster exceed the "
                      f"{feas['max_cluster_disks']}-disk limit.")
