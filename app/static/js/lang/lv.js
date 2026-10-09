@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Darbinieku rokasgrāmata",
   "manual.to_user": "Partneru izdevums",
   "manual.to_scale": "Darbinieku izdevums",
-  "manual.back": "Atpakaļ uz sizer"
+  "manual.back": "Atpakaļ uz sizer",
+  "dr.growth_notice_title": "DR tagad seko produkcijai",
+  "dr.growth_notice_old": "Šis DR mērķis tika izmērīts ar saviem pieauguma iestatījumiem: {growth} % {years} gados, momentuzņēmums {snapshot} %.",
+  "dr.growth_notice_body": "DR tagad seko katra avota izmērījuma pieaugumam (skatiet tabulu). Skaitļi var mainīties, kad šis mērķis tiks izmērīts no jauna.",
+  "dr.growth_notice_ok": "Sapratu",
+  "dr.src_growth": "Pieaugums: {years} g. · skaitļošana {growth} % · krātuve {storage} % · momentuzņēmums {snapshot} %",
+  "dr.growth_follows": "Pieaugums seko katram avota izmērījumam.",
 };

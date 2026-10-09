@@ -160,7 +160,8 @@ def test_self_delete_disables_and_signs_out(client):
 # ── DR target: workload-less sizing from inbound replication reserve ──────────
 
 def _make_source_with_demand(client, project_id, name="Site A", cluster="Prod",
-                             vcpus=200, ram_gb=1024, storage_tb=40):
+                             vcpus=200, ram_gb=1024, storage_tb=40,
+                             projection=None):
     src = client.post("/api/configs/", json={
         "name": name, "payload": {"mode": "import"}, "project_id": project_id
     }).get_json()
@@ -171,7 +172,7 @@ def _make_source_with_demand(client, project_id, name="Site A", cluster="Prod",
                         "total_vm_provisioned_memory_gb": ram_gb,
                         "datastore_used_tb": storage_tb},
             "recommendation": {"refs": {"mode": "import"}},
-            "projection": {}, "refs": {"mode": "validated"},
+            "projection": projection or {}, "refs": {"mode": "validated"},
         }],
         "totals": None,
     })
@@ -191,15 +192,19 @@ def test_dr_target_opens_without_error(client):
 def test_dr_recommend_computes_inbound_reserve(client):
     _signup(client)
     pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
-    src = _make_source_with_demand(client, pid)
+    # DR follows production: the growth comes from the source's own sizing,
+    # not from the DR request (which no longer carries growth fields).
+    src = _make_source_with_demand(client, pid, projection={
+        "years": 1, "growth_pct": 0, "snapshot_pct": 0})
     dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
     client.post(f"/api/sizings/{src['id']}/replication", json={
         "target_configuration_id": dr["id"], "source_cluster": "Prod",
         "target_cluster": "", "compute_pct": 50, "storage_pct": 100,
         "mode": "reserved"})
 
-    out = client.post(f"/api/sizings/{dr['id']}/dr-recommend",
-                      json={"growth_pct": 0, "years": 1}).get_json()
+    out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
+    assert out["grown_reserve"] == {"vcpus": 100, "ram_gb": 512,
+                                    "storage_tb": 40, "years": 1}
     # 50% of the source's 200 vCPU / 1024 GB, 100% of 40 TB.
     assert out["reserve"]["vcpus"] == 100
     assert out["reserve"]["ram_gb"] == 512

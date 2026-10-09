@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Henkilöstön opas",
   "manual.to_user": "Kumppaniversio",
   "manual.to_scale": "Henkilöstöversio",
-  "manual.back": "Takaisin sizeriin"
+  "manual.back": "Takaisin sizeriin",
+  "dr.growth_notice_title": "DR seuraa nyt tuotantoa",
+  "dr.growth_notice_old": "Tämä DR-kohde mitoitettiin omilla kasvuasetuksillaan: {growth} % {years} vuoden aikana, tilannevedos {snapshot} %.",
+  "dr.growth_notice_body": "DR seuraa nyt kunkin lähdemitoituksen kasvua (katso taulukko). Luvut voivat muuttua, kun kohde mitoitetaan uudelleen.",
+  "dr.growth_notice_ok": "Selvä",
+  "dr.src_growth": "Kasvu: {years} v · laskenta {growth} % · tallennus {storage} % · tilannevedos {snapshot} %",
+  "dr.growth_follows": "Kasvu seuraa kutakin lähdemitoitusta.",
 };

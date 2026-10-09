@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Manuel du personnel",
   "manual.to_user": "Édition partenaire",
   "manual.to_scale": "Édition personnel",
-  "manual.back": "Retour au sizer"
+  "manual.back": "Retour au sizer",
+  "dr.growth_notice_title": "Le DR suit désormais la production",
+  "dr.growth_notice_old": "Cette cible DR a été dimensionnée avec ses propres paramètres de croissance : {growth} % sur {years} ans, snapshot {snapshot} %.",
+  "dr.growth_notice_body": "Le DR suit désormais la croissance de chaque dimensionnement source (voir le tableau). Les chiffres peuvent changer lors du prochain dimensionnement de cette cible.",
+  "dr.growth_notice_ok": "Compris",
+  "dr.src_growth": "Croissance : {years} ans · calcul {growth} % · stockage {storage} % · snapshot {snapshot} %",
+  "dr.growth_follows": "La croissance suit chaque dimensionnement source.",
 };

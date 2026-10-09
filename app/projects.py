@@ -1092,11 +1092,19 @@ def inbound_reserve(config_id):
         return jsonify({"error": "Sizing not found"}), 404
 
     reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
+    grown = reserve["grown"]
     return jsonify({
         "has_inbound": bool(sources),
-        "reserve": {"vcpus": round(reserve["vcpus"], 1),
-                    "ram_gb": round(reserve["ram_gb"], 1),
-                    "storage_tb": round(reserve["storage_tb"], 2)},
+        # Grown at each SOURCE's rates, snapshot included (P2): the engine
+        # takes it as-is (pregrown) instead of applying this receiver's growth.
+        "reserve": {"vcpus": round(grown["vcpus"], 1),
+                    "ram_gb": round(grown["ram_gb"], 1),
+                    "storage_tb": round(grown["storage_tb"], 2),
+                    "pregrown": True},
+        # Day-one figures, for display.
+        "base_reserve": {"vcpus": round(reserve["vcpus"], 1),
+                         "ram_gb": round(reserve["ram_gb"], 1),
+                         "storage_tb": round(reserve["storage_tb"], 2)},
         # Maps the link modes onto the engine's compute basis, matching
         # _dr_inbound_reserve: full-cluster only when every link is failover.
         "mode": "failover" if size_full_cluster else "reserved",
@@ -1338,51 +1346,115 @@ def _demand_from_payload(payload):
     }
 
 
-def _source_cluster_demand(source, cluster_name):
-    """Demand of one source cluster (by name) that replicates into a target.
+_DEFAULT_GROWTH = {"years": 5, "growth_pct": 10.0, "storage_growth_pct": None,
+                   "snapshot_pct": 20.0}
+_NO_GROWTH = {"years": 1, "growth_pct": 0.0, "storage_growth_pct": 0.0,
+              "snapshot_pct": 0.0}
 
-    Prefers the source's stored per-cluster result summary; an empty/blank name
-    (a single-cluster source, which is what the project UI sends) aggregates
-    every cluster. Falls back to the raw imported/entered demand in the source's
-    payload, so a source that was linked before it was sized still counts."""
+
+def _num_or(v, default):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _growth_from_projection(projection):
+    """A source's growth options as its stored result was sized with, or None."""
+    p = projection or {}
+    if p.get("years") is None or p.get("growth_pct") is None:
+        return None
+    g = _num_or(p.get("growth_pct"), _DEFAULT_GROWTH["growth_pct"])
+    return {
+        "years": int(_num_or(p.get("years"), 5)),
+        "growth_pct": g,
+        # Projections stored before separate storage growth carry one rate.
+        "storage_growth_pct": _num_or(p.get("storage_growth_pct"), g),
+        "snapshot_pct": _num_or(p.get("snapshot_pct"), _DEFAULT_GROWTH["snapshot_pct"]),
+    }
+
+
+def _growth_from_payload(payload):
+    """A source's growth options read from its saved form fields, falling back
+    to the engine defaults (5 y / 10 % / storage = compute / 20 %)."""
+    f = (payload or {}).get("fields") if isinstance(payload, dict) else None
+    f = f if isinstance(f, dict) else {}
+    g = _num_or(f.get("growth-pct"), _DEFAULT_GROWTH["growth_pct"])
+    sep = f.get("separate-storage-growth")
+    sep = sep is True or str(sep).lower() == "true"
+    return {
+        "years": int(_num_or(f.get("growth-years"), _DEFAULT_GROWTH["years"])),
+        "growth_pct": g,
+        "storage_growth_pct": (_num_or(f.get("storage-growth-pct"), g) if sep else g),
+        "snapshot_pct": _num_or(f.get("snapshot-pct"), _DEFAULT_GROWTH["snapshot_pct"]),
+    }
+
+
+def _cluster_growth(cluster, payload):
+    """Growth options for one stored source cluster (G2: DR follows
+    production). An appliance/validated cluster reserves its provisioned
+    capacity, not a workload, so it does not grow."""
+    if not (cluster or {}).get("summary"):
+        return dict(_NO_GROWTH)
+    return (_growth_from_projection((cluster or {}).get("projection"))
+            or _growth_from_payload(payload))
+
+
+def _source_cluster_parts(source, cluster_name):
+    """The (demand, growth options) parts of one source cluster (by name) that
+    replicates into a target.
+
+    Prefers the source's stored per-cluster results, each with the growth it
+    was sized at; an empty/blank name (a single-cluster source, which is what
+    the project UI sends) takes every cluster. Falls back to the raw
+    imported/entered demand in the source's payload, so a source that was
+    linked before it was sized still counts (with its form's growth)."""
     clusters = ((source.result_snapshot or {}).get("clusters")) or []
     for c in clusters:
         if (c.get("name") or "") == (cluster_name or ""):
             d = _demand_of_cluster(c)
             if any(d.values()):
-                return d
+                return [(d, _cluster_growth(c, source.payload))]
     if not (cluster_name or "").strip():
-        agg = {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+        parts = []
         for c in clusters:
             d = _demand_of_cluster(c)
-            for k in agg:
-                agg[k] += d[k]
-        if any(agg.values()):
-            return agg
+            if any(d.values()):
+                parts.append((d, _cluster_growth(c, source.payload)))
+        if parts:
+            return parts
         payload_demand = _demand_from_payload(source.payload)
         if payload_demand:
-            return payload_demand
-    return {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
+            return [(payload_demand, _growth_from_payload(source.payload))]
+    return []
 
 
 def _dr_inbound_reserve(dr_sizing):
     """Aggregate the inbound replication reserve a DR target must host.
 
     Returns (reserve, sources, size_full_cluster):
-      * reserve — day-one {vcpus, ram_gb, storage_tb} summed over every sizing
-        that replicates INTO this target, each scaled by its link's percentages;
-      * sources — per-link breakdown for the UI;
+      * reserve — {vcpus, ram_gb, storage_tb} day-one, summed over every
+        sizing that replicates INTO this target, each scaled by its link's
+        percentages; plus ``grown`` — the same reserve projected to each
+        source's own horizon at the source's own growth, storage growth and
+        snapshot (G2/P1: DR follows production), with ``snapshot_tb`` and
+        ``years`` (the longest source horizon);
+      * sources — per-link breakdown for the UI, with the growth options used;
       * size_full_cluster — False when any inbound link is held at N-1
         ("reserved"), True only when they are all "failover" (replicas need to
         fit only with all nodes up). This maps the link mode onto the engine's
         own-workload N-1 vs full-cluster basis.
     """
     from project_models import ReplicationLink
+    from recommend import project_demand
     links = ReplicationLink.query.filter_by(
         target_configuration_id=dr_sizing.id).order_by(
             ReplicationLink.source_configuration_id,
             ReplicationLink.source_cluster).all()
     reserve = {"vcpus": 0.0, "ram_gb": 0.0, "storage_tb": 0.0}
+    grown = {"vcpus": 0.0, "ram_gb": 0.0, "storage_tb": 0.0, "snapshot_tb": 0.0,
+             "years": 1}
+    reserve["grown"] = grown
     sources, modes = [], set()
     if not links:
         return reserve, sources, False
@@ -1394,21 +1466,49 @@ def _dr_inbound_reserve(dr_sizing):
         src = src_map.get(link.source_configuration_id)
         if src is None or src.is_deleted:
             continue
-        demand = _source_cluster_demand(src, link.source_cluster)
-        v = demand["vcpus"] * (link.compute_pct or 0) / 100.0
-        r = demand["ram_gb"] * (link.compute_pct or 0) / 100.0
-        s = demand["storage_tb"] * (link.storage_pct or 0) / 100.0
+        cpct = (link.compute_pct or 0) / 100.0
+        spct = (link.storage_pct or 0) / 100.0
+        v = r = s = 0.0
+        lg = {"vcpus": 0.0, "ram_gb": 0.0, "storage_tb": 0.0, "snapshot_tb": 0.0}
+        opts = None
+        for demand, g in _source_cluster_parts(src, link.source_cluster):
+            share = {"vcpus": demand["vcpus"] * cpct,
+                     "ram_gb": demand["ram_gb"] * cpct,
+                     "storage_tb": demand["storage_tb"] * spct}
+            v += share["vcpus"]
+            r += share["ram_gb"]
+            s += share["storage_tb"]
+            years = max(1, min(int(g["years"]), 5))
+            pd = project_demand(share, g["growth_pct"], g["storage_growth_pct"],
+                                g["snapshot_pct"], years)
+            for k in lg:
+                lg[k] += pd[k]
+            grown["years"] = max(grown["years"], years)
+            # One row per link: show the options of its largest part.
+            if opts is None or share["vcpus"] > opts[0]:
+                opts = (share["vcpus"], g)
         reserve["vcpus"] += v
         reserve["ram_gb"] += r
         reserve["storage_tb"] += s
+        for k in lg:
+            grown[k] += lg[k]
         modes.add(link.mode)
+        g = opts[1] if opts else _growth_from_payload(src.payload)
         sources.append({
             "sizing_name": src.name,
             "cluster": link.source_cluster,
             "vcpus": round(v), "ram_gb": round(r), "storage_tb": round(s, 2),
+            "grown_vcpus": round(lg["vcpus"]), "grown_ram_gb": round(lg["ram_gb"]),
+            "grown_storage_tb": round(lg["storage_tb"], 2),
             "compute_pct": link.compute_pct, "storage_pct": link.storage_pct,
             "mode": link.mode,
             "sized": bool((src.result_snapshot or {}).get("clusters")),
+            "years": int(g["years"]),
+            "growth_pct": g["growth_pct"],
+            "storage_growth_pct": (g["storage_growth_pct"]
+                                   if g["storage_growth_pct"] is not None
+                                   else g["growth_pct"]),
+            "snapshot_pct": g["snapshot_pct"],
         })
     # Reserved (N-1) is the conservative default; only go full-cluster when every
     # inbound link is failover-only.
@@ -1470,6 +1570,7 @@ def dr_recommend(config_id):
         return jsonify({"error": "Not a DR target"}), 400
 
     reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
+    grown = reserve.pop("grown")
     summary = _dr_demand_summary(reserve)
 
     data = request.json or {}
@@ -1495,12 +1596,14 @@ def dr_recommend(config_id):
                         "projection": None, "size_full_cluster": size_full_cluster,
                         "warnings": [{"code": code}]})
 
+    # Growth, storage growth, snapshot and horizon are NOT read from the
+    # request any more: each inbound link is grown at its own source's options
+    # (G2), and the projection runs to the longest source horizon (P1).
     result = generate_recommendations(
         summary,
         vcpu_ratio=_num("vcpu_ratio", None) if data.get("vcpu_ratio") is not None else None,
-        growth_pct=_num("growth_pct", 10),
-        snapshot_pct=_num("snapshot_pct", 20),
-        years=int(_num("years", 5)),
+        years=grown["years"],
+        pregrown=grown,
         storage_pref=data.get("storage_pref"),
         size_full_cluster=size_full_cluster,
         sizing_mode=sizing_mode,
@@ -1512,6 +1615,11 @@ def dr_recommend(config_id):
     )
     return jsonify({
         "reserve": {k: round(v, 2) for k, v in reserve.items()},
+        # The reserve at the horizon, each link at its own source's growth.
+        "grown_reserve": {"vcpus": round(grown["vcpus"], 1),
+                          "ram_gb": round(grown["ram_gb"], 1),
+                          "storage_tb": round(grown["storage_tb"], 2),
+                          "years": grown["years"]},
         "sources": sources,
         "size_full_cluster": size_full_cluster,
         "recommendations": result["recommendations"],

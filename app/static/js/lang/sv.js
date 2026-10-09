@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Personalhandbok",
   "manual.to_user": "Partnerutgåva",
   "manual.to_scale": "Personalutgåva",
-  "manual.back": "Tillbaka till sizern"
+  "manual.back": "Tillbaka till sizern",
+  "dr.growth_notice_title": "DR följer nu produktionen",
+  "dr.growth_notice_old": "Detta DR-mål dimensionerades med egna tillväxtinställningar: {growth} % över {years} år, ögonblicksbild {snapshot} %.",
+  "dr.growth_notice_body": "DR följer nu tillväxten för varje källdimensionering (se tabellen). Siffrorna kan ändras när målet dimensioneras om.",
+  "dr.growth_notice_ok": "Uppfattat",
+  "dr.src_growth": "Tillväxt: {years} år · beräkning {growth} % · lagring {storage} % · ögonblicksbild {snapshot} %",
+  "dr.growth_follows": "Tillväxten följer varje källdimensionering.",
 };

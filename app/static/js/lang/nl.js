@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Medewerkershandleiding",
   "manual.to_user": "Partnereditie",
   "manual.to_scale": "Medewerkerseditie",
-  "manual.back": "Terug naar de sizer"
+  "manual.back": "Terug naar de sizer",
+  "dr.growth_notice_title": "DR volgt nu productie",
+  "dr.growth_notice_old": "Dit DR-doel is gedimensioneerd met eigen groei-instellingen: {growth} % over {years} jaar, snapshot {snapshot} %.",
+  "dr.growth_notice_body": "DR volgt nu de groei van elke brondimensionering (zie de tabel). De cijfers kunnen veranderen wanneer dit doel opnieuw wordt gedimensioneerd.",
+  "dr.growth_notice_ok": "Begrepen",
+  "dr.src_growth": "Groei: {years} j · compute {growth} % · opslag {storage} % · snapshot {snapshot} %",
+  "dr.growth_follows": "De groei volgt elke brondimensionering.",
 };

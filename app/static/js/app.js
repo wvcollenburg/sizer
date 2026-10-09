@@ -1629,7 +1629,8 @@ function renderInboundReserveNote() {
     const el = document.getElementById('inbound-reserve-note');
     if (!el) return;
     if (!inboundReserve) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    const r = inboundReserve.reserve || {};
+    // Day-one figures; the engine receives them grown at each source's rates.
+    const r = inboundReserve.base_reserve || inboundReserve.reserve || {};
     const names = (inboundReserve.sources || []).map(s => s.sizing_name).join(', ');
     el.style.display = 'flex';
     el.innerHTML = `<span class="info-bar-icon">i</span><span>${window.t('results.inbound_reserve_note', {
@@ -4167,9 +4168,6 @@ async function enterDrTarget(config) {
     // Restore saved sizing options from the DR payload (if it was sized before).
     const dr = (config.payload && config.payload.dr) || {};
     _writeField('dr-ratio', dr.vcpu_ratio != null ? dr.vcpu_ratio : DEFAULT_SIZING_RATIO);
-    _writeField('dr-growth-years', dr.years != null ? dr.years : 5);
-    _writeField('dr-growth-pct', dr.growth_pct != null ? dr.growth_pct : 10);
-    _writeField('dr-snapshot-pct', dr.snapshot_pct != null ? dr.snapshot_pct : 20);
     _writeField('dr-sizing-mode', dr.sizing_mode || 'certified');
     _writeField('dr-vendor', dr.vendor || '');
     syncVendorControl('dr-sizing-mode', 'dr-vendor-group', 'dr-vendor');
@@ -4182,6 +4180,51 @@ async function enterDrTarget(config) {
     if (dr.selectedRec != null) selectedRec['dr'] = dr.selectedRec;
 
     await sizeDrTarget();
+    _maybeShowDrGrowthNotice(config);
+}
+
+// ── one-time notice: DR follows production (plan A, G3) ───────────────────────
+// A DR target saved before DR followed its sources carries its own growth
+// fields in payload.dr. Opening one shows, once, what it was sized with and
+// that it now follows each source sizing's growth. Dismissing stores
+// follows_sources on the payload (so it shows once per sizing, for everyone);
+// a viewer who cannot edit sees it on every open until an editor dismisses it.
+// Nothing is kept in the browser.
+function _isLegacyDrPayload(payload) {
+    const dr = payload && payload.dr;
+    if (!dr || dr.follows_sources) return false;
+    return dr.growth_pct != null || dr.years != null || dr.snapshot_pct != null;
+}
+
+function _maybeShowDrGrowthNotice(config) {
+    if (!_isLegacyDrPayload(config && config.payload)) return false;
+    const dr = config.payload.dr;
+    const old = document.getElementById('dr-growth-notice-old');
+    if (old) {
+        old.textContent = window.t('dr.growth_notice_old', {
+            growth: dr.growth_pct != null ? dr.growth_pct : 10,
+            years: dr.years != null ? dr.years : 5,
+            snapshot: dr.snapshot_pct != null ? dr.snapshot_pct : 20,
+        });
+    }
+    document.getElementById('dr-growth-notice-modal').style.display = 'flex';
+    return true;
+}
+
+async function dismissDrGrowthNotice() {
+    document.getElementById('dr-growth-notice-modal').style.display = 'none';
+    const config = drTargetConfig;
+    if (!config || !_isLegacyDrPayload(config.payload) || !config.can_edit) return;
+    const dr = { ...config.payload.dr, follows_sources: true };
+    delete dr.growth_pct;
+    delete dr.years;
+    delete dr.snapshot_pct;
+    const payload = { ...config.payload, dr };
+    const put = await _drFetchJson(`/api/configs/${config.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload }),
+    });
+    if (put.ok) config.payload = payload;
 }
 
 function _drOptions() {
@@ -4192,9 +4235,6 @@ function _drOptions() {
     };
     return {
         vcpu_ratio: parseFloat(val('dr-ratio', DEFAULT_SIZING_RATIO)) || DEFAULT_SIZING_RATIO,
-        years: parseInt(val('dr-growth-years', 5), 10) || 5,
-        growth_pct: parseFloat(val('dr-growth-pct', 10)) || 0,
-        snapshot_pct: parseFloat(val('dr-snapshot-pct', 20)) || 0,
         sizing_mode: val('dr-sizing-mode', 'certified') || 'certified',
         vendor: val('dr-vendor', '') || '',
         target_model: val('dr-target-model', '') || '',
@@ -4251,7 +4291,12 @@ function renderDrReserve(data) {
         const figs = `${Math.round(s.vcpus)} ${esc(window.t('dr.vcpu'))} · ${formatRam(Math.round(s.ram_gb))} · `
             + `${Math.round(s.storage_tb * 10) / 10} TB · ${s.compute_pct}% / ${s.storage_pct}% · `
             + `${esc(window.t(modeKey))}`;
-        return `<li>${label}${warn} <span class="dr-src-figs">${figs}</span></li>`;
+        // The growth this link is projected with: its source sizing's own.
+        const growth = s.years != null ? `<span class="dr-src-growth">${esc(window.t('dr.src_growth', {
+            years: s.years, growth: s.growth_pct, storage: s.storage_growth_pct,
+            snapshot: s.snapshot_pct,
+        }))}</span>` : '';
+        return `<li>${label}${warn} <span class="dr-src-figs">${figs}</span>${growth}</li>`;
     }).join('');
     const modeNote = data.size_full_cluster
         ? window.t('dr.mode_failover_note') : window.t('dr.mode_reserved_note');
@@ -4261,7 +4306,7 @@ function renderDrReserve(data) {
             <span class="dr-reserve-figs">${Math.round(r.vcpus)} ${esc(window.t('dr.vcpu'))} · ${formatRam(Math.round(r.ram_gb))} · ${Math.round(r.storage_tb * 10) / 10} TB</span>
         </div>
         ${srcRows ? `<ul class="dr-src-list">${srcRows}</ul>` : `<p class="dr-reserve-empty">${esc(window.t('dr.no_inbound'))}</p>`}
-        ${srcRows ? `<p class="dr-mode-note">${esc(modeNote)}</p>` : ''}`;
+        ${srcRows ? `<p class="dr-mode-note">${esc(modeNote)} ${esc(window.t('dr.growth_follows'))}</p>` : ''}`;
 }
 
 function renderDrRecommendations() {
@@ -4343,7 +4388,9 @@ async function saveDrTarget() {
     const opts = _drOptions();
 
     // Persist the DR sizing options in the payload so reopening restores them.
-    const payload = { mode: 'dr_target', dr: { ...opts, selectedRec: sel } };
+    // Growth is not a DR option: each inbound link follows its source sizing.
+    const payload = { mode: 'dr_target',
+                      dr: { ...opts, selectedRec: sel, follows_sources: true } };
     const put = await _drFetchJson(`/api/configs/${drTargetConfig.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payload }),
@@ -4378,6 +4425,7 @@ async function saveDrTarget() {
 }
 
 window.enterDrTarget = enterDrTarget;
+window.dismissDrGrowthNotice = dismissDrGrowthNotice;
 window.saveDrTarget = saveDrTarget;
 window.selectDrRec = selectDrRec;
 window.isDrTarget = () => currentMode === 'dr_target';

@@ -2765,6 +2765,7 @@ body.auth-required footer { display: none; }
 .dr-src-list { margin: 0.5rem 0 0; padding-left: 1.2rem; }
 .dr-src-list li { margin: 0.2rem 0; }
 .dr-src-figs { color: var(--text-muted); font-size: 0.9em; }
+.dr-src-growth { display: block; color: var(--text-muted); font-size: 0.85em; }
 .dr-src-warn { color: var(--orange); font-size: 0.85em; }
 .dr-mode-note { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.9em; }
 .dr-reserve-empty { margin: 0.4rem 0 0; color: var(--text-muted); }

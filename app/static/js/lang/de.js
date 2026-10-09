@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Mitarbeiterhandbuch",
   "manual.to_user": "Partnerausgabe",
   "manual.to_scale": "Mitarbeiterausgabe",
-  "manual.back": "Zurück zum Sizer"
+  "manual.back": "Zurück zum Sizer",
+  "dr.growth_notice_title": "DR folgt jetzt der Produktion",
+  "dr.growth_notice_old": "Dieses DR-Ziel wurde mit eigenen Wachstumseinstellungen dimensioniert: {growth} % über {years} Jahre, Snapshot {snapshot} %.",
+  "dr.growth_notice_body": "DR folgt jetzt dem Wachstum jeder Quelldimensionierung (siehe Tabelle). Die Zahlen können sich bei der nächsten Dimensionierung dieses Ziels ändern.",
+  "dr.growth_notice_ok": "Verstanden",
+  "dr.src_growth": "Wachstum: {years} J. · Compute {growth} % · Speicher {storage} % · Snapshot {snapshot} %",
+  "dr.growth_follows": "Das Wachstum folgt jeder Quelldimensionierung.",
 };

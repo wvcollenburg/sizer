@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Töötajate juhend",
   "manual.to_user": "Partneri väljaanne",
   "manual.to_scale": "Töötajate väljaanne",
-  "manual.back": "Tagasi sizerisse"
+  "manual.back": "Tagasi sizerisse",
+  "dr.growth_notice_title": "DR järgib nüüd tootmist",
+  "dr.growth_notice_old": "See DR-siht mõõdeti oma kasvuseadetega: {growth} % {years} aasta jooksul, hetktõmmis {snapshot} %.",
+  "dr.growth_notice_body": "DR järgib nüüd iga lähtemõõtmise kasvu (vt tabelit). Arvud võivad muutuda, kui sihti uuesti mõõdetakse.",
+  "dr.growth_notice_ok": "Selge",
+  "dr.src_growth": "Kasv: {years} a · arvutus {growth} % · salvestus {storage} % · hetktõmmis {snapshot} %",
+  "dr.growth_follows": "Kasv järgib iga lähtemõõtmist.",
 };

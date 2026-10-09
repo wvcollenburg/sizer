@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Manual del personal",
   "manual.to_user": "Edición para partners",
   "manual.to_scale": "Edición para el personal",
-  "manual.back": "Volver al sizer"
+  "manual.back": "Volver al sizer",
+  "dr.growth_notice_title": "El DR ahora sigue a producción",
+  "dr.growth_notice_old": "Este destino DR se dimensionó con su propia configuración de crecimiento: {growth} % durante {years} años, snapshot {snapshot} %.",
+  "dr.growth_notice_body": "El DR ahora sigue el crecimiento de cada dimensionamiento de origen (ver la tabla). Las cifras pueden cambiar cuando se vuelva a dimensionar este destino.",
+  "dr.growth_notice_ok": "Entendido",
+  "dr.src_growth": "Crecimiento: {years} años · cómputo {growth} % · almacenamiento {storage} % · snapshot {snapshot} %",
+  "dr.growth_follows": "El crecimiento sigue a cada dimensionamiento de origen.",
 };

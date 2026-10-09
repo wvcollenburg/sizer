@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Darbuotojų vadovas",
   "manual.to_user": "Partnerių leidimas",
   "manual.to_scale": "Darbuotojų leidimas",
-  "manual.back": "Atgal į sizer"
+  "manual.back": "Atgal į sizer",
+  "dr.growth_notice_title": "DR dabar seka gamybą",
+  "dr.growth_notice_old": "Šis DR taikinys buvo apskaičiuotas pagal savo augimo nustatymus: {growth} % per {years} m., momentinė kopija {snapshot} %.",
+  "dr.growth_notice_body": "DR dabar seka kiekvieno šaltinio dydžio skaičiavimo augimą (žr. lentelę). Skaičiai gali pasikeisti, kai šis taikinys bus perskaičiuotas.",
+  "dr.growth_notice_ok": "Supratau",
+  "dr.src_growth": "Augimas: {years} m. · skaičiavimas {growth} % · saugykla {storage} % · momentinė kopija {snapshot} %",
+  "dr.growth_follows": "Augimas seka kiekvieno šaltinio dydžio skaičiavimą.",
 };

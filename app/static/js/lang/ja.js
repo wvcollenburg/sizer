@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "社内向けマニュアル",
   "manual.to_user": "パートナー版",
   "manual.to_scale": "社内版",
-  "manual.back": "サイザーに戻る"
+  "manual.back": "サイザーに戻る",
+  "dr.growth_notice_title": "DRは本番環境に追従するようになりました",
+  "dr.growth_notice_old": "このDRターゲットは独自の成長設定でサイジングされていました：{years}年間で{growth} %、スナップショット{snapshot} %。",
+  "dr.growth_notice_body": "DRは各ソースサイジングの成長に追従するようになりました（表を参照）。このターゲットを再サイジングすると数値が変わる場合があります。",
+  "dr.growth_notice_ok": "了解",
+  "dr.src_growth": "成長：{years}年 · コンピュート {growth} % · ストレージ {storage} % · スナップショット {snapshot} %",
+  "dr.growth_follows": "成長は各ソースサイジングに追従します。",
 };

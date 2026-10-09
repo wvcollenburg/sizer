@@ -1721,5 +1721,11 @@
   "manual.badge_scale": "Staff manual",
   "manual.to_user": "Partner edition",
   "manual.to_scale": "Staff edition",
-  "manual.back": "Back to the sizer"
+  "manual.back": "Back to the sizer",
+  "dr.growth_notice_title": "DR now follows production",
+  "dr.growth_notice_old": "This DR target was sized with its own growth settings: {growth} % over {years} years, snapshot {snapshot} %.",
+  "dr.growth_notice_body": "DR now follows each source sizing's growth (see the table). The figures can change when this target is re-sized.",
+  "dr.growth_notice_ok": "Understood",
+  "dr.src_growth": "Growth: {years} y · compute {growth} % · storage {storage} % · snapshot {snapshot} %",
+  "dr.growth_follows": "Growth follows each source sizing.",
 };

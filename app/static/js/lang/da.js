@@ -1720,5 +1720,11 @@
   "manual.badge_scale": "Medarbejdervejledning",
   "manual.to_user": "Partnerudgave",
   "manual.to_scale": "Medarbejderudgave",
-  "manual.back": "Tilbage til sizeren"
+  "manual.back": "Tilbage til sizeren",
+  "dr.growth_notice_title": "DR følger nu produktionen",
+  "dr.growth_notice_old": "Dette DR-mål blev dimensioneret med egne vækstindstillinger: {growth} % over {years} år, snapshot {snapshot} %.",
+  "dr.growth_notice_body": "DR følger nu væksten for hver kildedimensionering (se tabellen). Tallene kan ændre sig, når målet dimensioneres igen.",
+  "dr.growth_notice_ok": "Forstået",
+  "dr.src_growth": "Vækst: {years} år · beregning {growth} % · lager {storage} % · snapshot {snapshot} %",
+  "dr.growth_follows": "Væksten følger hver kildedimensionering.",
 };

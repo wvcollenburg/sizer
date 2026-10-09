@@ -736,7 +736,15 @@ def test_inbound_reserve_endpoint(app):
 
     d = c.get(f"/api/sizings/{tgt['id']}/inbound-reserve").get_json()
     assert d["has_inbound"] is True
-    assert d["reserve"] == {"vcpus": 50.0, "ram_gb": 200.0, "storage_tb": 8.0}
+    assert d["base_reserve"] == {"vcpus": 50.0, "ram_gb": 200.0, "storage_tb": 8.0}
+    # The reserve itself is grown at the SOURCE's options (an unsized source
+    # with empty fields: the defaults 10 % / 5 y / snapshot 20 %), and flagged
+    # so the engine does not grow it again at the receiver's rates.
+    f = 1.1 ** 5
+    assert d["reserve"] == {"vcpus": round(50 * f, 1), "ram_gb": round(200 * f, 1),
+                            "storage_tb": round(8 * f * (1 + 0.2 * f), 2),
+                            "pregrown": True}
+    assert d["sources"][0]["years"] == 5 and d["sources"][0]["growth_pct"] == 10
     assert d["mode"] == "reserved"
     assert d["sources"][0]["sizing_name"] == "Source"
 
