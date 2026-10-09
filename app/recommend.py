@@ -107,6 +107,46 @@ STORAGE_CATEGORIES = {
 }
 
 
+def project_demand(base, growth_pct, storage_growth_pct=None, snapshot_pct=0,
+                   years=5):
+    """Grow a day-one demand to the sizing horizon. Pure; shared by the engine
+    and the DR / inbound-reserve path, so a replica is grown exactly like the
+    production workload it copies.
+
+    ``base`` is {vcpus, ram_gb, storage_tb}. Compute (vCPU, RAM) grows at
+    ``growth_pct``; storage AND its snapshot reserve grow at
+    ``storage_growth_pct`` (None = the compute rate, which is the single-rate
+    behaviour). The snapshot reserve compounds with the storage rate, the same
+    way it always compounded with the one rate.
+
+    Returns the projected vcpus (unrounded), ram_gb, storage_tb (data +
+    snapshot), snapshot_tb (the snapshot slice alone), and the factors used.
+    """
+    growth = (growth_pct or 0) / 100
+    s_growth = growth if storage_growth_pct is None else storage_growth_pct / 100
+    snap_base = (snapshot_pct or 0) / 100
+    compute_factor = (1 + growth) ** years
+    storage_factor = (1 + s_growth) ** years
+    snap_at_target = snap_base * (1 + s_growth) ** years
+    storage = base.get("storage_tb", 0) or 0
+    return {
+        "vcpus": (base.get("vcpus", 0) or 0) * compute_factor,
+        "ram_gb": (base.get("ram_gb", 0) or 0) * compute_factor,
+        "storage_tb": storage * storage_factor * (1 + snap_at_target),
+        "snapshot_tb": storage * storage_factor * snap_at_target,
+        "compute_factor": compute_factor,
+        "storage_factor": storage_factor,
+        "snap_at_target": snap_at_target,
+    }
+
+
+def _effective_rate(factor, years):
+    """Annual % that compounds to ``factor`` over ``years`` (display only)."""
+    if factor <= 0 or years <= 0:
+        return 0.0
+    return round((factor ** (1.0 / years) - 1) * 100, 2)
+
+
 def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              snapshot_pct=20, years=5, target_nodes=None,
                              storage_pref=None, size_full_cluster=False,
@@ -117,7 +157,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
                              replication_reserve=None, replication_compute_mode="reserved",
                              allow_single_node=False,
                              license_term_years=None, guest_licensing=None,
-                             region=None, vendor=None):
+                             region=None, vendor=None,
+                             storage_growth_pct=None, pregrown=None):
     # Load the current admin-tuned weights/overheads/limits for this request.
     refresh_from_db()
     if vcpu_ratio is None:
@@ -197,24 +238,59 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     else:
         vendor = None
         vendor_chassis = None
-    growth = growth_pct / 100
-    snap_base = snapshot_pct / 100
-
-    growth_factor = (1 + growth) ** years
-    snap_at_target = snap_base * (1 + growth) ** years
+    # Storage may grow at its own rate (the "Separate storage growth" toggle);
+    # None means one rate for everything, which is exactly the old behaviour.
+    separate_storage_growth = storage_growth_pct is not None
+    if separate_storage_growth:
+        try:
+            storage_growth_pct = float(storage_growth_pct)
+        except (TypeError, ValueError):
+            storage_growth_pct, separate_storage_growth = None, False
 
     base_vcpus = summary["total_vcpus"]
     base_ram = summary["total_vm_provisioned_memory_gb"]
     base_storage = summary["datastore_used_tb"]
 
-    projected_vcpus = math.ceil(base_vcpus * growth_factor)
-    projected_ram = base_ram * growth_factor
-    projected_storage = base_storage * growth_factor * (1 + snap_at_target)
-    # The snapshot slice of that, on its own. Only storage carries a snapshot
-    # reserve (a snapshot is stored data — CPU and RAM get growth only), and the
-    # utilization bar draws it as its own band, so keep the split explicit here
-    # rather than making the UI re-derive it from the two factors.
-    snapshot_storage = base_storage * growth_factor * snap_at_target
+    if pregrown:
+        # The caller already grew the demand (a DR target whose inbound links
+        # each grow at their own source's rates). Use those figures as the
+        # projected demand; `summary` stays the day-one base, so the day-one
+        # floors below still gate on what exists today. The factors are
+        # implied by the two, for the GHz floor and the projection display.
+        years = max(1, min(int(pregrown.get("years") or years), 5))
+        projected_vcpus = math.ceil(pregrown.get("vcpus", 0) or 0)
+        projected_ram = pregrown.get("ram_gb", 0) or 0
+        projected_storage = pregrown.get("storage_tb", 0) or 0
+        snapshot_storage = pregrown.get("snapshot_tb", 0) or 0
+        data_storage = projected_storage - snapshot_storage
+        growth_factor = ((pregrown.get("vcpus", 0) or 0) / base_vcpus
+                         if base_vcpus else 1.0)
+        storage_factor = data_storage / base_storage if base_storage else 1.0
+        snap_at_target = snapshot_storage / data_storage if data_storage else 0.0
+        growth_pct = _effective_rate(growth_factor, years)
+        storage_growth_pct = _effective_rate(storage_factor, years)
+        separate_storage_growth = abs(growth_pct - storage_growth_pct) > 0.005
+        snapshot_pct = round(snap_at_target / storage_factor * 100, 1) \
+            if storage_factor else 0
+    else:
+        grown = project_demand(
+            {"vcpus": base_vcpus, "ram_gb": base_ram, "storage_tb": base_storage},
+            growth_pct, storage_growth_pct, snapshot_pct, years)
+        # Compute (vCPU, RAM, GHz/perf floor) grows at growth_pct; storage and
+        # its snapshot reserve at the storage rate.
+        growth_factor = grown["compute_factor"]
+        storage_factor = grown["storage_factor"]
+        snap_at_target = grown["snap_at_target"]
+        projected_vcpus = math.ceil(grown["vcpus"])
+        projected_ram = grown["ram_gb"]
+        projected_storage = grown["storage_tb"]
+        # The snapshot slice of that, on its own. Only storage carries a snapshot
+        # reserve (a snapshot is stored data — CPU and RAM get growth only), and
+        # the utilization bar draws it as its own band, so keep the split
+        # explicit here rather than making the UI re-derive it.
+        snapshot_storage = grown["snapshot_tb"]
+        if storage_growth_pct is None:
+            storage_growth_pct = growth_pct
 
     # Day-one capacity floors: the workload must occupy <= cap% of capacity today.
     # Equivalent to requiring capacity >= base_demand / (cap/100). Sizing then
@@ -296,9 +372,19 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     rep_ram_base = max(0.0, float(rep.get("ram_gb", 0) or 0))
     rep_storage_base = max(0.0, float(rep.get("storage_tb", 0) or 0))
 
-    rep_cores = math.ceil(rep_vcpus * growth_factor / vcpu_ratio) if rep_vcpus else 0
-    rep_ram = rep_ram_base * growth_factor
-    rep_storage = rep_storage_base * growth_factor * (1 + snap_at_target)
+    if rep.get("pregrown"):
+        # Already grown at each SOURCE's own rates (inbound_reserve), snapshot
+        # included: a replica grows like the production it copies, not like
+        # this receiver.
+        rep_cores = math.ceil(rep_vcpus / vcpu_ratio) if rep_vcpus else 0
+        rep_ram = rep_ram_base
+        rep_storage = rep_storage_base
+        rep_vcpus_grown = rep_vcpus
+    else:
+        rep_cores = math.ceil(rep_vcpus * growth_factor / vcpu_ratio) if rep_vcpus else 0
+        rep_ram = rep_ram_base * growth_factor
+        rep_storage = rep_storage_base * storage_factor * (1 + snap_at_target)
+        rep_vcpus_grown = rep_vcpus * growth_factor
 
     needs["rep_cores"] = rep_cores
     needs["rep_ram_gb"] = rep_ram
@@ -307,7 +393,7 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # Grown replica vCPUs, kept separately from cores: the achieved-ratio
     # display and the infeasibility hint reason in vCPU terms, and rep_cores
     # already bakes in the requested ratio (which those two must not assume).
-    needs["rep_vcpus"] = rep_vcpus * growth_factor
+    needs["rep_vcpus"] = rep_vcpus_grown
     needs["rep_vcpus_n1"] = needs["rep_vcpus"] if rep_mode != "failover" else 0.0
     # Compute reserve (CPU cores AND RAM) counts at N-1 (steady state) in
     # "reserved" mode; in "failover" mode it counts only against the full cluster
@@ -571,7 +657,14 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
         "projected_ghz": projected_ghz,
         "snapshot_pct_at_target": round(snap_at_target * 100, 1),
         "growth_factor": round(growth_factor, 3),
+        # Storage (and snapshot) rate. Always present; equal to the compute
+        # values unless the separate-storage-growth toggle is on.
+        "storage_growth_pct": storage_growth_pct,
+        "storage_growth_factor": round(storage_factor, 3),
+        "separate_storage_growth": separate_storage_growth,
     }
+    if pregrown:
+        projection["pregrown"] = True
 
     # Active compute-floor summary (perf-based sizing). Always reported so the UI
     # can show whether the floor is on and what demand it sized against; the

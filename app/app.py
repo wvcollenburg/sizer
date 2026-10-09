@@ -451,6 +451,9 @@ def create_app():
             return jsonify({"error": "No summary provided"}), 400
         vcpu_ratio = data.get("vcpu_ratio")
         growth_pct = data.get("growth_pct", 10)
+        # Optional separate storage (and snapshot) growth rate; absent = storage
+        # grows at growth_pct, the single-rate behaviour.
+        storage_growth_pct = data.get("storage_growth_pct")
         snapshot_pct = data.get("snapshot_pct", 20)
         years = data.get("years", 5)
         target_nodes = data.get("target_nodes")
@@ -498,6 +501,7 @@ def create_app():
                                               replication_compute_mode=replication_compute_mode,
                                               allow_single_node=allow_single_node,
                                               license_term_years=license_term_years,
+                                              storage_growth_pct=storage_growth_pct,
                                               guest_licensing=guest_licensing,
                                               vendor=vendor)
         except (TypeError, ValueError, KeyError):
