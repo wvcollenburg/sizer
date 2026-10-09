@@ -1,7 +1,7 @@
 from openpyxl import load_workbook
 from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
                         to_int as _int)
-from parser_common import build_summary as _build_summary
+from parser_common import build_summary as _build_summary, vm_identity
 from cluster_split import cluster_summaries as _cluster_summaries
 
 
@@ -302,6 +302,7 @@ def _parse_hyperv(wb):
             "datastore": "",
             "host": r.get("Hypervisor", ""),
             "cluster": r.get("Cluster", "") or "",
+            **vm_identity(r, ("InstanceUUID", "VM ID", "Guest VM ID"), ("UUID",)),
         })
 
     return {
@@ -474,6 +475,7 @@ def _parse_vms(wb):
             "datastore": r.get("Datastore", ""),
             "host": r.get("Host", ""),
             "cluster": r.get("Cluster", ""),
+            **vm_identity(r, ("InstanceUUID",), ("UUID",)),
         })
     return vms
 

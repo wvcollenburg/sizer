@@ -75,6 +75,47 @@ def detect_guest_licensing(vms):
 
 
 
+def vm_identity(row, instance_cols, bios_cols):
+    """The uuid fields of one VM row, for matching a VM across several
+    imported files (import_merge). Only set when the source has them, so a
+    file without uuids adds nothing to the stored VM list."""
+    out = {}
+    for key, cols in (("uuid", instance_cols), ("bios_uuid", bios_cols)):
+        for col in cols:
+            v = str(row.get(col) or "").strip()
+            if v:
+                out[key] = v.lower()
+                break
+    return out
+
+
+def collection_date(project):
+    """ISO date (YYYY-MM-DD) the assessment was collected, read from the
+    file's own metadata, else None. Live Optics: Details "Date"; RVTools:
+    vMetaData "xlsx creation datetime"; Nutanix and others: the first
+    metadata key that names a date."""
+    import datetime as _dt
+    import re as _re
+    if not isinstance(project, dict):
+        return None
+    keys = ["Date", "xlsx creation datetime"] + [
+        k for k in project if "date" in str(k).lower()]
+    for k in keys:
+        v = project.get(k)
+        if v in (None, ""):
+            continue
+        if isinstance(v, (_dt.datetime, _dt.date)):
+            return v.strftime("%Y-%m-%d")
+        m = _re.search(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", str(v))
+        if m:
+            y, mo, d = (int(x) for x in m.groups())
+            try:
+                return _dt.date(y, mo, d).isoformat()
+            except ValueError:
+                continue
+    return None
+
+
 def build_summary(data, source=None):
     """Aggregate a parsed workload (hosts / vms / perf / datastores) into the
     flat summary dict the recommender and UI consume. ``source`` optionally tags

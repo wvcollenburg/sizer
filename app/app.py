@@ -21,6 +21,8 @@ from liveoptics import parse_liveoptics
 from rvtools import parse_rvtools
 from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
 from import_checks import build_import_warnings, import_rejection
+from import_merge import merge as merge_datasets
+from parser_common import collection_date
 import hcl_vendor
 from recommend import generate_recommendations
 from tunables import T, refresh_from_db
@@ -45,6 +47,8 @@ MAX_NODE_COUNT = 1000
 # (docs/projects-plan.md §7.1), which is why the limit is no longer named after
 # clusters.
 MAX_EXPORT_SECTIONS = 50
+# Files one multi-file import may merge (each parsed in its own request).
+MAX_MERGE_FILES = 50
 
 
 def _validated_disk_sizes():
@@ -395,6 +399,38 @@ def create_app():
                     "error_params": rejection["params"],
                 }), 422
 
+            source_meta = {
+                "file_name": f.filename,
+                "file_type": file_type,
+                "file_sha256": file_digest,
+                "imported_at": _utcnow_iso(),
+                # When the assessment was collected, from the file itself;
+                # a multi-file import keeps the newest copy of an overlap.
+                "collected_at": collection_date(data.get("project")),
+                "host_count": len(data.get("hosts") or []),
+                "vm_count": len(data.get("vms") or []),
+                "parser_version": PARSER_VERSION,
+            }
+            if request.args.get("raw"):
+                # One file of a multi-file import: the parsed records only,
+                # for /api/import-merge. No sizing here; that runs on the
+                # merged estate.
+                return jsonify({
+                    "summary": data["summary"],
+                    "project": data["project"],
+                    "hosts": data["hosts"],
+                    "host_performance": data.get("host_performance") or [],
+                    "host_nics": data.get("host_nics") or [],
+                    "datastores": data["datastores"],
+                    "vms": data["vms"],
+                    "clusters": data.get("clusters", []),
+                    "scan_type": data.get("scan_type"),
+                    "file_type": file_type,
+                    "import_warnings": build_import_warnings(data, file_type),
+                    "source": file_type,
+                    "source_meta": source_meta,
+                })
+
             vcpu_ratio = request.form.get("vcpu_ratio", type=float)
             result = generate_recommendations(data["summary"], vcpu_ratio)
             return jsonify({
@@ -422,15 +458,7 @@ def create_app():
                 # into one proposal is exactly when the reader needs to know
                 # which number came from where. The digest also lets the client
                 # warn when the same file is imported into a project twice.
-                "source_meta": {
-                    "file_name": f.filename,
-                    "file_type": file_type,
-                    "file_sha256": file_digest,
-                    "imported_at": _utcnow_iso(),
-                    "host_count": len(data.get("hosts") or []),
-                    "vm_count": len(data.get("vms") or []),
-                    "parser_version": PARSER_VERSION,
-                },
+                "source_meta": source_meta,
             })
         except Exception as e:
             app.logger.warning("Import parse failed: %s", e)
@@ -511,6 +539,31 @@ def create_app():
             return jsonify({"error": "The imported figures are incomplete or "
                                      "malformed. Re-import the environment."}), 400
         return jsonify(result)
+
+    @app.route("/api/import-merge", methods=["POST"])
+    def import_merge_route():
+        """Merge several raw-parsed files (POST /api/import-liveoptics?raw=1)
+        into one estate, cut into the mapped target clusters. Stateless: the
+        client posts every dataset with its current overlap choices and
+        mapping, and calls again whenever one changes."""
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("datasets"), list):
+            return jsonify({"error": "No datasets provided"}), 400
+        datasets = data["datasets"]
+        if not datasets or len(datasets) > MAX_MERGE_FILES:
+            return jsonify({"error": f"Merge 1 to {MAX_MERGE_FILES} files"}), 400
+        resolutions = data.get("resolutions")
+        mapping = data.get("mapping")
+        resolutions = {} if resolutions is None else resolutions
+        mapping = {} if mapping is None else mapping
+        if not isinstance(resolutions, dict) or not isinstance(mapping, dict):
+            return jsonify({"error": "Invalid merge request"}), 400
+        try:
+            return jsonify(merge_datasets(datasets, resolutions, mapping))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            app.logger.warning("Import merge rejected malformed input")
+            return jsonify({"error": "The imported files are incomplete or "
+                                     "malformed. Import them again."}), 400
 
     @app.route("/api/cpu-perf")
     def cpu_perf():
