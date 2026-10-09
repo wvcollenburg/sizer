@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Compris",
   "dr.src_growth": "Croissance : {years} ans · calcul {growth} % · stockage {storage} % · snapshot {snapshot} %",
   "dr.growth_follows": "La croissance suit chaque dimensionnement source.",
+  "results.separate_storage_growth": "Croissance du stockage distincte",
+  "results.separate_storage_growth_info": "Faire croître le stockage (et sa réserve d'instantanés) à son propre taux annuel. Le taux ci-dessus ne s'applique alors qu'au calcul : vCPU, RAM et GHz CPU.",
+  "results.storage_growth": "Croissance du stockage %",
+  "results.compute_growth": "Croissance du calcul %",
+  "results.proj.growth_note_split": "Croissance : calcul {factor}x, stockage {storageFactor}x sur {years} an(s) — Surcharge des instantanés à l'année {years} : {snapPct} %"
 };

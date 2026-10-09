@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Supratau",
   "dr.src_growth": "Augimas: {years} m. · skaičiavimas {growth} % · saugykla {storage} % · momentinė kopija {snapshot} %",
   "dr.growth_follows": "Augimas seka kiekvieno šaltinio dydžio skaičiavimą.",
+  "results.separate_storage_growth": "Atskiras saugyklos augimas",
+  "results.separate_storage_growth_info": "Leisti saugyklai (ir jos momentinių kopijų rezervui) augti savu metiniu tempu. Aukščiau nurodytas tempas tada taikomas tik skaičiavimui: vCPU, RAM ir CPU GHz.",
+  "results.storage_growth": "Saugyklos augimas %",
+  "results.compute_growth": "Skaičiavimo augimas %",
+  "results.proj.growth_note_split": "Augimas: skaičiavimas {factor}x, saugykla {storageFactor}x per {years} m. — Momentinių kopijų pridėtinės sąnaudos {years}-aisiais metais: {snapPct}%"
 };

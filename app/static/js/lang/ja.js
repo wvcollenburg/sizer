@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "了解",
   "dr.src_growth": "成長：{years}年 · コンピュート {growth} % · ストレージ {storage} % · スナップショット {snapshot} %",
   "dr.growth_follows": "成長は各ソースサイジングに追従します。",
+  "results.separate_storage_growth": "ストレージの成長を個別に設定",
+  "results.separate_storage_growth_info": "ストレージ（とそのスナップショット予約）を独自の年間成長率で増加させます。上の成長率はコンピュート（vCPU、RAM、CPU GHz）のみに適用されます。",
+  "results.storage_growth": "ストレージ成長率 %",
+  "results.compute_growth": "コンピュート成長率 %",
+  "results.proj.growth_note_split": "成長: {years} 年でコンピュート {factor} 倍、ストレージ {storageFactor} 倍 — {years} 年目のスナップショットオーバーヘッド: {snapPct}%"
 };

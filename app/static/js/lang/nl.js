@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Begrepen",
   "dr.src_growth": "Groei: {years} j · compute {growth} % · opslag {storage} % · snapshot {snapshot} %",
   "dr.growth_follows": "De groei volgt elke brondimensionering.",
+  "results.separate_storage_growth": "Aparte opslaggroei",
+  "results.separate_storage_growth_info": "Laat opslag (en de snapshotreserve) met een eigen jaarlijks percentage groeien. Het percentage hierboven geldt dan alleen voor compute: vCPU, RAM en CPU-GHz.",
+  "results.storage_growth": "Opslaggroei %",
+  "results.compute_growth": "Computegroei %",
+  "results.proj.growth_note_split": "Groei: compute {factor}x, opslag {storageFactor}x over {years} jaar — Snapshot-overhead in jaar {years}: {snapPct}%"
 };

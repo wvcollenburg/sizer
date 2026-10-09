@@ -393,6 +393,20 @@ def _bullet(doc, text, lang):
     return b
 
 
+def _dr_growth_sentence(p, t9n):
+    """One sentence naming the growth each protected site was grown at (a DR
+    target follows its sources)."""
+    items = [t9n("export.docx.dr_growth_source_item",
+                 name=src.get("sizing_name", ""), growth=src.get("growth_pct", 0),
+                 years=src.get("years", p.get("years", 1)),
+                 storage=src.get("storage_growth_pct", src.get("growth_pct", 0)),
+                 snapshot=src.get("snapshot_pct", 0))
+             for src in (p.get("dr_sources") or [])]
+    if not items:
+        return t9n("export.docx.dr_growth_follows")
+    return t9n("export.docx.dr_growth_sources", sources="; ".join(items))
+
+
 def _is_dedicated(summary):
     """A dedicated DR target has no primary workload of its own."""
     return (summary.get("host_count", 0) == 0 and summary.get("active_vms", 0) == 0)
@@ -533,9 +547,13 @@ def _append_site_sizing(doc, cl, lang, cw):
             _para(doc, t9n("export.docx.rationale_bar_legend"), italic=True, size=9, lang=lang)
             _spacer(doc)
 
-    # Capacity planning (skip for a dedicated DR — its growth mirrors the sources)
-    if not dedicated:
+    # Capacity planning. A dedicated DR sized before DR followed its sources
+    # was grown at its own DR-form rate, so it is skipped there; a pre-grown
+    # one carries its sources' real growth and the table tells the truth.
+    if not dedicated or p.get("pregrown"):
         _heading(doc, t9n("export.docx.capacity_planning", years=p["years"]), lang, level=2)
+        if dedicated:
+            _para(doc, _dr_growth_sentence(p, t9n), italic=True, color=MUTED, lang=lang)
         _grid_table(doc,
                     [t9n("export.common.resource"), t9n("export.common.current"),
                      t9n("export.docx.year_n", years=p["years"]), t9n("export.docx.proposed_n1")],
@@ -811,12 +829,14 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     # ── Management overview (executive summary — leads the document) ──────────
     _add_heading(t9n("export.docx.mgmt_overview"), level=1)
     _para(doc,
-          t9n("export.docx.mgmt_overview_intro",
+          t9n("export.docx.mgmt_overview_intro_split"
+              if p.get("separate_storage_growth") else "export.docx.mgmt_overview_intro",
               platform=s.get("current_platform", "virtualization"),
               hosts=s.get("host_count", 0), vms=s.get("active_vms", 0),
               used_tb=s.get("datastore_used_tb", 0), nodes=nodes_label,
               model=rec_display_model(r), usable_tb=t["usable_storage_tb"], cores=t["cores"],
               years=p["years"], growth=p["growth_pct"],
+              storage=p.get("storage_growth_pct", p["growth_pct"]),
               ratio=f"{r['vcpu_ratio']:.2f}"),
           lang=lang)
     _para(doc, t9n("export.docx.product_intro"), lang=lang)
@@ -998,10 +1018,18 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
 
     # ── Capacity planning ────────────────────────────────────────────────────
     _add_heading(t9n("export.docx.capacity_planning", years=p["years"]), level=1)
-    _para(doc, t9n("export.docx.capacity_planning_intro",
-                   growth=p["growth_pct"], snapshot=p["snapshot_pct"],
-                   factor=p.get("growth_factor", 1)),
-          italic=True, color=MUTED, lang=lang)
+    if p.get("separate_storage_growth"):
+        cp_intro = t9n("export.docx.capacity_planning_intro_split",
+                       growth=p["growth_pct"],
+                       storage=p.get("storage_growth_pct", p["growth_pct"]),
+                       snapshot=p["snapshot_pct"], factor=p.get("growth_factor", 1),
+                       storage_factor=p.get("storage_growth_factor",
+                                            p.get("growth_factor", 1)))
+    else:
+        cp_intro = t9n("export.docx.capacity_planning_intro",
+                       growth=p["growth_pct"], snapshot=p["snapshot_pct"],
+                       factor=p.get("growth_factor", 1))
+    _para(doc, cp_intro, italic=True, color=MUTED, lang=lang)
     _grid_table(doc,
                 [t9n("export.common.resource"), t9n("export.common.current"),
                  t9n("export.docx.year_n", years=p["years"]),

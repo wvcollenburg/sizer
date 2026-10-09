@@ -468,6 +468,43 @@ function toggleStorageOnly() {
     calculate();
 }
 
+// "Separate storage growth": reveals the storage rate and relabels the main
+// rate as compute-only. Off sends no storage rate, so the engine grows
+// everything at one rate (the old behaviour).
+function syncStorageGrowthReveal() {
+    const box = document.getElementById('separate-storage-growth');
+    const group = document.getElementById('storage-growth-group');
+    const label = document.getElementById('growth-pct-label');
+    const on = !!(box && box.checked);
+    if (group) group.hidden = !on;
+    if (label) {
+        const key = on ? 'results.compute_growth' : 'results.yoy_growth';
+        label.setAttribute('data-i18n', key);
+        label.textContent = window.t(key);
+    }
+}
+
+function toggleStorageGrowth() {
+    const box = document.getElementById('separate-storage-growth');
+    const input = document.getElementById('storage-growth-pct');
+    // First reveal starts the storage rate at the current growth rate, so
+    // switching on changes nothing until the user edits it.
+    if (box && box.checked && input && !input.dataset.seeded) {
+        input.value = document.getElementById('growth-pct').value;
+        input.dataset.seeded = '1';
+    }
+    syncStorageGrowthReveal();
+    recalcRecommendations();
+}
+
+// The storage rate to send, or null when the toggle is off.
+function storageGrowthFromDom() {
+    const box = document.getElementById('separate-storage-growth');
+    if (!box || !box.checked) return null;
+    const v = parseFloat(document.getElementById('storage-growth-pct').value);
+    return Number.isFinite(v) ? v : null;
+}
+
 function buildStorageSection(storage) {
     const section = document.getElementById('storage-section');
     section.innerHTML = '';
@@ -1547,6 +1584,7 @@ async function recalcRecommendations() {
     const ratio = parseFloat(document.getElementById('ratio-slider').value);
     const years = parseInt(document.getElementById('growth-years').value);
     const growthPct = parseFloat(document.getElementById('growth-pct').value);
+    const storageGrowthPct = storageGrowthFromDom();
     const snapshotPct = parseFloat(document.getElementById('snapshot-pct').value);
     const targetNodesRaw = document.getElementById('target-nodes').value;
     const targetNodes = targetNodesRaw ? parseInt(targetNodesRaw, 10) : null;
@@ -1576,6 +1614,8 @@ async function recalcRecommendations() {
                 vcpu_ratio: ratio,
                 years: years,
                 growth_pct: growthPct,
+                // Only with "Separate storage growth" on; absent = one rate.
+                ...(storageGrowthPct !== null ? { storage_growth_pct: storageGrowthPct } : {}),
                 snapshot_pct: snapshotPct,
                 target_nodes: targetNodes,
                 storage_pref: storagePref,
@@ -1693,7 +1733,11 @@ function renderProjectionTo(p, targetId) {
             </div>
         </div>
         <div class="proj-note">
-            ${window.t('results.proj.growth_note', {factor: p.growth_factor, years: p.years, snapPct: p.snapshot_pct_at_target})}
+            ${(p.storage_growth_factor != null && p.storage_growth_factor !== p.growth_factor)
+                ? window.t('results.proj.growth_note_split', {factor: p.growth_factor,
+                    storageFactor: p.storage_growth_factor, years: p.years,
+                    snapPct: p.snapshot_pct_at_target})
+                : window.t('results.proj.growth_note', {factor: p.growth_factor, years: p.years, snapPct: p.snapshot_pct_at_target})}
         </div>
         ${iopsDemandNote(p.iops_demand)}
     `;
@@ -2663,7 +2707,9 @@ function buildAssumptions(targetRatio) {
     if (years && yoy !== null) {
         const yearsLabel = document.querySelector('#growth-years option:checked');
         add('results.projection_years', yearsLabel ? yearsLabel.textContent.trim() : years);
-        add('results.yoy_growth', yoy + '%');
+        const split = val('separate-storage-growth') === true;
+        add(split ? 'results.compute_growth' : 'results.yoy_growth', yoy + '%');
+        if (split) add('results.storage_growth', val('storage-growth-pct') + '%');
     }
     add('results.snapshot_overhead', val('snapshot-pct') !== null ? val('snapshot-pct') + '%' : null);
     add('results.max_day_one_storage', val('max-day-one-storage') !== null ? val('max-day-one-storage') + '%' : null);
@@ -3402,11 +3448,16 @@ function _optVal(opts, id, dflt) {
 // rather than the live DOM, so clusters not currently in view can be sized.
 function _recommendBodyFromOpts(summary, opts) {
     const targetNodes = _optVal(opts, 'target-nodes', '');
+    const sep = _optVal(opts, 'separate-storage-growth', false);
+    const storageGrowth = (sep === true || sep === 'true')
+        ? parseFloat(_optVal(opts, 'storage-growth-pct', _optVal(opts, 'growth-pct', 10)))
+        : null;
     return {
         summary,
         vcpu_ratio: parseFloat(_optVal(opts, 'ratio-slider', DEFAULT_SIZING_RATIO)),
         years: parseInt(_optVal(opts, 'growth-years', 5), 10),
         growth_pct: parseFloat(_optVal(opts, 'growth-pct', 10)),
+        ...(Number.isFinite(storageGrowth) ? { storage_growth_pct: storageGrowth } : {}),
         snapshot_pct: parseFloat(_optVal(opts, 'snapshot-pct', 20)),
         target_nodes: targetNodes ? parseInt(targetNodes, 10) : null,
         storage_pref: _optVal(opts, 'storage-pref', 'auto'),
@@ -3885,7 +3936,7 @@ const SNAPSHOT_VERSION = 3;
 // Controls in the shared Sizing Options + Growth block — captured for BOTH the
 // import and manual flows (single source of truth, so they stay in lock-step).
 const _SHARED_SIZING_FIELDS = ['ratio-slider', 'growth-years', 'growth-pct',
-    'snapshot-pct', 'max-day-one-storage', 'max-day-one-ram', 'target-nodes',
+    'separate-storage-growth', 'storage-growth-pct', 'snapshot-pct', 'max-day-one-storage', 'max-day-one-ram', 'target-nodes',
     'storage-pref', 'sizing-mode', 'sizing-vendor', 'size-full-cluster',
     'allow-storage-only', 'sizing-model-select', 'sizing-include-eol'];
 
@@ -3911,6 +3962,18 @@ function _readField(id) {
     const el = _snapById(id);
     if (!el) return undefined;
     return el.type === 'checkbox' ? el.checked : el.value;
+}
+
+// A payload saved before "Separate storage growth" has no such field: it opens
+// with the toggle off, whatever the previous sizing on this page had.
+function _restoreStorageGrowth(f) {
+    if (f['separate-storage-growth'] === undefined) _writeField('separate-storage-growth', false);
+    const input = _snapById('storage-growth-pct');
+    if (input) {
+        if (f['separate-storage-growth']) input.dataset.seeded = '1';
+        else delete input.dataset.seeded;
+    }
+    syncStorageGrowthReveal();
 }
 
 function _writeField(id, v) {
@@ -4040,6 +4103,7 @@ async function restoreSizingState(snap) {
         // the saved options and recompute recommendations.
         displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
         (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
+        _restoreStorageGrowth(f);
         updateRatioDisplay();
         _restoreModelPicker(f).then(recalcRecommendations);
         // Resume the guided wizard on the step the user saved from (default 2
@@ -4065,6 +4129,7 @@ async function restoreSizingState(snap) {
         calculateManual();  // rebuilds manualSummary + shows the shared block, then recalcs
         // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
         _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
+        _restoreStorageGrowth(f);
         updateRatioDisplay();
         _restoreModelPicker(f).then(recalcRecommendations);
         return;

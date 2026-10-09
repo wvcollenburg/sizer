@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/nod",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} kärnor · {ram}"
+  "export.docx.reserved_val": "{cores} kärnor · {ram}",
+  "export.pptx.growth_rate_split_value": "Beräkning {compute} % · Lagring {storage} % per år",
+  "export.pptx.growth_factor_split_value": "Beräkning {compute}x · Lagring {storage}x över {years} år",
+  "export.pptx.projection_subtitle_split": "{growth} % beräknings- / {storage} % lagringstillväxt per år  —  {snapshot} % ögonblicksbildsomkostnad  —  CPU-dimensionering: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Tillväxten följer dimensioneringen för varje skyddad plats  —  Tillväxtfaktor: {factor}x  —  CPU-dimensionering: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth} % årlig beräkningstillväxt, {storage} % årlig lagringstillväxt, {snapshot} % ögonblicksbildsomkostnad (tillväxtfaktor {factor}× beräkning, {storage_factor}× lagring).",
+  "export.docx.dr_growth_sources": "Replikerna växer enligt dimensioneringsalternativen för varje skyddad plats: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} med {growth} % per år över {years} år (lagring {storage} %, ögonblicksbild {snapshot} %)",
+  "export.docx.dr_growth_follows": "Replikerna växer enligt dimensioneringsalternativen för varje skyddad plats.",
+  "export.docx.mgmt_overview_intro_split": "Detta förslag konsoliderar den nuvarande {platform}-miljön ({hosts} värdar, {vms} aktiva VM:ar, {used_tb} TB i bruk) på ett Scale Computing HyperCore-kluster. Vi rekommenderar ett {nodes} {model}-kluster som levererar {usable_tb} TB användbar kapacitet och {cores} CPU-kärnor, konstruerat för N-1-resiliens så att en hel nod kan sluta fungera utan avbrott i tjänsten. Konfigurationen absorberar {years}-års tillväxt på {growth} % årligen för beräkning och {storage} % för lagring samtidigt som ett {ratio}:1 vCPU-till-kärna-förhållande bibehålls."
 }

@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Verstanden",
   "dr.src_growth": "Wachstum: {years} J. · Compute {growth} % · Speicher {storage} % · Snapshot {snapshot} %",
   "dr.growth_follows": "Das Wachstum folgt jeder Quelldimensionierung.",
+  "results.separate_storage_growth": "Separates Speicherwachstum",
+  "results.separate_storage_growth_info": "Speicher (und seine Snapshot-Reserve) mit einer eigenen jährlichen Rate wachsen lassen. Die Rate oben gilt dann nur für Compute: vCPU, RAM und CPU-GHz.",
+  "results.storage_growth": "Speicherwachstum %",
+  "results.compute_growth": "Compute-Wachstum %",
+  "results.proj.growth_note_split": "Wachstum: Compute {factor}x, Speicher {storageFactor}x über {years} J. — Snapshot-Overhead in Jahr {years}: {snapPct} %"
 };

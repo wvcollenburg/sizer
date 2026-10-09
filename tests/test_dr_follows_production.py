@@ -134,6 +134,9 @@ def test_two_sources_grow_by_their_own_options(client):
     assert out["projection"]["years"] == 5
     rows = {r["sizing_name"]: r for r in out["sources"]}
     assert rows["A"]["years"] == 3 and rows["B"]["years"] == 5
+    # The stored projection names them too, for the exports.
+    names = {d["sizing_name"]: d for d in out["projection"]["dr_sources"]}
+    assert names["B"]["storage_growth_pct"] == 30 and names["A"]["snapshot_pct"] == 10
     assert rows["B"]["storage_growth_pct"] == 30
 
 

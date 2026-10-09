@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/nœud",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} cœurs · {ram}"
+  "export.docx.reserved_val": "{cores} cœurs · {ram}",
+  "export.pptx.growth_rate_split_value": "Calcul {compute} % · Stockage {storage} % par an",
+  "export.pptx.growth_factor_split_value": "Calcul {compute}x · Stockage {storage}x sur {years} ans",
+  "export.pptx.projection_subtitle_split": "Croissance annuelle de {growth} % (calcul) / {storage} % (stockage)  —  {snapshot} % de surcharge d'instantanés  —  Dimensionnement CPU : {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "La croissance suit le dimensionnement de chaque site protégé  —  Facteur de croissance : {factor}x  —  Dimensionnement CPU : {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "Croissance annuelle du calcul de {growth} %, du stockage de {storage} %, surcharge d'instantanés de {snapshot} % (facteur de croissance {factor}× calcul, {storage_factor}× stockage).",
+  "export.docx.dr_growth_sources": "Les réplicas croissent selon les options de dimensionnement de chaque site protégé : {sources}.",
+  "export.docx.dr_growth_source_item": "{name} à {growth} % par an sur {years} ans (stockage {storage} %, instantanés {snapshot} %)",
+  "export.docx.dr_growth_follows": "Les réplicas croissent selon les options de dimensionnement de chaque site protégé.",
+  "export.docx.mgmt_overview_intro_split": "Cette proposition consolide l'environnement {platform} actuel ({hosts} hôtes, {vms} VM actives, {used_tb} TB utilisés) sur un cluster Scale Computing HyperCore. Nous recommandons un cluster {nodes} {model} offrant {usable_tb} TB de capacité utilisable et {cores} cœurs CPU, conçu pour une résilience N-1 afin qu'un nœud complet puisse tomber en panne sans interruption de service. La configuration absorbe la croissance sur {years} ans à raison de {growth} % par an pour le calcul et {storage} % pour le stockage tout en maintenant un ratio vCPU:cœur de {ratio}:1."
 }

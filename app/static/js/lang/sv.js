@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Uppfattat",
   "dr.src_growth": "Tillväxt: {years} år · beräkning {growth} % · lagring {storage} % · ögonblicksbild {snapshot} %",
   "dr.growth_follows": "Tillväxten följer varje källdimensionering.",
+  "results.separate_storage_growth": "Separat lagringstillväxt",
+  "results.separate_storage_growth_info": "Låt lagringen (och dess reserv för ögonblicksbilder) växa med en egen årlig takt. Takten ovan gäller då bara beräkning: vCPU, RAM och CPU-GHz.",
+  "results.storage_growth": "Lagringstillväxt %",
+  "results.compute_growth": "Beräkningstillväxt %",
+  "results.proj.growth_note_split": "Tillväxt: beräkning {factor}x, lagring {storageFactor}x över {years} år — Ögonblicksbildsomkostnad år {years}: {snapPct} %"
 };

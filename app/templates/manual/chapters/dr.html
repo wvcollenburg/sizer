@@ -38,14 +38,23 @@
 <ul>
     <li><strong>Inbound reserve</strong> lists what every source sends (vCPU, RAM, storage,
         percentages and mode) and the total. A source that has not been sized yet is flagged,
-        because it contributes nothing until it is.</li>
-    <li>The options are a compact version of the normal ones: vCPU ratio, projection years,
-        growth, snapshot overhead, sizing mode (and vendor for validated), size for model, and
-        three checkboxes: <em>Allow a single-node target</em> (a DR cluster is already a
+        and its reserve is read from its saved inputs.</li>
+    <li><strong>DR follows production.</strong> A DR target has no growth settings of its
+        own. Each source's share is grown with that source's own projection years, growth,
+        storage growth and snapshot overhead, shown on its row. The DR projection runs to the
+        longest source horizon. A source that is an appliance or validated hardware
+        configuration reserves its capacity as it is, without growth. A sizing that receives
+        replicas next to its own workload grows them the same way: at the source's rates,
+        not its own.</li>
+    <li>The options are a compact version of the normal ones: vCPU ratio, sizing mode (and
+        vendor for validated), size for model, and three checkboxes: <em>Allow a single-node target</em> (a DR cluster is already a
         redundancy tier, so one node can be acceptable), <em>Allow storage-only nodes</em> and
         <em>Include EOL/EOS models</em>.</li>
     <li>Pick a recommendation and choose {{ m.ui("Save DR target") }}.</li>
 </ul>
+{% call m.note() %}A DR target saved before DR followed its sources shows a one-time notice
+   with the growth it used to have. Its figures can change the next time it is sized and
+   saved. Once its owner closes the notice, it is not shown again.{% endcall %}
 {% call m.note() %}A DR target is not recalculated automatically when its sources change.
    Its state shows <em>Needs refresh</em>. Open it and save it again. A sizing that others
    replicate into cannot be deleted until those links are removed.{% endcall %}

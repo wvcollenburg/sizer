@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/nodo",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} núcleos · {ram}"
+  "export.docx.reserved_val": "{cores} núcleos · {ram}",
+  "export.pptx.growth_rate_split_value": "Cómputo {compute}% · Almacenamiento {storage}% por año",
+  "export.pptx.growth_factor_split_value": "Cómputo {compute}x · Almacenamiento {storage}x en {years} años",
+  "export.pptx.projection_subtitle_split": "{growth}% de crecimiento interanual de cómputo / {storage}% de almacenamiento  —  {snapshot}% de sobrecarga de instantáneas  —  Dimensionamiento de CPU: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "El crecimiento sigue el dimensionamiento de cada sitio protegido  —  Factor de crecimiento: {factor}x  —  Dimensionamiento de CPU: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth}% de crecimiento interanual de cómputo, {storage}% de almacenamiento, {snapshot}% de sobrecarga de instantáneas (factor de crecimiento {factor}× cómputo, {storage_factor}× almacenamiento).",
+  "export.docx.dr_growth_sources": "Las réplicas crecen según las opciones de dimensionamiento de cada sitio protegido: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} al {growth}% anual durante {years} años (almacenamiento {storage}%, instantáneas {snapshot}%)",
+  "export.docx.dr_growth_follows": "Las réplicas crecen según las opciones de dimensionamiento de cada sitio protegido.",
+  "export.docx.mgmt_overview_intro_split": "Esta propuesta consolida el entorno actual de {platform} ({hosts} hosts, {vms} VM activas, {used_tb} TB en uso) en un clúster de Scale Computing HyperCore. Recomendamos un clúster {nodes} {model} que ofrece {usable_tb} TB de capacidad utilizable y {cores} núcleos de CPU, diseñado para resiliencia N-1, de modo que un nodo completo pueda fallar sin interrupción del servicio. La configuración absorbe el crecimiento de {years} años a un {growth}% anual en cómputo y un {storage}% en almacenamiento, manteniendo una relación vCPU:núcleo de {ratio}:1."
 }

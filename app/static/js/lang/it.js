@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Ho capito",
   "dr.src_growth": "Crescita: {years} anni · calcolo {growth} % · storage {storage} % · snapshot {snapshot} %",
   "dr.growth_follows": "La crescita segue ogni dimensionamento di origine.",
+  "results.separate_storage_growth": "Crescita dello storage separata",
+  "results.separate_storage_growth_info": "Far crescere lo storage (e la sua riserva di snapshot) con un tasso annuo proprio. Il tasso sopra vale allora solo per il calcolo: vCPU, RAM e GHz CPU.",
+  "results.storage_growth": "Crescita storage %",
+  "results.compute_growth": "Crescita calcolo %",
+  "results.proj.growth_note_split": "Crescita: calcolo {factor}x, storage {storageFactor}x in {years} anni — Overhead snapshot all'anno {years}: {snapPct}%"
 };

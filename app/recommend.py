@@ -241,11 +241,17 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # Storage may grow at its own rate (the "Separate storage growth" toggle);
     # None means one rate for everything, which is exactly the old behaviour.
     separate_storage_growth = storage_growth_pct is not None
-    if separate_storage_growth:
+    if separate_storage_growth and not isinstance(storage_growth_pct, (int, float)):
+        # Numbers stay as given (an int prints as "20 %" in the exports, like
+        # growth_pct); anything else must parse.
         try:
             storage_growth_pct = float(storage_growth_pct)
+            if storage_growth_pct.is_integer():
+                storage_growth_pct = int(storage_growth_pct)
         except (TypeError, ValueError):
             storage_growth_pct, separate_storage_growth = None, False
+    if isinstance(storage_growth_pct, bool):
+        storage_growth_pct, separate_storage_growth = None, False
 
     base_vcpus = summary["total_vcpus"]
     base_ram = summary["total_vm_provisioned_memory_gb"]

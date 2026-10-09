@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Selge",
   "dr.src_growth": "Kasv: {years} a · arvutus {growth} % · salvestus {storage} % · hetktõmmis {snapshot} %",
   "dr.growth_follows": "Kasv järgib iga lähtemõõtmist.",
+  "results.separate_storage_growth": "Eraldi salvestuse kasv",
+  "results.separate_storage_growth_info": "Lase salvestusel (ja selle hetktõmmiste reservil) kasvada oma aastase määraga. Ülemine määr kehtib siis ainult arvutusele: vCPU, RAM ja protsessori GHz.",
+  "results.storage_growth": "Salvestuse kasv %",
+  "results.compute_growth": "Arvutuse kasv %",
+  "results.proj.growth_note_split": "Kasv: arvutus {factor}x, salvestus {storageFactor}x {years} aasta jooksul — hetktõmmiste lisakoormus aastal {years}: {snapPct}%"
 };

@@ -829,8 +829,24 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label data-i18n="results.yoy_growth">YoY Growth %</label>
+                            <label id="growth-pct-label" for="growth-pct" data-i18n="results.yoy_growth">YoY Growth %</label>
                             <input type="number" id="growth-pct" value="10" min="0" max="50" step="1"
+                                   data-change='["recalcRecommendations"]'>
+                            <!-- Off = one rate for everything (the old behaviour). On =
+                                 storage and its snapshot reserve grow at their own rate. -->
+                            <div class="toggle-item">
+                                <label class="checkbox-inline">
+                                    <input type="checkbox" id="separate-storage-growth" data-change='["toggleStorageGrowth"]'>
+                                    <span data-i18n="results.separate_storage_growth">Separate storage growth</span>
+                                </label>
+                                <span class="info-icon" tabindex="0"
+                                      data-i18n-title="results.separate_storage_growth_info"
+                                      title="Grow storage (and its snapshot reserve) at its own yearly rate. The rate above then applies to compute only: vCPU, RAM and CPU GHz.">i</span>
+                            </div>
+                        </div>
+                        <div class="form-group" id="storage-growth-group" hidden>
+                            <label for="storage-growth-pct" data-i18n="results.storage_growth">Storage growth %</label>
+                            <input type="number" id="storage-growth-pct" value="10" min="0" max="50" step="1"
                                    data-change='["recalcRecommendations"]'>
                         </div>
                         <div class="form-group">

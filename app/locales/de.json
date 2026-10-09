@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/Node",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} Kerne · {ram}"
+  "export.docx.reserved_val": "{cores} Kerne · {ram}",
+  "export.pptx.growth_rate_split_value": "Compute {compute} % · Speicher {storage} % pro Jahr",
+  "export.pptx.growth_factor_split_value": "Compute {compute}x · Speicher {storage}x über {years} Jahre",
+  "export.pptx.projection_subtitle_split": "{growth} % Compute- / {storage} % Speicherwachstum jährlich  —  {snapshot} % Snapshot-Overhead  —  CPU-Dimensionierung: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Das Wachstum folgt der Dimensionierung jedes geschützten Standorts  —  Wachstumsfaktor: {factor}x  —  CPU-Dimensionierung: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth} % jährliches Compute-Wachstum, {storage} % jährliches Speicherwachstum, {snapshot} % Snapshot-Overhead (Wachstumsfaktor {factor}× Compute, {storage_factor}× Speicher).",
+  "export.docx.dr_growth_sources": "Die Replikate wachsen mit den Dimensionierungsoptionen des jeweiligen geschützten Standorts: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} mit {growth} % pro Jahr über {years} Jahre (Speicher {storage} %, Snapshot {snapshot} %)",
+  "export.docx.dr_growth_follows": "Die Replikate wachsen mit den Dimensionierungsoptionen des jeweiligen geschützten Standorts.",
+  "export.docx.mgmt_overview_intro_split": "Dieses Angebot konsolidiert die aktuelle {platform}-Umgebung ({hosts} Hosts, {vms} aktive VMs, {used_tb} TB genutzt) auf einem Scale Computing HyperCore-Cluster. Wir empfehlen einen {nodes} {model}-Cluster, der {usable_tb} TB nutzbare Kapazität und {cores} CPU-Kerne liefert und für N-1-Ausfallsicherheit ausgelegt ist, sodass ein vollständiger Knoten ohne Betriebsunterbrechung ausfallen kann. Die Konfiguration nimmt das Wachstum über {years} Jahre bei {growth} % jährlich für Compute und {storage} % für Speicher auf und hält dabei ein vCPU-zu-Kern-Verhältnis von {ratio}:1 ein."
 }

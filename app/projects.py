@@ -1613,6 +1613,12 @@ def dr_recommend(config_id):
         allow_single_node=bool(data.get("allow_single_node")),
         vendor=data.get("vendor"),
     )
+    # The growth each link followed travels with the stored projection, so
+    # the exports can say what the DR target was grown at.
+    result["projection"]["dr_sources"] = [
+        {k: src[k] for k in ("sizing_name", "years", "growth_pct",
+                             "storage_growth_pct", "snapshot_pct")}
+        for src in sources]
     return jsonify({
         "reserve": {k: round(v, 2) for k, v in reserve.items()},
         # The reserve at the horizon, each link at its own source's growth.

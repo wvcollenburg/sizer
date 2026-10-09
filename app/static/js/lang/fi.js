@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Selvä",
   "dr.src_growth": "Kasvu: {years} v · laskenta {growth} % · tallennus {storage} % · tilannevedos {snapshot} %",
   "dr.growth_follows": "Kasvu seuraa kutakin lähdemitoitusta.",
+  "results.separate_storage_growth": "Erillinen tallennuksen kasvu",
+  "results.separate_storage_growth_info": "Kasvata tallennusta (ja sen tilannevedosvarausta) omalla vuotuisella kasvulla. Yllä oleva kasvu koskee silloin vain laskentaa: vCPU, RAM ja suorittimen GHz.",
+  "results.storage_growth": "Tallennuksen kasvu %",
+  "results.compute_growth": "Laskennan kasvu %",
+  "results.proj.growth_note_split": "Kasvu: laskenta {factor}x, tallennus {storageFactor}x yli {years} v — Tilannevedosten yleiskustannus vuonna {years}: {snapPct} %"
 };

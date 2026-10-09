@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Sapratu",
   "dr.src_growth": "Pieaugums: {years} g. · skaitļošana {growth} % · krātuve {storage} % · momentuzņēmums {snapshot} %",
   "dr.growth_follows": "Pieaugums seko katram avota izmērījumam.",
+  "results.separate_storage_growth": "Atsevišķs krātuves pieaugums",
+  "results.separate_storage_growth_info": "Ļaut krātuvei (un tās momentuzņēmumu rezervei) augt ar savu gada likmi. Augstāk norādītā likme tad attiecas tikai uz skaitļošanu: vCPU, RAM un CPU GHz.",
+  "results.storage_growth": "Krātuves pieaugums %",
+  "results.compute_growth": "Skaitļošanas pieaugums %",
+  "results.proj.growth_note_split": "Pieaugums: skaitļošana {factor}x, krātuve {storageFactor}x {years} gadu laikā — momentuzņēmumu papildslodze {years}. gadā: {snapPct}%"
 };

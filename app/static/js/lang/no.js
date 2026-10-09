@@ -1727,4 +1727,9 @@
   "dr.growth_notice_ok": "Forstått",
   "dr.src_growth": "Vekst: {years} år · beregning {growth} % · lagring {storage} % · øyeblikksbilde {snapshot} %",
   "dr.growth_follows": "Veksten følger hver kildedimensjonering.",
+  "results.separate_storage_growth": "Egen lagringsvekst",
+  "results.separate_storage_growth_info": "La lagringen (og reserven for øyeblikksbilder) vokse med sin egen årlige rate. Raten over gjelder da bare beregning: vCPU, RAM og CPU-GHz.",
+  "results.storage_growth": "Lagringsvekst %",
+  "results.compute_growth": "Beregningsvekst %",
+  "results.proj.growth_note_split": "Vekst: beregning {factor}x, lagring {storageFactor}x over {years} år — Øyeblikksbilde-overhead ved år {years}: {snapPct} %"
 };
