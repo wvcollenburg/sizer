@@ -437,8 +437,8 @@
                 <p class="import-desc" data-i18n="import.upload_desc">Upload an environment assessment export (.xlsx) to analyze your current environment and get SC// hardware recommendations.</p>
                 <div class="upload-area" id="upload-area">
                     <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
-                    <div class="upload-text" data-i18n="import.drop_hint">Drop .xlsx file here or click to browse</div>
-                    <input type="file" id="file-input" accept=".xlsx" data-change='["handleFileSelect","$this"]'>
+                    <div class="upload-text" data-i18n="import.drop_hint_multi">Drop one or more .xlsx files here or click to browse</div>
+                    <input type="file" id="file-input" accept=".xlsx" multiple data-change='["handleFileSelect","$this"]'>
                 </div>
                 <p class="import-supported" data-i18n="import.supported_tools">Supported: Live Optics, RVTools, Nutanix Collector</p>
                 <div id="upload-status" class="upload-status" style="display:none"></div>
@@ -449,6 +449,12 @@
                     <div class="section-header-row">
                         <h3 data-i18n="import.env_summary">Environment Summary</h3>
                         <div class="import-header-actions">
+                            <!-- Append more assessment files to this site (plan B, M4). -->
+                            <button class="btn btn-advanced" id="btn-add-files" data-click='["startAppendFiles"]'>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                <span data-i18n="merge.add_files">Add files</span>
+                            </button>
+                            <input type="file" id="append-file-input" accept=".xlsx" multiple hidden data-change='["handleAppendSelect","$this"]'>
                             <button class="btn btn-advanced" id="btn-vm-exclusions" data-click='["openVmExclusionModal"]'>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                                 <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
@@ -976,16 +982,30 @@
 
     <!-- Multi-cluster fan-out chooser: one sizing per source cluster (default)
          or a single combined consolidation sizing. -->
+    <!-- Import mapping: several files and/or several source clusters become
+         one or more target clusters (plan B). Same id and Create handler as
+         the per-cluster fan-out it replaces. -->
     <div class="modal-overlay" id="cluster-fanout-modal" style="display:none">
-        <div class="modal-content" style="max-width:640px">
+        <div class="modal-content merge-modal">
             <div class="modal-header">
-                <h2 data-i18n="fanout.title">Multiple clusters detected</h2>
+                <h2 id="merge-title" data-i18n="merge.title">Map the import to clusters</h2>
                 <button class="modal-close" data-click='["closeClusterFanout"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
             <div class="modal-body">
-                <p class="import-info" data-i18n="fanout.intro">This file contains several source clusters. The recommended path creates one sizing per cluster in your project, so each cluster gets its own options, recommendation and licence. Replication between them is configured on the project page.</p>
-                <div id="fanout-cluster-list" class="fanout-list"></div>
-                <div class="form-group">
+                <p class="import-info" id="merge-intro" data-i18n="merge.intro">Each row is a source cluster from a file; standalone hosts from every file form one row. Choose the target cluster for each row: rows with the same target are sized together, each target becomes one sizing.</p>
+                <div id="merge-sources" class="merge-sources"></div>
+                <div id="merge-warnings"></div>
+                <div id="merge-overlaps" class="merge-overlaps" hidden></div>
+                <div class="merge-section-head">
+                    <h3 data-i18n="merge.mapping_title">Clusters</h3>
+                    <div class="merge-shortcuts">
+                        <button class="btn btn-sm btn-muted" data-click='["mergeAllSeparate"]' data-i18n="merge.all_separate">All separate</button>
+                        <button class="btn btn-sm btn-muted" data-click='["mergeAllInOne"]' data-i18n="merge.all_in_one">All in one</button>
+                    </div>
+                </div>
+                <div id="fanout-cluster-list" class="fanout-list merge-groups"></div>
+                <div id="merge-targets" class="merge-targets"></div>
+                <div class="form-group" id="fanout-tag-group">
                     <label><span data-i18n="fanout.tag_label">Tag these sizings</span>
                         <span class="info-icon" tabindex="0"
                               data-i18n-title="fanout.tag_info"
@@ -993,11 +1013,10 @@
                     </label>
                     <input type="text" id="fanout-tag" maxlength="60">
                 </div>
-                <p class="import-info muted" data-i18n="fanout.combined_hint">Choose the combined option only when these clusters are meant to consolidate into a single new cluster.</p>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-actions">
-                    <button class="btn btn-secondary" data-click='["fanoutCombined"]' data-i18n="fanout.combined_btn">Size as one combined cluster</button>
+                    <button class="btn btn-secondary" data-click='["closeClusterFanout"]' data-i18n="merge.cancel">Cancel</button>
                     <button class="btn btn-primary" id="fanout-create-btn" data-click='["createPerClusterSizings"]'>Create sizings</button>
                 </div>
             </div>

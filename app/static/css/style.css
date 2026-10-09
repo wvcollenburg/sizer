@@ -1534,6 +1534,33 @@ body { padding-bottom: 64px; }
 .fanout-name { font-weight: 600; }
 .fanout-meta { margin-left: auto; color: var(--text-muted); font-size: 0.85rem; }
 
+/* Import mapping: several files / clusters into target clusters (plan B). */
+.merge-modal { max-width: 920px; width: 100%; }
+.merge-modal .modal-body { max-height: 72vh; overflow-y: auto; }
+.merge-file-list { margin: 0.4rem 0 0.8rem; padding-left: 1.1rem; }
+.merge-file-list li { margin: 0.2rem 0; }
+.merge-file-list .fanout-meta { margin-left: 0.4rem; }
+.merge-rejected span { color: var(--red, #c0392b); font-size: 0.85rem; }
+.merge-badge { display: inline-block; margin-left: 0.3rem; padding: 0 0.4rem; border-radius: 999px;
+    background: var(--orange-bg, rgba(230,126,34,0.15)); color: var(--orange); font-size: 0.75rem; }
+.merge-badge-muted { background: var(--bg-muted, rgba(0,0,0,0.06)); color: var(--text-muted); }
+.merge-section-head { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.8rem; }
+.merge-section-head h3 { margin: 0; font-size: 1rem; }
+.merge-shortcuts { margin-left: auto; display: flex; gap: 0.4rem; }
+.merge-overlap-scroll { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+.merge-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.merge-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); }
+.merge-table td:first-child { color: var(--text-muted); white-space: nowrap; }
+.merge-table select { width: 100%; }
+.merge-group { flex-wrap: wrap; }
+.merge-group .fanout-meta { margin-left: auto; margin-right: 0.6rem; }
+.merge-group select.merge-target { width: auto; min-width: 12rem; }
+.merge-hint { color: var(--orange); font-size: 0.8rem; font-weight: 400; }
+.merge-target-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.4rem 0 0.8rem; }
+.merge-target-label { color: var(--text-muted); font-size: 0.85rem; }
+.merge-target-list input { width: auto; min-width: 10rem; }
+.wiz-env-actions { display: flex; justify-content: flex-end; margin: 0.6rem 0; }
+
 /* "To be sized" badge on machine-created fan-out sizings (project page). */
 .state-badge.state-untouched { background: var(--orange-bg, #fff3e0); color: var(--orange, #b26a00); }
 

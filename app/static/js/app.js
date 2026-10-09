@@ -1104,8 +1104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             area.classList.remove('drag-over');
-            const file = extractDroppedFile(e.dataTransfer);
-            if (file) uploadFile(file);
+            uploadFiles(extractDroppedFiles(e.dataTransfer));
         });
     }
 
@@ -1115,23 +1114,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener(evt, e => e.preventDefault()));
 });
 
-// dataTransfer.files is reliable on macOS/Windows but is sometimes empty on Linux,
-// where the dropped file arrives via dataTransfer.items instead.
-function extractDroppedFile(dt) {
-    if (dt.files && dt.files.length > 0) return dt.files[0];
-    if (dt.items) {
-        for (const item of dt.items) {
-            if (item.kind === 'file') {
-                const file = item.getAsFile();
-                if (file) return file;
-            }
-        }
-    }
-    return null;
-}
-
+// dataTransfer.files is reliable on macOS/Windows but is sometimes empty on
+// Linux, where dropped files arrive via dataTransfer.items instead (see
+// extractDroppedFiles below).
 function handleFileSelect(input) {
-    if (input.files.length > 0) uploadFile(input.files[0]);
+    const files = [...(input.files || [])];
+    input.value = '';     // picking the same file again must fire again
+    uploadFiles(files);
 }
 
 async function uploadFile(file) {
@@ -1160,20 +1149,25 @@ async function uploadFile(file) {
             return;
         }
 
-        // A multi-cluster source: the user chooses between one sizing per
-        // cluster (the normal case — a sizing answers one question about one
-        // cluster) and a single combined consolidation sizing.
+        // The response doubles as this file's dataset: saved with the sizing
+        // so more files can be appended later.
+        const ds = _asDataset(data, _datasetId(data.source_meta, new Set()));
+        // A multi-cluster source: the user maps its clusters to targets (one
+        // sizing per cluster is the default — a sizing answers one question
+        // about one cluster — or any of them sized together).
         if ((data.clusters || []).length > 1) {
-            pendingImportData = data;
             pendingImportFileName = file.name;
             showUploadStatus(window.t('upload.analyzed', {
                 source: importSourceLabel(data.source),
                 file: file.name, note: ''}), false);
-            openClusterFanout(data);
+            await openMergeDialog([ds]);
             return;
         }
 
+        (data.vms || []).forEach(vm => { vm.src = ds.id; });
         finishImport(data, file.name);
+        lastImportSources = [_sourceRecord(ds)];
+        lastImportWarnings = data.import_warnings || [];
     } catch (e) {
         showUploadStatus(window.t('upload.failed', {error: e.message}), true);
     }
@@ -1253,27 +1247,386 @@ async function splitLegacySizing() {
     }
 }
 
-// ── Multi-cluster fan-out ───────────────────────────────────────────────────
-// A multi-cluster import becomes N separate sizings in the project (a sizing
-// answers one question about one cluster; composition is the project's job).
-// The full import response is parked here while the user chooses.
-let pendingImportData = null;
+// ── Multi-file import, overlap and cluster mapping (plan B) ─────────────────
+// Several files and/or several source clusters go through one dialog: the
+// server merges the parsed files (/api/import-merge, stateless) and the user
+// picks a copy for every entity found in more than one file and maps each
+// source group to a target cluster. One target sizes on this screen; several
+// become one sizing each in the project. The dialog keeps the fan-out's id and
+// Create handler, which it replaces.
 let pendingImportFileName = '';
+let pendingMerge = null;           // {datasets, resolutions, mapping, result, ...}
+let mergeSeq = 0;                  // ignores answers to superseded requests
 
-function openClusterFanout(data) {
-    const modal = document.getElementById('cluster-fanout-modal');
-    const list = document.getElementById('fanout-cluster-list');
-    list.innerHTML = data.clusters.map((cl, i) => `
-        <label class="fanout-row">
-            <input type="checkbox" checked data-fanout-idx="${i}" data-change='["updateFanoutCount"]'>
-            <span class="fanout-name">${esc(cl.name)}</span>
-            <span class="fanout-meta">${window.t('fanout.cluster_meta',
-                {hosts: cl.host_count, vms: cl.vm_count})}</span>
-        </label>`).join('');
+// Per-file sources of the current import (hosts, perf, datastores, NICs; the
+// VMs are importVms, tagged with `src`), saved with the sizing so files can be
+// appended later. null for a sizing saved before multi-file import.
+let lastImportSources = null;
+let lastImportWarnings = [];
+
+const MERGE_SKIP = '__skip__';
+// Fields the engine and the screen never read: left out of a saved VM list
+// (measured on real exports: ~450 -> ~310 bytes per VM, so 10k VMs stay under
+// the 4 MB payload cap).
+const VM_UNSAVED_FIELDS = ['disk_capacity_gb', 'disk_used_gb', 'used_memory_gb',
+                           'datastore', 'ref'];
+
+function _compactVm(vm) {
+    const out = {};
+    Object.keys(vm).forEach(k => {
+        if (VM_UNSAVED_FIELDS.indexOf(k) < 0) out[k] = vm[k];
+    });
+    if (out.uuid && out.bios_uuid) delete out.bios_uuid;
+    return out;
+}
+
+function _datasetId(meta, taken) {
+    const base = 'f' + (((meta && meta.file_sha256) || '').slice(0, 10)
+        || Math.random().toString(36).slice(2, 10));
+    let id = base, n = 2;
+    while (taken.has(id)) id = base + '-' + (n++);
+    taken.add(id);
+    return id;
+}
+
+// One import response (normal or raw) as a merge dataset.
+function _asDataset(data, id) {
+    return {
+        id,
+        file_type: data.file_type || data.source,
+        scan_type: data.scan_type || (data.summary && data.summary.scan_type) || null,
+        source_meta: data.source_meta || {},
+        summary: data.summary || {},
+        hosts: data.hosts || [],
+        host_performance: data.host_performance || [],
+        datastores: data.datastores || [],
+        host_nics: data.host_nics || [],
+        vms: data.vms || [],
+    };
+}
+
+// The saved form of one dataset: everything but its VMs (those are importVms).
+function _sourceRecord(ds) {
+    return {
+        id: ds.id, file_type: ds.file_type, scan_type: ds.scan_type,
+        source_meta: ds.source_meta, summary: ds.summary,
+        hosts: ds.hosts, host_performance: ds.host_performance,
+        datastores: ds.datastores, host_nics: ds.host_nics,
+    };
+}
+
+function _metaOf(ds) {
+    const m = Object.assign({}, ds.source_meta || {});
+    delete m.cluster;
+    delete m.files;
+    return m;
+}
+
+// Provenance of a sizing built from several files: the first file's fields at
+// the top (what older readers expect) plus every file in `files`.
+function _combinedSourceMeta(metas, cluster) {
+    if (!metas.length) return null;
+    const out = Object.assign({}, metas[0]);
+    if (metas.length > 1) {
+        out.files = metas;
+        out.host_count = metas.reduce((n, m) => n + (m.host_count || 0), 0);
+        out.vm_count = metas.reduce((n, m) => n + (m.vm_count || 0), 0);
+    }
+    if (cluster) out.cluster = cluster;
+    return out;
+}
+
+function extractDroppedFiles(dt) {
+    if (dt.files && dt.files.length > 0) return [...dt.files];
+    const out = [];
+    if (dt.items) {
+        for (const item of dt.items) {
+            if (item.kind === 'file') {
+                const file = item.getAsFile();
+                if (file) out.push(file);
+            }
+        }
+    }
+    return out;
+}
+
+async function _parseRaw(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('/api/import-liveoptics?raw=1', { method: 'POST', body: formData });
+    let data = null;
+    try { data = await resp.json(); } catch (e) { data = null; }
+    if (!resp.ok || !data || data.error) {
+        const msg = data && data.error_code
+            ? window.t('upload.reject.' + data.error_code, data.error_params || {})
+            : ((data && data.error) || window.t('upload.failed', {error: resp.status}));
+        return { error: msg };
+    }
+    return { data };
+}
+
+// Several files picked or dropped (or files appended to a sizing): parse each
+// on its own (a bad file rejects only itself), then open the mapping dialog.
+async function uploadFiles(files, opts) {
+    opts = opts || {};
+    files = (files || []).filter(Boolean);
+    if (!files.length) return;
+    if (!opts.append && files.length === 1) return uploadFile(files[0]);
+    const xlsx = files.filter(f => f.name.endsWith('.xlsx'));
+    const rejected = files.filter(f => !f.name.endsWith('.xlsx'))
+        .map(f => ({ file: f.name, error: window.t('upload.must_be_xlsx') }));
+    showUploadStatus(window.t('merge.analyzing', {count: xlsx.length}), false);
+
+    const existing = opts.append ? _existingDatasets() : { datasets: [], refs: {}, mapping: {} };
+    const taken = new Set(existing.datasets.map(d => d.id));
+    const shas = new Set(existing.datasets.map(d => (d.source_meta || {}).file_sha256).filter(Boolean));
+    const datasets = [], notices = [];
+    const projectId = window.activeProjectId ? window.activeProjectId() : null;
+    for (const f of xlsx) {
+        const { data, error } = await _parseRaw(f);
+        if (error) { rejected.push({ file: f.name, error }); continue; }
+        const sha = (data.source_meta || {}).file_sha256;
+        if (sha && shas.has(sha)) {
+            notices.push(window.t('merge.duplicate_in_batch', {file: f.name}));
+            continue;
+        }
+        if (sha) shas.add(sha);
+        const ds = _asDataset(data, _datasetId(data.source_meta, taken));
+        if (projectId && sha) {
+            try {
+                const r = await fetch(`/api/projects/${projectId}/source-check`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ file_sha256: sha }) });
+                const d = r.ok ? await r.json() : null;
+                if (d && d.duplicate && !(opts.append && window.loadedConfigId
+                        && d.sizing_id === window.loadedConfigId())) {
+                    notices.push(window.t('merge.already_in_project',
+                        {file: f.name, sizing: d.sizing_name}));
+                }
+            } catch (e) { /* the check is advisory */ }
+        }
+        datasets.push(ds);
+    }
+    if (!datasets.length) {
+        showUploadStatus(rejected.map(r => `${r.file}: ${r.error}`).join(' · ')
+            || notices.join(' · ') || window.t('merge.nothing_new'), true);
+        return;
+    }
+    showUploadStatus(window.t('merge.analyzed', {count: datasets.length}), false);
+    await openMergeDialog(existing.datasets.concat(datasets),
+        { append: !!opts.append, refs: existing.refs, mapping: existing.mapping, rejected, notices,
+          newIds: new Set(datasets.map(d => d.id)) });
+}
+
+async function openMergeDialog(datasets, opts) {
+    opts = opts || {};
+    pendingMerge = {
+        datasets, resolutions: {}, mapping: Object.assign({}, opts.mapping || {}), result: null,
+        append: !!opts.append, refs: opts.refs || {}, rejected: opts.rejected || [],
+        notices: opts.notices || [], newIds: opts.newIds || new Set(datasets.map(d => d.id)),
+    };
     const tagInput = document.getElementById('fanout-tag');
-    if (tagInput) tagInput.value = _fanoutDefaultTag(data);
-    updateFanoutCount();
-    modal.style.display = 'flex';
+    if (tagInput) {
+        tagInput.value = datasets.length > 1 ? 'multi-import' : _fanoutDefaultTag();
+    }
+    const ok = await refreshMerge();
+    if (ok) document.getElementById('cluster-fanout-modal').style.display = 'flex';
+}
+
+async function refreshMerge() {
+    const pm = pendingMerge;
+    if (!pm) return false;
+    const seq = ++mergeSeq;
+    let data = null, resp = null;
+    try {
+        resp = await fetch('/api/import-merge', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ datasets: pm.datasets, resolutions: pm.resolutions,
+                                   mapping: pm.mapping }),
+        });
+        data = await resp.json();
+    } catch (e) { data = null; }
+    if (seq !== mergeSeq) return false;
+    if (!resp || !resp.ok || !data || data.error) {
+        showUploadStatus(window.t('merge.failed', {error: (data && data.error) || (resp && resp.status)}), true);
+        closeClusterFanout();
+        return false;
+    }
+    pm.result = data;
+    renderMergeDialog();
+    return true;
+}
+
+function _srcName(id) {
+    const s = ((pendingMerge && pendingMerge.result && pendingMerge.result.sources) || [])
+        .find(x => x.id === id);
+    return s ? s.file_name : id;
+}
+
+function _warningText(w) {
+    if (!w || !w.code) return String(w);
+    const p = Object.assign({}, w.params || {});
+    if (Array.isArray(p.types)) p.types = p.types.map(importSourceLabel).join(', ');
+    if (p.metric) p.metric = window.t('merge.metric.' + p.metric);
+    return window.t('wizard.warn.' + w.code, p);
+}
+window.importWarningText = _warningText;
+
+function renderMergeDialog() {
+    const pm = pendingMerge, r = pm.result;
+    const fileCount = r.sources.filter(s => !s.dropped).length;
+    document.getElementById('merge-title').textContent = window.t(
+        pm.append ? 'merge.title_append' : (fileCount > 1 ? 'merge.title' : 'fanout.title'));
+
+    // Files
+    const srcRows = r.sources.map(s => {
+        const perf = [s.has_cpu_perf ? 'CPU' : null, s.has_iops ? 'IOPS' : null]
+            .filter(Boolean).join(' · ') || window.t('merge.no_perf');
+        const state = s.dropped ? `<span class="merge-badge">${esc(window.t('merge.dropped_duplicate'))}</span>` : '';
+        const existing = pm.append && !pm.newIds.has(s.id)
+            ? `<span class="merge-badge merge-badge-muted">${esc(window.t('merge.in_sizing'))}</span>` : '';
+        return `<li><strong>${esc(s.file_name || s.id)}</strong> ${existing}${state}
+            <span class="fanout-meta">${esc(importSourceLabel(s.file_type))}
+            ${s.collected_at ? ' · ' + esc(String(s.collected_at).slice(0, 10)) : ''}
+            · ${esc(window.t('fanout.cluster_meta', {hosts: s.host_count, vms: s.vm_count}))}
+            · ${esc(perf)}</span></li>`;
+    }).join('');
+    const rej = pm.rejected.map(x =>
+        `<li class="merge-rejected"><strong>${esc(x.file)}</strong> <span>${esc(x.error)}</span></li>`).join('');
+    document.getElementById('merge-sources').innerHTML = (fileCount > 1 || rej || pm.append)
+        ? `<ul class="merge-file-list">${srcRows}${rej}</ul>` : '';
+
+    const notes = pm.notices.map(n => `<div class="rec-warning">${esc(n)}</div>`)
+        .concat((r.import_warnings || [])
+            .filter(w => w.code === 'mixed_sources' || w.code === 'perf_extrapolated')
+            .map(w => `<div class="rec-warning">${esc(_warningText(w))}${
+                w.params && w.params.target && r.targets.length > 1
+                    ? ' (' + esc(w.params.target) + ')' : ''}</div>`));
+    document.getElementById('merge-warnings').innerHTML = notes.length
+        ? `<div class="rec-warnings">${notes.join('')}</div>` : '';
+
+    // Overlaps (M3)
+    const ovEl = document.getElementById('merge-overlaps');
+    if (r.overlaps.length) {
+        const rows = r.overlaps.map((o, i) => {
+            const opts = o.copies.map(c =>
+                `<option value="${esc(c.src)}"${o.choice === c.src ? ' selected' : ''}>${esc(
+                    window.t('merge.keep_from', {file: _srcName(c.src)}))}</option>`);
+            if (o.kind === 'vm') {
+                opts.push(`<option value="both"${o.choice === 'both' ? ' selected' : ''}>${esc(window.t('merge.keep_both'))}</option>`);
+            }
+            const kind = window.t(o.kind === 'vm' ? 'merge.kind_vm' : 'merge.kind_host');
+            const possible = o.possible
+                ? ` <span class="merge-badge" title="${esc(window.t('merge.possible_hint'))}">${esc(window.t('merge.possible'))}</span>` : '';
+            return `<tr><td>${esc(kind)}</td><td>${esc(o.name)}${possible}</td>
+                <td><select data-change='["onOverlapChoice",${i},"$this"]'>${opts.join('')}</select></td></tr>`;
+        }).join('');
+        ovEl.innerHTML = `
+            <div class="merge-section-head">
+                <h3>${esc(window.t('merge.overlaps_title', {count: r.overlaps.length}))}</h3>
+                <div class="merge-shortcuts">
+                    <button class="btn btn-sm btn-muted" data-click='["mergeKeepNewest"]'>${esc(window.t('merge.keep_newest_all'))}</button>
+                    <button class="btn btn-sm btn-muted" data-click='["mergeKeepBothVms"]'>${esc(window.t('merge.keep_both_all'))}</button>
+                </div>
+            </div>
+            <p class="import-info muted">${esc(window.t('merge.overlaps_intro'))}</p>
+            <div class="merge-overlap-scroll"><table class="merge-table"><tbody>${rows}</tbody></table></div>`;
+        ovEl.hidden = false;
+    } else {
+        ovEl.hidden = true;
+        ovEl.innerHTML = '';
+    }
+
+    // Groups -> targets (M5)
+    const targetNames = [];
+    r.groups.forEach(g => { if (g.target !== MERGE_SKIP && targetNames.indexOf(g.target) < 0) targetNames.push(g.target); });
+    const groupRows = r.groups.map((g, i) => {
+        const opts = targetNames.map(n =>
+            `<option value="${esc(n)}"${g.target === n ? ' selected' : ''}>${esc(n)}</option>`)
+            .concat([`<option value="__new__">${esc(window.t('merge.new_cluster'))}</option>`,
+                     `<option value="${MERGE_SKIP}"${g.target === MERGE_SKIP ? ' selected' : ''}>${esc(window.t('merge.skip'))}</option>`]);
+        const dup = g.duplicate_of
+            ? `<div class="merge-hint">${esc(window.t('merge.duplicate_hint'))}</div>` : '';
+        const label = g.key === '__standalone__' ? window.t('merge.standalone')
+            : (fileCount > 1 ? g.label : g.cluster);
+        return `<div class="fanout-row merge-group">
+            <span class="fanout-name">${esc(label)}${dup}</span>
+            <span class="fanout-meta">${esc(window.t('merge.group_meta', {
+                hosts: g.hosts, vms: g.active_vms, vcpus: g.vcpus,
+                ram: formatRam(Math.round(g.ram_gb)), tb: g.used_tb}))}</span>
+            <select class="merge-target" data-change='["onMergeTargetChange",${i},"$this"]'>${opts.join('')}</select>
+        </div>`;
+    }).join('');
+    document.getElementById('fanout-cluster-list').innerHTML = groupRows;
+
+    const tEl = document.getElementById('merge-targets');
+    tEl.innerHTML = r.targets.length ? `<div class="merge-target-list">
+        <span class="merge-target-label">${esc(window.t('merge.targets_label'))}</span>
+        ${r.targets.map((t, i) => `<input type="text" maxlength="120" value="${esc(t.name)}"
+            aria-label="${esc(window.t('merge.rename'))}"
+            data-change='["renameMergeTarget",${i},"$this"]'>`).join('')}</div>` : '';
+
+    const n = r.targets.length;
+    const btn = document.getElementById('fanout-create-btn');
+    btn.disabled = n === 0;
+    btn.textContent = n === 1 ? window.t('merge.continue') : window.t('fanout.create_btn', {count: n});
+    const tagGroup = document.getElementById('fanout-tag-group');
+    if (tagGroup) tagGroup.hidden = n < 2;
+}
+
+function onOverlapChoice(i, el) {
+    const o = pendingMerge.result.overlaps[i];
+    pendingMerge.resolutions[o.key] = el.value;
+    refreshMerge();
+}
+
+function mergeKeepNewest() {
+    pendingMerge.result.overlaps.forEach(o => { pendingMerge.resolutions[o.key] = o.default; });
+    refreshMerge();
+}
+
+function mergeKeepBothVms() {
+    pendingMerge.result.overlaps.forEach(o => {
+        if (o.kind === 'vm') pendingMerge.resolutions[o.key] = 'both';
+    });
+    refreshMerge();
+}
+
+function onMergeTargetChange(i, el) {
+    const g = pendingMerge.result.groups[i];
+    let v = el.value;
+    if (v === '__new__') {
+        v = (prompt(window.t('merge.new_cluster_prompt'), g.cluster || '') || '').trim();
+        if (!v) { renderMergeDialog(); return; }
+    }
+    pendingMerge.mapping[g.key] = v;
+    refreshMerge();
+}
+
+function renameMergeTarget(i, el) {
+    const old = pendingMerge.result.targets[i].name;
+    const v = (el.value || '').trim();
+    if (!v || v === old) { el.value = old; return; }
+    pendingMerge.result.groups.forEach(g => {
+        if (g.target === old) pendingMerge.mapping[g.key] = v;
+    });
+    refreshMerge();
+}
+
+function mergeAllSeparate() {
+    pendingMerge.mapping = {};
+    pendingMerge.result.groups.forEach(g => {
+        if (g.target === MERGE_SKIP) pendingMerge.mapping[g.key] = MERGE_SKIP;
+    });
+    refreshMerge();
+}
+
+function mergeAllInOne() {
+    const r = pendingMerge.result;
+    const kept = r.groups.filter(g => g.target !== MERGE_SKIP);
+    const name = (r.targets[0] && r.targets[0].name) || (kept[0] && kept[0].default_target) || 'Site';
+    kept.forEach(g => { pendingMerge.mapping[g.key] = name; });
+    refreshMerge();
 }
 
 // Default group tag for a fan-out: "<project name>-NN", counting up past the
@@ -1281,7 +1634,7 @@ function openClusterFanout(data) {
 // numbered solution set (sharing one tag would silently merge the two sets
 // the user wants to compare). The quick path (no project open yet) falls back
 // to a generic base; the field stays editable either way.
-function _fanoutDefaultTag(data) {
+function _fanoutDefaultTag() {
     const base = ((window.currentProjectName && window.currentProjectName())
         || window.t('fanout.tag_fallback')).slice(0, 50).trim();
     let highest = 0;
@@ -1301,42 +1654,54 @@ function closeClusterFanout() {
     document.getElementById('cluster-fanout-modal').style.display = 'none';
 }
 
-function _fanoutChosen() {
-    return [...document.querySelectorAll('#fanout-cluster-list input[data-fanout-idx]')]
-        .filter(cb => cb.checked)
-        .map(cb => pendingImportData.clusters[parseInt(cb.dataset.fanoutIdx, 10)]);
+// "Size as one combined cluster": everything into one target, on this screen.
+async function fanoutCombined() {
+    if (!pendingMerge) return;
+    mergeAllInOne();
+    await refreshMerge();
+    await createPerClusterSizings();
 }
 
-function updateFanoutCount() {
-    const n = _fanoutChosen().length;
-    const btn = document.getElementById('fanout-create-btn');
-    btn.textContent = window.t('fanout.create_btn', {count: n});
-    btn.disabled = n === 0;
+function _targetSources(target) {
+    const pm = pendingMerge;
+    return target.sources.map(id => {
+        const ds = pm.datasets.find(d => d.id === id) || { id };
+        const mine = rec => rec.src === id;
+        return _sourceRecord({
+            id, file_type: ds.file_type, scan_type: ds.scan_type,
+            source_meta: _metaOf(ds), summary: ds.summary,
+            hosts: target.hosts.filter(mine),
+            host_performance: target.host_performance.filter(mine),
+            datastores: target.datastores.filter(mine),
+            host_nics: target.host_nics.filter(mine),
+        });
+    });
 }
 
-// "Size as one combined cluster" — the consolidation case: the whole dataset
-// continues into the normal single-sizing flow.
-function fanoutCombined() {
-    closeClusterFanout();
-    finishImport(pendingImportData, pendingImportFileName);
+function _targetMetas(target) {
+    return target.sources.map(id =>
+        _metaOf(pendingMerge.datasets.find(d => d.id === id) || {}));
 }
 
-// Build one saved-sizing payload for a single source cluster. Shaped exactly
-// like captureSizingState() would produce for a fresh single-cluster import:
-// the per-cluster summary already carries the server-side shared-datastore
-// attribution (cluster_split), and the VM list is a plain field filter.
-function _fanoutSnap(cl, fields) {
-    const name = cl.name;
-    const vms = (pendingImportData.vms || []).filter(vm =>
-        (((vm.cluster || '').trim()) || UNCLUSTERED_KEY) === name);
+function _targetSourceLabel(target) {
+    const types = [...new Set(target.sources.map(id =>
+        (pendingMerge.datasets.find(d => d.id === id) || {}).file_type))];
+    return types.length === 1 ? types[0] : null;
+}
+
+// Build one saved-sizing payload for a target cluster. Shaped exactly like
+// captureSizingState() would produce for a fresh import of that target: the
+// server cut the records (shared-datastore attribution included) and rebuilt
+// the summary.
+function _fanoutSnap(target, fields) {
     return {
         version: SNAPSHOT_VERSION,
         mode: 'import',
         fields,
         import: {
-            originalImportSummary: JSON.parse(JSON.stringify(cl.summary)),
-            importSummary: cl.summary,
-            importVms: vms,
+            originalImportSummary: JSON.parse(JSON.stringify(target.summary)),
+            importSummary: target.summary,
+            importVms: target.vms.map(_compactVm),
             vmConfig: {},
             exclCompute: [],
             exclStorage: [],
@@ -1344,34 +1709,62 @@ function _fanoutSnap(cl, fields) {
             lastProjection: null,
             selectedRec: null,
             wizardStep: null,
+            sources: _targetSources(target),
+            importWarnings: target.import_warnings || [],
         },
     };
 }
 
+// The import as one response-shaped object, for the single-sizing path.
+function _targetAsImport(target) {
+    const metas = _targetMetas(target);
+    return {
+        summary: target.summary,
+        vms: target.vms.map(v => { const c = Object.assign({}, v); delete c.ref; return c; }),
+        hosts: target.hosts, datastores: target.datastores,
+        clusters: [], recommendations: [], projection: null, warnings: [],
+        import_warnings: target.import_warnings || [],
+        source: _targetSourceLabel(target) || 'liveoptics',
+        source_meta: _combinedSourceMeta(metas),
+    };
+}
+
+function _saveErrorText(status, data, vmCount) {
+    if (status === 413) return window.t('merge.too_large', {vms: vmCount});
+    return (data && data.error) || 'save failed';
+}
+
 async function createPerClusterSizings() {
-    const chosen = _fanoutChosen();
-    if (!chosen.length) return;
+    const pm = pendingMerge;
+    if (!pm || !pm.result) return;
+    const targets = pm.result.targets;
+    if (!targets.length) return;
     const btn = document.getElementById('fanout-create-btn');
     btn.disabled = true;
-    const fields = _captureFields('import');   // fresh-import defaults
-    const projectId = window.activeProjectId ? window.activeProjectId() : null;
-    let landingProject = projectId;
+
+    // Appending: the target holding this sizing's own records stays here.
+    let home = null;
+    if (pm.append) {
+        home = targets.find(t => t.vms.some(v => pm.refs[v.ref] !== undefined)
+                                 || t.sources.some(id => !pm.newIds.has(id))) || targets[0];
+    } else if (targets.length === 1) {
+        home = targets[0];
+    }
+    const others = targets.filter(t => t !== home);
+
     try {
-        for (const cl of chosen) {
+        const fields = _captureFields('import');
+        const projectId = window.activeProjectId ? window.activeProjectId() : null;
+        let landingProject = projectId;
+        for (const t of others) {
             const resp = await fetch('/api/configs/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    name: cl.name,
-                    payload: _fanoutSnap(cl, fields),
+                    name: t.name,
+                    payload: _fanoutSnap(t, fields),
                     project_id: projectId || undefined,
-                    // Provenance from the PENDING import response — the
-                    // lastSourceMeta global is only set by finishImport, which
-                    // the fan-out path never reaches; reading it here left the
-                    // created sizings looking like Manual entries.
-                    source_meta: Object.assign(
-                        {}, (pendingImportData && pendingImportData.source_meta) || {},
-                        {cluster: cl.name}),
+                    source_meta: _combinedSourceMeta(_targetMetas(t), t.name),
                     // Marks the sizing "to be sized" until a person opens and
                     // saves it; also asks the server for option-N name dedup.
                     untouched: true,
@@ -1380,16 +1773,24 @@ async function createPerClusterSizings() {
                     role: 'additive',
                     // Group tag from the chooser (blank = no tagging), so the
                     // set is immediately comparable via "Compare tags".
-                    tag: (document.getElementById('fanout-tag') || {value: ''})
-                        .value.trim() || undefined,
+                    tag: targets.length > 1
+                        ? ((document.getElementById('fanout-tag') || {value: ''}).value.trim() || undefined)
+                        : undefined,
                 }),
             });
-            const d = await resp.json();
-            if (!resp.ok) throw new Error(d.error || 'save failed');
+            let d = null;
+            try { d = await resp.json(); } catch (e) { d = null; }
+            if (!resp.ok) throw new Error(_saveErrorText(resp.status, d, t.vms.length));
             landingProject = d.project_id;   // quick path resolves to scratch
         }
         closeClusterFanout();
-        pendingImportData = null;
+        if (home) {
+            if (pm.append) _applyAppend(home);
+            else _finishMergedImport(home);
+            pendingMerge = null;
+            return;
+        }
+        pendingMerge = null;
         // Land on the project so the new rows (badged "to be sized") are the
         // next thing the user sees; opening each one is the review.
         if (window.openProject && landingProject != null) {
@@ -1400,6 +1801,152 @@ async function createPerClusterSizings() {
         showUploadStatus(window.t('fanout.failed', {error: e.message}), true);
         closeClusterFanout();
     }
+}
+
+// One target from a fresh import: size it on this screen.
+function _finishMergedImport(target) {
+    const data = _targetAsImport(target);
+    const files = target.sources.length;
+    finishImport(data, files > 1 ? window.t('merge.n_files', {count: files})
+                                 : ((data.source_meta || {}).file_name || ''));
+    lastImportSources = _targetSources(target);
+    lastImportWarnings = target.import_warnings || [];
+    recalcRecommendations();
+}
+
+// Saved sources + VMs of the current sizing, as datasets for a re-merge.
+// refs maps "<id>:<index in that dataset>" to the VM's index in importVms.
+// Records go back with their ORIGINAL source cluster (the saved `cluster` is
+// this sizing's target name), and mapping sends every group they form to
+// this sizing, so an append only adds to it unless the user re-maps.
+function _existingDatasets() {
+    const datasets = [], refs = {}, mapping = {};
+    let home = null;
+    const orig = rec => {
+        if (home === null && rec.cluster) home = rec.cluster;
+        return Object.assign({}, rec, { cluster: rec.source_cluster != null
+            ? rec.source_cluster : rec.cluster });
+    };
+    const groupOf = (id, rec) => {
+        const c = ((rec.cluster || '') + '').trim();
+        return c ? `${id}::${c}` : '__standalone__';
+    };
+    (lastImportSources || []).forEach(src => {
+        const vms = [];
+        importVms.forEach((vm, g) => {
+            if (vm.src !== src.id || vmAdded.has(g)) return;
+            refs[`${src.id}:${vms.length}`] = g;
+            vms.push(orig(vm));
+        });
+        const hosts = (src.hosts || []).map(orig);
+        hosts.concat(vms).forEach(r => { mapping[groupOf(src.id, r)] = true; });
+        datasets.push(Object.assign({}, src, { hosts, vms }));
+    });
+    Object.keys(mapping).forEach(k => { mapping[k] = home || 'Site'; });
+    return { datasets, refs, mapping };
+}
+
+// Fold an appended merge into this sizing. Existing VMs keep their index (so
+// exclusions and edits stay); a VM replaced by another file's copy keeps its
+// slot; dropped VMs are removed and every index-keyed set is remapped; new
+// VMs go at the end.
+function _applyAppend(target) {
+    const pm = pendingMerge;
+    const byRef = {};
+    target.vms.forEach(v => { byRef[v.ref] = v; });
+    const replace = {}, used = new Set();
+    pm.result.overlaps.forEach(o => {
+        if (o.kind !== 'vm' || o.choice === 'both') return;
+        const win = o.copies.find(c => c.src === o.choice);
+        if (!win || pm.refs[win.ref] !== undefined) return;     // an existing copy won
+        const old = o.copies.find(c => pm.refs[c.ref] !== undefined);
+        if (old && byRef[win.ref]) {
+            replace[pm.refs[old.ref]] = win.ref;
+            used.add(win.ref);
+        }
+    });
+    const refOf = {};
+    Object.keys(pm.refs).forEach(r => { refOf[pm.refs[r]] = r; });
+    const merged = new Set(pm.datasets.map(d => d.id));
+    const strip = v => { const c = Object.assign({}, v); delete c.ref; return c; };
+    const next = [], remap = {};
+    importVms.forEach((vm, g) => {
+        let keep = null;
+        if (!vm.src || !merged.has(vm.src) || vmAdded.has(g)) keep = vm;
+        else if (byRef[refOf[g]]) keep = Object.assign({}, vm, {cluster: byRef[refOf[g]].cluster});
+        else if (replace[g]) keep = strip(byRef[replace[g]]);
+        if (keep) { remap[g] = next.length; next.push(keep); }
+    });
+    target.vms.forEach(v => {
+        if (pm.refs[v.ref] === undefined && !used.has(v.ref)) next.push(strip(v));
+    });
+    const mapSet = s => new Set([...s].filter(i => remap[i] !== undefined).map(i => remap[i]));
+    vmExclusions = { compute: mapSet(vmExclusions.compute), storage: mapSet(vmExclusions.storage) };
+    vmAdded = mapSet(vmAdded);
+    vmRemoved = mapSet(vmRemoved);
+    const cfg = {};
+    Object.keys(vmConfig).forEach(k => {
+        const n = remap[parseInt(k, 10)];
+        if (n !== undefined) cfg[n] = vmConfig[k];
+    });
+    vmConfig = cfg;
+    importVms = next;
+
+    originalImportSummary = JSON.parse(JSON.stringify(target.summary));
+    importSummary = computeAdjustedImportSummary();
+    lastImportSources = _targetSources(target);
+    lastImportWarnings = target.import_warnings || [];
+    const newMetas = target.sources.filter(id => pm.newIds.has(id))
+        .map(id => _metaOf(pm.datasets.find(d => d.id === id) || {}));
+    const oldMeta = lastSourceMeta
+        || (window.loadedSourceMeta && window.loadedSourceMeta()) || {};
+    const allMetas = (oldMeta.files && oldMeta.files.length ? oldMeta.files
+        : (oldMeta.file_name ? [_metaOf({source_meta: oldMeta})] : [])).concat(newMetas);
+    lastSourceMeta = Object.assign(_combinedSourceMeta(allMetas) || {},
+        oldMeta.cluster ? { cluster: oldMeta.cluster } : {});
+    pendingSourceFiles = (pendingSourceFiles || []).concat(newMetas);
+    window._wizImportWarnings = lastImportWarnings;
+    updateExclusionCountBadge();
+    showUploadStatus(window.t('merge.appended', {count: newMetas.length}), false);
+    displayImportResults({ summary: importSummary, recommendations: [],
+                           projection: lastProjection['import'],
+                           import_warnings: lastImportWarnings });
+    if (window.WizardAPI && window.WizardAPI.isActive()) {
+        const ws = window.WizardAPI.getStep();
+        window.WizardAPI.restoreToStep((ws && ws.step) || 2);
+    }
+    recalcRecommendations();
+}
+
+// Files appended to a saved sizing whose provenance the next in-place save
+// records (POST /api/sizings/<id>/sources); see auth.js saveSizing.
+let pendingSourceFiles = [];
+window.takePendingSourceFiles = function () {
+    const out = pendingSourceFiles;
+    pendingSourceFiles = [];
+    return out;
+};
+window.currentVmCount = () => importVms.length;
+
+// "Add files": append assessment files to this site. A sizing saved before
+// multi-file import stores no hosts or per-host performance, so its merge
+// cannot be rebuilt faithfully (P4).
+function startAppendFiles() {
+    if (!lastImportSources || !lastImportSources.length) {
+        const msg = window.t('merge.append_unsupported');
+        if (window.showInfoModal) window.showInfoModal(window.t('merge.add_files'), msg);
+        else alert(msg);
+        return;
+    }
+    const input = document.getElementById('append-file-input');
+    input.value = '';
+    input.click();
+}
+
+function handleAppendSelect(input) {
+    const files = [...(input.files || [])];
+    input.value = '';
+    if (files.length) uploadFiles(files, { append: true });
 }
 
 function showUploadStatus(msg, isError) {
@@ -3931,7 +4478,10 @@ function renderLocalStorageOption(s) {
 // (sourceClusters, clusterOptions, clusterReplication, dedicatedClusters,
 // drCluster, ...) are no longer written. v2 snapshots carrying them open
 // read-only behind the legacy banner with the split migration.
-const SNAPSHOT_VERSION = 3;
+// v4 (multi-file import): import.sources (per-file hosts, perf, datastores,
+// NICs; VMs carry `src`) and import.importWarnings. A v3 import opens as
+// before but cannot have files appended (plan B, P4).
+const SNAPSHOT_VERSION = 4;
 
 // Controls in the shared Sizing Options + Growth block — captured for BOTH the
 // import and manual flows (single source of truth, so they stay in lock-step).
@@ -4006,7 +4556,7 @@ function captureSizingState() {
         snap.import = {
             originalImportSummary,
             importSummary,
-            importVms,
+            importVms: importVms.map(_compactVm),
             vmConfig,
             exclCompute: [...vmExclusions.compute],
             exclStorage: [...vmExclusions.storage],
@@ -4019,6 +4569,10 @@ function captureSizingState() {
             // Which guided-wizard step the user was on, so a reload resumes
             // there. null in classic view.
             wizardStep: (window.WizardAPI ? window.WizardAPI.getStep() : null),
+            // Per-file sources (for appending files) and the import caveats,
+            // so a mixed-source warning survives a reload.
+            sources: lastImportSources,
+            importWarnings: lastImportWarnings,
         };
     }
 
@@ -4091,6 +4645,10 @@ async function restoreSizingState(snap) {
         if (banner) banner.style.display = legacyMultiSizing ? 'flex' : 'none';
         originalImportSummary = im.originalImportSummary;
         importVms = im.importVms || [];
+        lastImportSources = im.sources || null;
+        lastImportWarnings = im.importWarnings || [];
+        pendingSourceFiles = [];
+        window._wizImportWarnings = lastImportWarnings;
         vmConfig = im.vmConfig || {};
         vmExclusions = { compute: new Set(im.exclCompute || []), storage: new Set(im.exclStorage || []) };
         includeLocalStorage = !!im.includeLocalStorage;
@@ -4101,7 +4659,8 @@ async function restoreSizingState(snap) {
         showUploadStatus(window.t('upload.restored'), false);
         // Re-render the env/workload cards from the adjusted summary, then re-apply
         // the saved options and recompute recommendations.
-        displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
+        displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'],
+                               import_warnings: lastImportWarnings });
         (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
         _restoreStorageGrowth(f);
         updateRatioDisplay();

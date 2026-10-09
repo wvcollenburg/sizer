@@ -44,20 +44,50 @@
    {{ m.ui("Next") }} move one step at a time.</p>
 {{ m.shot("wizard-upload", "Step 1: Upload") }}
 
-<h4 id="fanout">Several clusters in one file</h4>
-<p>When the export contains more than one cluster, the sizer asks what to do with them:</p>
-{{ m.shot("fanout", "Multiple clusters detected") }}
+<h4 id="fanout">Several clusters, or several files</h4>
+<p>You can upload more than one file at once: select several files, or drop them together.
+   This is for one site that was collected in parts, for example one RVTools export per
+   standalone ESXi host, or separate Live Optics collections per environment. Files from
+   different tools can be mixed.</p>
+<p>When the upload holds more than one cluster or more than one file, the sizer asks how to
+   map it to clusters:</p>
+{{ m.shot("fanout", "Map the import to clusters") }}
 <ul>
-    <li>{{ m.ui("Create N sizings") }} (recommended) creates <strong>one sizing per
-        ticked cluster</strong> in the project, each named after its cluster, with the role
-        <em>Part of the total</em> and the tag shown in {{ m.ui("Tag these sizings") }}. Untick
-        clusters you do not want. Clear the tag field to create them without a tag. You are
-        taken back to the project page, where the new sizings are marked <em>To be sized</em>.
-        Nothing is sized until you open each one and save it.</li>
-    <li>{{ m.ui("Size as one combined cluster") }} treats the whole file as a single workload.
-        Choose this only when the clusters really are being consolidated into one new
-        cluster.</li>
+    <li><strong>Files</strong> lists each file with its tool, collection date, size and the
+        performance data it carries. A file that cannot be read is listed with the reason and
+        left out; the other files continue. A file identical to another one is skipped, and a
+        file already imported into this project is pointed out.</li>
+    <li><strong>Found in more than one file</strong> appears when a VM or host is in several
+        files. A VM is matched on its UUID, or on its name when a file has no UUID; a name-only
+        match is marked <em>possible duplicate</em>. For each one, keep the copy from one file or,
+        for VMs, keep both. The default is the copy from the most recently collected file.
+        {{ m.ui("Keep newest for all") }} and {{ m.ui("Keep both for all VMs") }} set every
+        row at once.</li>
+    <li><strong>Clusters</strong> has one row per source cluster per file, plus one row
+        <em>Standalone hosts</em> for the hosts without a cluster in every file. Choose a
+        target cluster for each row. Rows with the same target are sized together. Clusters
+        start as their own target, standalone hosts share one, and two rows that are probably
+        the same cluster collected twice share one too. Use <em>New cluster…</em> to add a
+        target, <em>Don't import</em> to leave a row out, and the name fields to rename
+        targets. {{ m.ui("All separate") }} and {{ m.ui("All in one") }} are the two
+        extremes.</li>
+    <li>With one target, {{ m.ui("Continue") }} sizes it on this screen. With several,
+        {{ m.ui("Create N sizings") }} creates <strong>one sizing per target</strong> in the
+        project, each named after its target, with the role <em>Part of the total</em> and the
+        tag shown in {{ m.ui("Tag these sizings") }}. Clear the tag field to create them without
+        a tag. You are taken back to the project page, where the new sizings are marked
+        <em>To be sized</em>. Nothing is sized until you open each one and save it.</li>
 </ul>
+{% call m.note() %}Performance data that only part of the files carry (for example IOPS from
+   Live Optics but not from RVTools) is extrapolated to the rest: CPU in proportion to vCPUs,
+   memory to RAM and IOPS to used storage. The Environment step then says so, together with
+   a note that the files come from different tools. The notes are saved with the
+   sizing.{% endcall %}
+<p>To add files to a saved sizing later, choose {{ m.ui("Add files") }} next to the
+   environment summary. The new files go through the same dialog against what the sizing
+   already holds. VM exclusions and edits are kept. Save the sizing afterwards. A sizing
+   saved before this was possible cannot have files added: import the original file again
+   together with the new one.</p>
 {{ m.shot("project-to-be-sized", "One sizing per cluster, waiting to be reviewed") }}
 
 <h4 id="wizard-environment">Step 2: Environment</h4>

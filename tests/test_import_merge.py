@@ -446,3 +446,73 @@ def test_real_export_merged_with_itself_is_all_overlap():
     assert n_vm == len({v["uuid"] for v in parsed["vms"]})
     total = sum(t["summary"]["total_vms"] for t in out["targets"])
     assert total == parsed["summary"]["total_vms"]
+
+
+def test_a_skipped_group_takes_its_share_with_it(tmp_path):
+    from import_merge import SKIP
+    parsed, d = _three_clusters(tmp_path)
+    dsets = [_ds(parsed, "T", "liveoptics", "three.xlsx", d)]
+    keys = {g["cluster"]: g["key"] for g in merge(dsets)["groups"]}
+    full = {t["name"]: t for t in merge(dsets)["targets"]}
+    out = merge(dsets, mapping={keys["DB"]: SKIP})
+    names = [t["name"] for t in out["targets"]]
+    assert names == ["BOCluster", "PROD"]
+    for t in out["targets"]:
+        assert t["summary"]["datastore_used_tb"] == full[t["name"]]["summary"]["datastore_used_tb"]
+    assert not any(v["source_cluster"] == "DB" for t in out["targets"] for v in t["vms"])
+
+
+def test_vms_and_overlap_copies_carry_refs(tmp_path):
+    old, d_old = _vcenter(tmp_path, "old.xlsx", "2026/06/01")
+    new, d_new = _vcenter(tmp_path, "new.xlsx", "2026/09/01")
+    out = merge([_ds(old, "O", "liveoptics", "old.xlsx", d_old),
+                 _ds(new, "N", "liveoptics", "new.xlsx", d_new)])
+    web = next(o for o in out["overlaps"] if o["name"] == "web")
+    assert sorted(c["ref"] for c in web["copies"]) == ["N:0", "O:0"]
+    assert {v["ref"] for v in out["targets"][0]["vms"]} == {"N:0", "N:1"}
+
+
+def test_sources_route_appends_file_meta(client):
+    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    first = {"file_name": "a.xlsx", "file_sha256": "a" * 64, "file_type": "rvtools"}
+    row = client.post("/api/configs/", json={
+        "name": "S", "project_id": pid, "payload": {"mode": "import"},
+        "source_meta": first}).get_json()
+    r = client.post("/api/sizings/%d/sources" % row["id"], json={"files": [
+        {"file_name": "b.xlsx", "file_sha256": "b" * 64, "evil": "x"},
+        {"file_name": "a-again.xlsx", "file_sha256": "a" * 64}]})
+    assert r.status_code == 200
+    meta = r.get_json()["source_meta"]
+    assert meta["file_name"] == "a.xlsx"
+    assert [f["file_name"] for f in meta["files"]] == ["a.xlsx", "b.xlsx"]
+    assert "evil" not in meta["files"][1]
+    # The duplicate check now sees appended files too.
+    dup = client.post("/api/projects/%d/source-check" % pid,
+                      json={"file_sha256": "b" * 64}).get_json()
+    assert dup["duplicate"] is True and dup["sizing_id"] == row["id"]
+    assert client.post("/api/sizings/%d/sources" % row["id"],
+                       json={"files": []}).status_code == 400
+    other = __import__("app").app.test_client()
+    other.post("/api/auth/signup", json={"email": "other@examplecorp.com",
+                                         "password": "Abcdef1!xy", "accept_privacy": True})
+    assert other.post("/api/sizings/%d/sources" % row["id"],
+                      json={"files": [{"file_name": "c"}]}).status_code == 403
+    from auth_models import AdminAuditLog
+    import app as appmod
+    with appmod.app.app_context():
+        assert AdminAuditLog.query.filter_by(action="sizing_sources_added").count() == 1
+
+
+def test_likely_duplicate_clusters_default_to_one_target(tmp_path):
+    hosts = [F.host("h1", "PROD"), F.host("d1", "DB")]
+    a, da = _lo(tmp_path, "june.xlsx", hosts,
+                [F.vm("w", "h1", "PROD", uuid="1"), F.vm("old-only", "d1", "DB", uuid="2")],
+                [("san", 100, 10, ["h1", "d1"])], date="2026/06/01")
+    b, db = _lo(tmp_path, "sept.xlsx", hosts,
+                [F.vm("w", "h1", "PROD", uuid="1"), F.vm("new-only", "h1", "PROD", uuid="3")],
+                [("san", 100, 12, ["h1", "d1"])], date="2026/09/01")
+    out = merge([_ds(a, "J", "liveoptics", "june.xlsx", da),
+                 _ds(b, "S", "liveoptics", "sept.xlsx", db)])
+    assert sorted(t["name"] for t in out["targets"]) == ["DB", "PROD"]
+    prod = next(t for t in out["targets"] if t["name"] == "PROD")
+    assert sorted(v["name"] for v in prod["vms"]) == ["new-only", "w"]

@@ -437,6 +437,12 @@ def create_app():
                 "summary": data["summary"],
                 "project": data["project"],
                 "hosts": data["hosts"],
+                # With these the response doubles as a dataset for a later
+                # multi-file merge (a sizing stores its sources).
+                "host_performance": data.get("host_performance") or [],
+                "host_nics": data.get("host_nics") or [],
+                "scan_type": data.get("scan_type"),
+                "file_type": file_type,
                 "datastores": data["datastores"],
                 "vms": data["vms"],
                 "vm_count": len(data["vms"]),

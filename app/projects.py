@@ -417,15 +417,16 @@ def check_source_duplicate(project_id):
     for sizing in Configuration.query.filter_by(
             project_id=project.id, is_deleted=False).options(
                 defer(Configuration.payload)).all():
-        meta = sizing.source_meta or {}
-        if meta.get("file_sha256") == digest:
-            return jsonify({
-                "duplicate": True,
-                "sizing_id": sizing.id,
-                "sizing_name": sizing.name,
-                "file_name": meta.get("file_name"),
-                "imported_at": meta.get("imported_at"),
-            })
+        top = sizing.source_meta or {}
+        for meta in [top] + [m for m in (top.get("files") or []) if isinstance(m, dict)]:
+            if meta.get("file_sha256") == digest:
+                return jsonify({
+                    "duplicate": True,
+                    "sizing_id": sizing.id,
+                    "sizing_name": sizing.name,
+                    "file_name": meta.get("file_name"),
+                    "imported_at": meta.get("imported_at"),
+                })
     return jsonify({"duplicate": False})
 
 
@@ -456,6 +457,50 @@ def _writable_sizing(config_id, user):
                      "your own project to make changes."
         }), 403)
     return sizing, None
+
+
+_SOURCE_META_KEYS = ("file_name", "file_type", "file_sha256", "imported_at",
+                     "collected_at", "host_count", "vm_count", "parser_version")
+
+
+@sizings_bp.route("/<int:config_id>/sources", methods=["POST"])
+@login_required
+def add_sizing_sources(config_id):
+    """Record files appended to a saved sizing (plan B, M4) in its provenance:
+    ``source_meta.files`` lists every file the sizing was built from, the
+    top-level fields keep describing the first one. Owner only."""
+    from auth import audit
+    user = current_user()
+    sizing, err = _writable_sizing(config_id, user)
+    if err:
+        return err
+    files = (request.json or {}).get("files")
+    if not isinstance(files, list) or not files or len(files) > 50:
+        return jsonify({"error": "files must be a list of 1 to 50 entries"}), 400
+    clean = []
+    for f in files:
+        if not isinstance(f, dict) or not f.get("file_name"):
+            return jsonify({"error": "Each file needs a file_name"}), 400
+        clean.append({k: f.get(k) for k in _SOURCE_META_KEYS if f.get(k) is not None})
+    meta = dict(sizing.source_meta or {})
+    listed = list(meta.get("files") or [])
+    if not listed and meta.get("file_name"):
+        listed.append({k: meta.get(k) for k in _SOURCE_META_KEYS
+                       if meta.get(k) is not None})
+    seen = {m.get("file_sha256") for m in listed if m.get("file_sha256")}
+    for f in clean:
+        if f.get("file_sha256") and f["file_sha256"] in seen:
+            continue
+        seen.add(f.get("file_sha256"))
+        listed.append(f)
+    if not meta.get("file_name"):
+        meta.update(listed[0])
+    meta["files"] = listed
+    sizing.source_meta = meta
+    audit("sizing_sources_added", "{} +{} file(s) on sizing {}".format(
+        user.email, len(clean), sizing.id), actor=user)
+    db.session.commit()
+    return jsonify(sizing.to_summary(user, "owned"))
 
 
 @sizings_bp.route("/<int:config_id>/duplicate", methods=["POST"])

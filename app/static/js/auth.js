@@ -35,6 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resetToken) openResetModal(resetToken);
 });
 
+// A save refused for size names the VM count, so the user knows what to cut
+// (a merged estate of many files is the case that reaches the cap).
+function _saveError(status, data) {
+    if (status === 413) {
+        const vms = window.currentVmCount ? window.currentVmCount() : 0;
+        return t('merge.too_large', { vms });
+    }
+    return (data && data.error) || t('auth.generic_error');
+}
+
 async function apiJson(url, opts) {
     const resp = await fetch(url, opts);
     let data = null;
@@ -705,17 +715,25 @@ async function saveCurrentSizing() {
     }
 
     if (action === 'update') {
-        const { ok, data } = await apiJson('/api/configs/' + loadedConfig.id, {
+        const { ok, status, data } = await apiJson('/api/configs/' + loadedConfig.id, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ payload: snap }),
         });
         if (!ok) {
-            showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
+            showInfoModal(t('auth.save_failed_title'), _saveError(status, data));
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
         if (window.setSizerSizingName) window.setSizerSizingName(data.name);
+        // Files appended since the last save join the sizing's provenance.
+        const appended = window.takePendingSourceFiles ? window.takePendingSourceFiles() : [];
+        if (appended.length) {
+            await apiJson(`/api/sizings/${data.id}/sources`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files: appended }),
+            });
+        }
         await storeResultSnapshot(data.id);
         if (window.markSizingClean) window.markSizingClean();
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
@@ -730,7 +748,7 @@ async function saveCurrentSizing() {
     // path), the server resolves it to the user's scratch project rather than
     // leaving it unfiled — no sizing exists outside a project.
     const projectId = window.activeProjectId ? window.activeProjectId() : null;
-    const { ok, data } = await apiJson('/api/configs/', {
+    const { ok, status, data } = await apiJson('/api/configs/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -741,9 +759,10 @@ async function saveCurrentSizing() {
         }),
     });
     if (!ok) {
-        showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
+        showInfoModal(t('auth.save_failed_title'), _saveError(status, data));
         return false;
     }
+    if (window.takePendingSourceFiles) window.takePendingSourceFiles();   // in source_meta already
     loadedConfig = { id: data.id, name: data.name, canUpdate: true };
     if (window.setSizerSizingName) window.setSizerSizingName(data.name);
     await storeResultSnapshot(data.id);
@@ -801,8 +820,11 @@ function chooseSave(which) { _resolveSaveChoice(which); }
 // Let the project view hand a loaded sizing back, so "save" offers to update it
 // in place rather than always creating a copy.
 window.setLoadedConfig = function (data) {
-    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
+    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned',
+                     sourceMeta: data.source_meta || null };
 };
+// The opened sizing's stored provenance (an append adds its files to it).
+window.loadedSourceMeta = function () { return loadedConfig ? loadedConfig.sourceMeta : null; };
 
 async function loadSizing(id) {
     const { ok, data } = await apiJson('/api/configs/' + id);

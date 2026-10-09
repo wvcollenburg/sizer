@@ -42,6 +42,8 @@ from import_checks import build_import_warnings
 STANDALONE = "__standalone__"
 STANDALONE_TARGET = "Standalone hosts"
 KEEP_BOTH = "both"
+# A mapping value that leaves a group out of every target.
+SKIP = "__skip__"
 
 _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
@@ -157,8 +159,8 @@ def _newest(srcs, order):
     return max(srcs, key=lambda s: (order[s]["collected_at"], order[s]["index"]))
 
 
-def _vm_copy(sid, vm):
-    return {"src": sid, "name": vm.get("name") or "", "host": vm.get("host") or "",
+def _vm_copy(sid, i, vm):
+    return {"src": sid, "ref": "%s:%d" % (sid, i), "name": vm.get("name") or "", "host": vm.get("host") or "",
             "cluster": vm.get("cluster") or "", "vcpus": vm.get("vcpus") or 0,
             "ram_gb": vm.get("provisioned_memory_gb") or 0,
             "used_gb": vm.get("vdisk_used_gb") or 0,
@@ -240,7 +242,7 @@ def _find_overlaps(live, order):
         overlaps.append({
             "key": ent, "kind": "vm", "name": nodes[members[0]].get("name") or "",
             "possible": bool(possible),
-            "copies": [_vm_copy(m[0], nodes[m]) for m in members],
+            "copies": [_vm_copy(m[0], m[1], nodes[m]) for m in members],
         })
     return overlaps, vm_entity, host_entity
 
@@ -268,13 +270,16 @@ def _group_key(sid, cluster):
 
 def _default_targets(groups):
     """Clusters map to their own name, standalone hosts to one shared
-    target; a name used by two files gets the file's stem added."""
+    target. A name used by two files gets the file's stem added, unless the
+    groups are likely the same cluster (they share hosts): those default to
+    one target, which the user can still split."""
     names = Counter(g["cluster"] for g in groups if g["key"] != STANDALONE)
+    same = {g["cluster"] for g in groups if g.get("duplicate_of")}
     out = {}
     for g in groups:
         if g["key"] == STANDALONE:
             out[g["key"]] = STANDALONE_TARGET
-        elif names[g["cluster"]] > 1:
+        elif names[g["cluster"]] > 1 and g["cluster"] not in same:
             out[g["key"]] = "%s · %s" % (g["cluster"], g["file_stem"])
         else:
             out[g["key"]] = g["cluster"]
@@ -421,7 +426,10 @@ def merge(datasets, resolutions=None, mapping=None):
             ent = vm_entity.get((sid, i))
             if ent and choice[ent] not in (sid, KEEP_BOTH):
                 continue
-            vms.append(dict(vm, src=sid, source_cluster=vm.get("cluster") or ""))
+            # ref = "<file id>:<index in that file>": lets a client that
+            # appends files map each merged VM back to the one it sent.
+            vms.append(dict(vm, src=sid, ref="%s:%d" % (sid, i),
+                            source_cluster=vm.get("cluster") or ""))
         kept.append((sid, ds, {"hosts": hosts, "host_performance": perfs,
                                "host_nics": nics, "datastores": stores, "vms": vms}))
 
@@ -485,7 +493,8 @@ def merge(datasets, resolutions=None, mapping=None):
 
     defaults = _default_targets(groups)
     mapping = mapping or {}
-    target_of = {g["key"]: _clean_target(mapping.get(g["key"])) or defaults[g["key"]]
+    target_of = {g["key"]: (SKIP if mapping.get(g["key"]) == SKIP else
+                            _clean_target(mapping.get(g["key"])) or defaults[g["key"]])
                  for g in groups}
     for g in groups:
         g["default_target"] = defaults[g["key"]]
@@ -550,7 +559,9 @@ def merge(datasets, resolutions=None, mapping=None):
     for t in target_names:
         data = tdata[t]
         parts_ds = data.pop("_parts")
-        if not (data["hosts"] or data["vms"]):
+        # A skipped group is cut out like any target (so its share of a shared
+        # datastore goes with it) and then left out.
+        if t == SKIP or not (data["hosts"] or data["vms"]):
             continue
         summary = build_summary(data)
         parts = [{"src": sid, "file_type": order[sid]["file_type"],
