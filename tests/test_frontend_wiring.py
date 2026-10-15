@@ -23,6 +23,24 @@ def _read(path):
         return handle.read()
 
 
+def _templates():
+    """The pages, plus the partials they include (templates/_partials/)."""
+    names = [n for n in sorted(os.listdir(TEMPLATES)) if n.endswith(".html")]
+    partials = os.path.join(TEMPLATES, "_partials")
+    names += ["_partials/" + n for n in sorted(os.listdir(partials)) if n.endswith(".html")]
+    return names
+
+
+def _template_text(name, expand=False):
+    """A template's source; with ``expand`` the partials it includes are
+    inlined, so a scan of what a PAGE loads sees the shared <head> too."""
+    text = _read(os.path.join(TEMPLATES, name))
+    if expand:
+        text = re.sub(r'{%\s*include\s+"(_partials/[^"]+)"\s*%}',
+                      lambda m: _read(os.path.join(TEMPLATES, m.group(1))), text)
+    return text
+
+
 def _js_sources():
     """Every page script, plus the dynamically rendered markup inside them."""
     out = {}
@@ -46,21 +64,25 @@ def _defined_handlers(sources):
 
 
 def _referenced_handlers(text):
-    """(handler, raw spec) for every delegated attribute in ``text``."""
+    """The raw spec of every delegated attribute in ``text`` — written out,
+    or produced by the close_button macro (_partials/macros.html), which
+    takes the handler name as its first argument."""
     found = []
     for event in DELEGATED:
         for raw in re.findall(r"data-%s='([^']*)'" % event, text):
+            if re.match(r'\s*\[\s*"\{\{', raw):   # the macro's own `handler` placeholder
+                continue
             found.append(raw)
+    for handler in re.findall(r"close_button\(\s*'(\w+)'", text):
+        found.append(json.dumps([handler]))
     return found
 
 
 def test_every_template_handler_exists():
     defined = _defined_handlers(_js_sources())
     missing = {}
-    for name in sorted(os.listdir(TEMPLATES)):
-        if not name.endswith(".html"):
-            continue
-        for raw in _referenced_handlers(_read(os.path.join(TEMPLATES, name))):
+    for name in _templates():
+        for raw in _referenced_handlers(_template_text(name)):
             spec = json.loads(raw)          # malformed JSON fails loudly here
             if spec[0] not in defined:
                 missing.setdefault(name, []).append(spec[0])
@@ -93,10 +115,8 @@ def test_every_rendered_handler_exists():
 def test_delegate_specs_are_valid_json():
     """The delegate JSON.parses each spec; a broken one disables that control."""
     bad = {}
-    for name in sorted(os.listdir(TEMPLATES)):
-        if not name.endswith(".html"):
-            continue
-        for raw in _referenced_handlers(_read(os.path.join(TEMPLATES, name))):
+    for name in _templates():
+        for raw in _referenced_handlers(_template_text(name)):
             try:
                 spec = json.loads(raw)
             except ValueError as exc:
@@ -120,9 +140,7 @@ def test_no_top_level_name_collisions_between_scripts():
     # Only scripts loaded by the SAME template share a scope: admin.js and
     # app.js never meet, so identical names there are harmless.
     for template in sorted(n for n in os.listdir(TEMPLATES) if n.endswith(".html")):
-        html = _read(os.path.join(TEMPLATES, template))
-        loaded = [os.path.basename(m) for m in
-                  re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
+        loaded = _loaded_scripts(template)
         declared = {}
         for name in loaded:
             text = sources.get(name)
@@ -192,7 +210,9 @@ COMMON_HELPERS = ("esc", "fetchJson", "sendJson", "setStatus", "flashStatus",
 
 
 def _loaded_scripts(template):
-    html = _read(os.path.join(TEMPLATES, template))
+    """Every page script in load order, including those the shared <head>
+    partial brings in."""
+    html = _template_text(template, expand=True)
     return [os.path.basename(m) for m in re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
 
 

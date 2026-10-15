@@ -1070,10 +1070,6 @@ function setSelNicQty(i, v) { selectedNics[i].qty = parseInt(v) || 1; }
 function removeParentChip(el) { el.parentElement.remove(); }
 function ramInputEnter(el, e) { if (e.key === 'Enter') { e.preventDefault(); addRamFromInput(el); } }
 function addRamFromPrev(el) { addRamFromInput(el.previousElementSibling); }
-// Still named by the tunable-info overlay's data-click; the document-level
-// backdrop handler in common.js does the same, so this is a no-op twin.
-function closeTunableInfoBackdrop() {}
-
 // ── RAM Chips ──────────────────────────────────────────────────────────────
 
 function addRamChip(size) {

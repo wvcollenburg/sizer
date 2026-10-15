@@ -1,25 +1,10 @@
+{%- import "_partials/macros.html" as ui -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SC// Infrastructure Sizer</title>
-    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-    <!-- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
-         older ones and the browser's unprompted /favicon.ico request. Built by
-         tools/make_favicon.py — edit the geometry there, not these files. -->
-    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
-    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
-    <!-- Theme must be stamped on <html> before the first paint, or dark-mode
-         users get a flash of the light theme on every load. -->
-    <script src="{{ asset('js/theme.js') }}"></script>
-    <!-- i18n: English base (fallback) + the active locale, then the engine.
-         Loaded in <head> so text is swapped before first paint. -->
-    <script src="{{ asset('js/lang/en.js') }}"></script>
-    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
-    <script src="{{ asset('js/i18n.js') }}"></script>
+    {% set page_title = 'SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
 </head>
 {# `app-booting` hides the sizer until the first screen is decided. Which screen
    you land on depends on /api/auth/me, so without this the sizer paints first
@@ -51,26 +36,7 @@
                data-i18n-aria="header.manual" aria-label="User manual">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </a>
-            {# Sun/moon swap by theme — only one is ever visible (see .theme-btn
-               in style.css), so the button reads correctly in both. #}
-            <button class="theme-btn" data-click='["toggleTheme"]'
-                    data-i18n-title="header.theme" title="Theme"
-                    data-i18n-aria="header.theme" aria-label="Theme">
-                <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </button>
-            <div class="lang-menu">
-                <button class="lang-btn" data-click='["toggleLangMenu"]'
-                        data-i18n-aria="header.language" aria-label="Language"
-                        data-i18n-title="header.language" title="Language">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                </button>
-                <ul class="lang-dropdown" id="lang-dropdown" hidden>
-                    {% for code in supported_langs %}
-                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
-                    {% endfor %}
-                </ul>
-            </div>
+            {% include "_partials/header_controls.html" %}
         </div>
     </header>
 
@@ -973,12 +939,7 @@
         <p data-i18n-html="footer.text"><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
     </footer>
 
-    <div class="dev-disclaimer" role="note">
-        <span class="dev-disclaimer-tag" data-i18n="footer.dev_tag">In development</span>
-        <span data-i18n="footer.disclaimer">This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
-        best-effort basis only &mdash; no guarantees are made, and no responsibility or liability can be accepted for any
-        decisions taken based on its output. Always validate results before relying on them.</span>
-    </div>
+    {% include "_partials/dev_disclaimer.html" %}
 
     <!-- Import-mapping dialog: each imported file / source cluster is a row,
          and every row is assigned to a target cluster. Rows that share a target
@@ -987,7 +948,7 @@
         <div class="modal-content merge-modal">
             <div class="modal-header">
                 <h2 id="merge-title" data-i18n="merge.title">Map the import to clusters</h2>
-                <button class="modal-close" data-click='["closeClusterFanout"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeClusterFanout') }}
             </div>
             <div class="modal-body">
                 <p class="import-info" id="merge-intro" data-i18n="merge.intro">Each row is a source cluster from a file; standalone hosts from every file form one row. Choose the target cluster for each row: rows with the same target are sized together, each target becomes one sizing.</p>
@@ -1028,7 +989,7 @@
         <div class="modal-content cmp-modal">
             <div class="modal-header">
                 <h2 data-i18n="cmp.title">Comparisons</h2>
-                <button class="modal-close" data-click='["closeComparisons"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeComparisons') }}
             </div>
             <div class="modal-body">
                 <!-- Step 1: what to compare -->
@@ -1072,7 +1033,7 @@
         <div class="modal-content cmp-modal" style="max-width:720px">
             <div class="modal-header">
                 <h2 data-i18n="exp.title">Exports</h2>
-                <button class="modal-close" data-click='["closeExports"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeExports') }}
             </div>
             <div class="modal-body">
                 <div id="exp-step-mode">
@@ -1128,7 +1089,7 @@
         <div class="modal-content" style="max-width:560px">
             <div class="modal-header">
                 <h2 data-i18n="batch.title">Batch edit</h2>
-                <button class="modal-close" data-click='["closeBatchEdit"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeBatchEdit') }}
             </div>
             <div class="modal-body cmp-body-padded">
                 <p class="import-info" id="batch-summary"></p>
@@ -1192,7 +1153,7 @@
         <div class="modal-content cmp-modal bom-modal" style="max-width:880px" role="dialog" aria-modal="true" aria-labelledby="bom-modal-title">
             <div class="modal-header">
                 <h2 id="bom-modal-title" data-i18n="bom.title">Check a BOM</h2>
-                <button class="modal-close" data-click='["closeBomChecker"]' data-i18n-aria="common.close" aria-label="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeBomChecker', 'common.close') }}
             </div>
             <div class="modal-body">
                 <div class="bom-error" id="bom-error" role="alert" hidden>
@@ -1282,7 +1243,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.vmexcl.title">Configure VMs for Sizing</h2>
-                <button class="modal-close" data-click='["closeVmExclusionModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeVmExclusionModal') }}
             </div>
             <!-- Portable VM-triage panel: the wizard relocates this whole block
                  into its "Review VMs" step; in classic view it stays in the modal. -->
@@ -1344,7 +1305,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.manualvm.title">Add VMs</h2>
-                <button class="modal-close" data-click='["closeManualVmModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeManualVmModal') }}
             </div>
             <div class="modal-toolbar">
                 <button class="btn btn-sm" type="button" data-click='["addManualVm"]' data-i18n="modal.manualvm.add_vm">+ Add VM</button>
@@ -1383,7 +1344,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 data-i18n="modal.sourcecpu.title">Source CPU performance</h2>
-                <button class="modal-close" data-click='["closeSourceCpuModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeSourceCpuModal') }}
             </div>
             <div class="modal-body">
                 <div id="source-cpu-panel"></div>
@@ -1401,7 +1362,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 id="diagram-modal-title" data-i18n="modal.diagram.title">Network diagram</h2>
-                <button class="modal-close" data-click='["closeClusterDiagram"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeClusterDiagram') }}
             </div>
             <div class="modal-body" id="diagram-modal-body"></div>
             <div class="modal-footer">
@@ -1418,7 +1379,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2><span data-i18n="modal.clone.title">Clone</span> <span id="clone-source-name"></span></h2>
-                <button class="modal-close" data-click='["closeCloneModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeCloneModal') }}
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -1445,7 +1406,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="auth-modal-title" data-i18n="modal.auth.signin">Sign in</h2>
-                <button class="modal-close" data-click='["closeAuthModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeAuthModal') }}
             </div>
             <div class="modal-body">
                 <div class="auth-tabs">
@@ -1521,7 +1482,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.sizings.title">My Sizings</h2>
-                <button class="modal-close" data-click='["closeSizingsModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeSizingsModal') }}
             </div>
             <div class="modal-toolbar" id="sizings-toolbar">
                 <input type="text" id="sizings-search" class="vm-search"
@@ -1561,7 +1522,7 @@
         <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2 data-i18n="modal.org.title">Organization</h2>
-                <button class="modal-close" data-click='["closeOrgModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeOrgModal') }}
             </div>
             <div class="modal-body">
                 <p class="rec-desc" id="org-desc"></p>
@@ -1583,7 +1544,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="auth.privacy.title">My data &amp; privacy</h2>
-                <button class="modal-close" data-click='["closePrivacyModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closePrivacyModal') }}
             </div>
             <div class="modal-body">
                 <div class="sizings-status" id="privacy-status" style="display:none"></div>
@@ -1611,7 +1572,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.name.title">Name this sizing</h2>
-                <button class="modal-close" data-click='["closeNameModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeNameModal') }}
             </div>
             <div class="modal-body">
                 <form id="name-sizing-form" data-submit='["submitNameSizing","$event"]'>
@@ -1634,7 +1595,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.reset.title">Set a new password</h2>
-                <button class="modal-close" data-click='["closeResetModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeResetModal') }}
             </div>
             <div class="modal-body">
                 <form id="reset-form" data-submit='["submitReset","$event"]'>
@@ -1673,7 +1634,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="dr.growth_notice_title">DR now follows production</h2>
-                <button class="modal-close" data-click='["dismissDrGrowthNotice"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('dismissDrGrowthNotice') }}
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" id="dr-growth-notice-old"></p>
@@ -1691,7 +1652,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.leave.title">Unsaved sizing</h2>
-                <button class="modal-close" data-click='["closeLeavePage"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeLeavePage') }}
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" data-i18n="modal.leave.msg">Switching pages will discard the data on this page. Would you like to save this configuration first?</p>
@@ -1708,7 +1669,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="modal.save.title">Save sizing</h2>
-                <button class="modal-close" data-click='["closeSaveChoice"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeSaveChoice') }}
             </div>
             <div class="modal-body">
                 <p class="info-modal-msg" id="save-choice-msg"></p>
@@ -1730,7 +1691,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="project.new.title">New project</h2>
-                <button class="modal-close" data-click='["closeNewProject"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeNewProject') }}
             </div>
             <div class="modal-body">
                 <label class="field-label" for="new-project-name"
@@ -1756,7 +1717,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 data-i18n="project.settings.title">Project details</h2>
-                <button class="modal-close" data-click='["closeProjectSettings"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeProjectSettings') }}
             </div>
             <div class="modal-body" id="project-settings-body">
                 <label class="field-label" for="ps-name" data-i18n="project.settings.name">Name</label>
@@ -1816,7 +1777,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="sizing-modal-title">Sizing</h2>
-                <button class="modal-close" data-click='["closeSizingPanel"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeSizingPanel') }}
             </div>
             <div class="modal-body">
                 <div class="panel-field">
@@ -1894,7 +1855,7 @@
         <div class="modal-content exportas-modal">
             <div class="modal-header">
                 <h2 id="export-as-title" data-i18n="exportas.title">Exports as</h2>
-                <button class="modal-close" data-click='["closeExportAs"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeExportAs') }}
             </div>
             <div class="modal-body exportas-body">
                 <p class="field-hint" data-i18n="exportas.intro">
@@ -2023,7 +1984,7 @@
         <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="info-modal-title" data-i18n="modal.info.title">Notice</h2>
-                <button class="modal-close" data-click='["closeInfoModal"]'><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                {{ ui.close_button('closeInfoModal') }}
             </div>
             <div class="modal-body">
                 <p id="info-modal-msg" class="info-modal-msg"></p>

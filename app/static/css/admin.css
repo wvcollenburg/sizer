@@ -30,56 +30,6 @@ header h1 {
 .header-sep { color: rgba(255, 255, 255, 0.3); }
 .header-sub { color: rgba(255, 255, 255, 0.6); font-size: var(--fs-sm); }
 
-/* i18n: hide until translated (non-English only) to avoid an English flash. */
-[data-i18n-pending] body { visibility: hidden; }
-
-/* Compact globe language menu, pinned to the far right of the admin header. */
-.lang-menu { position: relative; display: flex; align-items: center; margin-left: 0.75rem; }
-.lang-btn {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    border-radius: 6px;
-    line-height: 0;
-}
-.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
-.lang-dropdown {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    list-style: none;
-    margin: 0;
-    padding: 4px;
-    min-width: 150px;
-    max-height: min(70vh, 420px);
-    overflow-y: auto;
-    z-index: 1200;
-}
-.lang-dropdown[hidden] { display: none; }
-.lang-option {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 7px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: var(--text);
-}
-.lang-option:hover { background: var(--surface2); }
-.lang-option.active { font-weight: 700; color: var(--accent); }
-
 .back-link {
     margin-left: auto;
     color: #8ec5e8;
@@ -307,25 +257,7 @@ hr {
 
 .modal-wide { max-width: 960px; }
 
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-}
-
 .modal-header h2 { font-size: 1.1rem; color: var(--accent); }
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.6rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    line-height: 1;
-}
-.modal-close:hover { color: var(--text); }
 
 .modal-body {
     padding: 1.25rem 1.5rem;
@@ -547,44 +479,6 @@ hr {
     main { padding: 1rem; }
 }
 
-/* Always-visible "work in progress" disclaimer pinned to the viewport bottom. */
-.dev-disclaimer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    padding: 0.55rem 1rem;
-    background: var(--orange-bg);
-    border-top: 1px solid var(--orange);
-    color: var(--orange);
-    font-size: 0.78rem;
-    line-height: 1.35;
-    text-align: center;
-}
-.dev-disclaimer-tag {
-    display: inline-block;
-    margin-right: 0.5rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 4px;
-    /* Fill is --orange, so the ink must be its partner token: --on-accent is
-       near-white and became unreadable once --orange inverted to light amber
-       in the dark theme. */
-    background: var(--orange);
-    color: var(--orange-bg);
-    font-weight: 700;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    vertical-align: 1px;
-}
-/* Keep page content clear of the fixed bar. */
-body { padding-bottom: 64px; }
-@media (max-width: 600px) {
-    .dev-disclaimer { font-size: 0.72rem; }
-    body { padding-bottom: 96px; }
-}
-
 /* ── Super-admin tabs: users / tenants / saved sizings ─────────────────────── */
 .tab-spacer { flex: 1; }
 
@@ -699,10 +593,7 @@ body { padding-bottom: 64px; }
 .tun-info-beware h4 { color: #b3261e; }
 
 
-/* ── HCL catalog / scrape queue / BOM review tabs ───────────────────────────
-   admin.html does not load style.css, so .muted had no definition on this
-   page until now (admin.html/admin.js already used it — this makes it work). */
-.muted { color: var(--text-muted); font-size: 0.82rem; }
+/* ── HCL catalog / scrape queue / BOM review tabs ─────────────────────────── */
 
 #tab-hcl [hidden], #tab-bomreviews [hidden] { display: none !important; }
 

@@ -54,60 +54,6 @@ header {
     border-left: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-/* i18n: hide the page until translateDOM() has swapped text, so non-English
-   users never see an English flash. Only set on <html> for non-English locales
-   (see the template) and cleared by i18n.js after the first pass. */
-[data-i18n-pending] body { visibility: hidden; }
-
-/* Compact globe language menu, pinned to the far right of the header (after the
-   account-bar, which already carries margin-left:auto). A button + absolutely
-   positioned dropdown so it never affects the header's flow/width. */
-.lang-menu { position: relative; display: flex; align-items: center; }
-.lang-btn {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    border-radius: 6px;
-    line-height: 0;
-}
-.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: var(--on-accent); }
-.lang-dropdown {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    list-style: none;
-    margin: 0;
-    padding: 4px;
-    min-width: 150px;
-    max-height: min(70vh, 420px);
-    overflow-y: auto;
-    z-index: 1200;
-}
-.lang-dropdown[hidden] { display: none; }
-.lang-option {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 7px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: var(--text);
-}
-.lang-option:hover { background: var(--surface2); }
-.lang-option.active { font-weight: 700; color: var(--accent); }
-
 /* The <h1> is now the brand lockup; its type comes from .brand-name. */
 header h1 {
     font-size: inherit;
@@ -722,44 +668,6 @@ footer {
     padding: 2rem;
     color: var(--text-muted);
     font-size: 0.8rem;
-}
-
-/* Always-visible "work in progress" disclaimer pinned to the viewport bottom. */
-.dev-disclaimer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    padding: 0.55rem 1rem;
-    background: var(--orange-bg);
-    border-top: 1px solid var(--orange);
-    color: var(--orange);
-    font-size: 0.78rem;
-    line-height: 1.35;
-    text-align: center;
-}
-.dev-disclaimer-tag {
-    display: inline-block;
-    margin-right: 0.5rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 4px;
-    /* Fill is --orange, so the ink must be its partner token: --on-accent is
-       near-white and became unreadable once --orange inverted to light amber
-       in the dark theme. */
-    background: var(--orange);
-    color: var(--orange-bg);
-    font-weight: 700;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    vertical-align: 1px;
-}
-/* Keep page content clear of the fixed bar. */
-body { padding-bottom: 64px; }
-@media (max-width: 600px) {
-    .dev-disclaimer { font-size: 0.72rem; }
-    body { padding-bottom: 96px; }
 }
 
 /* ==================== IMPORT MODE ==================== */
@@ -1969,41 +1877,9 @@ body { padding-bottom: 64px; }
 #vm-exclusion-modal { padding: 1rem; }
 #vm-exclusion-modal .modal-content { max-width: min(1600px, 97vw); }
 
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-}
-
 .modal-header h2 {
     font-size: var(--fs-base);
     font-weight: 600;
-}
-
-/* Their DialogClose: a ghost icon button that tints its background on hover
-   rather than only changing the glyph colour. */
-.modal-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 0;
-    width: 1.75rem;
-    height: 1.75rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    line-height: 0;
-    transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.modal-close:hover { background: var(--surface2); color: var(--text); }
-.modal-close:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--ring);
 }
 
 .modal-toolbar {
@@ -2663,7 +2539,6 @@ body.auth-required footer { display: none; }
     font-size: 0.8rem;
     letter-spacing: 0.5px;
 }
-.muted { color: var(--text-muted); font-size: 0.82rem; }
 
 /* Source CPU performance panel (inside the Source CPU modal). */
 .card-edit-link {

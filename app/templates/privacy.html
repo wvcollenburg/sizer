@@ -1,20 +1,9 @@
 <!DOCTYPE html>
 <html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy — SC// Infrastructure Sizer</title>
-    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-    <!-- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
-         older ones and the browser's unprompted /favicon.ico request. Built by
-         tools/make_favicon.py — edit the geometry there, not these files. -->
-    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
-    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
-    <script src="{{ asset('js/lang/en.js') }}"></script>
-    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
-    <script src="{{ asset('js/i18n.js') }}"></script>
+    {% set page_title = 'Privacy Policy — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
 </head>
 <body>
     <header>
@@ -23,17 +12,8 @@
             <span class="version" data-i18n="privacy.header_badge">Privacy</span>
             <div class="account-bar">
                 <a class="btn btn-sm" href="/" data-i18n="privacy.back">Back to Sizer</a>
-                <div class="lang-menu">
-                    <button class="lang-btn" data-click='["toggleLangMenu"]' aria-label="Language" title="Language">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    </button>
-                    <ul class="lang-dropdown" id="lang-dropdown" hidden>
-                        {% for code in supported_langs %}
-                        <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
-                        {% endfor %}
-                    </ul>
-                </div>
             </div>
+            {% include "_partials/header_controls.html" %}
         </div>
     </header>
 
@@ -174,5 +154,8 @@
             <p class="legal-back"><a href="/" data-i18n="privacy.back_link">&larr; Back to the Sizer</a></p>
         </article>
     </main>
+
+    {# The header buttons reach theme.js / i18n.js through delegate.js. #}
+    <script src="{{ asset('js/delegate.js') }}"></script>
 </body>
 </html>

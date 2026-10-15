@@ -1,23 +1,10 @@
+{%- import "_partials/macros.html" as ui -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SC// Sizer Admin</title>
-    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
-    <!-- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
-         older ones and the browser's unprompted /favicon.ico request. Built by
-         tools/make_favicon.py — edit the geometry there, not these files. -->
-    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
-    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
-    <!-- Theme must be stamped on <html> before first paint (see theme.js). -->
-    <script src="{{ asset('js/theme.js') }}"></script>
-    <!-- i18n: English base (fallback) + the active locale, then the engine. -->
-    <script src="{{ asset('js/lang/en.js') }}"></script>
-    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
-    <script src="{{ asset('js/i18n.js') }}"></script>
+    {% set page_title = 'SC// Sizer Admin' %}
+    {% set page_css = ['admin'] %}
+    {% include "_partials/head_assets.html" %}
 </head>
 <body>
     <header>
@@ -26,24 +13,7 @@
             <span class="header-sep">|</span>
             <span class="header-sub" data-i18n="admin.header.sub">Model Administration</span>
             <a href="/" class="back-link" data-i18n="admin.header.back">Back to Sizer</a>
-            <button class="theme-btn" data-click='["toggleTheme"]'
-                    data-i18n-title="header.theme" title="Theme"
-                    data-i18n-aria="header.theme" aria-label="Theme">
-                <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </button>
-            <div class="lang-menu">
-                <button class="lang-btn" data-click='["toggleLangMenu"]'
-                        data-i18n-aria="header.language" aria-label="Language"
-                        data-i18n-title="header.language" title="Language">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                </button>
-                <ul class="lang-dropdown" id="lang-dropdown" hidden>
-                    {% for code in supported_langs %}
-                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
-                    {% endfor %}
-                </ul>
-            </div>
+            {% include "_partials/header_controls.html" %}
         </div>
     </header>
 
@@ -866,12 +836,11 @@
         </div>
 
         <!-- ═══════════════════ TUNABLE INFO MODAL ═══════════════════ -->
-        <div class="modal-overlay centered" id="tunable-info-modal" style="display:none"
-             data-click='["closeTunableInfoBackdrop","$this","$event"]'>
+        <div class="modal-overlay centered" id="tunable-info-modal" style="display:none">
             <div class="modal" style="max-width:520px">
                 <div class="modal-header">
                     <h2 id="tun-info-title" data-i18n="admin.modal.tunable_info.title">Setting</h2>
-                    <button class="modal-close" data-click='["closeTunableInfo"]'>&times;</button>
+                    {{ ui.close_button('closeTunableInfo') }}
                 </div>
                 <div class="modal-body">
                     <div class="tun-info-section tun-info-what">
@@ -892,7 +861,7 @@
             <div class="modal" style="max-width:600px">
                 <div class="modal-header">
                     <h2 data-i18n="admin.modal.import.title">Import from Excel</h2>
-                    <button class="modal-close" data-click='["closeCatalogImport"]'>&times;</button>
+                    {{ ui.close_button('closeCatalogImport') }}
                 </div>
                 <div class="modal-body">
                     <p class="import-info" data-i18n="admin.modal.import.upload_hint">Upload an Excel file with any combination of these sheets:</p>
@@ -926,7 +895,7 @@
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
                     <h2 id="catalog-modal-title" data-i18n="admin.modal.catalog_item.title">Add Item</h2>
-                    <button class="modal-close" data-click='["closeCatalogModal"]'>&times;</button>
+                    {{ ui.close_button('closeCatalogModal') }}
                 </div>
                 <div class="modal-body" id="catalog-modal-body"></div>
                 <div class="modal-footer">
@@ -942,7 +911,7 @@
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
                     <h2 id="bom-note-modal-title" data-i18n="admin.bomnote.modal_title">Part note</h2>
-                    <button class="modal-close" data-click='["bomNoteClose"]' aria-label="Close" data-i18n-aria="common.close">&times;</button>
+                    {{ ui.close_button('bomNoteClose', 'common.close') }}
                 </div>
                 <div class="modal-body">
                     <p class="muted bom-note-hint" data-i18n="admin.bomnote.hint">Replaces the generic finding for this part from the next check or re-check on. Existing checks keep their result until they are re-checked.</p>
@@ -1014,7 +983,7 @@
             <div class="modal" style="max-width:min(960px, 96vw)">
                 <div class="modal-header">
                     <h2 id="bom-review-modal-title" data-i18n="admin.bom.modal_title">Review BOM check</h2>
-                    <button class="modal-close" data-click='["bomReviewClose"]' aria-label="Close" data-i18n-aria="common.close">&times;</button>
+                    {{ ui.close_button('bomReviewClose', 'common.close') }}
                 </div>
                 <div class="modal-body" id="bom-review-modal-body">
                     <div id="bom-review-summary" class="bom-review-summary"></div>
@@ -1038,7 +1007,7 @@
             <div class="modal" style="max-width:560px">
                 <div class="modal-header">
                     <h2 data-i18n="admin.modal.drive_picker.title">Add Drives</h2>
-                    <button class="modal-close" data-click='["closeDriveSelect"]'>&times;</button>
+                    {{ ui.close_button('closeDriveSelect') }}
                 </div>
                 <div class="modal-body">
                     <div class="drive-select-toolbar">
@@ -1061,7 +1030,7 @@
             <div class="modal" style="max-width:600px">
                 <div class="modal-header">
                     <h2 id="item-select-title" data-i18n="admin.modal.item_picker.title">Add</h2>
-                    <button class="modal-close" data-click='["closeItemSelect"]'>&times;</button>
+                    {{ ui.close_button('closeItemSelect') }}
                 </div>
                 <div class="modal-body">
                     <div class="drive-select-toolbar">
@@ -1084,7 +1053,7 @@
             <div class="modal modal-wide">
                 <div class="modal-header">
                     <h2 id="edit-title" data-i18n="admin.modal.model_edit.title">Add Model</h2>
-                    <button class="modal-close" data-click='["closeEdit"]'>&times;</button>
+                    {{ ui.close_button('closeEdit') }}
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="edit-id">
@@ -1271,12 +1240,7 @@
         </div>
     </main>
 
-    <div class="dev-disclaimer" role="note">
-        <span class="dev-disclaimer-tag" data-i18n="footer.dev_tag">In development</span>
-        <span data-i18n-html="footer.disclaimer">This sizer is a work in progress and is by no means perfect. Every configuration it recommends is provided on a
-        best-effort basis only &mdash; no guarantees are made, and no responsibility or liability can be accepted for any
-        decisions taken based on its output. Always validate results before relying on them.</span>
-    </div>
+    {% include "_partials/dev_disclaimer.html" %}
 
     <script src="{{ asset('js/delegate.js') }}"></script>
     <script src="{{ asset('js/toast.js') }}"></script>
