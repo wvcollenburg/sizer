@@ -8,8 +8,11 @@ from the dict.
 
 ``spooled_xlsx()`` is the upload preamble every .xlsx importer repeated:
 field present, ``.xlsx`` name, ZIP magic, spool to a temp file, unlink.
+
+``sha256_file()`` is the digest every importer keeps as provenance.
 """
 import contextlib
+import hashlib
 import os
 import tempfile
 
@@ -23,6 +26,17 @@ def json_body():
     an object."""
     data = request.get_json(silent=True)
     return data if isinstance(data, dict) else {}
+
+
+def sha256_file(path):
+    """Hex SHA-256 of a file, read in 1 MiB chunks. Only the digest is ever
+    stored — never the file — so a re-import can be spotted without holding
+    customer data (docs/projects-plan.md §8)."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class UploadError(ValueError):

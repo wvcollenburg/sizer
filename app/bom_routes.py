@@ -17,13 +17,12 @@ worker is done, and the result is an ordinary check marked AGENT_FORMAT.
 Without an API key such files are refused with the blank template offered,
 as before.
 """
-import hashlib
 import io
 import os
 import tempfile
 
 from flask import Blueprint, jsonify, request, send_file
-from request_utils import json_body
+from request_utils import json_body, sha256_file
 
 from admin_routes import require_super_admin
 from auth import audit, current_user, login_required
@@ -38,10 +37,12 @@ from bom_models import (AGENT_ALWAYS_REVIEW_SETTING, AGENT_FORMAT,
                         AGENT_GLOBAL_CAP_SETTING, AGENT_TENANT_CAP_SETTING,
                         BomAgentJob, BomCheck, BomRejectedFile, JOB_FAILED,
                         JOB_QUEUED, JOB_RUNNING, REVIEW_CONFIRMED,
-                        REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN)
+                        REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN,
+                        live_sizing, store_check)
 from database import db
 from extensions import limiter
 from projects import _owned_project_or_error, _visible_project
+from xlsx_utils import XLSX_MIME
 
 bom_bp = Blueprint("bom", __name__, url_prefix="/api/bom")
 bom_project_bp = Blueprint("bom_project", __name__, url_prefix="/api/projects")
@@ -64,7 +65,6 @@ MAX_BOM_BYTES = 10 * 1024 * 1024
 # Agent jobs per user per hour, on top of the route's request limit: each
 # one is a paid model call.
 AGENT_JOBS_PER_USER_HOUR = 20
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def register_bom(app):
@@ -79,14 +79,6 @@ def register_bom(app):
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-
-def _sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
 
 # PDFs have their own local parsers (bom/parsers/pdf_*.py), so they are
 # accepted with or without the agent.
@@ -135,8 +127,8 @@ def _sizing_for(project, sizing_id):
         sid = int(sizing_id)
     except (TypeError, ValueError):
         return None, (jsonify({"error": "Invalid sizing id"}), 400)
-    sizing = db.session.get(Configuration, sid)
-    if sizing is None or sizing.is_deleted or sizing.project_id != project.id:
+    sizing = live_sizing(db.session.get(Configuration, sid), project.id)
+    if sizing is None:
         return None, (jsonify({"error": "Sizing not found in this project"}), 400)
     return sizing, None
 
@@ -383,7 +375,7 @@ def create_check(project_id):
         return jsonify({"error": str(exc)}), 400
     name = (request.form.get("name") or "").strip()[:200] or os.path.basename(f.filename or "BOM")[:200]
     try:
-        digest = _sha256(path)
+        digest = sha256_file(path)
         bom, fmt, refusal, local_meta = _parse_upload(path, f.filename)
         if refusal:
             return refusal
@@ -402,15 +394,9 @@ def create_check(project_id):
         except OSError:
             pass
 
-    check = BomCheck(
-        project_id=project.id, user_id=user.id, tenant_id=user.tenant_id,
-        name=name, filename=(f.filename or "")[:200], file_sha256=digest,
-        file_format=fmt, vendor=bom.vendor, normalized=bom.to_dict(), history=[],
-        ingest_meta=local_meta,
-    )
-    check.apply_result(result, sizing)
-    check.history = [check.history_entry()]
-    db.session.add(check)
+    check = store_check(
+        project_id=project.id, user=user, name=name, filename=f.filename, digest=digest,
+        file_format=fmt, bom=bom, meta=local_meta, sizing=sizing, result=result)
     db.session.commit()
     return jsonify(check.to_dict(full=True)), 201
 
@@ -540,9 +526,7 @@ def recheck(check_id):
         # project — sizings can be moved between projects (move_sizing), and
         # the explicit sizing_id path above enforces membership via
         # _sizing_for, so the implicit path must not bypass that rule.
-        sizing = check.configuration
-        if sizing is not None and (sizing.is_deleted or sizing.project_id != project.id):
-            sizing = None
+        sizing = live_sizing(check.configuration, project.id)
     bom = NormalizedBOM.from_dict(check.normalized or {})
     result = run_check(bom, sizing)
     check.apply_result(result, sizing)
@@ -774,7 +758,7 @@ def retain_rejected(project_id):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:
-        digest = _sha256(path)
+        digest = sha256_file(path)
         with open(path, "rb") as fh:
             content = fh.read()
     finally:

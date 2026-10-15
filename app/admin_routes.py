@@ -12,7 +12,8 @@ from orm_models import (
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
-from xlsx_utils import sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
+from coerce import to_float, to_int
+from xlsx_utils import XLSX_MIME, sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
 from request_utils import json_body, spooled_xlsx, UploadError
 import storage_layout
 from hcl_vendor import infer_vendor
@@ -73,20 +74,6 @@ def list_cpus():
     return jsonify(result)
 
 
-def _cpu_num(v):
-    try:
-        return float(v) if v is not None and v != "" else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _cpu_int(v):
-    try:
-        return int(v) if v is not None and v != "" else None
-    except (TypeError, ValueError):
-        return None
-
-
 def _apply_cpu_specs(cpu, data):
     """Set the optional generation/clock/core/benchmark columns from a
     create or update payload. Only touches keys actually present, so a partial
@@ -95,10 +82,10 @@ def _apply_cpu_specs(cpu, data):
         cpu.generation = (data["generation"] or None)
     for key in ("p_cores", "e_cores", "passmark_cpu_mark"):
         if key in data:
-            setattr(cpu, key, _cpu_int(data[key]))
+            setattr(cpu, key, to_int(data[key]))
     for key in ("base_ghz", "all_core_turbo_ghz", "max_turbo_ghz", "specrate_int"):
         if key in data:
-            setattr(cpu, key, _cpu_num(data[key]))
+            setattr(cpu, key, to_float(data[key]))
 
 
 def _dup_conflict(model, label, **unique):
@@ -141,7 +128,7 @@ def create_cpu():
     conflict = _dup_conflict(CpuCatalog, "CPU", description=data["desc"])
     if conflict:
         return conflict
-    nums, err = _numbers(data, cores=(0, _cpu_int), threads=(0, _cpu_int), ghz=(0, _cpu_num))
+    nums, err = _numbers(data, cores=(0, to_int), threads=(0, to_int), ghz=(0, to_float))
     if err:
         return err
     cpu = CpuCatalog(description=data["desc"], **nums)
@@ -159,8 +146,8 @@ def update_cpu(cpu_id):
         conflict = _dup_conflict(CpuCatalog, "CPU", description=data["desc"])
         if conflict:
             return conflict
-    nums, err = _numbers(data, cores=(cpu.cores, _cpu_int), threads=(cpu.threads, _cpu_int),
-                         ghz=(cpu.ghz, _cpu_num))
+    nums, err = _numbers(data, cores=(cpu.cores, to_int), threads=(cpu.threads, to_int),
+                         ghz=(cpu.ghz, to_float))
     if err:
         return err
     cpu.description = data.get("desc", cpu.description)
@@ -195,7 +182,7 @@ def create_nic():
     conflict = _dup_conflict(NicCatalog, "NIC", description=data["desc"])
     if conflict:
         return conflict
-    nums, err = _numbers(data, ports=(0, _cpu_int))
+    nums, err = _numbers(data, ports=(0, to_int))
     if err:
         return err
     nic = NicCatalog(description=data["desc"], ports=nums["ports"], speed=data.get("speed", ""))
@@ -212,7 +199,7 @@ def update_nic(nic_id):
         conflict = _dup_conflict(NicCatalog, "NIC", description=data["desc"])
         if conflict:
             return conflict
-    nums, err = _numbers(data, ports=(nic.ports, _cpu_int))
+    nums, err = _numbers(data, ports=(nic.ports, to_int))
     if err:
         return err
     nic.description = data.get("desc", nic.description)
@@ -243,7 +230,7 @@ def list_drives():
 def create_drive():
     data = json_body()
     dtype = data.get("drive_type", "")
-    size = _cpu_num(data.get("size_tb", 0))
+    size = to_float(data.get("size_tb", 0))
     if not dtype or size is None or size <= 0:
         return jsonify({"error": "Drive type and size are required"}), 400
     conflict = _dup_conflict(DriveCatalog, "Drive", drive_type=dtype, size_tb=size)
@@ -260,7 +247,7 @@ def update_drive(drive_id):
     drive = db.get_or_404(DriveCatalog, drive_id)
     data = json_body()
     new_type = data.get("drive_type", drive.drive_type)
-    nums, err = _numbers(data, size_tb=(drive.size_tb, _cpu_num))
+    nums, err = _numbers(data, size_tb=(drive.size_tb, to_float))
     if err:
         return err
     new_size = nums["size_tb"]
@@ -740,8 +727,7 @@ def export_models():
     wb.save(buf)
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="SC_Catalog_Backup.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument."
-                              "spreadsheetml.sheet")
+                     mimetype=XLSX_MIME)
 
 
 
@@ -836,9 +822,9 @@ def _cpu_fields_from_row(r):
         if attr in _CPU_STR_COLUMNS:
             v = str(v).strip() if v not in (None, "") else None
         elif attr in _CPU_INT_COLUMNS:
-            v = _cpu_int(v)
+            v = to_int(v)
         else:
-            v = _cpu_num(v)
+            v = to_float(v)
         out[attr] = v
     return out
 
@@ -1035,7 +1021,7 @@ def _import_catalog_from_excel(file_path, mode="add"):
     iops_set = 0
     for r in iops_rows:
         dtype = str(r.get("Drive Type", "")).strip()
-        val = _cpu_int(r.get("IOPS"))
+        val = to_int(r.get("IOPS"))
         if not dtype or val is None:
             continue
         row = DriveTypeIops.query.filter_by(drive_type=dtype).first()
@@ -1051,7 +1037,7 @@ def _import_catalog_from_excel(file_path, mode="add"):
     settings_set = 0
     for r in setting_rows:
         key = str(r.get("Key", "")).strip()
-        val = _cpu_num(r.get("Value"))
+        val = to_float(r.get("Value"))
         if not key or val is None:
             continue
         row = SizingSetting.query.filter_by(key=key).first()
@@ -1199,7 +1185,7 @@ def catalog_template():
     wb.save(buf)
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="SC_Import_Template.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                     mimetype=XLSX_MIME)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

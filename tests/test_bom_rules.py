@@ -46,6 +46,7 @@ from bom.rules import (  # noqa: E402
     find_nic_in_hcl,
     get_drive_count,
     is_absence_indicator,
+    rollup_verdict,
     is_boss_card,
     is_controller,
     is_clearly_old_cpu,
@@ -166,15 +167,7 @@ def validate_bom(bom, hcl, form_factor=None):
                for c in bom.configs if is_hardware_config(c)]
     for r in results:
         r.verdict = determine_verdict(r.findings)
-    if not results:
-        verdict = "INCONCLUSIVE"
-    elif any(r.verdict == "FAIL" for r in results):
-        verdict = "FAIL"
-    elif any(r.verdict == "INCONCLUSIVE" for r in results):
-        verdict = "INCONCLUSIVE"
-    else:
-        verdict = "PASS"
-    return ValidationResult(verdict=verdict, config_results=results)
+    return ValidationResult(verdict=rollup_verdict(results), config_results=results)
 
 VALID_NIC = comp("nic", "Intel X710 10GbE", "X710-DA2")
 VALID_CPU = comp("cpu", "Intel Xeon Gold 6338")

@@ -21,6 +21,7 @@ import re
 from typing import Dict, List, Optional
 
 from bom.normalize import BOMComponent, BOMConfig, ConfigResult, Finding, normalize_part
+from bom.text import squash_ws
 from bom.hcl_scrape import component_attrs
 from hcl_models import (HclComponent, HclPlatform, ORIGIN_PREVIEW,
                         STATUS_ACTIVE, STATUS_DELISTED)
@@ -62,21 +63,17 @@ _CATEGORY_KINDS = {"nic": ("nic",), "controller": ("hba",), "gpu": ("gpu",),
                    "storage": ("hdd", "ssd"), "cpu": ("cpu",)}
 
 
-def _norm(s: Optional[str]) -> str:
-    return re.sub(r"\s+", " ", (s or "").strip().lower())
-
-
 def _matches_component(c: BOMComponent, comp: HclComponent) -> bool:
     """A BOM line names a catalog component when the part numbers agree (with
     Dell's '-P' suffix tolerated) or the descriptions are identical — the
     Lenovo DCSC case, where feature codes carry no HCL key but the
     descriptions are copied verbatim from the same configurator."""
     if c.part_number and comp.part_number:
-        a = _norm(normalize_part(c.part_number))
-        b = _norm(normalize_part(comp.part_number))
+        a = squash_ws(normalize_part(c.part_number))
+        b = squash_ws(normalize_part(comp.part_number))
         if a and a == b:
             return True
-    return bool(c.description) and _norm(c.description) == _norm(comp.description)
+    return bool(c.description) and squash_ws(c.description) == squash_ws(comp.description)
 
 
 def delisted_findings(config: BOMConfig,
@@ -255,7 +252,7 @@ def _nic_lines(config: BOMConfig):
     BOM: NIC lines, and onboard ports named on another line (a motherboard
     'with Broadcom 5720, 2 ports, 1 Gbit, integrated LOM'). Absence lines
     ('LOM Blank') are not ports."""
-    from bom.fit import _parse_nic_ports
+    from bom.fit import _parse_nic_ports, nic_speeds
     from bom.rules import is_absence_indicator
     out = []
     for c in config.components:
@@ -264,23 +261,10 @@ def _nic_lines(config: BOMConfig):
         onboard = _is_onboard(c.description)
         if c.category != "nic" and not onboard:
             continue
-        speeds = _nic_speeds(c.description)
+        speeds = nic_speeds(c.description)
         if not speeds:
             continue
         out.append((c, speeds, _parse_nic_ports(c.description), onboard))
-    return out
-
-
-def _nic_speeds(desc: str) -> set:
-    """Every speed a port can run at: '10/25GbE' -> {10, 25}, '1GbE' -> {1}."""
-    from bom.fit import _NIC_SPEED_RE
-    out = set()
-    for m in _NIC_SPEED_RE.finditer(desc or ""):
-        for part in m.group(1).split("/"):
-            try:
-                out.add(float(part.strip()))
-            except ValueError:
-                continue
     return out
 
 

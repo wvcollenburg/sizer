@@ -82,8 +82,10 @@ def _pdf_facts(path: str) -> Dict[str, Any]:
     if out.bom is None and out.fmt is None:
         raise UnrecognizedFormat("PDF in a layout no parser knows%s"
                                  % (" (%s)" % out.error if out.error else ""))
-    if out.bom is None or out.certainty is None or out.certainty.hard_stop \
-            or out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD:
+    # The DEFAULT threshold, not the admin setting: the archive must read the
+    # same whoever last tuned the live threshold, so a stricter or looser
+    # setting cannot move a stored fact.
+    if out.bom is None or not pdf_certainty.passes(out.certainty, pdf_certainty.DEFAULT_THRESHOLD):
         why = "; ".join(r["text"] for r in (out.certainty.reasons if out.certainty else []))
         raise UnrecognizedFormat("PDF not read with enough certainty (%s): %s"
                                  % (out.certainty.score if out.certainty else "-", why or out.error or "unknown layout"))

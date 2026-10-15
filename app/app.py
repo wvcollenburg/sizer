@@ -31,7 +31,7 @@ from tunables import T, refresh_from_db
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
 from calc import calculate_appliance, calculate_validated
-from request_utils import json_body, spooled_xlsx, UploadError
+from request_utils import json_body, sha256_file, spooled_xlsx, UploadError
 from storage_layout import StorageLayoutError
 from fingerprint import PARSER_VERSION
 
@@ -372,7 +372,7 @@ def create_app():
 
     def _import_assessment(path, file_name):
         try:
-            file_digest = _file_sha256(path)
+            file_digest = sha256_file(path)
             file_type = _detect_file_type(path)
             if file_type == "rvtools":
                 data = parse_rvtools(path)
@@ -609,18 +609,6 @@ def create_app():
         return jsonify({"found": False})
 
     return app
-
-
-def _file_sha256(file_path):
-    """Digest of the uploaded file, kept as provenance. Only the hash is stored
-    — never the file itself — so a re-import can be spotted without holding
-    customer data (§8)."""
-    import hashlib
-    digest = hashlib.sha256()
-    with open(file_path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _utcnow_iso():

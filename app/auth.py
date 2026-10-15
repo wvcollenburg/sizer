@@ -36,6 +36,7 @@ from auth_models import (
     PiiErasure, ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
 )
 from email_domains import normalize_email, domain_of, is_public_domain
+from visibility import resolve_by_code, source_for
 
 # pbkdf2 is available everywhere; werkzeug's default (scrypt) needs OpenSSL
 # support that some Python builds lack.
@@ -388,52 +389,50 @@ def app_base_url():
     return request.url_root
 
 
-def send_verification_email(user, base_url):
-    """Issue a fresh token and email a verification link.
+def _send_token_email(user, base_url, token_attr, sent_attr, subject, body, kind, link_fmt):
+    """Issue a fresh one-time token, store its hash on ``user`` (``token_attr``
+    / ``sent_attr``) and e-mail the link ``link_fmt`` builds from it, with
+    ``body`` carrying a ``{link}`` placeholder.
 
     Returns ``(ok, cause)`` — cause is None on success, otherwise the slug from
     _email_failure_cause() saying whether the address or the mail server is at
-    fault, so the caller can tell the user something actionable.
+    fault, so the caller can tell the user something actionable; ``kind`` names
+    the mail in that failure record.
     """
     token = secrets.token_urlsafe(32)[:64]
-    user.verification_token = _hash_token(token)
-    user.verification_sent_at = _utcnow()
+    setattr(user, token_attr, _hash_token(token))
+    setattr(user, sent_attr, _utcnow())
     db.session.commit()
-    link = "{}api/auth/verify/{}".format(base_url, token)
+    link = link_fmt.format(base_url, token)
     try:
-        send_email(
-            user.email, "Verify your SC// Sizer account",
-            "Welcome to the SC// Infrastructure Sizer.\n\n"
-            "Please confirm your email address by opening this link:\n\n"
-            "{}\n\n"
-            "If you did not create this account, you can ignore this email.".format(link),
-        )
+        send_email(user.email, subject, body.format(link=link))
         return True, None
     except Exception as e:  # noqa: BLE001 — caller decides how to surface failures
-        return False, _record_email_failure("Verification", user.email, e, actor=user)
+        return False, _record_email_failure(kind, user.email, e, actor=user)
+
+
+def send_verification_email(user, base_url):
+    """Issue a fresh token and email a verification link; ``(ok, cause)``."""
+    return _send_token_email(
+        user, base_url, "verification_token", "verification_sent_at",
+        "Verify your SC// Sizer account",
+        "Welcome to the SC// Infrastructure Sizer.\n\n"
+        "Please confirm your email address by opening this link:\n\n"
+        "{link}\n\n"
+        "If you did not create this account, you can ignore this email.",
+        "Verification", "{}api/auth/verify/{}")
 
 
 def send_reset_email(user, base_url):
-    """Issue a fresh reset token and email a reset link.
-
-    Returns ``(ok, cause)``, as send_verification_email does.
-    """
-    token = secrets.token_urlsafe(32)[:64]
-    user.reset_token = _hash_token(token)
-    user.reset_sent_at = _utcnow()
-    db.session.commit()
-    link = "{}?reset={}".format(base_url, token)
-    try:
-        send_email(
-            user.email, "Reset your SC// Sizer password",
-            "A password reset was requested for your SC// Infrastructure Sizer "
-            "account.\n\nOpen this link to choose a new password (valid for {} "
-            "hours):\n\n{}\n\nIf you did not request this, you can ignore this "
-            "email — your password will not change.".format(RESET_TOKEN_TTL_HOURS, link),
-        )
-        return True, None
-    except Exception as e:  # noqa: BLE001
-        return False, _record_email_failure("Password reset", user.email, e, actor=user)
+    """Issue a fresh reset token and email a reset link; ``(ok, cause)``."""
+    return _send_token_email(
+        user, base_url, "reset_token", "reset_sent_at",
+        "Reset your SC// Sizer password",
+        "A password reset was requested for your SC// Infrastructure Sizer "
+        f"account.\n\nOpen this link to choose a new password (valid for "
+        f"{RESET_TOKEN_TTL_HOURS} hours):\n\n{{link}}\n\nIf you did not request "
+        "this, you can ignore this email — your password will not change.",
+        "Password reset", "{}?reset={}")
 
 
 # ── audit log ────────────────────────────────────────────────────────────────
@@ -1230,23 +1229,7 @@ def _visible_configs(user):
 
 def _config_source_for(user, config):
     """Why (if at all) ``user`` can see ``config``. Returns a source tag or None."""
-    if config.is_deleted and not user.is_super_admin:
-        return None
-    if user.is_super_admin:
-        return "owned" if config.owner_id == user.id else "tenant"
-    if config.owner_id == user.id:
-        return "owned"
-    if user.is_scale:
-        if config.tenant and config.tenant.is_scale:
-            return "scale"
-        link = ScaleConfigLink.query.filter_by(
-            user_id=user.id, configuration_id=config.id).first()
-        if link and not (config.tenant and config.tenant.is_blocked):
-            return "linked"
-        return None
-    if config.tenant_id == user.tenant_id:
-        return "tenant"
-    return None
+    return source_for(user, config, ScaleConfigLink, "configuration_id")
 
 
 @configs_bp.route("/", methods=["GET"])
@@ -1525,40 +1508,23 @@ def get_config(config_id):
 def get_config_by_code(code):
     user = current_user()
     config = Configuration.query.filter_by(code=(code or "").strip()).first()
-    if config is None or (config.is_deleted and not user.is_super_admin):
-        return jsonify({"error": "No configuration found for that code"}), 404
-
     # Cross-tenant retrieval by code is a scale-user (and super admin) privilege.
-    already = _config_source_for(user, config)
-    if already is not None:
-        return jsonify(config.to_dict(user, already))
-
-    if user.is_super_admin:
-        return jsonify(config.to_dict(user, "tenant"))
-
-    if user.is_scale:
-        if config.tenant and config.tenant.is_blocked:
-            return jsonify({"error": "No configuration found for that code"}), 404
-        if not ScaleConfigLink.query.filter_by(
-                user_id=user.id, configuration_id=config.id).first():
-            db.session.add(ScaleConfigLink(
-                user_id=user.id, configuration_id=config.id))
-            db.session.commit()
-        return jsonify(config.to_dict(user, "linked"))
-
-    # Non-scale users cannot pull foreign configs by code.
-    return jsonify({"error": "No configuration found for that code"}), 404
+    source = resolve_by_code(user, config, ScaleConfigLink, "configuration_id")
+    if source is None:
+        return jsonify({"error": "No configuration found for that code"}), 404
+    return jsonify(config.to_dict(user, source))
 
 
 @configs_bp.route("/<int:config_id>", methods=["PUT"])
 @login_required
 def update_config(config_id):
+    from projects import _writable_sizing
     user = current_user()
-    config = db.session.get(Configuration, config_id)
-    if config is None or config.is_deleted:
-        return jsonify({"error": "Configuration not found"}), 404
-    if config.owner_id != user.id and not user.is_super_admin:
-        return jsonify({"error": "Only the owner can edit this configuration"}), 403
+    config, err = _writable_sizing(
+        config_id, user, not_found="Configuration not found",
+        not_owner="Only the owner can edit this configuration")
+    if err:
+        return err
 
     data = json_body()
     if "name" in data:

@@ -197,6 +197,13 @@ def load_hcl_data(include_delisted: bool = True) -> HclData:
     return _build(parts, blocked_vendors())
 
 
+def active_platforms() -> List[HclPlatform]:
+    """Every platform still on the HCL — what a BOM is identified against
+    (bom.check) and what a new preview platform is compared with for
+    duplicates (bom.preview)."""
+    return HclPlatform.query.filter_by(status=STATUS_ACTIVE).all()
+
+
 def catalog_counts() -> dict:
     def _by_status(model):
         active = model.query.filter_by(status=STATUS_ACTIVE).count()

@@ -6,6 +6,11 @@ to header handling, numeric coercion or quantity parsing lands everywhere at onc
 """
 import re
 
+from coerce import to_float as _to_float, to_int as _to_int
+
+# MIME type of an .xlsx download, for every route that sends one.
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 # A leading "N x " quantity prefix on a CPU/NIC description ("2 x Xeon Gold …").
 _QTY_RE = re.compile(r'^(\d+)\s*x\s+', re.IGNORECASE)
 
@@ -79,18 +84,12 @@ def sheet_rows(wb, name):
 
 def to_float(v):
     """Coerce a cell value to float; blanks/None/garbage -> 0.0."""
-    try:
-        return float(v) if v else 0.0
-    except (ValueError, TypeError):
-        return 0.0
+    return _to_float(v, 0.0)
 
 
 def to_int(v):
     """Coerce a cell value to int; blanks/None/garbage -> 0."""
-    try:
-        return int(v) if v else 0
-    except (ValueError, TypeError):
-        return 0
+    return _to_int(v, 0)
 
 
 def source_cpus(hosts):

@@ -46,6 +46,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from bom.normalize import CATEGORIES, NormalizedBOM, VENDORS
+from bom.text import alnum_key, decode_text
 
 DEFAULT_MODEL = "claude-opus-5-5"
 # Extraction is transcription, not open-ended reasoning: medium is the
@@ -229,12 +230,10 @@ def _xls_text(path: str) -> str:
 
 
 def _decode_text(raw: bytes, what: str) -> str:
-    for enc in ("utf-8-sig", "utf-8", "latin-1"):
-        try:
-            return raw.decode(enc)
-        except UnicodeDecodeError:
-            continue
-    raise AgentError("The %s file is not readable text." % what)
+    text = decode_text(raw)
+    if text is None:
+        raise AgentError("The %s file is not readable text." % what)
+    return text
 
 
 def _csv_text(path: str) -> str:
@@ -311,8 +310,9 @@ def sniff(path: str, filename: str) -> None:
         raise AgentError("File too large (max 10 MB).")
     with open(path, "rb") as fh:
         head = fh.read(8)
+    from bom.parsers import XLSX_MAGIC
     from bom.parsers.common import XLS_MAGIC
-    expected = {".xlsx": b"PK\x03\x04", ".docx": b"PK\x03\x04", ".pdf": b"%PDF", ".xls": XLS_MAGIC}.get(ext)
+    expected = {".xlsx": XLSX_MAGIC, ".docx": XLSX_MAGIC, ".pdf": b"%PDF", ".xls": XLS_MAGIC}.get(ext)
     if expected and not head.startswith(expected):
         raise AgentError("The file does not look like a %s file." % ext)
 
@@ -494,10 +494,6 @@ def demote_non_parts(bom: NormalizedBOM) -> List[str]:
 
 # ── grounding ────────────────────────────────────────────────────────────────
 
-def _norm(value: Optional[str]) -> str:
-    return re.sub(r"[^0-9a-z]", "", (value or "").lower())
-
-
 def _tokens(value: Optional[str]) -> List[str]:
     return [t for t in re.split(r"[^0-9a-z]+", (value or "").lower()) if len(t) >= 2]
 
@@ -506,11 +502,11 @@ class _Source:
     """The document text in the two shapes grounding compares against."""
 
     def __init__(self, text: str):
-        self.flat = _norm(text)
+        self.flat = alnum_key(text)
         self.words = set(_tokens(text))
 
     def has(self, value: Optional[str], min_len: int = 3) -> bool:
-        n = _norm(value)
+        n = alnum_key(value)
         if len(n) >= min_len and n in self.flat:
             return True
         # Same words, other spacing or line breaks (a description wrapped

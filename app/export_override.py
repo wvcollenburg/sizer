@@ -41,6 +41,8 @@ keeps its SC model name.
 """
 from typing import Any, Dict, List, Optional
 
+from coerce import to_float, to_int
+
 # ── the stored setting ───────────────────────────────────────────────────────
 # Configuration.export_override, a JSON dict:
 #   {"bom": "auto" | "none" | <bom_check_id>, "manual": {field: value, ...}}
@@ -328,20 +330,6 @@ def resolve(sizing, checks=None) -> Optional[Dict[str, Any]]:
 
 # ── applying it to a recommendation ──────────────────────────────────────────
 
-def _int(value) -> Optional[int]:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _num(value) -> Optional[float]:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def applies_to(rec: Dict[str, Any]) -> bool:
     """Validated recommendations only (owner decision)."""
     return bool(isinstance(rec, dict) and rec.get("validated"))
@@ -426,7 +414,7 @@ def _apply_hardware(out, rec, values, manual, cluster) -> Dict[str, Any]:
     if values.get("cpu") and values["cpu"] != rec.get("cpu"):
         out["cpu"] = values["cpu"]
         hw["cpu_changed"] = True
-    cores = _int(values.get("cores_per_node"))
+    cores = to_int(values.get("cores_per_node"))
     if cores and cores != rec.get("cores_per_node"):
         # The OS core overhead is a platform property, carried across from the
         # sized config: the quoted node loses the same slice the sized one did.
@@ -434,7 +422,7 @@ def _apply_hardware(out, rec, values, manual, cluster) -> Dict[str, Any]:
         out["cores_per_node"] = cores
         out["usable_cores_per_node"] = max(cores - overhead, 0)
         hw["cpu_changed"] = True
-    threads = _int(values.get("threads_per_node"))
+    threads = to_int(values.get("threads_per_node"))
     if not threads and cores and "cores_per_node" in manual and rec.get("cores_per_node"):
         # Cores typed without threads: keep the sized CPU's threads-per-core
         # (hyperthreading on or off), rather than 16 cores beside 64 threads.
@@ -466,9 +454,9 @@ def _apply_hardware(out, rec, values, manual, cluster) -> Dict[str, Any]:
     else:
         if rec.get("ghz") and rec.get("cores_per_node"):
             hw["ghz_per_node"] = float(rec["ghz"]) * rec["cores_per_node"]
-        hw["perf_per_node"] = _num(rec.get("cpu_perf_index"))
+        hw["perf_per_node"] = to_float(rec.get("cpu_perf_index"))
 
-    ram = _int(values.get("ram_per_node_gb"))
+    ram = to_int(values.get("ram_per_node_gb"))
     if ram and ram != rec.get("ram_per_node_gb"):
         if cluster.get("usable_ram_per_node_gb") and "ram_per_node_gb" not in manual:
             usable_ram = cluster["usable_ram_per_node_gb"]
@@ -480,7 +468,7 @@ def _apply_hardware(out, rec, values, manual, cluster) -> Dict[str, Any]:
         hw["changed"] = True
 
     # ── nodes ───────────────────────────────────────────────────────────────
-    nodes = _int(values.get("node_count"))
+    nodes = to_int(values.get("node_count"))
     total = rec.get("node_count") or 0
     if nodes and nodes != rec.get("node_count"):
         total = nodes
@@ -526,7 +514,7 @@ def _apply_hardware(out, rec, values, manual, cluster) -> Dict[str, Any]:
             # A BOM check from before drive sizes were stored: its own totals
             # are exact for its own layout, so they are used as they are.
             hw.update(storage_usable=float(cluster["usable_storage_tb"]),
-                      storage_raw=_num(cluster.get("raw_storage_tb")),
+                      storage_raw=to_float(cluster.get("raw_storage_tb")),
                       storage_changed=True)
     elif hw["nodes_changed"] and storage.get("raw_per_node"):
         # Same disks per node, another node count: the sized disks re-laid-out
@@ -632,7 +620,7 @@ def _rebuild_compute_floor(out, rec, hw) -> None:
 
     old_pool, new_pool = pool(rec), pool(out)
     old_ghz = float(rec.get("ghz") or 0) * (rec.get("cores_per_node") or 0)
-    old_perf = _num(rec.get("cpu_perf_index"))
+    old_perf = to_float(rec.get("cpu_perf_index"))
 
     def scale(pct, old_node, new_node):
         if pct is None:
@@ -729,7 +717,7 @@ def _rebuild_utilization(out, rec) -> None:
         if not isinstance(block, dict) or not isinstance(block.get("abs"), dict):
             continue
         abs_ = dict(block["abs"])
-        old_cap = _num(abs_.get("capacity")) or 0.0
+        old_cap = to_float(abs_.get("capacity")) or 0.0
         if not full or abs(float(full) - old_cap) < 1e-9:
             continue
 

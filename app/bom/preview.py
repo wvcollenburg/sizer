@@ -26,6 +26,7 @@ from auth_models import _iso, _utcnow
 from database import db
 from bom import enrich, hcl_sync
 from bom.enrich import CODE_DELISTED
+from bom.hcl_data import active_platforms
 from bom.hcl_scrape import component_attrs, synthetic_part_number
 from bom.normalize import NormalizedBOM
 from hcl_models import (
@@ -232,7 +233,7 @@ def near_matches(brand: Optional[str], name: Optional[str],
         return []
     brand = (brand or "").strip().lower() or None
     out = []
-    for p in HclPlatform.query.filter_by(status=STATUS_ACTIVE).all():
+    for p in active_platforms():
         hay = [(h, field) for h, field in
                ((_norm_name(p.sc_model), "name"), (_norm_name(p.server), "server")) if h]
         best, best_field = 0.0, None

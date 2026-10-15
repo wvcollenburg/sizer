@@ -70,8 +70,8 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
     both come from the database."""
     hcl = hcl if hcl is not None else _load_hcl()
     if platforms is None:
-        from hcl_models import HclPlatform, STATUS_ACTIVE
-        platforms = HclPlatform.query.filter_by(status=STATUS_ACTIVE).all()
+        from bom.hcl_data import active_platforms
+        platforms = active_platforms()
     try:
         delisted = enrich.load_delisted()
     except Exception:
@@ -109,13 +109,7 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         d["node_count"] = config.node_count
         config_dicts.append(d)
 
-    verdict = "PASS"
-    if not config_results:
-        verdict = "INCONCLUSIVE"
-    elif any(r.verdict == "FAIL" for r in config_results):
-        verdict = "FAIL"
-    elif any(r.verdict == "INCONCLUSIVE" for r in config_results):
-        verdict = "INCONCLUSIVE"
+    verdict = rules.rollup_verdict(config_results)
 
     return {
         "technical": {"verdict": verdict, "config_results": config_dicts},

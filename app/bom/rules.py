@@ -34,17 +34,11 @@ from bom.normalize import (
     BOMConfig,
     ConfigResult,
     Finding,
+    _pick,
     normalize_part,
 )
 
 # ─── HCL shapes (mirror hcl.ts) ──────────────────────────────────────────────
-
-
-def _pick(d: Dict[str, Any], *keys: str, default: Any = None) -> Any:
-    for k in keys:
-        if k in d:
-            return d[k]
-    return default
 
 
 @dataclass
@@ -770,5 +764,18 @@ def determine_verdict(findings: List[Finding]) -> str:
     if any(f.severity == 'error' for f in findings):
         return 'FAIL'
     if any(any(i in f.issue for i in INCONCLUSIVE_ISSUES) for f in findings):
+        return 'INCONCLUSIVE'
+    return 'PASS'
+
+
+def rollup_verdict(config_results: List[ConfigResult]) -> str:
+    """The BOM's verdict from its configs' own: FAIL if any failed, else
+    INCONCLUSIVE if any was (or there was no hardware config to judge),
+    else PASS."""
+    if not config_results:
+        return 'INCONCLUSIVE'
+    if any(r.verdict == 'FAIL' for r in config_results):
+        return 'FAIL'
+    if any(r.verdict == 'INCONCLUSIVE' for r in config_results):
         return 'INCONCLUSIVE'
     return 'PASS'

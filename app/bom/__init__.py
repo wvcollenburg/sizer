@@ -18,5 +18,6 @@ Sub-modules are pure Python with no Flask dependency unless stated:
   platform_match - map a BOM config to the HC-Ready platform(s) it is built on
   preview        - pre-publication accepts: parts verified but not yet published on the HCL
   rules          - deterministic BOM validation, a 1:1 port of SC//Design's validator.ts
+  text           - small text helpers (whitespace/alnum keys, text decoding) the modules share
   parsers        - deterministic file parsers (Lenovo DCSC, Dell, Supermicro, PDFs, strict template)
 """

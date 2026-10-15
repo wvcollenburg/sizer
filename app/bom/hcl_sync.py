@@ -38,6 +38,7 @@ from sqlalchemy import func
 from auth_models import _utcnow
 from database import db
 from bom.hcl_scrape import synthetic_part_number
+from bom.text import squash_ws
 from hcl_models import (
     APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_MERGE, CHANGE_RELIST, CHANGE_UPDATE,
     COMPONENT_KINDS, HclComponent, HclDevice, HclPendingChange, HclPlatform,
@@ -809,10 +810,6 @@ def _apply_platform(change, now, user, result):
     result["reason"] = "unknown change kind %r" % kind
 
 
-def _norm_desc(text) -> str:
-    return " ".join((text or "").lower().split())
-
-
 def _merge_platform(placeholder, change, now, result):
     """Retire a pre-publication placeholder into the platform the HCL
     published for the same server.
@@ -841,7 +838,7 @@ def _merge_platform(placeholder, change, now, result):
     published = {}
     for link in successor.links:
         if link.status == STATUS_ACTIVE and link.component.status == STATUS_ACTIVE:
-            published[(link.component.kind, _norm_desc(link.component.description))] = link.component
+            published[(link.component.kind, squash_ws(link.component.description))] = link.component
 
     moved, superseded = [], []
     for link in placeholder.links:
@@ -849,7 +846,7 @@ def _merge_platform(placeholder, change, now, result):
             continue
         comp = link.component
         link.status = STATUS_DELISTED
-        twin = published.get((comp.kind, _norm_desc(comp.description)))
+        twin = published.get((comp.kind, squash_ws(comp.description)))
         if twin is not None and twin.id != comp.id:
             if comp.status == STATUS_ACTIVE:
                 comp.status = STATUS_DELISTED

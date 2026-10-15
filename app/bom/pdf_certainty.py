@@ -167,5 +167,9 @@ def _finish(c: Certainty) -> Certainty:
     return c
 
 
-def passes(c: Optional[Certainty]) -> bool:
-    return c is not None and not c.hard_stop and c.score >= threshold()
+def passes(c: Optional[Certainty], min_score: Optional[int] = None) -> bool:
+    """Is the parse trusted: scored, no hard stop, and at or above the
+    threshold — the admin setting unless ``min_score`` is given."""
+    if c is None or c.hard_stop:
+        return False
+    return c.score >= (threshold() if min_score is None else min_score)

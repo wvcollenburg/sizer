@@ -207,6 +207,35 @@ class BomCheck(db.Model):
         return d
 
 
+def live_sizing(sizing, project_id):
+    """``sizing`` if it is still a live member of ``project_id``, else None.
+    A check or an agent job keeps a sizing id, but sizings get deleted and
+    moved between projects (projects.move_sizing) meanwhile, and a check must
+    never run against one that left the project it was uploaded to."""
+    if sizing is None or sizing.is_deleted or sizing.project_id != project_id:
+        return None
+    return sizing
+
+
+def store_check(*, project_id, user, name, filename, digest, file_format, bom,
+                meta, sizing, result):
+    """Create the BomCheck for a freshly read BOM with ``result`` from
+    bom.check.run_check applied, and add it to the session (flushed, not
+    committed — the caller commits). Used by the upload route for parsed
+    files and by the agent path for files the Claude agent read."""
+    check = BomCheck(
+        project_id=project_id, user_id=user.id, tenant_id=user.tenant_id,
+        name=name, filename=(filename or "")[:200], file_sha256=digest,
+        file_format=file_format, vendor=bom.vendor, normalized=bom.to_dict(),
+        ingest_meta=meta, history=[],
+    )
+    check.apply_result(result, sizing)
+    check.history = [check.history_entry()]
+    db.session.add(check)
+    db.session.flush()
+    return check
+
+
 class BomRejectedFile(db.Model):
     """A BOM upload the parsers refused, kept WITH THE UPLOADER'S CONSENT so
     the owner can teach the checker its format.
