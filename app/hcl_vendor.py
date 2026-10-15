@@ -88,6 +88,29 @@ def validated_only_key(model):
     return "%s/vo-%s" % (model.vendor, server_key(model.chassis) or model.name.lower())
 
 
+def infer_vendor(*texts):
+    """The vendor a validated-only model's own text names by its leading brand
+    ('Lenovo SR650 v4', 'Dell-VxRAIL' -> 'lenovo', 'dell'), or None. Texts are
+    tried in order (chassis before name). Models flagged validated-only before
+    the vendor field existed have none, and a vendor-less validated-only model
+    is never offered under any vendor."""
+    brands = set(BRAND_LABELS)
+    try:
+        from database import db
+        from hcl_models import HclPlatform
+        brands |= {b.lower() for (b,) in db.session.query(HclPlatform.brand)
+                   .distinct().all() if b}
+    except Exception:                                   # noqa: BLE001
+        pass
+    for text in texts:
+        text = (text or "").strip().lower()
+        for brand in brands:
+            for word in {brand, brand_label(brand).lower()}:
+                if text.startswith(word) and not text[len(word):len(word) + 1].isalnum():
+                    return brand
+    return None
+
+
 def list_vendors():
     """Vendors with at least one active HCL platform, default first.
 

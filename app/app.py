@@ -315,6 +315,8 @@ def create_app():
                         "category": m.form_factor or "",
                         "status": m.status,
                         "vendor_chassis": chassis["label"],
+                        # An admin-defined box, not an HCL-listed SC model.
+                        "validated_only": chassis["platform"] is None,
                     })
                     # A chassis is current while any configuration on it is.
                     if m.status == "Active":

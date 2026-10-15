@@ -327,7 +327,8 @@ async function populateSizingModelDropdown(selectId, includeEolEos, sizing, vend
         names.forEach(m => {
             const st = models[m].status;
             // Validated entries are keyed by chassis and carry its label.
-            const name = models[m].vendor_chassis || m;
+            let name = models[m].vendor_chassis || m;
+            if (models[m].validated_only) name += ` (${window.t('results.vo_picker_suffix')})`;
             const label = st !== 'Active' ? `${name} (${st})` : name;
             html += `<option value="${esc(m)}">${esc(label)}</option>`;
         });
@@ -3359,11 +3360,20 @@ function recCardHtml(r, i, mode, demand, opts) {
     const scEquivalent = (r.vendor_chassis && r.model && !r.validated_only && !r.export_override)
         ? ` &mdash; ${esc(window.t('results.sc_equivalent', {model: r.model}))}`
         : '';
+    // A validated-only model is an admin-defined box from the models list, not
+    // an HCL-listed SC model: badge it, and name the model it was sized on.
+    const voBadge = r.validated_only
+        ? `<span class="rec-ratio-badge rec-vo-badge" title="${esc(window.t('results.vo_badge_title', {model: r.model}))}">${esc(window.t('results.vo_badge'))}</span>`
+        : '';
+    const voBasedOn = (r.validated_only && r.model && !r.export_override)
+        ? ` &mdash; ${esc(window.t('results.vo_based_on', {model: r.model}))}`
+        : '';
     const header = `
             <div class="rec-header">
                 <span class="rec-rank">${opts.rankLabel ? esc(opts.rankLabel) : '#' + (i + 1)}</span>
                 <span class="rec-model">${modelLabel}</span>
                 <span class="rec-category">${r.category}</span>
+                ${voBadge}
                 ${ratioBadge}
                 <span class="rec-nodes">${nodesLabel}</span>
                 <span class="rec-clusters" title="${clusterInfo}">${clusterInfo}</span>
@@ -3417,7 +3427,7 @@ function recCardHtml(r, i, mode, demand, opts) {
             ${witnessNote}
             ${singleNodeNote}
             <div class="rec-footer">
-                <span>${r.form_factor} &mdash; ${r.chassis}${scEquivalent}</span>${footerActionsHtml}
+                <span>${r.form_factor} &mdash; ${r.chassis}${scEquivalent}${voBasedOn}</span>${footerActionsHtml}
             </div>`;
 
     // The Rows fold-out and the Split reading pane supply their own frame and

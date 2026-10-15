@@ -1300,6 +1300,12 @@ body { padding-bottom: 64px; }
     margin-top: 1px;
 }
 
+.rec-ratio-badge.rec-vo-badge {
+    background: var(--info-bg);
+    color: var(--info);
+    cursor: help;
+}
+
 .rec-ratio-badge.degraded {
     background: var(--red-bg);
     color: var(--red);
