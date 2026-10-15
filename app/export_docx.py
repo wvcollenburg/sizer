@@ -25,7 +25,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from export_pptx import _svg_to_png_bytes, _fmt_ram, _fmt_num
+from export_format import fmt_ram, fmt_num, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -240,17 +240,27 @@ def _keep_table_together(table):
     won't fit. Also pins the heading above it (see _pin_heading_to_table). A
     table taller than a single page still breaks — Word overrides keep-with-next
     once the content exceeds the page, which is the desired behaviour."""
+    _no_split_rows(table, repeat_header=False)
     rows = table.rows
     last = len(rows) - 1
     for ri, row in enumerate(rows):
-        trPr = row._tr.get_or_add_trPr()
-        if not trPr.findall(qn("w:cantSplit")):
-            trPr.append(OxmlElement("w:cantSplit"))
         if ri < last:
             for cell in row.cells:
                 for p in cell.paragraphs:
                     p.paragraph_format.keep_with_next = True
     _pin_heading_to_table(table)
+
+
+def _no_split_rows(table, repeat_header=True):
+    """Mark every row 'cannot split' (no row breaks mid-cell); with
+    repeat_header the first row repeats on every page a long table runs over.
+    Idempotent."""
+    for ri, row in enumerate(table.rows):
+        trPr = row._tr.get_or_add_trPr()
+        if repeat_header and ri == 0 and not trPr.findall(qn("w:tblHeader")):
+            trPr.append(OxmlElement("w:tblHeader"))
+        if not trPr.findall(qn("w:cantSplit")):
+            trPr.append(OxmlElement("w:cantSplit"))
 
 
 def _style_cell(cell, text, bold=False, color=None, fill=None, align=None, lang="en"):
@@ -372,8 +382,11 @@ def build_proposal_docx(summary, recommendation, projection, source_perf=None, l
         _apply_lang_font_para(doc.add_paragraph(subtitle, style="Subtitle"), lang)
 
     _append_proposal_body(doc, summary, recommendation, projection, source_perf, lang)
-    _finalize_doc(doc)
+    return _doc_bytes(doc)
 
+
+def _doc_bytes(doc):
+    _finalize_doc(doc)
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
@@ -412,42 +425,180 @@ def _is_dedicated(summary):
     return (summary.get("host_count", 0) == 0 and summary.get("active_vms", 0) == 0)
 
 
-def _platform_capabilities(doc, lang):
+# The HyperCore platform pitch sections: (name, heading key, intro key, bullet
+# key prefix, bullet count). Bullets are numbered <prefix>1 .. <prefix>N.
+_PITCH_SECTIONS = (
+    ("mgmt", "export.docx.mgmt_operations", "export.docx.mgmt_operations_intro",
+     "export.docx.mgmt_bullet_", 5),
+    ("heat", "export.docx.heat_heading", "export.docx.heat_intro",
+     "export.docx.heat_bullet_", 5),
+    ("scribe", "export.docx.scribe_heading", "export.docx.scribe_intro",
+     "export.docx.scribe_bullet_", 7),
+    ("aime", "export.docx.aime_heading", "export.docx.aime_intro",
+     "export.docx.aime_bullet_", 7),
+)
+
+
+def _platform_capabilities(doc, lang, level=1, with_intro=False, sections=None):
     """The Scale Computing HyperCore platform pitch — management, HEAT, SCRIBE,
-    AIME. Emitted ONCE in a multi-site proposal (not repeated per site)."""
+    AIME (or the `sections` named, in _PITCH_SECTIONS order). with_intro puts
+    the multi-site "platform" heading and product intro above it, one level up;
+    a multi-site proposal emits it ONCE (not repeated per site)."""
     t9n = translator(lang)
-    _heading(doc, t9n("export.docx.multisite_platform_heading"), lang, level=1)
-    _para(doc, t9n("export.docx.product_intro"), lang=lang)
+    if with_intro:
+        _heading(doc, t9n("export.docx.multisite_platform_heading"), lang, level=level - 1)
+        _para(doc, t9n("export.docx.product_intro"), lang=lang)
+    for name, heading, intro, bullets, count in _PITCH_SECTIONS:
+        if sections is not None and name not in sections:
+            continue
+        _heading(doc, t9n(heading), lang, level=level)
+        _para(doc, t9n(intro), lang=lang)
+        for i in range(1, count + 1):
+            _bullet(doc, t9n(f"{bullets}{i}"), lang)
 
-    _heading(doc, t9n("export.docx.mgmt_operations"), lang, level=2)
-    _para(doc, t9n("export.docx.mgmt_operations_intro"), lang=lang)
-    for k in ("export.docx.mgmt_bullet_1", "export.docx.mgmt_bullet_2",
-              "export.docx.mgmt_bullet_3", "export.docx.mgmt_bullet_4",
-              "export.docx.mgmt_bullet_5"):
-        _bullet(doc, t9n(k), lang)
 
-    _heading(doc, t9n("export.docx.heat_heading"), lang, level=2)
-    _para(doc, t9n("export.docx.heat_intro"), lang=lang)
-    for k in ("export.docx.heat_bullet_1", "export.docx.heat_bullet_2",
-              "export.docx.heat_bullet_3", "export.docx.heat_bullet_4",
-              "export.docx.heat_bullet_5"):
-        _bullet(doc, t9n(k), lang)
+def _rec_labels(r, t9n, hci_key="hci_node_count"):
+    """(nodes label, cluster label) for a recommendation or a config block —
+    the HCI node count lives under `hci_key` (a config block has only
+    node_count)."""
+    node_count = r.get("node_count", 0)
+    so = r.get("storage_only")
+    nodes_label = (t9n("export.common.hci_plus_storage_only",
+                       hci=r.get(hci_key, node_count), storage=so["count"])
+                   if so else t9n("export.common.node_count", count=node_count))
+    num_cl = r.get("num_clusters", 1)
+    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
+                    layout=" + ".join(map(str, r.get("cluster_layout", []))))
+                if num_cl > 1 else t9n("export.common.single_cluster"))
+    return nodes_label, cl_label
 
-    _heading(doc, t9n("export.docx.scribe_heading"), lang, level=2)
-    _para(doc, t9n("export.docx.scribe_intro"), lang=lang)
-    for k in ("export.docx.scribe_bullet_1", "export.docx.scribe_bullet_2",
-              "export.docx.scribe_bullet_3", "export.docx.scribe_bullet_4",
-              "export.docx.scribe_bullet_5", "export.docx.scribe_bullet_6",
-              "export.docx.scribe_bullet_7"):
-        _bullet(doc, t9n(k), lang)
 
-    _heading(doc, t9n("export.docx.aime_heading"), lang, level=2)
-    _para(doc, t9n("export.docx.aime_intro"), lang=lang)
-    for k in ("export.docx.aime_bullet_1", "export.docx.aime_bullet_2",
-              "export.docx.aime_bullet_3", "export.docx.aime_bullet_4",
-              "export.docx.aime_bullet_5", "export.docx.aime_bullet_6",
-              "export.docx.aime_bullet_7"):
-        _bullet(doc, t9n(k), lang)
+def _rec_spec_rows(r, t9n, with_platform=True):
+    """The recommended-configuration spec rows: per-node CPU/cores/RAM/storage,
+    cluster totals, net IOPS when sized, the N-1 figures and the vCPU ratio.
+    with_platform leads with the model · nodes · clusters line."""
+    t = r["totals"]
+    n1 = r["n_minus_1"]
+    iops = r.get("iops") or {}
+    rows = []
+    if with_platform:
+        nodes_label, cl_label = _rec_labels(r, t9n)
+        rows.append((t9n("export.docx.recommended_platform"),
+                     f"{rec_display_model(r)} · {nodes_label} · {cl_label}"))
+    rows += [
+        (t9n("export.docx.per_node_cpu"), r["cpu"]),
+        (t9n("export.docx.per_node_cores_threads"),
+         t9n("export.docx.cores_threads_val",
+             cores=r["cores_per_node"], threads=r["threads_per_node"])),
+        (t9n("export.docx.per_node_ram"), fmt_ram(r["ram_per_node_gb"])),
+        (t9n("export.docx.per_node_storage"), r["storage_config"]["desc"]),
+        (t9n("export.docx.cluster_cores"), str(t["cores"])),
+        (t9n("export.docx.cluster_ram"), fmt_ram(t["ram_gb"])),
+        (t9n("export.docx.cluster_usable_storage"), f"{t['usable_storage_tb']} TB"),
+    ]
+    if iops:
+        rows.append((t9n("export.docx.cluster_net_iops"), f"{iops['total']:,}"))
+    rows += [
+        (t9n("export.docx.n1_resilient"),
+         t9n("export.docx.n1_resilient_val", cores=n1["cores"],
+             ram=fmt_ram(n1["ram_gb"]), usable_tb=n1["usable_storage_tb"])),
+        (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
+    ]
+    return rows
+
+
+def _footnotes(doc, block, t9n, lang):
+    """The muted notes under a configuration table: a single-node system has no
+    failover redundancy; the quoted hardware came from an agent-read BOM."""
+    if block.get("single_node"):
+        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
+    if (block.get("export_override") or {}).get("bom_agent_read"):
+        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
+
+
+def _network_figure(doc, block, t9n, lang, cw, level, page_break=False):
+    """The cluster network diagram under its own heading — regenerated in the
+    document language (falling back to the stored SVG). Nothing is emitted
+    (no heading, no page break) when there is no diagram or no rasteriser."""
+    svg = _rec_network_svg(block, lang) or block.get("network_svg")
+    if not svg:
+        return
+    png = svg_to_png(svg, 2200)
+    if not png:
+        return
+    _heading(doc, t9n("export.docx.cluster_network"), lang, level=level)
+    doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if page_break:
+        doc.add_page_break()
+
+
+def _sizing_rationale(doc, r, s, t9n, lang, cw, level, with_floor=False):
+    """Sizing rationale: the utilization bars, the sentence naming the binding
+    resource (CPU / RAM / Storage / Compute floor) and the bar legend.
+    with_floor also quotes the compute-floor coverage when another resource
+    was binding. Skipped when the recommendation carries no utilization."""
+    u = r.get("utilization")
+    if not u:
+        return
+    rows_u, any_ha = util_rows(u)
+    if not rows_u:
+        return
+    _heading(doc, t9n("export.docx.sizing_rationale"), lang, level=level)
+    png = render_util_bars(rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
+                           any_ha=any_ha, lang=lang)
+    doc.add_picture(io.BytesIO(png), width=Inches(cw))
+    doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _spacer(doc, 4)
+    det = r.get("determinant") or {}
+    res, hr = det.get("resource"), det.get("headroom_pct")
+    if res == "CPU":
+        _para(doc, t9n("export.docx.rationale_cpu", vcpus=s.get("total_vcpus"),
+                       ratio=f"{r.get('vcpu_ratio', 0):.2f}",
+                       required=f"{det.get('required'):.0f}", achieved=f"{det.get('achieved'):.0f}",
+                       headroom=f"{hr:.1f}"), lang=lang)
+    elif res in ("RAM", "Storage"):
+        _para(doc, t9n("export.docx.rationale_ram_storage", resource=res,
+                       required=det.get("required"), unit=det.get("unit", ""),
+                       achieved=det.get("achieved"), headroom=f"{hr:.1f}"), lang=lang)
+    elif res == "Compute":
+        cf = r.get("compute_floor") or {}
+        _para(doc, t9n("export.docx.rationale_compute", achieved=f"{det.get('achieved'):.0f}",
+                       util=f"{cf.get('source_cpu_util_pct', 100):.0f}"), lang=lang)
+    if with_floor and res != "Compute":
+        cfs = compute_floor_sentence(r, lang)
+        if cfs:
+            _para(doc, cfs, italic=True, size=9, lang=lang)
+    _para(doc, t9n("export.docx.rationale_bar_legend"), italic=True, size=9, lang=lang)
+    _spacer(doc)
+
+
+def _capacity_table(doc, p, r, n1, t9n, lang, cw):
+    """The capacity-planning grid (current → year N → proposed N-1) for vCPUs,
+    RAM and storage, followed by a spacer."""
+    _grid_table(doc,
+                [t9n("export.common.resource"), t9n("export.common.current"),
+                 t9n("export.docx.year_n", years=p["years"]), t9n("export.docx.proposed_n1")],
+                [["vCPUs", fmt_num(p["base_vcpus"]), fmt_num(p["projected_vcpus"]),
+                  t9n("export.docx.cores_at_ratio", cores=n1["cores"], ratio=f"{r['vcpu_ratio']:.1f}")],
+                 ["RAM", fmt_ram(p["base_ram_gb"]), fmt_ram(p["projected_ram_gb"]), fmt_ram(n1["ram_gb"])],
+                 [t9n("export.common.storage"), f"{p['base_storage_tb']} TB",
+                  f"{p['projected_storage_tb']} TB", t9n("export.docx.tb_usable", tb=n1["usable_storage_tb"])]],
+                total_w=cw, weights=[1.6, 1.8, 1.8, 1.8], lang=lang)
+    _spacer(doc)
+
+
+def _benchmark_verdict(doc, r, tgt, src_total, t9n, lang, cw):
+    """The recommended cluster's SPECrate against the current environment's
+    total, with the "should deliver" verdict (a multiple or a percentage)."""
+    ratio = tgt / src_total if src_total else 0
+    verdict = (t9n("export.docx.verdict_multiple", ratio=f"{ratio:.1f}") if ratio >= 1
+               else t9n("export.docx.verdict_fraction", pct=round(ratio * 100)))
+    _spec_table(doc, [
+        (t9n("export.docx.recommended_cluster"), f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
+        (t9n("export.docx.cluster_specrate2017"), fmt_num(tgt)),
+        (t9n("export.docx.benchmark_should_deliver"), verdict),
+    ], total_w=cw, label_w=2.6, lang=lang)
 
 
 def _append_site_sizing(doc, cl, lang, cw):
@@ -459,17 +610,7 @@ def _append_site_sizing(doc, cl, lang, cw):
     p = cl["projection"]
     t = r["totals"]
     n1 = r["n_minus_1"]
-    iops = r.get("iops") or {}
     dedicated = _is_dedicated(s)
-
-    so = r.get("storage_only")
-    hci_nodes = r.get("hci_node_count", r["node_count"])
-    nodes_label = (t9n("export.common.hci_plus_storage_only", hci=hci_nodes, storage=so["count"])
-                   if so else t9n("export.common.node_count", count=r["node_count"]))
-    num_cl = r.get("num_clusters", 1)
-    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
-                    layout=" + ".join(map(str, r.get("cluster_layout", []))))
-                if num_cl > 1 else t9n("export.common.single_cluster"))
 
     # Site intro — dedicated DR vs a workload-bearing site.
     if dedicated:
@@ -477,75 +618,18 @@ def _append_site_sizing(doc, cl, lang, cw):
     else:
         _para(doc, t9n("export.docx.multisite_site_intro",
                        name=cl.get("name", ""), vms=s.get("active_vms", 0),
-                       vcpus=_fmt_num(s.get("total_vcpus", 0)),
-                       ram=_fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
+                       vcpus=fmt_num(s.get("total_vcpus", 0)),
+                       ram=fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
                        used_tb=s.get("datastore_used_tb", 0), years=p["years"]), lang=lang)
 
     # Recommended configuration
     _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=2)
-    spec_rows = [
-        (t9n("export.docx.recommended_platform"), f"{rec_display_model(r)} · {nodes_label} · {cl_label}"),
-        (t9n("export.docx.per_node_cpu"), r["cpu"]),
-        (t9n("export.docx.per_node_cores_threads"),
-         t9n("export.docx.cores_threads_val", cores=r["cores_per_node"], threads=r["threads_per_node"])),
-        (t9n("export.docx.per_node_ram"), _fmt_ram(r["ram_per_node_gb"])),
-        (t9n("export.docx.per_node_storage"), r["storage_config"]["desc"]),
-        (t9n("export.docx.cluster_cores"), str(t["cores"])),
-        (t9n("export.docx.cluster_ram"), _fmt_ram(t["ram_gb"])),
-        (t9n("export.docx.cluster_usable_storage"), f"{t['usable_storage_tb']} TB"),
-    ]
-    if iops:
-        spec_rows.append((t9n("export.docx.cluster_net_iops"), f"{iops['total']:,}"))
-    spec_rows += [
-        (t9n("export.docx.n1_resilient"),
-         t9n("export.docx.n1_resilient_val", cores=n1["cores"],
-             ram=_fmt_ram(n1["ram_gb"]), usable_tb=n1["usable_storage_tb"])),
-        (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
-    ]
-    _spec_table(doc, spec_rows, total_w=cw, lang=lang)
-    if r.get("single_node"):
-        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
-    if (r.get("export_override") or {}).get("bom_agent_read"):
-        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
+    _spec_table(doc, _rec_spec_rows(r, t9n), total_w=cw, lang=lang)
+    _footnotes(doc, r, t9n, lang)
     _spacer(doc)
 
-    # Network diagram
-    svg = _rec_network_svg(r, lang) or r.get("network_svg")
-    if svg:
-        png = _svg_to_png_bytes(svg, out_width=2200)
-        if png:
-            _heading(doc, t9n("export.docx.cluster_network"), lang, level=3)
-            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Sizing rationale (utilization bars + determinant)
-    u = r.get("utilization")
-    if u:
-        rows_u, any_ha = util_rows(u)
-        if rows_u:
-            _heading(doc, t9n("export.docx.sizing_rationale"), lang, level=2)
-            png = render_util_bars(rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
-                                   any_ha=any_ha, lang=lang)
-            doc.add_picture(io.BytesIO(png), width=Inches(cw))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _spacer(doc, 4)
-            det = r.get("determinant") or {}
-            res, hr = det.get("resource"), det.get("headroom_pct")
-            if res == "CPU":
-                _para(doc, t9n("export.docx.rationale_cpu", vcpus=s.get("total_vcpus"),
-                               ratio=f"{r.get('vcpu_ratio', 0):.2f}",
-                               required=f"{det.get('required'):.0f}", achieved=f"{det.get('achieved'):.0f}",
-                               headroom=f"{hr:.1f}"), lang=lang)
-            elif res in ("RAM", "Storage"):
-                _para(doc, t9n("export.docx.rationale_ram_storage", resource=res,
-                               required=det.get("required"), unit=det.get("unit", ""),
-                               achieved=det.get("achieved"), headroom=f"{hr:.1f}"), lang=lang)
-            elif res == "Compute":
-                cf = r.get("compute_floor") or {}
-                _para(doc, t9n("export.docx.rationale_compute", achieved=f"{det.get('achieved'):.0f}",
-                               util=f"{cf.get('source_cpu_util_pct', 100):.0f}"), lang=lang)
-            _para(doc, t9n("export.docx.rationale_bar_legend"), italic=True, size=9, lang=lang)
-            _spacer(doc)
+    _network_figure(doc, r, t9n, lang, cw, level=3)
+    _sizing_rationale(doc, r, s, t9n, lang, cw, level=2)
 
     # Capacity planning. A dedicated DR sized before DR followed its sources
     # was grown at its own DR-form rate, so it is skipped there; a pre-grown
@@ -554,31 +638,14 @@ def _append_site_sizing(doc, cl, lang, cw):
         _heading(doc, t9n("export.docx.capacity_planning", years=p["years"]), lang, level=2)
         if dedicated:
             _para(doc, _dr_growth_sentence(p, t9n), italic=True, color=MUTED, lang=lang)
-        _grid_table(doc,
-                    [t9n("export.common.resource"), t9n("export.common.current"),
-                     t9n("export.docx.year_n", years=p["years"]), t9n("export.docx.proposed_n1")],
-                    [["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
-                      t9n("export.docx.cores_at_ratio", cores=n1["cores"], ratio=f"{r['vcpu_ratio']:.1f}")],
-                     ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]), _fmt_ram(n1["ram_gb"])],
-                     [t9n("export.common.storage"), f"{p['base_storage_tb']} TB",
-                      f"{p['projected_storage_tb']} TB", t9n("export.docx.tb_usable", tb=n1["usable_storage_tb"])]],
-                    total_w=cw, weights=[1.6, 1.8, 1.8, 1.8], lang=lang)
-        _spacer(doc)
+        _capacity_table(doc, p, r, n1, t9n, lang, cw)
 
     # Benchmark vs current (only when a source benchmark was provided)
     tgt = t.get("perf_index")
     sp = cl.get("source_perf")
     if sp and sp.get("total_specrate") and tgt:
         _heading(doc, t9n("export.docx.performance_vs_current"), lang, level=2)
-        src_total = sp["total_specrate"]
-        ratio = tgt / src_total if src_total else 0
-        verdict = (t9n("export.docx.verdict_multiple", ratio=f"{ratio:.1f}") if ratio >= 1
-                   else t9n("export.docx.verdict_fraction", pct=round(ratio * 100)))
-        _spec_table(doc, [
-            (t9n("export.docx.recommended_cluster"), f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
-            (t9n("export.docx.cluster_specrate2017"), _fmt_num(tgt)),
-            (t9n("export.docx.benchmark_should_deliver"), verdict),
-        ], total_w=cw, label_w=2.6, lang=lang)
+        _benchmark_verdict(doc, r, tgt, sp["total_specrate"], t9n, lang, cw)
         _spacer(doc)
 
 
@@ -591,14 +658,7 @@ def _append_config_sizing(doc, cfg, lang, cw):
     pn = cfg.get("per_node", {})
     tot = cfg.get("cluster_total", {})
     n1 = cfg.get("n_minus_1", {})
-    so = cfg.get("storage_only")
-    node_count = cfg.get("node_count", 0)
-    nodes_label = (t9n("export.common.hci_plus_storage_only", hci=node_count, storage=so["count"])
-                   if so else t9n("export.common.node_count", count=node_count))
-    num_cl = cfg.get("num_clusters", 1)
-    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
-                    layout=" + ".join(map(str, cfg.get("cluster_layout", []))))
-                if num_cl > 1 else t9n("export.common.single_cluster"))
+    nodes_label, cl_label = _rec_labels(cfg, t9n, hci_key="node_count")
     model = (cfg.get("model", "") if mode == "appliance"
              else t9n("export.pptx.configuration_software_only"))
 
@@ -616,39 +676,30 @@ def _append_config_sizing(doc, cfg, lang, cw):
              cores=pn.get("physical_cores", pn.get("cores", 0)),
              threads=pn.get("threads", 0))),
         (t9n("export.docx.per_node_ram"),
-         _fmt_ram(pn.get("physical_ram_gb", pn.get("ram_gb", 0)))),
+         fmt_ram(pn.get("physical_ram_gb", pn.get("ram_gb", 0)))),
         (t9n("export.docx.cluster_cores"), str(tot.get("cores", 0))),
-        (t9n("export.docx.cluster_ram"), _fmt_ram(tot.get("ram_gb", 0))),
+        (t9n("export.docx.cluster_ram"), fmt_ram(tot.get("ram_gb", 0))),
     ]
     if tot.get("reserved_cores") or tot.get("reserved_ram_gb"):
         spec_rows.append((t9n("export.common.system_reserved"),
                           t9n("export.docx.reserved_val",
                               cores=tot.get("reserved_cores", 0),
-                              ram=_fmt_ram(tot.get("reserved_ram_gb", 0)))))
+                              ram=fmt_ram(tot.get("reserved_ram_gb", 0)))))
     spec_rows.append((t9n("export.docx.cluster_usable_storage"),
                       f"{tot.get('usable_storage_tb', 0)} TB"))
     if not cfg.get("single_node") and n1:
         spec_rows.append((t9n("export.docx.n1_resilient"),
                           t9n("export.docx.n1_resilient_val", cores=n1.get("cores", 0),
-                              ram=_fmt_ram(n1.get("ram_gb", 0)),
+                              ram=fmt_ram(n1.get("ram_gb", 0)),
                               usable_tb=n1.get("usable_storage_tb", 0))))
     lic_short = license_required_short(cfg, lang)
     if lic_short:
         spec_rows.append((t9n("export.pptx.multisite_col_license"), lic_short))
     _spec_table(doc, spec_rows, total_w=cw, lang=lang)
-    if cfg.get("single_node"):
-        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
-    if (cfg.get("export_override") or {}).get("bom_agent_read"):
-        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
+    _footnotes(doc, cfg, t9n, lang)
     _spacer(doc)
 
-    svg = _rec_network_svg(cfg, lang) or cfg.get("network_svg")
-    if svg:
-        png = _svg_to_png_bytes(svg, out_width=2200)
-        if png:
-            _heading(doc, t9n("export.docx.cluster_network"), lang, level=3)
-            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _network_figure(doc, cfg, t9n, lang, cw, level=3)
 
 
 def build_bundle_proposal_docx(clusters, lang="en"):
@@ -694,8 +745,8 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     _heading(doc, t9n("export.docx.multisite_exec_heading"), lang, level=1)
     _para(doc, t9n("export.docx.multisite_exec_intro",
                    sites=sites, hosts=agg_hosts, vms=agg_vms, used_tb=agg_used_tb,
-                   years=years, nodes=tot_nodes, cores=_fmt_num(tot_cores),
-                   ram=_fmt_ram(tot_ram), usable_tb=tot_usable), lang=lang)
+                   years=years, nodes=tot_nodes, cores=fmt_num(tot_cores),
+                   ram=fmt_ram(tot_ram), usable_tb=tot_usable), lang=lang)
 
     # ── Solution at a glance: overview table + combined totals + topology ─────
     _heading(doc, t9n("export.docx.multisite_solution_heading"), lang, level=1)
@@ -726,7 +777,7 @@ def build_bundle_proposal_docx(clusters, lang="en"):
             # with the licensing column next to them.
             cores, ram_gb = overview_actual_totals(cfg)
         row = [cl.get("name", ""), model, str(nodes),
-               str(cores), _fmt_ram(ram_gb),
+               str(cores), fmt_ram(ram_gb),
                f"{tot.get('usable_storage_tb', 0)} TB",
                license_required_short(r or cl.get("config") or {}, lang) or "—"]
         if show_rep:
@@ -738,8 +789,8 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     _spacer(doc)
     _spec_table(doc, [
         (t9n("export.docx.multisite_total_nodes"), str(tot_nodes)),
-        (t9n("export.docx.multisite_total_cores"), _fmt_num(tot_cores)),
-        (t9n("export.docx.multisite_total_ram"), _fmt_ram(tot_ram)),
+        (t9n("export.docx.multisite_total_cores"), fmt_num(tot_cores)),
+        (t9n("export.docx.multisite_total_ram"), fmt_ram(tot_ram)),
         (t9n("export.docx.multisite_total_storage"), f"{tot_usable} TB"),
     ], total_w=cw, label_w=2.6, lang=lang)
     _spacer(doc)
@@ -749,7 +800,7 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     # is drawn over the proposal sections only.
     topo_svg = render_replication_topology_svg(proposals, lang)
     if topo_svg:
-        png = _svg_to_png_bytes(topo_svg, out_width=2200)
+        png = svg_to_png(topo_svg, 2200)
         if png:
             _heading(doc, t9n("export.docx.multisite_replication_heading"), lang, level=2)
             _para(doc, t9n("export.docx.multisite_replication_intro"), lang=lang)
@@ -768,7 +819,7 @@ def build_bundle_proposal_docx(clusters, lang="en"):
             _spacer(doc)
 
     # ── Why Scale Computing HyperCore (platform pitch, ONCE) ──────────────────
-    _platform_capabilities(doc, lang)
+    _platform_capabilities(doc, lang, level=2, with_intro=True)
 
     # ── Per-site sizing detail ────────────────────────────────────────────────
     for cl in clusters:
@@ -784,50 +835,23 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     _heading(doc, t9n("export.docx.assumptions"), lang, level=1)
     _bullet(doc, t9n("export.docx.multisite_assumption_sites"), lang)
     _bullet(doc, t9n("export.docx.assumption_3"), lang)
-
-    _finalize_doc(doc)
-    buf = io.BytesIO()
-    doc.save(buf)
-    buf.seek(0)
-    return buf
+    return _doc_bytes(doc)
 
 
 def _append_proposal_body(doc, summary, recommendation, projection, source_perf=None, lang="en"):
     """Append the full proposal body (management overview → platform sections)
     for one recommendation. Shared by the single- and multi-cluster builders."""
     t9n = translator(lang)
-
-    def _add_heading(text, level=1):
-        h = doc.add_heading(text, level=level)
-        _apply_lang_font_para(h, lang)
-        return h
-
-    def _add_bullet(text):
-        b = doc.add_paragraph(text, style=bullet_style)
-        _apply_lang_font_para(b, lang)
-        return b
-
     r = recommendation
     s = summary
     p = projection
     t = r["totals"]
     n1 = r["n_minus_1"]
-    iops = r.get("iops") or {}
-    bullet_style = "List Bullet" if "List Bullet" in [st.name for st in doc.styles] else "Normal"
     cw = _content_width(doc)
-
-    so = r.get("storage_only")
-    hci_nodes = r.get("hci_node_count", r["node_count"])
-    nodes_label = (t9n("export.common.hci_plus_storage_only",
-                       hci=hci_nodes, storage=so["count"])
-                   if so else t9n("export.common.node_count", count=r["node_count"]))
-    num_cl = r.get("num_clusters", 1)
-    cl_label = (t9n("export.common.clusters_layout", count=num_cl,
-                    layout=" + ".join(map(str, r.get("cluster_layout", []))))
-                if num_cl > 1 else t9n("export.common.single_cluster"))
+    nodes_label, cl_label = _rec_labels(r, t9n)
 
     # ── Management overview (executive summary — leads the document) ──────────
-    _add_heading(t9n("export.docx.mgmt_overview"), level=1)
+    _heading(doc, t9n("export.docx.mgmt_overview"), lang, level=1)
     _para(doc,
           t9n("export.docx.mgmt_overview_intro_split"
               if p.get("separate_storage_growth") else "export.docx.mgmt_overview_intro",
@@ -854,13 +878,13 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
          t9n("export.docx.compute_val", cores=t["cores"], ratio=f"{r['vcpu_ratio']:.2f}")),
         (t9n("export.docx.year_outlook", years=p["years"]),
          t9n("export.docx.year_outlook_val",
-             vcpus=_fmt_num(p["projected_vcpus"]),
+             vcpus=fmt_num(p["projected_vcpus"]),
              storage_tb=p["projected_storage_tb"], fits=proj_fits)),
     ], total_w=cw, label_w=2.5, lang=lang)
     _spacer(doc)
 
     # ── Recommended configuration ────────────────────────────────────────────
-    _add_heading(t9n("export.docx.recommended_configuration"), level=1)
+    _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=1)
     _para(doc, t9n("export.docx.recommended_config_intro",
                    model=rec_display_model(r), nodes=nodes_label, clusters=cl_label,
                    form_factor=r["form_factor"], chassis=r["chassis"]),
@@ -869,117 +893,38 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     lic_sentence = license_required_sentence(r, lang)
     if lic_sentence:
         _para(doc, lic_sentence, lang=lang).runs[0].bold = True
-    spec_rows = [
-        (t9n("export.docx.per_node_cpu"), r["cpu"]),
-        (t9n("export.docx.per_node_cores_threads"),
-         t9n("export.docx.cores_threads_val",
-             cores=r["cores_per_node"], threads=r["threads_per_node"])),
-        (t9n("export.docx.per_node_ram"), _fmt_ram(r["ram_per_node_gb"])),
-        (t9n("export.docx.per_node_storage"), r["storage_config"]["desc"]),
-        (t9n("export.docx.cluster_cores"), str(t["cores"])),
-        (t9n("export.docx.cluster_ram"), _fmt_ram(t["ram_gb"])),
-        (t9n("export.docx.cluster_usable_storage"), f"{t['usable_storage_tb']} TB"),
-    ]
-    if iops:
-        spec_rows.append((t9n("export.docx.cluster_net_iops"), f"{iops['total']:,}"))
-    spec_rows += [
-        (t9n("export.docx.n1_resilient"),
-         t9n("export.docx.n1_resilient_val", cores=n1["cores"],
-             ram=_fmt_ram(n1["ram_gb"]), usable_tb=n1["usable_storage_tb"])),
-        (t9n("export.docx.vcpu_core_ratio"), f"{r['vcpu_ratio']:.2f} : 1"),
-    ]
-    _spec_table(doc, spec_rows, total_w=cw, lang=lang)
-    # Single-node DR target: no failover redundancy.
-    if r.get("single_node"):
-        _para(doc, t9n("export.common.single_node_note"), italic=True, color=MUTED, lang=lang)
-    if (r.get("export_override") or {}).get("bom_agent_read"):
-        _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
+    _spec_table(doc, _rec_spec_rows(r, t9n, with_platform=False), total_w=cw, lang=lang)
+    _footnotes(doc, r, t9n, lang)
     _spacer(doc)
 
-    # Network diagram — regenerate in the document language (fall back to stored).
-    svg = _rec_network_svg(r, lang) or r.get("network_svg")
-    if svg:
-        png = _svg_to_png_bytes(svg, out_width=2200)
-        if png:
-            _add_heading(t9n("export.docx.cluster_network"), level=2)
-            doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            # Start the sizing rationale on a fresh page (only when the diagram
-            # was actually rendered, so we never emit a stray blank page).
-            doc.add_page_break()
+    # Network diagram, then the sizing rationale on a fresh page (the break is
+    # only emitted when the diagram was rendered — never a stray blank page).
+    _network_figure(doc, r, t9n, lang, cw, level=2, page_break=True)
 
     # ── Sizing rationale (utilization bars + how the node count was reached) ──
-    u = r.get("utilization")
-    if u:
-        rows_u, any_ha = util_rows(u)
-        if rows_u:
-            _add_heading(t9n("export.docx.sizing_rationale"), level=1)
-            png = render_util_bars(
-                rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
-                any_ha=any_ha, lang=lang)
-            doc.add_picture(io.BytesIO(png), width=Inches(cw))
-            doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _spacer(doc, 4)
-            det = r.get("determinant") or {}
-            res, hr = det.get("resource"), det.get("headroom_pct")
-            if res == "CPU":
-                _para(doc, t9n("export.docx.rationale_cpu",
-                               vcpus=s.get("total_vcpus"),
-                               ratio=f"{r.get('vcpu_ratio', 0):.2f}",
-                               required=f"{det.get('required'):.0f}",
-                               achieved=f"{det.get('achieved'):.0f}",
-                               headroom=f"{hr:.1f}"), lang=lang)
-            elif res in ("RAM", "Storage"):
-                unit = det.get("unit", "")
-                _para(doc, t9n("export.docx.rationale_ram_storage",
-                               resource=res, required=det.get("required"),
-                               unit=unit, achieved=det.get("achieved"),
-                               headroom=f"{hr:.1f}"), lang=lang)
-            elif res == "Compute":
-                cf = r.get("compute_floor") or {}
-                util = cf.get("source_cpu_util_pct", 100)
-                _para(doc, t9n("export.docx.rationale_compute",
-                               achieved=f"{det.get('achieved'):.0f}",
-                               util=f"{util:.0f}"), lang=lang)
-            # Show compute-floor coverage even when another resource was binding.
-            if res != "Compute":
-                cfs = compute_floor_sentence(r, lang)
-                if cfs:
-                    _para(doc, cfs, italic=True, size=9, lang=lang)
-            _para(doc, t9n("export.docx.rationale_bar_legend"),
-                  italic=True, size=9, lang=lang)
-            _spacer(doc)
+    _sizing_rationale(doc, r, s, t9n, lang, cw, level=1, with_floor=True)
 
     # ── Performance vs current environment (benchmark comparison) ─────────────
     tgt = t.get("perf_index")
     if source_perf and source_perf.get("total_specrate") and tgt:
-        _add_heading(t9n("export.docx.performance_vs_current"), level=1)
+        _heading(doc, t9n("export.docx.performance_vs_current"), lang, level=1)
         src_total = source_perf["total_specrate"]
-        ratio = tgt / src_total if src_total else 0
         used_pm = False
         grid_rows = []
         for c in source_perf.get("cpus", []):
             is_pm = c.get("type") == "passmark"
             used_pm = used_pm or is_pm
             grid_rows.append([c.get("model", ""), str(c.get("sockets", "")),
-                              f"{_fmt_num(c.get('score', 0))} {'PassMark' if is_pm else 'SPECrate'}",
-                              _fmt_num(c.get("total", 0))])
-        grid_rows.append([t9n("export.docx.total_environment"), "", "", _fmt_num(src_total)])
+                              f"{fmt_num(c.get('score', 0))} {'PassMark' if is_pm else 'SPECrate'}",
+                              fmt_num(c.get("total", 0))])
+        grid_rows.append([t9n("export.docx.total_environment"), "", "", fmt_num(src_total)])
         _grid_table(doc, [t9n("export.docx.your_current_cpus"),
                           t9n("export.docx.sockets"), t9n("export.docx.score"),
                           "SPECrate"],
                     grid_rows, total_w=cw, weights=[3.4, 1.0, 1.6, 1.0], lang=lang)
         _spacer(doc, 4)
         used_pm = used_pm or bool(r.get("cpu_perf_is_passmark"))
-        verdict = (t9n("export.docx.verdict_multiple", ratio=f"{ratio:.1f}")
-                   if ratio >= 1 else
-                   t9n("export.docx.verdict_fraction", pct=round(ratio * 100)))
-        _spec_table(doc, [
-            (t9n("export.docx.recommended_cluster"),
-             f"{r.get('cpu', '')} × {r.get('node_count', '')} nodes"),
-            (t9n("export.docx.cluster_specrate2017"), _fmt_num(tgt)),
-            (t9n("export.docx.benchmark_should_deliver"), verdict),
-        ], total_w=cw, label_w=2.6, lang=lang)
+        _benchmark_verdict(doc, r, tgt, src_total, t9n, lang, cw)
         _spacer(doc, 4)
         if used_pm:
             _para(doc, t9n("export.docx.passmark_note"), italic=True, size=9, lang=lang)
@@ -988,36 +933,31 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
         _spacer(doc)
 
     # ── Management & operations ──────────────────────────────────────────────
-    _add_heading(t9n("export.docx.mgmt_operations"), level=1)
-    _para(doc, t9n("export.docx.mgmt_operations_intro"), lang=lang)
-    for key in ("export.docx.mgmt_bullet_1", "export.docx.mgmt_bullet_2",
-                "export.docx.mgmt_bullet_3", "export.docx.mgmt_bullet_4",
-                "export.docx.mgmt_bullet_5"):
-        _add_bullet(t9n(key))
+    _platform_capabilities(doc, lang, level=1, sections=("mgmt",))
     _spacer(doc)
 
     # ── Current environment & workload ───────────────────────────────────────
-    _add_heading(t9n("export.docx.current_environment"), level=1)
+    _heading(doc, t9n("export.docx.current_environment"), lang, level=1)
     _spec_table(doc, [
         (t9n("export.common.platform"), s.get("current_platform", "")),
         (t9n("export.common.hosts"),
          t9n("export.docx.hosts_val", count=s.get("host_count", 0),
-             cores=_fmt_num(s.get("total_host_cores", 0)),
-             ram=_fmt_ram(s.get("total_host_ram_gb", 0)))),
+             cores=fmt_num(s.get("total_host_cores", 0)),
+             ram=fmt_ram(s.get("total_host_ram_gb", 0)))),
         (t9n("export.common.vms"),
          t9n("export.docx.vms_val", active=s.get("active_vms", 0),
              total=s.get("total_vms", 0))),
         (t9n("export.docx.workload"),
          t9n("export.docx.workload_val",
-             vcpus=_fmt_num(s.get("total_vcpus", 0)),
-             ram=_fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
+             vcpus=fmt_num(s.get("total_vcpus", 0)),
+             ram=fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
              used_tb=s.get("datastore_used_tb", 0))),
         (t9n("export.docx.measured_ratio"), f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
     ], total_w=cw, lang=lang)
     _spacer(doc)
 
     # ── Capacity planning ────────────────────────────────────────────────────
-    _add_heading(t9n("export.docx.capacity_planning", years=p["years"]), level=1)
+    _heading(doc, t9n("export.docx.capacity_planning", years=p["years"]), lang, level=1)
     if p.get("separate_storage_growth"):
         cp_intro = t9n("export.docx.capacity_planning_intro_split",
                        growth=p["growth_pct"],
@@ -1030,52 +970,16 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
                        growth=p["growth_pct"], snapshot=p["snapshot_pct"],
                        factor=p.get("growth_factor", 1))
     _para(doc, cp_intro, italic=True, color=MUTED, lang=lang)
-    _grid_table(doc,
-                [t9n("export.common.resource"), t9n("export.common.current"),
-                 t9n("export.docx.year_n", years=p["years"]),
-                 t9n("export.docx.proposed_n1")],
-                [["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
-                  t9n("export.docx.cores_at_ratio", cores=n1["cores"],
-                      ratio=f"{r['vcpu_ratio']:.1f}")],
-                 ["RAM", _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]),
-                  _fmt_ram(n1["ram_gb"])],
-                 [t9n("export.common.storage"), f"{p['base_storage_tb']} TB",
-                  f"{p['projected_storage_tb']} TB",
-                  t9n("export.docx.tb_usable", tb=n1["usable_storage_tb"])]],
-                total_w=cw, weights=[1.6, 1.8, 1.8, 1.8], lang=lang)
-    _spacer(doc)
+    _capacity_table(doc, p, r, n1, t9n, lang, cw)
 
     # ── Assumptions ──────────────────────────────────────────────────────────
-    _add_heading(t9n("export.docx.assumptions"), level=1)
-    _add_bullet(t9n("export.docx.assumption_1", clusters=cl_label))
-    _add_bullet(t9n("export.docx.assumption_2", ratio=f"{r['vcpu_ratio']:.2f}"))
-    _add_bullet(t9n("export.docx.assumption_3"))
+    _heading(doc, t9n("export.docx.assumptions"), lang, level=1)
+    _bullet(doc, t9n("export.docx.assumption_1", clusters=cl_label), lang)
+    _bullet(doc, t9n("export.docx.assumption_2", ratio=f"{r['vcpu_ratio']:.2f}"), lang)
+    _bullet(doc, t9n("export.docx.assumption_3"), lang)
 
-    # ── HEAT automated tiering ───────────────────────────────────────────────
-    _add_heading(t9n("export.docx.heat_heading"), level=1)
-    _para(doc, t9n("export.docx.heat_intro"), lang=lang)
-    for key in ("export.docx.heat_bullet_1", "export.docx.heat_bullet_2",
-                "export.docx.heat_bullet_3", "export.docx.heat_bullet_4",
-                "export.docx.heat_bullet_5"):
-        _add_bullet(t9n(key))
-
-    # ── SCRIBE block engine ──────────────────────────────────────────────────
-    _add_heading(t9n("export.docx.scribe_heading"), level=1)
-    _para(doc, t9n("export.docx.scribe_intro"), lang=lang)
-    for key in ("export.docx.scribe_bullet_1", "export.docx.scribe_bullet_2",
-                "export.docx.scribe_bullet_3", "export.docx.scribe_bullet_4",
-                "export.docx.scribe_bullet_5", "export.docx.scribe_bullet_6",
-                "export.docx.scribe_bullet_7"):
-        _add_bullet(t9n(key))
-
-    # ── AIME autonomous infrastructure management ────────────────────────────
-    _add_heading(t9n("export.docx.aime_heading"), level=1)
-    _para(doc, t9n("export.docx.aime_intro"), lang=lang)
-    for key in ("export.docx.aime_bullet_1", "export.docx.aime_bullet_2",
-                "export.docx.aime_bullet_3", "export.docx.aime_bullet_4",
-                "export.docx.aime_bullet_5", "export.docx.aime_bullet_6",
-                "export.docx.aime_bullet_7"):
-        _add_bullet(t9n(key))
+    # ── HEAT tiering · SCRIBE block engine · AIME ────────────────────────────
+    _platform_capabilities(doc, lang, level=1, sections=("heat", "scribe", "aime"))
 
 
 def _soffice_bin():
@@ -1118,14 +1022,43 @@ _lo_outstanding = 0
 _LO_ACQUIRE_TIMEOUT = 45
 
 
+def _soffice_convert(data_bytes, in_ext, timeout, prepare_home=None):
+    """One headless LibreOffice conversion of an office document (.docx/.pptx)
+    to PDF bytes, run in a private temp dir that doubles as HOME (a fresh
+    profile per run, no lock-file clashes). `prepare_home(dir)` may populate
+    that HOME first (e.g. drop fonts into ~/.fonts). Returns None when soffice
+    isn't installed, the run fails or times out, or no PDF came out."""
+    soffice = _soffice_bin()
+    if not soffice:
+        return None
+    with tempfile.TemporaryDirectory() as d:
+        if prepare_home is not None:
+            prepare_home(d)
+        src = os.path.join(d, f"doc.{in_ext}")
+        with open(src, "wb") as f:
+            f.write(data_bytes)
+        try:
+            subprocess.run([soffice, "--headless", "--convert-to", "pdf",
+                            "--outdir", d, src],
+                           check=True, timeout=timeout,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           env={**os.environ, "HOME": d})
+        except Exception:
+            return None
+        out = os.path.join(d, "doc.pdf")
+        if not os.path.exists(out):
+            return None
+        with open(out, "rb") as pdf:
+            return pdf.read()
+
+
 def _office_to_pdf(data_bytes, in_ext):
     """Convert an office document (.docx/.pptx) → PDF bytes via headless
     LibreOffice. Returns None if LibreOffice isn't available, if the conversion
     queue is full or the wait window elapsed, or on conversion failure. Callers
     already treat None as "PDF unavailable" (→ HTTP 503)."""
     global _lo_outstanding
-    soffice = _soffice_bin()
-    if not soffice:
+    if not _soffice_bin():
         return None
 
     # Admission control: reject immediately if running + waiting is already at
@@ -1140,23 +1073,7 @@ def _office_to_pdf(data_bytes, in_ext):
         if not _lo_semaphore.acquire(timeout=_LO_ACQUIRE_TIMEOUT):
             return None
         try:
-            with tempfile.TemporaryDirectory() as d:
-                src = os.path.join(d, f"doc.{in_ext}")
-                with open(src, "wb") as f:
-                    f.write(data_bytes)
-                try:
-                    subprocess.run([soffice, "--headless", "--convert-to", "pdf",
-                                    "--outdir", d, src],
-                                   check=True, timeout=120,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                   env={**os.environ, "HOME": d})
-                except Exception:
-                    return None
-                out = os.path.join(d, "doc.pdf")
-                if not os.path.exists(out):
-                    return None
-                with open(out, "rb") as pdf:
-                    return pdf.read()
+            return _soffice_convert(data_bytes, in_ext, timeout=120)
         finally:
             _lo_semaphore.release()
     finally:

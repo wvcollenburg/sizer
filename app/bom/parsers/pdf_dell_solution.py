@@ -27,10 +27,10 @@ the first; both feed the certainty score.
 """
 from typing import List, Optional
 
-from bom.normalize import NormalizedBOM
-from bom.parsers.dell_solution import _Group, add_option
-from bom.parsers.pdf_common import (DELL_SKU, Evidence, doc_head, first_word_x,
-                                    money, whole_number)
+from bom.parsers.common import DELL_SKU_ANY
+from bom.parsers.dell_solution import Group, add_option
+from bom.parsers.pdf_common import (Evidence, continues, doc_head, finish, first_word_x, money,
+                                    whole_number)
 
 FORMAT = 'dell_solution_pdf'
 
@@ -166,9 +166,7 @@ def parse(doc):
             ev.unexplained_line(line)
             prev = line
             continue
-        gap = (line.top - prev.bottom) if (prev is not None and prev.page == line.page) else None
-        size = max((w.size for w in line.words), default=8)
-        if last_row is not None and ((gap is not None and gap < 0.6 * size) or (sku_t and not desc)):
+        if last_row is not None and (continues(prev, line, default_size=8) or (sku_t and not desc)):
             if desc:
                 last_row['desc'] = ('%s %s' % (last_row['desc'], desc)).strip()
             last_row['skus'] += sku_t
@@ -180,22 +178,21 @@ def parse(doc):
 
     configs = []
     for index, g in enumerate(groups, 1):
-        grp = _Group(g.name, g.product, g.nodes)
+        grp = Group(g.name, g.product, g.nodes)
         for row in g.rows:
-            skus = DELL_SKU.findall(row['skus'])
+            skus = DELL_SKU_ANY.findall(row['skus'])
             if not skus:
                 ev.pattern_misses.append(row['desc'][:80] or row['skus'])
             ev.rows += 1
             add_option(grp, row['module'], row['desc'], skus[0] if skus else None, row['qty'])
-        if not grp.order:
+        if not grp.acc:
             continue
         prices = [r['price'] for r in g.rows]
         if g.unit_price is not None and all(p is not None for p in prices):
-            ev.check(abs(sum(prices) - g.unit_price) <= max(1.0, 0.005 * g.unit_price),
-                     'group %d: option prices add up to the unit price' % index)
+            ev.check_close(sum(prices), g.unit_price,
+                           'group %d: option prices add up to the unit price' % index, rel=0.005)
         if g.unit_price is not None and g.extended is not None:
-            ev.check(abs(g.unit_price * g.nodes - g.extended) <= max(1.0, 0.005 * g.extended),
-                     'group %d: unit price x quantity = extended price' % index)
+            ev.check_close(g.unit_price * g.nodes, g.extended,
+                           'group %d: unit price x quantity = extended price' % index, rel=0.005)
         configs.append(grp.config(index))
-    ev.region(item_lines)
-    return NormalizedBOM(vendor='Dell', configs=configs, raw_text=doc.text()[:20000]), ev
+    return finish(doc, ev, 'Dell', configs, item_lines)

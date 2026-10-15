@@ -28,14 +28,13 @@ summary line's CPU / DIMM / drive counts per host match the parsed rows.
 import re
 from typing import List
 
-from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
-from bom.parsers.common import categorize, is_m2_media, server_model_from_text
-from bom.parsers.pdf_common import Evidence, doc_head, first_word_x, whole_number
+from bom.normalize import BOMComponent, BOMConfig
+from bom.parsers.common import LENOVO_BUILD_CODE, LENOVO_PART, categorize_line, server_model_from_text
+from bom.parsers.pdf_common import (Evidence, doc_head, finish, first_word_x, ruled_bands,
+                                    whole_number)
 
 FORMAT = 'lenovo_build_pdf'
 
-_FEATURE = re.compile(r'^(?:[A-Z0-9]{4}|[0-9A-Z]{4}CT[A-Z0-9]{2}WW|\d{4}[A-Z]{2}\d)$')
-_LENOVO_PART = re.compile(r'^[0-9][A-Z0-9]{9}$')
 _HOSTS = re.compile(r'\b(\d{1,3})\s+hosts?\b', re.I)
 _SECTION_HOSTS = re.compile(r'\(x(\d{1,3})\s+hosts?\)', re.I)
 _PER_HOST = re.compile(r'\b(\d{1,3})x\s+per\s+(?:host|node)\b', re.I)
@@ -57,19 +56,6 @@ def _columns(line):
         'notes': first_word_x(line, 'Notes'),
         'qty': first_word_x(line, 'Qty'),
     }
-
-
-def _bands(page, start_y: float):
-    """Lists of lines, one per ruled band below ``start_y``."""
-    rules = [y for y in page.hrules if y >= start_y - 1]
-    out = []
-    for a, b in zip(rules, rules[1:]):
-        if b - a < 5:
-            continue
-        lines = [l for l in page.lines if a < (l.top + l.bottom) / 2 < b]
-        if lines:
-            out.append(lines)
-    return out
 
 
 def parse(doc):
@@ -94,7 +80,8 @@ def parse(doc):
             ev.unexplained_line(header)
             continue
         qty_lo = cols['qty'] - 12
-        for band in _bands(page, header.bottom):
+        # Rules closer than 5pt are the double rule under a section heading.
+        for band in ruled_bands(page, header.bottom, min_height=5):
             text = ' '.join(l.text for l in band)
             low = text.lower()
             if low.startswith('note:'):
@@ -106,7 +93,7 @@ def parse(doc):
                 # A section or category heading — unless it looks like an item
                 # row that lost its quantity (a feature code in the first
                 # column), which must cost certainty, not vanish.
-                if fc and _FEATURE.match(fc[0]):
+                if fc and LENOVO_BUILD_CODE.match(fc[0]):
                     ev.unexplained.append(text[:160])
                     continue
                 sec = _SECTION_HOSTS.search(text)
@@ -125,15 +112,12 @@ def parse(doc):
             notes = ' '.join(filter(None, (l.between(cols['notes'] - 2, qty_lo).strip() for l in band)))
             qty = int(qty_words[0].text)
             code = fc[0]
-            if not _FEATURE.match(code):
+            if not LENOVO_BUILD_CODE.match(code):
                 ev.pattern_misses.append(code)
-            if part and not _LENOVO_PART.match(part):
+            if part and not LENOVO_PART.match(part):
                 ev.pattern_misses.append(part)
-            cat = categorize(desc)
-            if cat == 'storage' and is_m2_media(desc):
-                cat = 'other'
             comps.append(BOMComponent(part_number=part or code, description=desc,
-                                      quantity=qty, category=cat))
+                                      quantity=qty, category=categorize_line(desc)))
             ev.rows += 1
             item_lines.extend(band)
             per = _PER_HOST.search(notes)
@@ -153,10 +137,9 @@ def parse(doc):
     if nodes:
         _summary_checks(ev, summary, comps, nodes)
 
-    ev.region(item_lines)
     configs = [BOMConfig(name='Config 1', server_model=model, components=comps,
                          node_count=nodes)] if comps else []
-    return NormalizedBOM(vendor='Lenovo', configs=configs, raw_text=doc.text()[:20000]), ev
+    return finish(doc, ev, 'Lenovo', configs, item_lines)
 
 
 def _summary_checks(ev: Evidence, summary: str, comps: List[BOMComponent], nodes: int):

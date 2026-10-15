@@ -37,14 +37,17 @@ human-readable text and the capacity parsing in bom/fit.py.
 import re
 from typing import Dict, List, Optional, Tuple
 
-from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
+from bom.normalize import BOMConfig, NormalizedBOM
 from bom.parsers.common import (
+    ComponentAcc,
+    categorize_line,
     cell,
+    demote_m2,
     head_rows,
     is_absence,
     raw_text_from_rows,
+    read_sheet,
     server_model_from_text,
-    sheet_matrix,
     should_drop,
     to_int,
 )
@@ -119,8 +122,11 @@ _MODULE_RULES: List[Tuple[str, object]] = [
 _MODULE_RULES_COMPILED = [(re.compile(rx), cat) for rx, cat in _MODULE_RULES]
 
 
-def _category_for_module(module: str) -> Optional[str]:
-    """Category for a module name, or None when the row should be dropped."""
+def module_category(module: str) -> Optional[str]:
+    """Category for a configurator module name ('Memory Capacity',
+    'RAID/Interne Speichercontroller'), or None when the module is a setting
+    or service whose rows carry no hardware. Keyword-matched in English and
+    German; anything unmatched is 'other'."""
     key = _norm(module)
     for rx, cat in _MODULE_RULES_COMPILED:
         if rx.search(key):
@@ -128,6 +134,60 @@ def _category_for_module(module: str) -> Optional[str]:
                 return None
             return 'other' if cat is _OTHER else cat
     return 'other'
+
+
+# ── the VNET export's own module tables ──────────────────────────────────────
+# The VNET configurator export (dell_quote.parse_vnet) names the same modules
+# in English only and matches them exactly, not by keyword. The two tables
+# are NOT interchangeable and are kept side by side on purpose: read with
+# the keyword rules above, the VNET files would drop 'Processor Thermal
+# Configuration' (heatsink) and 'Embedded Systems Management' (iDRAC) rows
+# that today stay visible as 'other', and would turn the 'Motherboard'
+# module into chassis. The archived VNET expectations pin today's reading.
+
+# Module Name → category. Anything not listed is 'other' (after the drop and
+# absence checks), which keeps heatsinks, PSUs, risers and TPM visible.
+VNET_MODULE_CATEGORY = {
+    'base': 'chassis',
+    'chassis configuration': 'chassis',
+    'processor': 'cpu',
+    'additional processor': 'cpu',
+    'memory capacity': 'memory',
+    'raid/internal storage controllers': 'controller',
+    'internal storage controllers': 'controller',
+    'hard drives': 'storage',
+    'ocp 3.0 network adapters': 'nic',
+    'additional network cards': 'nic',
+    'network adapters': 'nic',
+    'boot optimized storage cards': 'boss',
+    'gpu': 'gpu',
+    'graphics cards': 'gpu',
+}
+
+# Modules that are settings/services even when the option text looks
+# hardware-ish ('5600MT/s RDIMMs' under Memory DIMM Type and Speed).
+VNET_MODULE_DROP = {
+    'memory dimm type and speed', 'memory configuration type', 'bios and advanced system '
+    'configuration settings', 'advanced system configurations', 'password', 'group manager',
+    'operating system', 'os media kits', 'idrac systems management options',
+    'dell secure onboarding', 'system documentation', 'shipping', 'shipping material',
+    'regulatory', 'eccn', 'standard hardware support service',
+    'hardware support services upgrades', 'infrastructure deployment services',
+    'bios settings services', 'additional processor features',
+}
+
+
+def vnet_module_category(module: str, option: str) -> Optional[str]:
+    """module_category() for the VNET export: exact match on the module
+    name, None for a settings module. A 'GPU …' module not in the table is
+    read from its option text (GPU enablement kits are not GPUs)."""
+    key = module.lower()
+    if key in VNET_MODULE_DROP:
+        return None
+    category = VNET_MODULE_CATEGORY.get(key)
+    if category is None:
+        return categorize_line(option) if key.startswith('gpu') else 'other'
+    return demote_m2(category, option)
 
 
 def _header(rows) -> Optional[Dict[str, int]]:
@@ -162,28 +222,21 @@ def detect(wb) -> Optional[str]:
     return FORMAT_SOLUTION if _sheet(wb) is not None else None
 
 
-class _Group:
-    """One product group: a machine and how many of it."""
+class Group:
+    """One product group: a machine and how many of it. Shared with the PDF
+    print of the configurator and the Arrow sheet of a Dell system."""
 
     def __init__(self, name: str, product: str, nodes: int):
         self.name = name
         self.product = product
         self.nodes = max(nodes, 1)
-        self.order: List[str] = []
-        self.items: Dict[str, BOMComponent] = {}
+        # Per-node quantity x machines: the rest of the checker (rules, fit)
+        # reads quantities as totals across the config.
+        self.acc = ComponentAcc('part_or_desc', multiplier=self.nodes)
         self.model: Optional[str] = server_model_from_text(product)
 
     def add(self, sku: Optional[str], desc: str, qty: int, category: str):
-        # Per-node quantity x machines: the rest of the checker (rules, fit)
-        # reads quantities as totals across the config.
-        total = max(qty, 1) * self.nodes
-        key = sku or ('desc:' + desc)
-        if key in self.items:
-            self.items[key].quantity += total
-        else:
-            self.items[key] = BOMComponent(part_number=sku, description=desc,
-                                           quantity=total, category=category)
-            self.order.append(key)
+        self.acc.add(sku, desc, max(qty, 1), category)
 
     def config(self, index: int) -> BOMConfig:
         # Product cells can hold a line break ('R670 - … [PROMO_R670_1]\nAll
@@ -191,11 +244,11 @@ class _Group:
         label = ' '.join((self.product or self.name or '').split())
         return BOMConfig(name=label[:120] or ('Config %d' % index),
                          server_model=self.model,
-                         components=[self.items[k] for k in self.order],
+                         components=self.acc.components(),
                          node_count=self.nodes)
 
 
-def add_option(group: '_Group', module: str, option: str, sku: Optional[str], qty: int) -> bool:
+def add_option(group: Group, module: str, option: str, sku: Optional[str], qty: int) -> bool:
     """One option row into its group, the same way for the xlsx export and
     the PDF print of the configurator (parsers/pdf_dell_solution.py).
     Returns False when the row is a setting/service that is dropped."""
@@ -204,9 +257,10 @@ def add_option(group: '_Group', module: str, option: str, sku: Optional[str], qt
         # instead of looking like a BOSS card that was never quoted.
         category = 'other'
     else:
-        category = _category_for_module(module)
+        category = module_category(module)
         if category is None or should_drop(option, sku):
             return False
+        category = demote_m2(category, option)
     if group.model is None and category == 'chassis':
         group.model = server_model_from_text(option)
     group.add(sku, option, qty, category)
@@ -215,16 +269,7 @@ def add_option(group: '_Group', module: str, option: str, sku: Optional[str], qt
 
 def parse(path: str) -> NormalizedBOM:
     from bom.parsers import UnrecognizedFormat
-    from bom.parsers.common import load_workbook_safe
-
-    wb = load_workbook_safe(path)
-    try:
-        ws = _sheet(wb)
-        if ws is None:
-            raise UnrecognizedFormat('Not a Dell solution export.')
-        rows = sheet_matrix(ws)
-    finally:
-        wb.close()
+    rows, _title = read_sheet(path, _sheet, 'Not a Dell solution export.')
 
     cols = _header(rows)
     hdr_row = None
@@ -235,8 +280,8 @@ def parse(path: str) -> NormalizedBOM:
     if hdr_row is None:                                   # pragma: no cover
         raise UnrecognizedFormat('Not a Dell solution export.')
 
-    groups: List[_Group] = []
-    current: Optional[_Group] = None
+    groups: List[Group] = []
+    current: Optional[Group] = None
     for r in range(hdr_row + 1, len(rows) + 1):
         product = cell(rows, r, cols['product']) if 'product' in cols else ''
         nodes_cell = cell(rows, r, cols['nodes'])
@@ -244,7 +289,7 @@ def parse(path: str) -> NormalizedBOM:
         # empty and belong to the group above them.
         if product or (nodes_cell and not cell(rows, r, cols['module'])):
             name = cell(rows, r, cols['group']) if 'group' in cols else ''
-            current = _Group(name, product, to_int(nodes_cell, default=1))
+            current = Group(name, product, to_int(nodes_cell, default=1))
             groups.append(current)
             continue
 
@@ -257,7 +302,7 @@ def parse(path: str) -> NormalizedBOM:
         add_option(current, module, option, skus[0] if skus else None,
                    to_int(cell(rows, r, cols['qty']), default=1))
 
-    groups = [g for g in groups if g.order]
+    groups = [g for g in groups if g.acc]
     if not groups:
         raise UnrecognizedFormat('Dell solution export has no option rows.')
     return NormalizedBOM(vendor='Dell',

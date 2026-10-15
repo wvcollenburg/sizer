@@ -24,19 +24,19 @@ intact: it is not a data drive, and the archived expected findings prove the
 validator never counted it.
 """
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
 from bom.parsers.common import (
     LENOVO_CTO,
-    categorize,
+    ComponentAcc,
+    categorize_line,
     cell,
     head_rows,
-    is_m2_media,
     raw,
     raw_text_from_rows,
+    read_sheet,
     server_model_from_text,
-    sheet_matrix,
     should_drop,
     to_int,
 )
@@ -128,25 +128,14 @@ def _components(child_rows, has_part_col: bool = True) -> List[BOMComponent]:
     export has no feature codes at all, so there the description is the dedup
     key and part_number stays None (HCL matching falls back to the verbatim
     DCSC description, which is what the scraper stored)."""
-    order: List[str] = []
-    acc: Dict[str, BOMComponent] = {}
+    acc = ComponentAcc('part_or_desc')
     for _r, fc, desc, qty in child_rows:
         if not desc or should_drop(desc):
             continue
         if has_part_col and not fc:
             continue
-        cat = categorize(desc)
-        if cat == 'storage' and is_m2_media(desc):
-            cat = 'other'
-        q = to_int(qty, default=1)
-        key = fc if fc else desc
-        if key in acc:
-            acc[key].quantity += q
-        else:
-            acc[key] = BOMComponent(part_number=fc or None, description=desc,
-                                    quantity=q, category=cat)
-            order.append(key)
-    return [acc[k] for k in order]
+        acc.add(fc, desc, to_int(qty, default=1), categorize_line(desc))
+    return acc.components()
 
 
 def configs_from_blocks(blocks: List[dict], has_part_col: bool = True,
@@ -195,16 +184,7 @@ def configs_from_blocks(blocks: List[dict], has_part_col: bool = True,
 
 def parse(path: str) -> NormalizedBOM:
     from bom.parsers import UnrecognizedFormat  # local import: package imports us
-    from bom.parsers.common import load_workbook_safe
-
-    wb = load_workbook_safe(path)
-    try:
-        ws = pick_sheet(wb)
-        if ws is None:
-            raise UnrecognizedFormat('Not a Lenovo DCSC quote export.')
-        rows = sheet_matrix(ws)
-    finally:
-        wb.close()
+    rows, _title = read_sheet(path, pick_sheet, 'Not a Lenovo DCSC quote export.')
 
     hdr = _header_row(rows)
     # Description-only variant: the part-number column is missing entirely

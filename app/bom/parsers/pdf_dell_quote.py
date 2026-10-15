@@ -24,18 +24,17 @@ xlsx export is read. Cross-checks: the summary table at the top lists each
 system with its quantity, which must match the group; the group line's unit
 price x quantity must equal its subtotal.
 """
-import re
 from typing import Optional
 
-from bom.normalize import BOMConfig, NormalizedBOM
-from bom.parsers.common import categorize, server_model_from_text, should_drop
-from bom.parsers.dell_quote import _Acc, _config_name, _model_from_server_line
-from bom.parsers.pdf_common import (DELL_SKU, Evidence, doc_head, first_word_x,
-                                    money, whole_number)
+from bom.normalize import BOMConfig
+from bom.parsers.common import (DELL_SKU_ANY, DELL_SKU_AT_END, ComponentAcc, categorize_line,
+                                model_from_server_line, server_model_from_text, should_drop)
+from bom.parsers.dell_quote import config_name
+from bom.parsers.pdf_common import (Evidence, continues, doc_head, finish, first_word_x, money,
+                                    whole_number)
+from bom.text import alnum_key
 
 FORMAT = 'dell_quote_pdf'
-
-_SKU_AT_END = re.compile(r'(.*?)(\d{3}-[A-Z0-9]{4})$')
 
 
 def detect(doc) -> bool:
@@ -77,9 +76,9 @@ def _qty(line, span) -> Optional[int]:
 def _sku_split(line):
     """(description part, sku, word index) when the line carries a SKU."""
     for i, w in enumerate(line.words):
-        if DELL_SKU.fullmatch(w.text):
+        if DELL_SKU_ANY.fullmatch(w.text):
             return ' '.join(x.text for x in line.words[:i]), w.text, i
-        m = _SKU_AT_END.match(w.text)
+        m = DELL_SKU_AT_END.match(w.text)
         if m and m.group(1) and not m.group(1)[-1].isdigit():
             return ' '.join([x.text for x in line.words[:i]] + [m.group(1)]), m.group(2), i
     return None
@@ -136,11 +135,7 @@ def parse(doc):
             close_blocks()
             mode = None
             continue
-        size = max((w.size for w in line.words), default=9)
-        prev_line = blocks[-1][-1] if blocks else None
-        same_row = (prev_line is not None and prev_line.page == line.page
-                    and line.top - prev_line.bottom < 0.6 * size)
-        if same_row:
+        if continues(blocks[-1][-1] if blocks else None, line, default_size=9):
             blocks[-1].append(line)
         else:
             blocks.append([line])
@@ -170,12 +165,12 @@ def parse(doc):
         for k, row in enumerate(rows):
             nxt = rows[k + 1] if k + 1 < len(rows) else None
             if (nxt is not None and row['block'][0].page != nxt['block'][0].page
-                    and _norm(nxt['desc']).startswith(_norm(row['desc'])[:40])
+                    and alnum_key(nxt['desc']).startswith(alnum_key(row['desc'])[:40])
                     and (row['sku'] is None or row['sku'] == nxt['sku'])):
                 ev.notes.append('page-break duplicate dropped: %s' % row['desc'][:60])
                 continue
             kept.append(row)
-        acc = _Acc()
+        acc = ComponentAcc()
         model = None
         for row in kept:
             if row['sku'] is None:
@@ -186,26 +181,21 @@ def parse(doc):
                 continue
             ev.rows += 1
             if row['sku'].startswith('210-') and model is None:
-                model = _model_from_server_line(row['desc'])
+                model = model_from_server_line(row['desc'])
             if should_drop(row['desc'], row['sku']):
                 continue
-            acc.add(row['sku'], row['desc'], row['qty'], categorize(row['desc']))
+            acc.add(row['sku'], row['desc'], row['qty'], categorize_line(row['desc']))
         if len(g['prices']) >= 2 and all(p is not None for p in g['prices']):
-            ev.check(abs(g['prices'][0] * g['qty'] - g['prices'][-1]) <= 0.01 * max(g['prices'][-1], 1),
-                     'group %d: unit price x quantity = subtotal' % gi)
-        match = next((q for name, q in summary if _norm(name)[:25] == _norm(g['name'])[:25]), None)
+            ev.check_close(g['prices'][0] * g['qty'], g['prices'][-1],
+                           'group %d: unit price x quantity = subtotal' % gi)
+        match = next((q for name, q in summary if alnum_key(name)[:25] == alnum_key(g['name'])[:25]), None)
         if summary:
             ev.check(match == g['qty'], 'group %d: quantity matches the quote summary' % gi)
         comps = acc.components()
         if comps:
-            configs.append(BOMConfig(name=_config_name(g['name'], gi),
+            configs.append(BOMConfig(name=config_name(g['name'], gi),
                                      server_model=model or server_model_from_text(g['name']),
                                      components=comps, node_count=g['qty']))
     if summary:
         ev.check(len(summary) == len(groups), 'every system in the summary has its own parts table')
-    ev.region(item_lines)
-    return NormalizedBOM(vendor='Dell', configs=configs, raw_text=doc.text()[:20000]), ev
-
-
-def _norm(text: Optional[str]) -> str:
-    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+    return finish(doc, ev, 'Dell', configs, item_lines)

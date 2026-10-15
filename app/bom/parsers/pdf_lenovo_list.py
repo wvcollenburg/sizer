@@ -25,20 +25,13 @@ the reader missed or merged shows up here), and every hardware row of a
 machine block must be a whole multiple of the machine count (DCSC totals
 are per-node quantities x nodes).
 """
-import re
 from typing import List, Optional
 
-from bom.normalize import NormalizedBOM
-from bom.parsers.common import LENOVO_CTO
+from bom.parsers.common import LENOVO_BLOCK, LENOVO_CTO, LENOVO_LIST_CODE
 from bom.parsers.lenovo_dcsc import configs_from_blocks
-from bom.parsers.pdf_common import Evidence, first_word_x, whole_number
+from bom.parsers.pdf_common import Evidence, finish, first_word_x, ruled_bands, whole_number
 
 FORMAT = 'lenovo_list_pdf'
-
-# Block starters: machine / software CTOs (7D73CTO1WW, 7S0XCTO5WW) and
-# service CTOs (7Q01CTS2WW).
-_BLOCK = re.compile(r'^[0-9A-Z]{4}CT[OS0-9][0-9A-Z]WW$')
-_PART = re.compile(r'^(?:[A-Z0-9]{4}|[0-9A-Z]{4}CT[OS0-9][0-9A-Z]WW|\d{4}[A-Z]{2}\d|[0-9][A-Z0-9]{9})$')
 
 
 def _header(line) -> bool:
@@ -56,22 +49,12 @@ def detect(doc) -> bool:
 
 def _rows(doc, header):
     """(line groups) per table row: the bands between horizontal rules when
-    the table is ruled, one text line per row otherwise."""
+    the table is ruled (three rules at least), one text line per row
+    otherwise; lines outside every band are rows of their own."""
     out = []
     for page in doc.pages:
-        lines = [l for l in page.lines if page.index > header.page or l.top > header.bottom]
-        rules = [y for y in page.hrules if page.index > header.page or y >= header.bottom - 1]
-        if len(rules) >= 3:
-            used = set()
-            for a, b in zip(rules, rules[1:]):
-                band = [l for l in lines if a < (l.top + l.bottom) / 2 < b]
-                if band:
-                    out.append(band)
-                    used.update(id(l) for l in band)
-            out.extend([l] for l in lines if id(l) not in used)
-        else:
-            out.extend([l] for l in lines)
-    out.sort(key=lambda band: (band[0].page, band[0].top))
+        start_y = header.bottom if page.index <= header.page else float('-inf')
+        out.extend(ruled_bands(page, start_y, keep_loose=True, min_rules=3))
     return out
 
 
@@ -107,12 +90,12 @@ def parse(doc):
             continue
         part = body[0].text
         desc = ' '.join(w.text for w in body[1:]).strip()
-        if not _PART.match(part):
+        if not LENOVO_LIST_CODE.match(part):
             ev.pattern_misses.append(part)
         serials.append(sn)
         item_lines.extend(band)
         ev.rows += 1
-        if _BLOCK.match(part):
+        if LENOVO_BLOCK.match(part):
             blocks.append({'sku': part, 'title': desc, 'qty': qty, 'row': sn, 'rows': []})
             if LENOVO_CTO.match(part) and 'thinksystem' in desc.lower():
                 names.append(title or '')
@@ -129,6 +112,5 @@ def parse(doc):
             odd = [fc for _sn, fc, _d, q in block['rows'] if q % block['qty']]
             ev.check(not odd, '%s: every row is a multiple of %d machines%s'
                      % (block['sku'], block['qty'], (' (not: %s)' % ', '.join(odd)) if odd else ''))
-    configs = configs_from_blocks(blocks, True, names=[n or None for n in names] if any(names) else None)
-    ev.region(item_lines)
-    return NormalizedBOM(vendor='Lenovo', configs=configs, raw_text=doc.text()[:20000]), ev
+    configs = configs_from_blocks(blocks, names=[n or None for n in names] if any(names) else None)
+    return finish(doc, ev, 'Lenovo', configs, item_lines)

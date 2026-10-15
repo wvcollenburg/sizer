@@ -27,16 +27,18 @@ from typing import Dict, List, Optional, Tuple
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
 from bom.parsers.common import (
-    categorize,
+    categorize_line,
     cell,
     dewrap_dell,
     head_rows,
     raw_text_from_rows,
+    read_sheet,
     s,
-    sheet_matrix,
     should_drop,
+    strip_server_suffix,
     to_int,
 )
+from bom.text import decode_text
 
 FORMAT = 'dell_service_tag'
 
@@ -58,15 +60,7 @@ def _read_csv_text(path: str) -> Optional[str]:
     """UTF-8 (with or without BOM) first, then latin-1. NUL bytes mean it is
     not a text file at all."""
     with open(path, 'rb') as fh:
-        data = fh.read()
-    if b'\x00' in data[:65536]:
-        return None
-    for enc in ('utf-8-sig', 'latin-1'):
-        try:
-            return data.decode(enc)
-        except UnicodeDecodeError:
-            continue
-    return None
+        return decode_text(fh.read(), reject_nul=True)
 
 
 def detect_csv(path: str) -> bool:
@@ -136,14 +130,14 @@ def _build(groups: List[dict], config_name: str, raw_text: str) -> NormalizedBOM
         if not option:
             continue
         if sku.startswith('210-'):
-            server_model = re.sub(r'\s+Server\s*$', '', option).strip() or None
+            server_model = strip_server_suffix(option)
         if should_drop(option, sku):
             continue
         components.append(BOMComponent(
             part_number=sku or None,
             description=option,
             quantity=_group_quantity(g['pieces']),
-            category=categorize(option),
+            category=categorize_line(option),
         ))
     config = BOMConfig(name=config_name, server_model=server_model,
                        components=components, node_count=1)
@@ -165,17 +159,9 @@ def parse_csv(path: str) -> NormalizedBOM:
 
 
 def parse_xlsx(path: str) -> NormalizedBOM:
-    from bom.parsers import UnrecognizedFormat
-    from bom.parsers.common import load_workbook_safe
-    wb = load_workbook_safe(path)
-    try:
-        if not detect_xlsx(wb):
-            raise UnrecognizedFormat('Not a Dell service-tag component export.')
-        ws = wb.worksheets[0]
-        rows = sheet_matrix(ws)
-        title = ws.title.strip()
-    finally:
-        wb.close()
+    rows, title = read_sheet(path, lambda wb: wb.worksheets[0] if detect_xlsx(wb) else None,
+                             'Not a Dell service-tag component export.')
+    title = title.strip()
     records = []
     for r in range(2, len(rows) + 1):
         comp = cell(rows, r, 1)

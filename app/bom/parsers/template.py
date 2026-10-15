@@ -29,7 +29,7 @@ import io
 from typing import Dict, List, Optional
 
 from bom.normalize import CATEGORIES, VENDORS, BOMComponent, BOMConfig, NormalizedBOM
-from bom.parsers.common import cell, head_rows, raw_text_from_rows, s, sheet_matrix, to_int
+from bom.parsers.common import cell, head_rows, raw_text_from_rows, read_sheet, s, to_int
 
 FORMAT = 'template'
 
@@ -218,14 +218,8 @@ def _positive_int(value, label: str, row: int, errors: List[str], required: bool
 
 
 def parse_template(path: str) -> NormalizedBOM:
-    from bom.parsers.common import load_workbook_safe
-    wb = load_workbook_safe(path)
-    try:
-        if SHEET not in wb.sheetnames:
-            raise TemplateError(["Sheet '%s' is missing." % SHEET])
-        rows = sheet_matrix(wb[SHEET])
-    finally:
-        wb.close()
+    rows, _title = read_sheet(path, lambda wb: wb[SHEET] if SHEET in wb.sheetnames else None,
+                              TemplateError(["Sheet '%s' is missing." % SHEET]))
     if not rows or not _header_ok(rows):
         raise TemplateError([
             'Row 1: header must be exactly "%s"%s.' % (

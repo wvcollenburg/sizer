@@ -583,6 +583,19 @@ def test_m2_media_flag():
     assert not is_m2_media("ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD")
 
 
+@pytest.mark.parametrize("description", [
+    "ThinkSystem M.2 VA 480GB Read Intensive NVMe PCIe 4.0 x4 NHS SSD",      # Lenovo
+    "480GB SSD M.2 SATA 6Gbps Boot Drive",                                   # Dell quote wording
+])
+def test_categorize_line_demotes_m2_media_for_every_vendor(description):
+    """categorize() still says 'storage'; what the parsers emit is 'other'
+    (M.2 boot media is not a data drive, whoever quotes it)."""
+    from bom.parsers.common import categorize_line
+    assert categorize(description) == "storage"
+    assert categorize_line(description) == "other"
+    assert categorize_line("3.84TB NVMe SAS Read Intensive SSD") == "storage"
+
+
 def test_split_nx_and_server_model():
     assert split_nx("8x 16GB RDIMM, 4800MT/s, Dual Rank") == (8, "16GB RDIMM, 4800MT/s, Dual Rank")
     assert split_nx("4 X 3.84TB NVMe") == (4, "3.84TB NVMe")

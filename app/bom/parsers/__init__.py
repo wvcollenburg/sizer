@@ -206,6 +206,7 @@ def detect_vendor(bom: NormalizedBOM) -> str:
     template): Lenovo/Dell/Supermicro/HPE markers in models, parts and
     descriptions; 'Unknown' otherwise (survey §2)."""
     import re
+    from bom.parsers.common import DELL_SKU_LINE, LENOVO_CTO_WORD
     texts = []
     for cfg in bom.configs:
         texts.append(cfg.server_model or '')
@@ -213,9 +214,9 @@ def detect_vendor(bom: NormalizedBOM) -> str:
             texts.append(comp.part_number or '')
             texts.append(comp.description or '')
     blob = '\n'.join(texts)
-    if re.search(r'ThinkSystem|\b7[0-9A-Z]{3}CTO\d+WW\b', blob):
+    if 'ThinkSystem' in blob or LENOVO_CTO_WORD.search(blob):
         return 'Lenovo'
-    if re.search(r'PowerEdge|^\d{3}-[A-Z0-9]{4}$', blob, re.M):
+    if 'PowerEdge' in blob or DELL_SKU_LINE.search(blob):
         return 'Dell'
     if re.search(r'\b(?:SYS-|AOC-|MEM-DR|HDS-|PWS-|MCP-)', blob):
         return 'Supermicro'
