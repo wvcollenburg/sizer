@@ -295,6 +295,38 @@ def dell_arrow(nodes=3, total=None):
     return pdf
 
 
+def lenovo_arrow(nodes=3, total=None):
+    """The Arrow quote sheet with a Lenovo DCSC configuration: CTO rows, then
+    feature codes with per-machine quantities."""
+    pdf = PdfMaker()
+    unit = 30000.0
+    pdf.row(56, [(3, "Customer Name"), (107, "Acme")], size=7)
+    pdf.row(120, [(3, "Product"), (107, "Part / Project Description"), (477, "Qty"), (520, "Unit Price"),
+                  (568, "Total Price")], size=7)
+    pdf.row(131, [(3, "7D76CTO1WW"), (107, "ThinkSystem SR650 V3-3yr Base Warranty"), (480, nodes),
+                  (513, "GBP"), (526, format(unit, ",.2f")), (560, "GBP"),
+                  (579, format(total if total is not None else unit * nodes, ",.2f"))], size=7)
+    rows = [("BLKJ", 'ThinkSystem V3 2U 12x3.5" Chassis', 1),
+            ("BYVY", "Intel Xeon Gold 6542Y 24C 250W 2.9GHz Processor", 2),
+            ("BWJC", "ThinkSystem 32GB TruDDR5 5600MHz (2Rx8) RDIMM", 8),
+            ("BM50", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA", 1),
+            ("C5X9", 'ThinkSystem 3.5" 4TB 7.2K SAS 12Gb Hot Swap 512e HDD v2', 3),
+            ("B5ST", "ThinkSystem Broadcom 57416 10GBASE-T 2-port OCP Ethernet Adapter", 1),
+            ("5374CM1", "Configuration Instruction", nodes),
+            ("BM34", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA Placement", 1),
+            ("7S0XCTO5WW", "XClarity Controller Platin-FOD", nodes),
+            ("SBCV", "Lenovo XClarity XCC2 Platinum Upgrade (FOD)", 1),
+            ("7Q01CTS2WW", "SERVER PREMIER NBD RESP", nodes),
+            ("QA0Y", "Months", 36)]
+    top = 140
+    for part, desc, qty in rows:
+        pdf.row(top, [(3, part), (107, desc), (480, qty)], size=7)
+        top += 8.8
+    pdf.row(top + 10, [(3, "FREIGHT_CHARGE"), (107, "Freight charges calculated at time of shipping")], size=7)
+    pdf.row(top + 26, [(469, "Sub-Total"), (514, "GBP"), (579, format(unit * nodes, ",.2f"))], size=7)
+    return pdf
+
+
 def scale_quotation():
     pdf = PdfMaker()
     pdf.row(40, [(400, "Quotation")])

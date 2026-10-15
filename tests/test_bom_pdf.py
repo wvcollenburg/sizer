@@ -117,6 +117,25 @@ def test_lenovo_list_with_a_missing_row_is_not_trusted(tmp_path):
     assert out.certainty.score < pdf_certainty.DEFAULT_THRESHOLD
 
 
+
+def test_lenovo_system_on_the_arrow_quote_sheet(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.lenovo_arrow(nodes=3)))
+    assert out.fmt == "lenovo_arrow_pdf" and out.certainty.score == 100
+    assert len(out.bom.configs) == 1
+    cfg = out.bom.configs[0]
+    assert (cfg.server_model, cfg.node_count) == ("ThinkSystem SR650 V3", 3)
+    got = {c.part_number: (c.category, c.quantity) for c in cfg.components}
+    # Per-machine quantities on the sheet, DCSC totals in the BOM.
+    assert got["BYVY"] == ("cpu", 6) and got["BWJC"] == ("memory", 24)
+    assert got["C5X9"] == ("storage", 9) and got["B5ST"] == ("nic", 3)
+    assert "BM34" not in got                             # configuration instruction block dropped
+    assert "QA0Y" not in got                             # service block dropped
+
+
+def test_lenovo_arrow_with_a_wrong_total_is_flagged(tmp_path):
+    out = read_pdf(_file(tmp_path, pm.lenovo_arrow(nodes=3, total=12345.0)))
+    assert any("unit price x quantity" in c for c in out.evidence.checks_failed)
+
 def test_dell_system_on_the_arrow_quote_sheet(tmp_path):
     out = read_pdf(_file(tmp_path, pm.dell_arrow(nodes=3)))
     assert out.fmt == "dell_arrow_pdf" and out.certainty.score == 100
