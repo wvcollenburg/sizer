@@ -173,6 +173,22 @@ def test_invented_lines_are_dropped_and_listed(tmp_path):
     assert out.meta["grounded"] is True and out.meta["source_kind"] == "text"
 
 
+
+def test_placement_lines_are_not_counted_as_the_part_they_place(tmp_path):
+    """The CMS/Arrow Lenovo quotes: 'BM34 … HBA Placement' read as a second
+    controller."""
+    path = tmp_path / "q.xlsx"
+    path.write_bytes(unknown_xlsx(QUOTE_LINES + [
+        [3, "BM50", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA"],
+        [3, "BM34", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA Placement"]]))
+    stub = StubClient(agent_answer(extra=[
+        comp("BM50", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA", 3, "controller"),
+        comp("BM34", "ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA Placement", 3, "controller")]))
+    out = agent_ingest.read_document(str(path), "q.xlsx", client=stub)
+    cats = {c.part_number: c.category for c in out.bom.configs[0].components}
+    assert cats["BM50"] == "controller" and cats["BM34"] == "other"
+    assert out.meta["demoted"] == ["BM34 ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb HBA Placement"]
+
 def test_server_model_not_in_document_is_cleared(tmp_path):
     path = tmp_path / "q.xlsx"
     path.write_bytes(unknown_xlsx())
