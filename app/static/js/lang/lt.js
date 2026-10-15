@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Bendros sumos nėra: nė vienas iš šių dydžio parinkimų nepažymėtas kaip vienos aplinkos dalis. Konkuruojančios parinktys niekada nesumuojamos.",
   "project.compare.nodes": "Mazgai",
   "project.compare.ram": "Atmintis",
-  "project.compare.rollup": "Bendra {count} dydžio parinkimų, pažymėtų kaip sumos dalis, suma: {clusters} klasteriai, {nodes} mazgai, {cores} branduoliai, {ram} GB atminties, {storage} TB naudojama.",
+  "project.compare.rollup": "Bendra {count} dydžio parinkimų, pažymėtų kaip sumos dalis, suma: {clusters} klasteriai, {nodes} mazgai, {cores} branduoliai, {ram} atminties, {storage} TB naudojama.",
   "project.compare.storage": "Naudojama saugykla",
   "project.compare.warn_mixed_roles": "Atrankoje sumaišytos konkuruojančios parinktys ir vienos aplinkos dalys. Sumuojamos tik papildomosios.",
   "project.compare.warn_mixed_tunables": "Šie dydžio parinkimai apskaičiuoti su skirtingais nustatymais, todėl stulpeliai nėra tiesiogiai palyginami.",

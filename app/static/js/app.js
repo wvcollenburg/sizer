@@ -2747,7 +2747,10 @@ function recSignedRam(v) {
 const REC_GROUP_ADD_AT = [1150, 1500, 1900];
 
 function recGroupsFor(width) {
-    const on = ['shape'];
+    // Under phone width even the per-node trio cannot fit beside the name:
+    // the row keeps rank, model, node count and the picker, and the fold-out
+    // carries the rest.
+    const on = width >= 600 ? ['shape'] : [];
     ['fit', 'totals', 'iops'].forEach((g, i) => { if (width >= REC_GROUP_ADD_AT[i]) on.push(g); });
     return ['shape', 'totals', 'fit', 'iops'].filter(g => on.indexOf(g) >= 0);
 }

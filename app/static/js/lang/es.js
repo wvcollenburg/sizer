@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Sin total combinado: ninguno de estos dimensionamientos está marcado como parte de un mismo entorno. Las opciones alternativas nunca se suman.",
   "project.compare.nodes": "Nodos",
   "project.compare.ram": "Memoria",
-  "project.compare.rollup": "Total combinado de los {count} dimensionamiento(s) marcados como parte del total: {clusters} clúster(es), {nodes} nodos, {cores} núcleos, {ram} GB de memoria, {storage} TB utilizables.",
+  "project.compare.rollup": "Total combinado de los {count} dimensionamiento(s) marcados como parte del total: {clusters} clúster(es), {nodes} nodos, {cores} núcleos, {ram} de memoria, {storage} TB utilizables.",
   "project.compare.storage": "Almacenamiento utilizable",
   "project.compare.warn_mixed_roles": "La selección mezcla opciones alternativas con partes de un mismo entorno. Solo se suman las aditivas.",
   "project.compare.warn_mixed_tunables": "Estos dimensionamientos se calcularon con ajustes distintos, por lo que las columnas no son estrictamente comparables.",

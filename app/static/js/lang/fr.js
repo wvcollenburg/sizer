@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Pas de total combiné : aucun de ces dimensionnements n'est marqué comme faisant partie d'un même parc. Les options concurrentes ne sont jamais additionnées.",
   "project.compare.nodes": "Nœuds",
   "project.compare.ram": "Mémoire",
-  "project.compare.rollup": "Total combiné des {count} dimensionnement(s) marqués comme faisant partie du total : {clusters} cluster(s), {nodes} nœuds, {cores} cœurs, {ram} Go de mémoire, {storage} To utilisables.",
+  "project.compare.rollup": "Total combiné des {count} dimensionnement(s) marqués comme faisant partie du total : {clusters} cluster(s), {nodes} nœuds, {cores} cœurs, {ram} de mémoire, {storage} To utilisables.",
   "project.compare.storage": "Stockage utilisable",
   "project.compare.warn_mixed_roles": "La sélection mélange des options concurrentes et des éléments d'un même parc. Seuls les éléments additifs sont additionnés.",
   "project.compare.warn_mixed_tunables": "Ces dimensionnements ont été calculés avec des réglages différents ; les colonnes ne sont donc pas strictement comparables.",

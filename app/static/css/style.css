@@ -2173,6 +2173,20 @@ tr.so-divider td {
     .modal-overlay { padding: 0.5rem; }
     .modal-content { max-height: 95vh; }
     .section-header-row { flex-wrap: wrap; }
+    /* The header is one flex line on a desktop; on a narrow screen the brand,
+       the nav and the identity wrap onto their own lines instead of pushing
+       the page wider than the viewport. */
+    header { padding: 0.7rem 1rem; }
+    .header-content { flex-wrap: wrap; gap: 0.5rem 1rem; }
+    .brand-logo { width: 128px; }
+    .account-bar { margin-left: 0; flex-wrap: wrap; gap: 0.4rem 0.9rem; }
+    .account-actions, .account-identity { flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+    body.view-projects #project-screens,
+    body.view-project  #project-screens { padding: 1rem; }
+}
+@media (max-width: 640px) {
+    .version { display: none; }
+    .brand-name { display: none; }
 }
 
 /* ==================== ACCOUNT / AUTH ==================== */
@@ -2856,6 +2870,10 @@ body.view-project  .account-bar .btn-account { display: none; }
 @media (max-width: 700px) {
     .sizing-table .sizing-source, .sizing-table th:nth-child(5) { display: none; }
     .project-head { flex-direction: column; }
+    /* The sizing table keeps its columns and scrolls sideways inside its own
+       box rather than widening the page. */
+    #project-sizings { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sizing-table { min-width: 34rem; }
 }
 
 /* Refresh iframes: real, loaded, and invisible. display:none would stop some
@@ -3613,7 +3631,10 @@ textarea.text-input:focus {
    label before it sheds a figure. */
 @media (max-width: 900px) {
     .import-recommendations .rec-head { flex-wrap: wrap; }
-    .rec-toolbar { margin-left: 0; }
+    /* The toolbar may shrink to the column and wrap its own controls: on a
+       phone the Save button drops under the view switch instead of pushing
+       the page wider than the screen. */
+    .rec-toolbar { margin-left: 0; flex-shrink: 1; flex-wrap: wrap; min-width: 0; }
     .rec-split { flex-direction: column; }
     .rec-split-list { flex: 0 0 auto !important; max-height: 16rem; border-right: 0; border-bottom: 1px solid var(--border); }
 }

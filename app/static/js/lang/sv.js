@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Ingen sammanlagd summa: ingen av dessa sizings är markerad som del av samma miljö. Konkurrerande alternativ summeras aldrig.",
   "project.compare.nodes": "Noder",
   "project.compare.ram": "Minne",
-  "project.compare.rollup": "Sammanlagd summa för de {count} sizing(ar) som är markerade som del av totalen: {clusters} kluster, {nodes} noder, {cores} kärnor, {ram} GB minne, {storage} TB användbart.",
+  "project.compare.rollup": "Sammanlagd summa för de {count} sizing(ar) som är markerade som del av totalen: {clusters} kluster, {nodes} noder, {cores} kärnor, {ram} minne, {storage} TB användbart.",
   "project.compare.storage": "Användbar lagring",
   "project.compare.warn_mixed_roles": "Urvalet blandar konkurrerande alternativ med delar av samma miljö. Endast de additiva summeras.",
   "project.compare.warn_mixed_tunables": "Dessa sizings beräknades med olika inställningar, så kolumnerna är inte strikt jämförbara.",

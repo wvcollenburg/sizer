@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "合計はありません: これらのサイジングはいずれも同一環境の一部として設定されていません。競合する選択肢は合算されません。",
   "project.compare.nodes": "ノード",
   "project.compare.ram": "メモリ",
-  "project.compare.rollup": "合計に含めると設定された {count} 件のサイジングの合計: {clusters} クラスター、{nodes} ノード、{cores} コア、メモリ {ram} GB、利用可能 {storage} TB。",
+  "project.compare.rollup": "合計に含めると設定された {count} 件のサイジングの合計: {clusters} クラスター、{nodes} ノード、{cores} コア、メモリ {ram}、利用可能 {storage} TB。",
   "project.compare.storage": "利用可能ストレージ",
   "project.compare.warn_mixed_roles": "選択に競合する選択肢と同一環境の一部が混在しています。合算されるのは加算対象のみです。",
   "project.compare.warn_mixed_tunables": "これらのサイジングは異なる調整値で計算されているため、各列は厳密には比較できません。",

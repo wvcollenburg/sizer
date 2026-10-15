@@ -796,7 +796,7 @@
   "project.compare.no_rollup": "No combined total: none of these sizings is marked as part of one estate. Competing options are never summed.",
   "project.compare.nodes": "Nodes",
   "project.compare.ram": "Memory",
-  "project.compare.rollup": "Combined total of the {count} sizing(s) marked as part of the total: {clusters} cluster(s), {nodes} nodes, {cores} cores, {ram} GB memory, {storage} TB usable.",
+  "project.compare.rollup": "Combined total of the {count} sizing(s) marked as part of the total: {clusters} cluster(s), {nodes} nodes, {cores} cores, {ram} memory, {storage} TB usable.",
   "project.compare.storage": "Usable storage",
   "project.compare.warn_mixed_roles": "The selection mixes competing options with parts of one estate. Only the additive ones are summed.",
   "project.compare.warn_mixed_tunables": "These sizings were calculated under different tunables, so the columns are not strictly comparable.",

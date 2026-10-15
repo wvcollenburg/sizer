@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Ingen samlet sum: ingen av disse dimensjoneringene er merket som del av ett miljø. Konkurrerende alternativer summeres aldri.",
   "project.compare.nodes": "Noder",
   "project.compare.ram": "Minne",
-  "project.compare.rollup": "Samlet sum for de {count} dimensjoneringene som er merket som del av totalen: {clusters} klynge(r), {nodes} noder, {cores} kjerner, {ram} GB minne, {storage} TB brukbart.",
+  "project.compare.rollup": "Samlet sum for de {count} dimensjoneringene som er merket som del av totalen: {clusters} klynge(r), {nodes} noder, {cores} kjerner, {ram} minne, {storage} TB brukbart.",
   "project.compare.storage": "Brukbar lagring",
   "project.compare.warn_mixed_roles": "Utvalget blander konkurrerende alternativer med deler av ett miljø. Bare de additive summeres.",
   "project.compare.warn_mixed_tunables": "Disse dimensjoneringene ble beregnet med ulike innstillinger, så kolonnene er ikke direkte sammenlignbare.",

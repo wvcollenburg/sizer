@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Sem total combinado: nenhum destes sizings está marcado como parte de um mesmo ambiente. Opções concorrentes nunca são somadas.",
   "project.compare.nodes": "Nós",
   "project.compare.ram": "Memória",
-  "project.compare.rollup": "Total combinado dos {count} sizing(s) marcados como parte do total: {clusters} cluster(s), {nodes} nós, {cores} núcleos, {ram} GB de memória, {storage} TB utilizáveis.",
+  "project.compare.rollup": "Total combinado dos {count} sizing(s) marcados como parte do total: {clusters} cluster(s), {nodes} nós, {cores} núcleos, {ram} de memória, {storage} TB utilizáveis.",
   "project.compare.storage": "Armazenamento utilizável",
   "project.compare.warn_mixed_roles": "A seleção mistura opções concorrentes com partes de um mesmo ambiente. Apenas as aditivas são somadas.",
   "project.compare.warn_mixed_tunables": "Estes sizings foram calculados com parâmetros diferentes, pelo que as colunas não são rigorosamente comparáveis.",

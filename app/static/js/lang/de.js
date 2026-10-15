@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Keine Gesamtsumme: Keines dieser Sizings ist als Teil einer Umgebung markiert. Konkurrierende Optionen werden nie addiert.",
   "project.compare.nodes": "Knoten",
   "project.compare.ram": "Speicher",
-  "project.compare.rollup": "Gesamtsumme der {count} als Teil der Summe markierten Sizing(s): {clusters} Cluster, {nodes} Knoten, {cores} Kerne, {ram} GB Speicher, {storage} TB nutzbar.",
+  "project.compare.rollup": "Gesamtsumme der {count} als Teil der Summe markierten Sizing(s): {clusters} Cluster, {nodes} Knoten, {cores} Kerne, {ram} Speicher, {storage} TB nutzbar.",
   "project.compare.storage": "Nutzbarer Speicher",
   "project.compare.warn_mixed_roles": "Die Auswahl mischt konkurrierende Optionen mit Teilen einer Umgebung. Nur die additiven werden addiert.",
   "project.compare.warn_mixed_tunables": "Diese Sizings wurden mit unterschiedlichen Tuning-Einstellungen berechnet, die Spalten sind daher nicht streng vergleichbar.",

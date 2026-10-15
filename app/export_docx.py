@@ -393,9 +393,15 @@ def _doc_bytes(doc):
     return buf
 
 
-def _heading(doc, text, lang, level=1):
+def _heading(doc, text, lang, level=1, page_break_before=False):
+    """A heading; with page_break_before it opens a new page. The break lives
+    on the heading paragraph itself rather than in an empty paragraph before
+    it: LibreOffice (the PDF route) can push such an empty break-only
+    paragraph onto a page of its own, which showed as a blank page."""
     h = doc.add_heading(text, level=level)
     _apply_lang_font_para(h, lang)
+    if page_break_before:
+        h.paragraph_format.page_break_before = True
     return h
 
 
@@ -516,24 +522,23 @@ def _footnotes(doc, block, t9n, lang):
         _para(doc, t9n("export.common.agent_bom_note"), italic=True, color=MUTED, lang=lang)
 
 
-def _network_figure(doc, block, t9n, lang, cw, level, page_break=False):
+def _network_figure(doc, block, t9n, lang, cw, level):
     """The cluster network diagram under its own heading — regenerated in the
     document language (falling back to the stored SVG). Nothing is emitted
     (no heading, no page break) when there is no diagram or no rasteriser."""
     svg = _rec_network_svg(block, lang) or block.get("network_svg")
     if not svg:
-        return
+        return False
     png = svg_to_png(svg, 2200)
     if not png:
-        return
+        return False
     _heading(doc, t9n("export.docx.cluster_network"), lang, level=level)
     doc.add_picture(io.BytesIO(png), width=Inches(min(6.5, cw)))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    if page_break:
-        doc.add_page_break()
+    return True
 
 
-def _sizing_rationale(doc, r, s, t9n, lang, cw, level, with_floor=False):
+def _sizing_rationale(doc, r, s, t9n, lang, cw, level, with_floor=False, page_break_before=False):
     """Sizing rationale: the utilization bars, the sentence naming the binding
     resource (CPU / RAM / Storage / Compute floor) and the bar legend.
     with_floor also quotes the compute-floor coverage when another resource
@@ -544,7 +549,8 @@ def _sizing_rationale(doc, r, s, t9n, lang, cw, level, with_floor=False):
     rows_u, any_ha = util_rows(u)
     if not rows_u:
         return
-    _heading(doc, t9n("export.docx.sizing_rationale"), lang, level=level)
+    _heading(doc, t9n("export.docx.sizing_rationale"), lang, level=level,
+             page_break_before=page_break_before)
     png = render_util_bars(rows_u, limiting_key=(r.get("determinant") or {}).get("resource", ""),
                            any_ha=any_ha, lang=lang)
     doc.add_picture(io.BytesIO(png), width=Inches(cw))
@@ -823,8 +829,8 @@ def build_bundle_proposal_docx(clusters, lang="en"):
 
     # ── Per-site sizing detail ────────────────────────────────────────────────
     for cl in clusters:
-        doc.add_page_break()
-        _heading(doc, t9n("export.docx.multisite_site_heading", name=cl.get("name", "")), lang, level=1)
+        _heading(doc, t9n("export.docx.multisite_site_heading", name=cl.get("name", "")), lang,
+                 level=1, page_break_before=True)
         if cl.get("config") and not cl.get("recommendation"):
             _append_config_sizing(doc, cl["config"], lang, cw)
         else:
@@ -898,11 +904,12 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     _spacer(doc)
 
     # Network diagram, then the sizing rationale on a fresh page (the break is
-    # only emitted when the diagram was rendered — never a stray blank page).
-    _network_figure(doc, r, t9n, lang, cw, level=2, page_break=True)
+    # only taken when the diagram was rendered — never a stray blank page).
+    drew_network = _network_figure(doc, r, t9n, lang, cw, level=2)
 
     # ── Sizing rationale (utilization bars + how the node count was reached) ──
-    _sizing_rationale(doc, r, s, t9n, lang, cw, level=1, with_floor=True)
+    _sizing_rationale(doc, r, s, t9n, lang, cw, level=1, with_floor=True,
+                      page_break_before=drew_network)
 
     # ── Performance vs current environment (benchmark comparison) ─────────────
     tgt = t.get("perf_index")

@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Nav kopsummas: neviens no šiem aprēķiniem nav atzīmēts kā vienas vides daļa. Konkurējošas opcijas nekad netiek summētas.",
   "project.compare.nodes": "Mezgli",
   "project.compare.ram": "Atmiņa",
-  "project.compare.rollup": "Kopsumma {count} aprēķiniem, kas atzīmēti kā kopsummas daļa: {clusters} klasteri, {nodes} mezgli, {cores} kodoli, {ram} GB atmiņas, {storage} TB izmantojami.",
+  "project.compare.rollup": "Kopsumma {count} aprēķiniem, kas atzīmēti kā kopsummas daļa: {clusters} klasteri, {nodes} mezgli, {cores} kodoli, {ram} atmiņas, {storage} TB izmantojami.",
   "project.compare.storage": "Izmantojamā krātuve",
   "project.compare.warn_mixed_roles": "Atlasē ir gan konkurējošas opcijas, gan vienas vides daļas. Summētas tiek tikai papildinošās.",
   "project.compare.warn_mixed_tunables": "Šie aprēķini veikti ar atšķirīgiem iestatījumiem, tāpēc kolonnas nav tieši salīdzināmas.",

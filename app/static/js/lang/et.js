@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Ühendsummat pole: ükski neist sizingutest pole märgitud ühe keskkonna osaks. Konkureerivaid valikuid ei liideta kunagi.",
   "project.compare.nodes": "Sõlmed",
   "project.compare.ram": "Mälu",
-  "project.compare.rollup": "Nende {count} sizingu ühendsumma, mis on märgitud kogusumma osaks: {clusters} klastrit, {nodes} sõlme, {cores} tuuma, {ram} GB mälu, {storage} TB kasutatavat.",
+  "project.compare.rollup": "Nende {count} sizingu ühendsumma, mis on märgitud kogusumma osaks: {clusters} klastrit, {nodes} sõlme, {cores} tuuma, {ram} mälu, {storage} TB kasutatavat.",
   "project.compare.storage": "Kasutatav salvestusruum",
   "project.compare.warn_mixed_roles": "Valik segab konkureerivaid valikuid ühe keskkonna osadega. Liidetakse ainult liidetavad.",
   "project.compare.warn_mixed_tunables": "Need sizingud on arvutatud erinevate seadistustega, seega veerud pole rangelt võrreldavad.",

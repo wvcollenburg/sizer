@@ -58,6 +58,7 @@ main {
 .toolbar-left, .toolbar-right {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
 }
 
@@ -352,6 +353,7 @@ hr {
 
 .tab-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 0;
     margin-bottom: 1.25rem;
     border-bottom: 2px solid var(--border);

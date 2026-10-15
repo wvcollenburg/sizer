@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Geen gecombineerd totaal: geen van deze sizings is gemarkeerd als onderdeel van één omgeving. Concurrerende opties worden nooit opgeteld.",
   "project.compare.nodes": "Nodes",
   "project.compare.ram": "Geheugen",
-  "project.compare.rollup": "Gecombineerd totaal van de {count} sizing(s) die meetellen: {clusters} cluster(s), {nodes} nodes, {cores} cores, {ram} GB geheugen, {storage} TB bruikbaar.",
+  "project.compare.rollup": "Gecombineerd totaal van de {count} sizing(s) die meetellen: {clusters} cluster(s), {nodes} nodes, {cores} cores, {ram} geheugen, {storage} TB bruikbaar.",
   "project.compare.storage": "Bruikbare opslag",
   "project.compare.warn_mixed_roles": "De selectie combineert concurrerende opties met onderdelen van één omgeving. Alleen de meetellende sizings worden opgeteld.",
   "project.compare.warn_mixed_tunables": "Deze sizings zijn berekend met verschillende tuninginstellingen, dus de kolommen zijn niet strikt vergelijkbaar.",

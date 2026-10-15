@@ -795,7 +795,7 @@
   "project.compare.no_rollup": "Ei yhteissummaa: yhtäkään näistä mitoituksista ei ole merkitty saman ympäristön osaksi. Kilpailevia vaihtoehtoja ei koskaan lasketa yhteen.",
   "project.compare.nodes": "Solmut",
   "project.compare.ram": "Muisti",
-  "project.compare.rollup": "Niiden {count} mitoituksen yhteissumma, jotka on merkitty kokonaisuuden osaksi: {clusters} klusteria, {nodes} solmua, {cores} ydintä, {ram} GB muistia, {storage} TB käytettävissä.",
+  "project.compare.rollup": "Niiden {count} mitoituksen yhteissumma, jotka on merkitty kokonaisuuden osaksi: {clusters} klusteria, {nodes} solmua, {cores} ydintä, {ram} muistia, {storage} TB käytettävissä.",
   "project.compare.storage": "Käytettävissä oleva tallennustila",
   "project.compare.warn_mixed_roles": "Valinnassa on sekä kilpailevia vaihtoehtoja että saman ympäristön osia. Vain lisättävät lasketaan yhteen.",
   "project.compare.warn_mixed_tunables": "Nämä mitoitukset on laskettu eri asetuksilla, joten sarakkeet eivät ole täysin vertailukelpoisia.",

@@ -321,11 +321,11 @@ function renderSizingRows() {
     host.innerHTML = `<table class="sizing-table">
         <thead><tr>
             <th class="col-check"></th>
-            <th data-i18n="project.table.name">Sizing</th>
-            <th data-i18n="project.table.tags">Tags</th>
-            <th data-i18n="project.table.role">Role</th>
-            <th data-i18n="project.table.source">Source</th>
-            <th data-i18n="project.table.state">State</th>
+            <th>${esc(tt('project.table.name'))}</th>
+            <th>${esc(tt('project.table.tags'))}</th>
+            <th>${esc(tt('project.table.role'))}</th>
+            <th>${esc(tt('project.table.source'))}</th>
+            <th>${esc(tt('project.table.state'))}</th>
             <th class="col-actions"></th>
         </tr></thead>
         <tbody>${rows.map(r => sizingRow(r, canEdit)).join('')}</tbody>
@@ -748,10 +748,10 @@ function _compareMetricRows() {
         ['project.compare.clusters', (r) => String(r.totals.clusters || 0), (r) => r.totals.clusters || 0],
         ['project.compare.nodes', (r) => String(r.totals.nodes || 0), (r) => r.totals.nodes || 0],
         ['project.compare.cores', (r) => String(r.totals.cores || 0), (r) => r.totals.cores || 0],
-        ['project.compare.ram', (r) => `${r.totals.ram_gb || 0} GB`, (r) => r.totals.ram_gb || 0],
+        ['project.compare.ram', (r) => formatRam(r.totals.ram_gb || 0), (r) => r.totals.ram_gb || 0],
         ['project.compare.storage', (r) => `${round(r.totals.usable_tb || 0)} TB`, (r) => round(r.totals.usable_tb || 0)],
         ['project.compare.n1_cores', (r) => String(r.totals.n1_cores || 0), (r) => r.totals.n1_cores || 0],
-        ['project.compare.n1_ram', (r) => `${r.totals.n1_ram_gb || 0} GB`, (r) => r.totals.n1_ram_gb || 0],
+        ['project.compare.n1_ram', (r) => formatRam(r.totals.n1_ram_gb || 0), (r) => r.totals.n1_ram_gb || 0],
     ];
 }
 
@@ -774,7 +774,7 @@ function _compareTableHtml(data) {
     const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${esc(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         clusters: data.rollup.clusters,
-        cores: data.rollup.cores, ram: data.rollup.ram_gb,
+        cores: data.rollup.cores, ram: formatRam(data.rollup.ram_gb || 0),
         storage: round(data.rollup.usable_tb),
     }))}</p>` : `<p class="compare-rollup compare-rollup-none">${esc(tt('project.compare.no_rollup'))}</p>`;
 
