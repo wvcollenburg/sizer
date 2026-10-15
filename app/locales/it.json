@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/nodo",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} core · {ram}"
+  "export.docx.reserved_val": "{cores} core · {ram}",
+  "export.pptx.growth_rate_split_value": "Calcolo {compute}% · Storage {storage}% all'anno",
+  "export.pptx.growth_factor_split_value": "Calcolo {compute}x · Storage {storage}x su {years} anni",
+  "export.pptx.projection_subtitle_split": "Crescita {growth}% calcolo / {storage}% storage anno su anno  —  {snapshot}% di overhead snapshot  —  Sizing CPU: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "La crescita segue il dimensionamento di ogni sito protetto  —  Fattore di crescita: {factor}x  —  Sizing CPU: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "Crescita del calcolo {growth}% anno su anno, dello storage {storage}%, {snapshot}% di overhead snapshot (fattore di crescita {factor}× calcolo, {storage_factor}× storage).",
+  "export.docx.dr_growth_sources": "Le repliche crescono secondo le opzioni di dimensionamento di ogni sito protetto: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} al {growth}% annuo per {years} anni (storage {storage}%, snapshot {snapshot}%)",
+  "export.docx.dr_growth_follows": "Le repliche crescono secondo le opzioni di dimensionamento di ogni sito protetto.",
+  "export.docx.mgmt_overview_intro_split": "Questa proposta consolida l'ambiente {platform} attuale ({hosts} host, {vms} VM attive, {used_tb} TB in uso) su un cluster Scale Computing HyperCore. Raccomandiamo un cluster {nodes} {model} che eroga {usable_tb} TB di capacità utilizzabile e {cores} core CPU, progettato per la resilienza N-1 così che un intero nodo possa guastarsi senza interruzione del servizio. La configurazione assorbe la crescita a {years} anni al {growth}% annuo per il calcolo e al {storage}% per lo storage mantenendo un rapporto vCPU:core di {ratio}:1."
 }

@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/node",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} kjerner · {ram}"
+  "export.docx.reserved_val": "{cores} kjerner · {ram}",
+  "export.pptx.growth_rate_split_value": "Beregning {compute} % · Lagring {storage} % per år",
+  "export.pptx.growth_factor_split_value": "Beregning {compute}× · Lagring {storage}× over {years} år",
+  "export.pptx.projection_subtitle_split": "{growth} % beregnings- / {storage} % lagringsvekst årlig  —  {snapshot} % øyeblikksbilde-overhead  —  CPU-dimensjonering: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Veksten følger dimensjoneringen for hvert beskyttet område  —  Vekstfaktor: {factor}×  —  CPU-dimensjonering: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth} % årlig beregningsvekst, {storage} % årlig lagringsvekst, {snapshot} % øyeblikksbilde-overhead (vekstfaktor {factor}× beregning, {storage_factor}× lagring).",
+  "export.docx.dr_growth_sources": "Replikaene vokser etter dimensjoneringsvalgene for hvert beskyttet område: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} med {growth} % per år over {years} år (lagring {storage} %, øyeblikksbilde {snapshot} %)",
+  "export.docx.dr_growth_follows": "Replikaene vokser etter dimensjoneringsvalgene for hvert beskyttet område.",
+  "export.docx.mgmt_overview_intro_split": "Dette forslaget konsoliderer det nåværende {platform}-miljøet ({hosts} verter, {vms} aktive VM-er, {used_tb} TB i bruk) på en Scale Computing HyperCore-klynge. Vi anbefaler en {nodes} {model}-klynge som leverer {usable_tb} TB brukbar kapasitet og {cores} CPU-kjerner, konstruert for N-1-motstandsdyktighet slik at en hel node kan svikte uten avbrudd i tjenesten. Konfigurasjonen absorberer {years}-års vekst på {growth} % årlig for beregning og {storage} % for lagring samtidig som den opprettholder et {ratio}:1 vCPU-til-kjerne-forhold."
 }

@@ -367,6 +367,13 @@ const ICON_TRASH = _svg('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0
 // Server/rack: "which box does this export describe".
 const ICON_SERVER = _svg('<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>');
 
+// "first.xlsx +2" for a sizing built from several files (source_meta.files).
+function sourceLabel(meta) {
+    if (!meta || !meta.file_name) return '';
+    const n = (meta.files || []).length;
+    return n > 1 ? `${meta.file_name} +${n - 1}` : meta.file_name;
+}
+
 function sizingRow(s, canEdit) {
     const checked = selectedSizings.has(s.id) ? ' checked' : '';
     const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${escHtml(t.name)}</span>`).join('');
@@ -375,7 +382,7 @@ function sizingRow(s, canEdit) {
         : `<span class="role-chip role-unset">—</span>`;
     const source = s.is_dr_target
         ? escHtml(tt('project.table.dr_target'))
-        : escHtml((s.source_meta && s.source_meta.file_name) || tt('project.table.manual'));
+        : escHtml(sourceLabel(s.source_meta) || tt('project.table.manual'));
 
     // Three distinct states, deliberately not merged: a re-import cannot be
     // fixed by recalculating (§3.3), so it must not read as ordinary staleness.

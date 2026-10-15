@@ -50,7 +50,10 @@ ENGINE_MODULES = (
 # "re-import to pick up the correction" — a prompt to a human, not something
 # auto-refresh can clear (§3.3). Commit 6dae54f, which fixed a misread Live
 # Optics RAM label, is exactly this case.
-PARSER_MODULES = ("liveoptics.py", "rvtools.py", "parser_common.py")
+# cluster_split.py is already an engine module (a split re-sizes), and a
+# module may sit in only one of the two lists.
+PARSER_MODULES = ("liveoptics.py", "rvtools.py", "parser_common.py",
+                  "nutanix_collector.py", "import_merge.py")
 
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 

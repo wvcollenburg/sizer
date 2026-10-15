@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/mezgls",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} kodoli · {ram}"
+  "export.docx.reserved_val": "{cores} kodoli · {ram}",
+  "export.pptx.growth_rate_split_value": "Skaitļošana {compute}% · Krātuve {storage}% gadā",
+  "export.pptx.growth_factor_split_value": "Skaitļošana {compute}x · Krātuve {storage}x {years} gadu laikā",
+  "export.pptx.projection_subtitle_split": "{growth}% skaitļošanas / {storage}% krātuves gada pieaugums  —  {snapshot}% momentuzņēmumu papildslodze  —  CPU aprēķins: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Pieaugums seko katras aizsargātās vietas izmērījumam  —  Pieauguma faktors: {factor}x  —  CPU aprēķins: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth}% skaitļošanas gada pieaugums, {storage}% krātuves gada pieaugums, {snapshot}% momentuzņēmumu papildslodze (pieauguma faktors {factor}× skaitļošana, {storage_factor}× krātuve).",
+  "export.docx.dr_growth_sources": "Replikas aug pēc katras aizsargātās vietas izmērījuma iestatījumiem: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} ar {growth}% gadā {years} gadu laikā (krātuve {storage}%, momentuzņēmums {snapshot}%)",
+  "export.docx.dr_growth_follows": "Replikas aug pēc katras aizsargātās vietas izmērījuma iestatījumiem.",
+  "export.docx.mgmt_overview_intro_split": "Šis priekšlikums konsolidē pašreizējo {platform} vidi ({hosts} resursdatori, {vms} aktīvi VM, {used_tb} TB izmantoti) Scale Computing HyperCore klasterī. Mēs iesakām {nodes} {model} klasteri, kas nodrošina {usable_tb} TB izmantojamās ietilpības un {cores} CPU kodolus, izstrādātu N-1 noturībai, lai pilns mezgls varētu atteikt bez pakalpojuma pārtraukuma. Konfigurācija absorbē {years} gadu pieaugumu ar {growth}% gadā skaitļošanai un {storage}% krātuvei, vienlaikus saglabājot {ratio}:1 vCPU pret kodolu attiecību."
 }

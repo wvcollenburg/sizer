@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/sõlm",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} tuuma · {ram}"
+  "export.docx.reserved_val": "{cores} tuuma · {ram}",
+  "export.pptx.growth_rate_split_value": "Arvutus {compute}% · Salvestus {storage}% aastas",
+  "export.pptx.growth_factor_split_value": "Arvutus {compute}× · Salvestus {storage}× {years} aasta jooksul",
+  "export.pptx.projection_subtitle_split": "{growth}% arvutuse / {storage}% salvestuse aastane kasv  —  {snapshot}% hetktõmmiste lisakoormus  —  CPU sizing: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Kasv järgib iga kaitstud asukoha mõõtmist  —  Kasvutegur: {factor}×  —  CPU sizing: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth}% arvutuse aastane kasv, {storage}% salvestuse aastane kasv, {snapshot}% hetktõmmiste lisakoormus (kasvutegur {factor}× arvutus, {storage_factor}× salvestus).",
+  "export.docx.dr_growth_sources": "Koopiad kasvavad iga kaitstud asukoha enda mõõtmisvalikute järgi: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} {growth}% aastas {years} aasta jooksul (salvestus {storage}%, hetktõmmis {snapshot}%)",
+  "export.docx.dr_growth_follows": "Koopiad kasvavad iga kaitstud asukoha enda mõõtmisvalikute järgi.",
+  "export.docx.mgmt_overview_intro_split": "See ettepanek koondab praeguse {platform} keskkonna ({hosts} hosti, {vms} aktiivset VM-i, {used_tb} TB kasutuses) Scale Computing HyperCore klastrisse. Soovitame {nodes} {model} klastrit, mis pakub {usable_tb} TB kasutatavat mahtu ja {cores} CPU-tuuma, projekteeritud N-1 vastupidavuse jaoks, nii et terve sõlm võib tõrkuda teenuse katkestuseta. Konfiguratsioon neelab {years}-aastase kasvu {growth}% aastas arvutuses ja {storage}% salvestuses, säilitades samal ajal {ratio}:1 vCPU-tuum-suhte."
 }

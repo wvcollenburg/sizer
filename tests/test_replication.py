@@ -348,6 +348,15 @@ def test_reserved_replicas_count_in_the_achieved_ratio():
         assert held["vcpu_ratio"] > plain["vcpu_ratio"] * 3
         assert held["vcpu_ratio"] > 1.0
 
+        # The same reserve pre-grown at its source's rates (what the
+        # inbound-reserve endpoint now sends) is held as-is: a receiver with
+        # its own growth does not grow the replicas again.
+        grown_rcv = dict(base, growth_pct=0, years=3)
+        held_pre = generate_recommendations(
+            small_own, replication_reserve=dict(reserve, pregrown=True),
+            replication_compute_mode="reserved", **grown_rcv)["recommendations"][0]
+        assert held_pre["vcpu_ratio"] == held["vcpu_ratio"]
+
         # Infeasibility hint: with the reserve, a 'raise the ratio' suggestion
         # must actually be a raise (or not be made at all).
         res = generate_recommendations(

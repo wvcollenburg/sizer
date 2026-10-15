@@ -1,7 +1,7 @@
 from openpyxl import load_workbook
 from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
                         to_int as _int)
-from parser_common import build_summary as _build_summary
+from parser_common import build_summary as _build_summary, vm_identity
 from cluster_split import cluster_summaries as _cluster_summaries
 
 
@@ -32,6 +32,12 @@ def _parse_metadata(wb):
         val = r.get("col_1", r.get("Value", ""))
         if key and val:
             info[key] = val
+        else:
+            # RVTools 4.x lays vMetaData out as one row under named headers
+            # ("RVTools version", "xlsx creation datetime", "Server").
+            info.update({k: v for k, v in r.items()
+                         if k and not str(k).startswith("col_") and k not in ("Key", "Value")
+                         and v not in (None, "")})
     return info
 
 
@@ -152,6 +158,9 @@ def _parse_vms(wb):
             "datastore": "",
             "host": r.get("Host", ""),
             "cluster": r.get("Cluster", ""),
+            # vInfo "VM UUID" is the instance UUID (Live Optics InstanceUUID);
+            # "SMBIOS UUID" the BIOS one (Live Optics UUID).
+            **vm_identity(r, ("VM UUID",), ("SMBIOS UUID",)),
         })
     return vms
 

@@ -60,6 +60,12 @@
         absorb (1–5).</td></tr>
     <tr><td>YoY Growth %</td><td>10</td><td>Growth per year, compounded. 10% over 5 years is
         about 1.61 times today's workload.</td></tr>
+    <tr><td>Separate storage growth</td><td>Off</td><td>Tick it when storage grows at a
+        different rate from compute, for example a file archive that grows quickly while the
+        number of VMs stays the same. A <em>Storage growth %</em> field appears, starting at
+        the current growth rate, and the field above is renamed <em>Compute growth %</em>.
+        Compute growth then applies to vCPU, RAM and CPU GHz; storage growth applies to the
+        stored data and its snapshot reserve. Off means one rate for everything.</td></tr>
     <tr><td>Snapshot Overhead %</td><td>20</td><td>Extra storage reserved for snapshots, on
         top of the grown data.</td></tr>
     <tr><td>Max Day-One Storage % <em>(advanced)</em></td><td>50</td><td>A cap on how full the
@@ -84,7 +90,8 @@
 </table>
 <p>Under the growth options, four cards show the workload today and at the end of the
    projection: vCPUs, RAM, GHz and storage (including snapshots), plus the IOPS the workload
-   needs.</p>
+   needs. With separate storage growth on, the line under the cards shows both growth
+   factors.</p>
 
 <h3 id="opt-performance">CPU performance</h3>
 <p>Newer CPUs do more work per GHz than old ones. When the source CPU's benchmark score is

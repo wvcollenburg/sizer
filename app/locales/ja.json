@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/ノード",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores}コア · {ram}"
+  "export.docx.reserved_val": "{cores}コア · {ram}",
+  "export.pptx.growth_rate_split_value": "コンピュート 年率 {compute}% · ストレージ 年率 {storage}%",
+  "export.pptx.growth_factor_split_value": "{years} 年でコンピュート {compute} 倍 · ストレージ {storage} 倍",
+  "export.pptx.projection_subtitle_split": "前年比 コンピュート {growth}% / ストレージ {storage}% 成長  —  {snapshot}% スナップショットオーバーヘッド  —  CPU サイジング: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "成長は各保護サイトのサイジングに追従  —  成長係数: {factor} 倍  —  CPU サイジング: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "前年比 コンピュート {growth}%、ストレージ {storage}% の成長、{snapshot}% のスナップショットオーバーヘッド (成長係数 コンピュート {factor}×、ストレージ {storage_factor}×)。",
+  "export.docx.dr_growth_sources": "レプリカは各保護サイト独自のサイジングオプションで成長します：{sources}。",
+  "export.docx.dr_growth_source_item": "{name}：{years} 年間 年率 {growth}%（ストレージ {storage}%、スナップショット {snapshot}%）",
+  "export.docx.dr_growth_follows": "レプリカは各保護サイト独自のサイジングオプションで成長します。",
+  "export.docx.mgmt_overview_intro_split": "本提案は、現在の {platform} 環境 ({hosts} ホスト、{vms} 台のアクティブ VM、{used_tb} TB 使用中) を Scale Computing HyperCore クラスターへ統合するものです。{usable_tb} TB の使用可能容量と {cores} 個の CPU コアを提供する {nodes} 台の {model} クラスターを推奨します。これは N-1 の耐障害性を前提に設計されており、ノード 1 台が完全に停止してもサービスを中断しません。この構成は {ratio}:1 の vCPU 対コア比を維持しながら、コンピュート年率 {growth}%、ストレージ年率 {storage}% での {years} 年間の成長を吸収します。"
 }

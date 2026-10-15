@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/mazgas",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} branduoliai · {ram}"
+  "export.docx.reserved_val": "{cores} branduoliai · {ram}",
+  "export.pptx.growth_rate_split_value": "Skaičiavimas {compute}% · Saugykla {storage}% per metus",
+  "export.pptx.growth_factor_split_value": "Skaičiavimas {compute}x · Saugykla {storage}x per {years} metus",
+  "export.pptx.projection_subtitle_split": "{growth}% skaičiavimo / {storage}% saugyklos metinis augimas  —  {snapshot}% momentinių kopijų pridėtinės sąnaudos  —  CPU dydžio parinkimas: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Augimas seka kiekvienos saugomos vietos dydžio skaičiavimą  —  Augimo koeficientas: {factor}x  —  CPU dydžio parinkimas: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth}% metinis skaičiavimo augimas, {storage}% metinis saugyklos augimas, {snapshot}% momentinių kopijų pridėtinės sąnaudos (augimo koeficientas {factor}× skaičiavimas, {storage_factor}× saugykla).",
+  "export.docx.dr_growth_sources": "Replikos auga pagal kiekvienos saugomos vietos dydžio parinkimo nustatymus: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} po {growth}% per metus {years} m. (saugykla {storage}%, momentinė kopija {snapshot}%)",
+  "export.docx.dr_growth_follows": "Replikos auga pagal kiekvienos saugomos vietos dydžio parinkimo nustatymus.",
+  "export.docx.mgmt_overview_intro_split": "Šis pasiūlymas konsoliduoja dabartinę {platform} aplinką ({hosts} prieglobos serverių, {vms} aktyvių VM, {used_tb} TB naudojama) į Scale Computing HyperCore klasterį. Rekomenduojame {nodes} {model} klasterį, teikiantį {usable_tb} TB naudojamos talpos ir {cores} CPU branduolius, suprojektuotą N-1 atsparumui, kad visas mazgas galėtų sugesti nepertraukiant paslaugos. Konfigūracija sugeria {years} metų augimą po {growth}% per metus skaičiavimui ir {storage}% saugyklai, išlaikydama {ratio}:1 vCPU ir branduolio santykį."
 }

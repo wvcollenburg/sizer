@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/solmu",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} ydintä · {ram}"
+  "export.docx.reserved_val": "{cores} ydintä · {ram}",
+  "export.pptx.growth_rate_split_value": "Laskenta {compute} % · Tallennus {storage} % vuodessa",
+  "export.pptx.growth_factor_split_value": "Laskenta {compute}x · Tallennus {storage}x yli {years} vuoden",
+  "export.pptx.projection_subtitle_split": "{growth} % laskennan / {storage} % tallennuksen vuotuinen kasvu  —  {snapshot} % tilannevedosten yleiskustannus  —  CPU-mitoitus: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "Kasvu seuraa kunkin suojatun kohteen mitoitusta  —  Kasvukerroin: {factor}x  —  CPU-mitoitus: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth} % laskennan vuotuinen kasvu, {storage} % tallennuksen vuotuinen kasvu, {snapshot} % tilannevedosten yleiskustannus (kasvukerroin {factor}× laskenta, {storage_factor}× tallennus).",
+  "export.docx.dr_growth_sources": "Replikat kasvavat kunkin suojatun kohteen omien mitoitusasetusten mukaan: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} {growth} % vuodessa {years} vuoden ajan (tallennus {storage} %, tilannevedos {snapshot} %)",
+  "export.docx.dr_growth_follows": "Replikat kasvavat kunkin suojatun kohteen omien mitoitusasetusten mukaan.",
+  "export.docx.mgmt_overview_intro_split": "Tämä ehdotus yhdistää nykyisen {platform}-ympäristön ({hosts} isäntää, {vms} aktiivista VM:ää, {used_tb} TB käytössä) Scale Computing HyperCore -klusteriin. Suosittelemme {nodes} {model} -klusteria, joka tarjoaa {usable_tb} TB käytettävissä olevaa kapasiteettia ja {cores} CPU-ydintä, suunniteltuna N-1-vikasietoisuudelle, jotta kokonainen solmu voi vikaantua ilman palvelukatkoa. Kokoonpano sisällyttää {years} vuoden kasvun laskennan {growth} %:n ja tallennuksen {storage} %:n vuosivauhdilla säilyttäen samalla {ratio}:1 vCPU:ydin-suhteen."
 }

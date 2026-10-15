@@ -275,5 +275,14 @@
   "export.common.license_kind_pe": "Professional Essentials",
   "export.common.license_short_per_node": "{cores}C/nó",
   "export.common.license_short_essentials": "Essentials",
-  "export.docx.reserved_val": "{cores} núcleos · {ram}"
+  "export.docx.reserved_val": "{cores} núcleos · {ram}",
+  "export.pptx.growth_rate_split_value": "Computação {compute}% · Armazenamento {storage}% ao ano",
+  "export.pptx.growth_factor_split_value": "Computação {compute}x · Armazenamento {storage}x ao longo de {years} anos",
+  "export.pptx.projection_subtitle_split": "{growth}% de crescimento anual de computação / {storage}% de armazenamento  —  {snapshot}% de sobrecarga de snapshot  —  Sizing de CPU: {cpu_basis}",
+  "export.pptx.projection_subtitle_dr": "O crescimento segue o dimensionamento de cada site protegido  —  Fator de crescimento: {factor}x  —  Sizing de CPU: {cpu_basis}",
+  "export.docx.capacity_planning_intro_split": "{growth}% de crescimento anual de computação, {storage}% de armazenamento, {snapshot}% de sobrecarga de snapshot (fator de crescimento {factor}× computação, {storage_factor}× armazenamento).",
+  "export.docx.dr_growth_sources": "As réplicas crescem segundo as opções de dimensionamento de cada site protegido: {sources}.",
+  "export.docx.dr_growth_source_item": "{name} a {growth}% ao ano durante {years} anos (armazenamento {storage}%, snapshot {snapshot}%)",
+  "export.docx.dr_growth_follows": "As réplicas crescem segundo as opções de dimensionamento de cada site protegido.",
+  "export.docx.mgmt_overview_intro_split": "Esta proposta consolida o ambiente {platform} atual ({hosts} hosts, {vms} VMs ativas, {used_tb} TB em uso) em um cluster Scale Computing HyperCore. Recomendamos um cluster de {nodes} {model} que entrega {usable_tb} TB de capacidade utilizável e {cores} núcleos de CPU, projetado para resiliência N-1, de modo que um nó completo possa falhar sem interrupção do serviço. A configuração absorve o crescimento de {years} anos a {growth}% ao ano para computação e {storage}% para armazenamento, mantendo uma proporção de {ratio}:1 vCPU para núcleo."
 }

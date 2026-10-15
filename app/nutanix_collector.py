@@ -1,7 +1,7 @@
 from openpyxl import load_workbook
 from xlsx_utils import (sheet_rows as _sheet_rows, to_float as _float,
                         to_int as _int)
-from parser_common import build_summary as _build_summary
+from parser_common import build_summary as _build_summary, vm_identity
 from cluster_split import cluster_summaries as _cluster_summaries
 
 
@@ -184,6 +184,8 @@ def _parse_vms(wb):
             "datastore": r.get("Datastore", "") or "",
             "host": host,
             "cluster": r.get("Cluster Name", ""),
+            # Column names not confirmed on a real export: read if present.
+            **vm_identity(r, ("VM UUID", "Instance UUID", "UUID"), ("BIOS UUID",)),
         })
     return vms, host_iops
 

@@ -252,6 +252,10 @@ class Configuration(db.Model):
             "updated_at": _iso(self.updated_at),
             "source": source,
             "can_delete": can_delete,
+            # Mirrors the PUT rule (owner or super admin): what the client may
+            # write back without a 403, e.g. dismissing a one-time notice.
+            "can_edit": bool(current_user and (
+                current_user.is_super_admin or self.owner_id == current_user.id)),
             "project_id": self.project_id,
             "position": self.position,
             "role": self.role,

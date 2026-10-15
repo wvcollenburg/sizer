@@ -170,3 +170,15 @@ def test_project_screens_are_present_and_scripted():
                    'id="new-project-modal"', 'id="sizing-modal"',
                    'id="project-settings-modal"', "js/projects.js"):
         assert marker in html, f"index.html is missing {marker}"
+
+
+def test_storage_growth_toggle_is_wired_and_saved():
+    """The separate-storage-growth checkbox calls a defined handler, and both
+    of its fields are in the shared sizing fields (saved and restored)."""
+    html = _read(os.path.join(TEMPLATES, "index.html"))
+    app_js = _read(os.path.join(JS_DIR, "app.js"))
+    assert 'id="separate-storage-growth" data-change=\'["toggleStorageGrowth"]\'' in html
+    assert 'id="storage-growth-pct"' in html
+    assert "toggleStorageGrowth" in _defined_handlers({"app.js": app_js})
+    shared = re.search(r"const _SHARED_SIZING_FIELDS = \[(.*?)\];", app_js, re.S).group(1)
+    assert "'separate-storage-growth'" in shared and "'storage-growth-pct'" in shared

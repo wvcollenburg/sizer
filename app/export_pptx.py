@@ -1026,11 +1026,26 @@ def _slide_projection(prs, s, r, p, t=None, lang="en"):
     slide = _add_slide(prs)
     full_cluster = r.get("sized_full_cluster", False)
     cpu_basis = t("export.pptx.cpu_basis_full") if full_cluster else "N-1"
+    # Storage may grow at its own rate. Projections stored before that carry
+    # one rate only, so every new key falls back to the compute figure.
+    split = bool(p.get("separate_storage_growth"))
+    s_pct = p.get("storage_growth_pct", p['growth_pct'])
+    s_factor = p.get("storage_growth_factor", p['growth_factor'])
+    if p.get("pregrown"):
+        # A DR target: each inbound link was grown at its own source's rates,
+        # so there is no single growth rate to quote.
+        subtitle = t("export.pptx.projection_subtitle_dr",
+                     factor=p['growth_factor'], cpu_basis=cpu_basis)
+    elif split:
+        subtitle = t("export.pptx.projection_subtitle_split",
+                     growth=p['growth_pct'], storage=s_pct,
+                     snapshot=p['snapshot_pct'], cpu_basis=cpu_basis)
+    else:
+        subtitle = t("export.pptx.projection_subtitle",
+                     growth=p['growth_pct'], snapshot=p['snapshot_pct'],
+                     factor=p['growth_factor'], cpu_basis=cpu_basis)
     _add_title(slide, t("export.pptx.capacity_planning", years=p['years']),
-               t("export.pptx.projection_subtitle",
-                 growth=p['growth_pct'], snapshot=p['snapshot_pct'],
-                 factor=p['growth_factor'], cpu_basis=cpu_basis),
-               lang=lang)
+               subtitle, lang=lang)
 
     n1 = r["n_minus_1"]
 
@@ -1070,8 +1085,13 @@ def _slide_projection(prs, s, r, p, t=None, lang="en"):
 
     y = 4.9
     params = [
-        (t("export.pptx.growth_rate"), t("export.pptx.growth_rate_value", pct=p['growth_pct'])),
+        (t("export.pptx.growth_rate"),
+         t("export.pptx.growth_rate_split_value", compute=p['growth_pct'], storage=s_pct)
+         if split else t("export.pptx.growth_rate_value", pct=p['growth_pct'])),
         (t("export.pptx.growth_factor"),
+         t("export.pptx.growth_factor_split_value", compute=p['growth_factor'],
+           storage=s_factor, years=p['years'])
+         if split else
          t("export.pptx.growth_factor_value", factor=p['growth_factor'], years=p['years'])),
         (t("export.pptx.snapshot_overhead"),
          t("export.pptx.snapshot_overhead_value", base=p['snapshot_pct'],

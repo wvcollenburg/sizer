@@ -172,12 +172,17 @@
         var after = $('wiz-after-2');
         if (!after) return;
         var w = window._wizImportWarnings || [];
-        if (!w.length) { after.innerHTML = ''; return; }
+        // More files for this site (plan B): the classic header button is not
+        // portaled into the wizard, so the step carries its own.
+        var add = '<div class="wiz-env-actions"><button class="btn btn-sm btn-muted" ' +
+            'data-click=\'["startAppendFiles"]\'>' + esc(t('merge.add_files')) + '</button></div>';
+        if (!w.length) { after.innerHTML = add; return; }
         // Each item is {code, params} from import_checks.py; translate here.
-        after.innerHTML = '<div class="wiz-caveats"><div class="wiz-caveats-title">' +
+        after.innerHTML = add + '<div class="wiz-caveats"><div class="wiz-caveats-title">' +
             esc(t('wizard.env.caveats')) + '</div><ul>' +
             w.map(function (m) {
-                var txt = m && m.code ? t('wizard.warn.' + m.code, m.params || {}) : String(m);
+                var txt = window.importWarningText ? window.importWarningText(m)
+                    : (m && m.code ? t('wizard.warn.' + m.code, m.params || {}) : String(m));
                 return '<li>' + esc(txt) + '</li>';
             }).join('') + '</ul></div>';
     }
