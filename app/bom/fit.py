@@ -33,7 +33,7 @@ resolution skips the catalog table) so tests and background jobs can run it
 without an app context. Python 3.9-compatible.
 """
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from tunables import T
 from recommend import (_cluster_layout, _cluster_usable_storage,

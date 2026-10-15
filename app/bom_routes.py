@@ -21,7 +21,6 @@ import hashlib
 import io
 import os
 import tempfile
-from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
 
@@ -579,6 +578,7 @@ def list_reviews():
 @bom_admin_bp.route("/agent-settings", methods=["GET"])
 def get_agent_settings():
     from auth import get_setting
+    from bom import pdf_certainty
     return jsonify({
         "available": agent_ingest.available(),
         "model": agent_ingest.model_name() if agent_ingest.available() else None,
@@ -586,13 +586,8 @@ def get_agent_settings():
         "tenant_daily_cap": _cap(AGENT_TENANT_CAP_SETTING),
         "global_daily_cap": _cap(AGENT_GLOBAL_CAP_SETTING),
         "user_hourly_limit": AGENT_JOBS_PER_USER_HOUR,
-        "pdf_threshold": _pdf_threshold(),
+        "pdf_threshold": pdf_certainty.threshold(),
     })
-
-
-def _pdf_threshold():
-    from bom import pdf_certainty
-    return pdf_certainty.threshold()
 
 
 @bom_admin_bp.route("/agent-settings", methods=["PUT"])

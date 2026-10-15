@@ -35,13 +35,8 @@
 
     function lastStep() { return PANES; }
 
-    function t(k, vars) { return window.t ? window.t(k, vars) : k; }
-    function esc(s) {
-        if (window.esc) return window.esc(s);
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
+    var t = window.t;       // i18n.js loads in <head>
+    var esc = window.esc;   // app.js loads before wizard.js
     function $(id) { return document.getElementById(id); }
     function qs(sel) { return document.querySelector(sel); }
 

@@ -22,8 +22,6 @@ from typing import Any, Dict, List, Optional
 
 VENDORS = ('Dell', 'Lenovo', 'Supermicro', 'HPE', 'Unknown')
 CATEGORIES = ('cpu', 'memory', 'storage', 'controller', 'nic', 'chassis', 'boss', 'gpu', 'other')
-SEVERITIES = ('error', 'warning', 'info')
-VERDICTS = ('PASS', 'FAIL', 'INCONCLUSIVE')
 
 # Vendor part numbers sometimes carry a "-P" suffix (Dell "405-AAXX-P" style
 # packaging variants) that the HCL lists without. Same regex as the source.
@@ -36,9 +34,6 @@ def normalize_part(part: str) -> str:
 
 
 # ─── lenient dict access ──────────────────────────────────────────────────────
-
-_MISSING = object()
-
 
 def _pick(d: Dict[str, Any], *keys: str, default: Any = None) -> Any:
     """First present key wins; lets callers hand us camelCase or snake_case."""

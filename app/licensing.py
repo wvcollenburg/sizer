@@ -33,11 +33,6 @@ EDITION_NAMES = {
     EDITION_VIDEO: "Video Surveillance",
 }
 
-# BRS and Video Surveillance are deferred (§6) — too niche for the first build.
-# Their bands are still parsed and stored so the tables are current whenever the
-# profiles are picked up; nothing in the engine offers them.
-SELECTABLE_EDITIONS = (EDITION_STANDARD,)
-
 # Support tiers. Only Standard carries a Premium ladder; BRS and Video are
 # SS-only. The plan fixes scoring on Standard Support (§5.3).
 SUPPORT_STANDARD = "SS"

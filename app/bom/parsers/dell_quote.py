@@ -143,7 +143,7 @@ def parse_quote(path: str) -> NormalizedBOM:
             continue
         if not a or cur is None:
             continue                                  # delivery date, contract, subtotal rows
-        if not (DELL_SKU.match(a) or re.match(r'^\d{3}-\d{4}$', a)):
+        if not DELL_SKU.match(a):
             continue
         if a.startswith('210-') and cur['model'] is None:
             cur['model'] = _model_from_server_line(c)

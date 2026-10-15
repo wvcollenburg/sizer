@@ -41,7 +41,7 @@ from database import db
 from extensions import limiter
 from hcl_models import (
     HclComponent, HclDevice, HclPendingChange, HclPlatform, HclScrapeRun,
-    ORIGIN_PREVIEW, PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING,
+    PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING,
     STATUS_ACTIVE, STATUS_DELISTED,
 )
 

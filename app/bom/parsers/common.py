@@ -42,9 +42,7 @@ from xlsx_utils import MAX_SHEET_COLS, MAX_SHEET_ROWS, SheetTooLargeError
 # ─── identifiers ─────────────────────────────────────────────────────────────
 
 DELL_SKU = re.compile(r'^\d{3}-[A-Z0-9]{4}$')          # 405-AAZF, 892-9155
-LENOVO_FC = re.compile(r'^[0-9A-Z]{4}$')                # C3QL, BM50, 5977, 6400
 LENOVO_CTO = re.compile(r'^7[0-9A-Z]{3}CTO\d+WW$')      # 7DGDCTO1WW, 7D73CTO3WW
-DELL_PIECE = re.compile(r'^[0-9A-Z]{5}$')               # DMF5Y, 08123
 
 # A leading "8x " / "4 X " multiplier on a hand-typed description.
 NX_PREFIX = re.compile(r'^(\d+)\s*[xX]\s+(.*)$')
@@ -251,12 +249,6 @@ def raw(rows: Sequence[Tuple], r: int, c: int) -> Any:
     if c < 1 or c > len(row):
         return None
     return row[c - 1]
-
-
-def row_is_blank(rows: Sequence[Tuple], r: int) -> bool:
-    if r < 1 or r > len(rows):
-        return True
-    return all(s(v) == '' for v in rows[r - 1])
 
 
 def raw_text_from_rows(rows: Sequence[Tuple], limit: int = 60000) -> str:

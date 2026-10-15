@@ -25,7 +25,7 @@ system with its quantity, which must match the group; the group line's unit
 price x quantity must equal its subtotal.
 """
 import re
-from typing import List, Optional
+from typing import Optional
 
 from bom.normalize import BOMConfig, NormalizedBOM
 from bom.parsers.common import categorize, server_model_from_text, should_drop

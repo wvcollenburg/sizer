@@ -324,7 +324,6 @@ def render_util_bars(rows, limiting_key="", any_ha=True, lang="en"):
           f_title, TEXT, anchor="lm")
     any_rep = any(r.get("rep", 0) > 0 for r in rows)
     any_snap = any(r.get("snap", 0) > 0 for r in rows)
-    lx = W - pad
     legend = [("now", t("export.gauge.legend_now"))]
     if any_snap:
         legend.append(("snapshot", t("export.gauge.legend_snapshot")))

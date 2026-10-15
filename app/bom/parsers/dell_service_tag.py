@@ -27,7 +27,6 @@ from typing import Dict, List, Optional, Tuple
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
 from bom.parsers.common import (
-    DELL_PIECE,
     categorize,
     cell,
     dewrap_dell,

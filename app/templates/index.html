@@ -980,11 +980,9 @@
         decisions taken based on its output. Always validate results before relying on them.</span>
     </div>
 
-    <!-- Multi-cluster fan-out chooser: one sizing per source cluster (default)
-         or a single combined consolidation sizing. -->
-    <!-- Import mapping: several files and/or several source clusters become
-         one or more target clusters (plan B). Same id and Create handler as
-         the per-cluster fan-out it replaces. -->
+    <!-- Import-mapping dialog: each imported file / source cluster is a row,
+         and every row is assigned to a target cluster. Rows that share a target
+         are sized together; each target becomes one sizing. -->
     <div class="modal-overlay" id="cluster-fanout-modal" style="display:none">
         <div class="modal-content merge-modal">
             <div class="modal-header">

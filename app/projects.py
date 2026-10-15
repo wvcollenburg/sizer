@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
 from auth import current_user, login_required
-from auth_models import Configuration, ScaleConfigLink, _utcnow
+from auth_models import Configuration, _utcnow
 from database import db
 import export_override
 from hcl_vendor import rec_display_model
@@ -1626,7 +1626,6 @@ def dr_recommend(config_id):
         except (TypeError, ValueError):
             return default
 
-    from i18n import SUPPORTED_LANGS  # noqa: F401 (kept parallel to other routes)
     sizing_mode = "validated" if data.get("sizing_mode") == "validated" else "certified"
     target_model = (data.get("target_model") or "").strip() or None
 

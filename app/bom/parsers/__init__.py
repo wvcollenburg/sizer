@@ -14,8 +14,9 @@ signatures come first: our own template marker, then the Lenovo DCSC title
 cell, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
 header AND a 'Quote number:' cell), the D&H bid sheet, the VNET module
 export, the Dell solution export (grouped module/option rows, localised
-headers), and finally the three hand-typed Dell list layouts. Anything else —
-including a PDF — raises UnrecognizedFormat with a hint for the UI.
+headers), and finally the three hand-typed Dell list layouts. Anything else
+raises UnrecognizedFormat with a hint for the UI; PDFs take their own ladder
+through ``read_pdf``, which also scores how far the parse can be trusted.
 
 Both files types are checked by magic before openpyxl/csv see them: an xlsx
 must be a ZIP ('PK\\x03\\x04') and a CSV must decode as UTF-8 or latin-1

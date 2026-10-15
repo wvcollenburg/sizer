@@ -50,7 +50,6 @@ MID_GRAY = _c(_p.TEXT_MUTED)
 GREEN = _c(_p.TEMPLATE_GREEN)         # accent4
 RED = _c(_p.RED)                      # semantic warning (no template red)
 ORANGE = _c(_p.TEMPLATE_ORANGE)       # accent6
-BORDER_SUBTLE = _c(_p.BORDER)
 CARD_BG = _c(_p.SURFACE_3)
 CARD_BORDER = _c(_p.BORDER)
 
@@ -281,16 +280,6 @@ def generate_bundle_proposal(clusters, lang="en"):
         _slide_network(prs, r, t, lang)
         _slide_projection(prs, s, r, p, t, lang)
 
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
-
-
-def generate_config_slide(result, lang="en"):
-    t = translator(lang)
-    prs = _new_deck()
-    _slides_config(prs, result, t, lang)
     buf = io.BytesIO()
     prs.save(buf)
     buf.seek(0)
@@ -759,9 +748,7 @@ def _slide_workload(prs, s, t, lang="en"):
 
 # ── Slide 3: Proposed Configuration ──────────────────────────────────────────
 
-def _slide_proposal(prs, r, projection=None, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_proposal(prs, r, projection, t, lang="en"):
     slide = _add_slide(prs)
 
     num_cl = r.get("num_clusters", 1)
@@ -902,9 +889,7 @@ def _add_textbox(slide, left, top, width, height, lines, lang="en"):
 
 # ── Sizing rationale: utilization bars + how the node count was reached ──────
 
-def _slide_sizing(prs, r, s, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_sizing(prs, r, s, t, lang="en"):
     u = r.get("utilization")
     if not u:
         return
@@ -969,9 +954,7 @@ def _slide_sizing(prs, r, s, t=None, lang="en"):
 
 # ── Benchmark performance: current environment vs recommended cluster ────────
 
-def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_benchmark(prs, r, source_perf, t, lang="en"):
     tgt = (r.get("totals") or {}).get("perf_index")
     if not source_perf or not source_perf.get("total_specrate") or not tgt:
         return
@@ -1020,9 +1003,7 @@ def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────
 
-def _slide_projection(prs, s, r, p, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_projection(prs, s, r, p, t, lang="en"):
     slide = _add_slide(prs)
     full_cluster = r.get("sized_full_cluster", False)
     cpu_basis = t("export.pptx.cpu_basis_full") if full_cluster else "N-1"
@@ -1080,8 +1061,7 @@ def _slide_projection(prs, s, r, p, t=None, lang="en"):
          f"+{round(stor_headroom, 2)} TB"],
     ]
 
-    table_shape = _add_table(slide, 0.6, 2.6, 12.1, rows,
-                              [1.5, 2.2, 3.0, 3.0, 2.4])
+    _add_table(slide, 0.6, 2.6, 12.1, rows, [1.5, 2.2, 3.0, 3.0, 2.4])
 
     y = 4.9
     params = [

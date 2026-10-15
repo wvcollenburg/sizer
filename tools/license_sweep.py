@@ -40,7 +40,6 @@ os.environ.setdefault("ENABLE_SCHEDULER", "0")
 import app as appmod                      # noqa: E402
 from database import db                   # noqa: E402
 from tunables import refresh_from_db, T   # noqa: E402
-import licensing                          # noqa: E402
 import pricebook_import                   # noqa: E402
 from recommend import generate_recommendations  # noqa: E402
 

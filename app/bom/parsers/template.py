@@ -218,7 +218,6 @@ def _positive_int(value, label: str, row: int, errors: List[str], required: bool
 
 
 def parse_template(path: str) -> NormalizedBOM:
-    from bom.parsers import UnrecognizedFormat
     from bom.parsers.common import load_workbook_safe
     wb = load_workbook_safe(path)
     try:

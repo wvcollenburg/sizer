@@ -355,35 +355,6 @@ hr {
 .sub-header h3 { font-size: 0.9rem; color: var(--accent); }
 .sub-header h4 { font-size: 0.82rem; color: var(--text-muted); }
 
-.sub-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-}
-
-.sub-table th {
-    background: var(--surface2);
-    font-weight: 600;
-    text-align: left;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--text-muted);
-}
-
-.sub-table td {
-    padding: 0.3rem 0.5rem;
-    border-top: 1px solid var(--surface2);
-}
-
-.sub-table input {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.82rem;
-}
-
 .chip-list {
     display: flex;
     flex-wrap: wrap;
@@ -525,11 +496,6 @@ hr {
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
-}
-
-.picker-select {
-    flex: 1;
-    min-width: 0;
 }
 
 /* Drive picker modal: compact checkbox grid, stacked above the model editor. */

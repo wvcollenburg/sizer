@@ -25,7 +25,6 @@ document itself: the option prices of a group add up to its Unit Price, and
 Unit Price x Quantity is its Extended Price. A missed or misread row breaks
 the first; both feed the certainty score.
 """
-import re
 from typing import List, Optional
 
 from bom.normalize import NormalizedBOM
@@ -130,7 +129,6 @@ def parse(doc):
             cur.product = ('%s %s' % (cur.product, text)).strip()
             continue
         if _starts(low, _PRODUCT_NAME) and 'skus' in low:
-            qty_x = line.words[1].x0 if len(line.words) > 1 else None
             xs = [w.x0 for w in line.words]
             # Product Name | Qty | <price> | <option id> | SKUs, in that order.
             sku_x = first_word_x(line, 'SKUs')

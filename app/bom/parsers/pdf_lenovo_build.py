@@ -26,7 +26,7 @@ section headers agree; the base server row's quantity is the host count;
 summary line's CPU / DIMM / drive counts per host match the parsed rows.
 """
 import re
-from typing import List, Optional
+from typing import List
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
 from bom.parsers.common import categorize, is_m2_media, server_model_from_text

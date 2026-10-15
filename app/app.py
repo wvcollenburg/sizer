@@ -31,8 +31,7 @@ from tunables import T, refresh_from_db
 # per-cluster-sizing restructure.
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
-from calc import (calculate_appliance, calculate_validated, MAX_STORAGE_ONLY_COUNT,
-                  SNS_NO_REDUNDANCY_MSG)
+from calc import calculate_appliance, calculate_validated
 from fingerprint import PARSER_VERSION
 
 # Upper bounds on client-supplied sizing counts. The recommendation engine is

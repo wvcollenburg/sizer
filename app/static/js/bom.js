@@ -54,7 +54,7 @@
     const KNOWN_DIMS = ['nodes', 'cores', 'compute', 'ram', 'largest_vm', 'storage', 'nic'];
     const UNIT_KEYS = { nodes: 'nodes', cores: 'cores', GB: 'gb', TB: 'tb', GbE: 'gbe', '%': 'pct' };
 
-    function t(key, vars) { return window.t ? window.t(key, vars) : key; }
+    const t = window.t;   // i18n.js loads in <head>
 
     function $(id) { return document.getElementById(id); }
 

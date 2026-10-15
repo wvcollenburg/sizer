@@ -230,7 +230,7 @@ class Shooter:
         self.page.wait_for_timeout(2500)
 
     def stage_import_fanout(self):
-        p = self.login(USER)
+        self.login(USER)
         self.open_new_sizing()
         self.shot("sizer-appliance-empty")
         self.click("requestSwitchMode", "import", wait=800)
@@ -314,7 +314,7 @@ class Shooter:
     def stage_populate(self):
         """The rest of the demo project: sized rows, an alternative, a DR
         target and a replication link."""
-        p = self.login(USER)
+        self.login(USER)
         self.size_imported("Production")
         self.size_imported("Test-Dev")
         pid = self.project
@@ -431,7 +431,7 @@ class Shooter:
         self.shot("export-downloads", self.modal("exports-modal"))
 
     def stage_dr(self):
-        p = self.login(USER)
+        self.login(USER)
         self.open_sizing("DR site", settle=3500)
         self.shot("dr-target", "#dr-target-form", pad=12)
 
@@ -497,7 +497,7 @@ class Shooter:
         self.shot("project-bom-list", "#project-bom-checks", pad=10)
 
     def stage_account(self):
-        p = self.login(USER)
+        self.login(USER)
         self.goto("/", settle=1500)
         self.shot("header", "header", pad=0)
         self.click("openSizingsModal", wait=1200)

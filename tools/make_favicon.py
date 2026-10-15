@@ -11,8 +11,6 @@ Writes into app/static/img/:
     favicon.ico           16/32/48, for the browser's default /favicon.ico
     favicon-32.png        explicit PNG for the <link> tag
     apple-touch-icon.png  180px, iOS home screen
-    icon-192.png          Android / PWA
-    icon-512.png          large tile + a source for any future resizing
 
 The mark: a blue gradient disc carrying the two SC// slashes in white.
 """
@@ -110,8 +108,7 @@ def main():
 
     write_svg(os.path.join(OUT, "favicon.svg"))
 
-    for name, px in (("favicon-32.png", 32), ("apple-touch-icon.png", 180),
-                     ("icon-192.png", 192), ("icon-512.png", 512)):
+    for name, px in (("favicon-32.png", 32), ("apple-touch-icon.png", 180)):
         master.resize((px, px), Image.LANCZOS).save(os.path.join(OUT, name))
 
     # Multi-resolution .ico: browsers pick the size they need, and the small

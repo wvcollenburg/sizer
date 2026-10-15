@@ -11,7 +11,6 @@ let selectedDrives = [];
 
 let catalogModalType = null;
 let catalogModalId = null;
-let catalogModalCallback = null;
 
 // Translate-or-fallback: use a translation when the key exists in the loaded
 // dictionaries (active locale or the English base), otherwise fall back to the
@@ -457,10 +456,9 @@ function renderDriveCatalog() {
 
 // ── Catalog CRUD ───────────────────────────────────────────────────────────
 
-function openAddCatalogItem(type, fromModelEditor = false) {
+function openAddCatalogItem(type) {
     catalogModalType = type;
     catalogModalId = null;
-    catalogModalCallback = fromModelEditor ? () => refreshPickersAfterCatalogChange(type) : null;
 
     const titles = { cpu: t('admin.catalog.add_cpu'), nic: t('admin.catalog.add_nic'), drive: t('admin.catalog.add_drive') };
     document.getElementById('catalog-modal-title').textContent = titles[type];
@@ -471,7 +469,6 @@ function openAddCatalogItem(type, fromModelEditor = false) {
 function openEditCatalogItem(type, id) {
     catalogModalType = type;
     catalogModalId = id;
-    catalogModalCallback = null;
 
     const catalog = { cpu: cpuCatalog, nic: nicCatalog, drive: driveCatalog }[type];
     const item = catalog.find(c => c.id === id);
@@ -530,7 +527,6 @@ function catalogFormHtml(type, item) {
 
 function closeCatalogModal() {
     document.getElementById('catalog-modal').style.display = 'none';
-    catalogModalCallback = null;
 }
 
 // Auto-fill benchmark scores for the CPU being added/edited, from the curated
@@ -618,7 +614,6 @@ async function saveCatalogItem() {
 
         closeCatalogModal();
         await loadCatalogs();
-        if (catalogModalCallback) catalogModalCallback();
     } catch (e) {
         alert(t('admin.msg.save_failed', {error: e.message}));
     }
@@ -862,11 +857,6 @@ async function applyPricebook() {
 }
 
 // ── Model Edit Modal ───────────────────────────────────────────────────────
-
-// CPU/NIC/drive selection now happens in on-demand modals built from the live
-// catalog arrays, which loadCatalogs() refreshes after any catalog edit — so
-// there are no standing picker controls left to repopulate here.
-function refreshPickersAfterCatalogChange(type) {}
 
 function openAddModel() {
     document.getElementById('edit-id').value = '';

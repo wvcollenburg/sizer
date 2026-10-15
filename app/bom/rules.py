@@ -34,8 +34,6 @@ from bom.normalize import (
     BOMConfig,
     ConfigResult,
     Finding,
-    NormalizedBOM,
-    ValidationResult,
     normalize_part,
 )
 
@@ -774,26 +772,3 @@ def determine_verdict(findings: List[Finding]) -> str:
     if any(any(i in f.issue for i in INCONCLUSIVE_ISSUES) for f in findings):
         return 'INCONCLUSIVE'
     return 'PASS'
-
-
-# ─── main entry point ─────────────────────────────────────────────────────────
-
-
-def validate_bom(bom: NormalizedBOM, hcl: HclData,
-                 form_factor: Optional[str] = None) -> ValidationResult:
-    """Validate every hardware-bearing config; a BOM with none (services-only
-    quote, or a parser that found nothing) is INCONCLUSIVE, never PASS."""
-    config_results = [
-        validate_config(config, bom.vendor, hcl, form_factor=form_factor)
-        for config in bom.configs if is_hardware_config(config)
-    ]
-
-    verdict = 'PASS'
-    if len(config_results) == 0:
-        verdict = 'INCONCLUSIVE'
-    elif any(r.verdict == 'FAIL' for r in config_results):
-        verdict = 'FAIL'
-    elif any(r.verdict == 'INCONCLUSIVE' for r in config_results):
-        verdict = 'INCONCLUSIVE'
-
-    return ValidationResult(verdict=verdict, config_results=config_results)

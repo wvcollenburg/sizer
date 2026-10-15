@@ -43,7 +43,6 @@ from bom.parsers.common import (
     head_rows,
     is_absence,
     raw_text_from_rows,
-    s,
     server_model_from_text,
     sheet_matrix,
     should_drop,

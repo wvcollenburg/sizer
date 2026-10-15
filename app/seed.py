@@ -14,7 +14,7 @@ from orm_models import (
     ValidatedNic, Switch, DriveTypeIops, SizingSetting,
 )
 # Imported so db.create_all() discovers the auth/multitenancy tables.
-from auth_models import (
+from auth_models import (  # noqa: F401
     Tenant, User, Configuration, AppSetting, AdminAuditLog, PiiErasure,
     ROLE_SUPER_ADMIN,
 )

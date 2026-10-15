@@ -25,7 +25,6 @@ totals add up to the Sub-Total. Visible item-like lines under the table
 (the Arrow template carries three stale ones) are recorded as stray.
 """
 import re
-from typing import List, Optional
 
 from bom.normalize import NormalizedBOM
 from bom.parsers.dell_solution import _Group, add_option

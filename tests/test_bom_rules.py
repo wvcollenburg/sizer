@@ -55,7 +55,6 @@ from bom.rules import (  # noqa: E402
     is_sed_drive,
     is_ssd,
     parse_dwpd,
-    validate_bom,
     validate_config,
 )
 
@@ -158,6 +157,24 @@ def make_bom(components, vendor="Dell", server_model=None):
 
 
 EMPTY_HCL = HclData(blocked_vendors=["hpe"])
+
+
+def validate_bom(bom, hcl, form_factor=None):
+    """The orchestration bom.check does, minus enrichment: every hardware
+    config through validate_config, the BOM verdict from the configs' own."""
+    results = [validate_config(c, bom.vendor, hcl, form_factor=form_factor)
+               for c in bom.configs if is_hardware_config(c)]
+    for r in results:
+        r.verdict = determine_verdict(r.findings)
+    if not results:
+        verdict = "INCONCLUSIVE"
+    elif any(r.verdict == "FAIL" for r in results):
+        verdict = "FAIL"
+    elif any(r.verdict == "INCONCLUSIVE" for r in results):
+        verdict = "INCONCLUSIVE"
+    else:
+        verdict = "PASS"
+    return ValidationResult(verdict=verdict, config_results=results)
 
 VALID_NIC = comp("nic", "Intel X710 10GbE", "X710-DA2")
 VALID_CPU = comp("cpu", "Intel Xeon Gold 6338")

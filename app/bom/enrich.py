@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 
 from bom.normalize import BOMComponent, BOMConfig, ConfigResult, Finding, normalize_part
 from bom.hcl_scrape import component_attrs
-from hcl_models import (HclComponent, HclPlatform, HclPlatformComponent, ORIGIN_PREVIEW,
+from hcl_models import (HclComponent, HclPlatform, ORIGIN_PREVIEW,
                         STATUS_ACTIVE, STATUS_DELISTED)
 
 # finding code -> component kind in the catalog

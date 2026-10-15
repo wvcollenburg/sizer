@@ -35,7 +35,6 @@ from bom.parsers.common import (
     is_m2_media,
     raw,
     raw_text_from_rows,
-    s,
     server_model_from_text,
     sheet_matrix,
     should_drop,
@@ -123,8 +122,7 @@ def _is_machine(block: dict, has_part_col: bool = True) -> bool:
     return not block['sku'] and ' : ' in block['title'] and titled
 
 
-def _components(child_rows, drop_m2: bool = True,
-                has_part_col: bool = True) -> List[BOMComponent]:
+def _components(child_rows, has_part_col: bool = True) -> List[BOMComponent]:
     """Child rows → components, duplicates summed per feature code (the
     Frazier export lists 'C1YK … OCP Cable Kit' twice). The description-only
     export has no feature codes at all, so there the description is the dedup
@@ -138,7 +136,7 @@ def _components(child_rows, drop_m2: bool = True,
         if has_part_col and not fc:
             continue
         cat = categorize(desc)
-        if cat == 'storage' and drop_m2 and is_m2_media(desc):
+        if cat == 'storage' and is_m2_media(desc):
             cat = 'other'
         q = to_int(qty, default=1)
         key = fc if fc else desc

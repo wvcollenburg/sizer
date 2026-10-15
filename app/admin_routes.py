@@ -706,33 +706,6 @@ def export_models():
 
 
 
-# ── Import from Excel ────────────────────────────────────────────────────────
-
-@admin_bp.route("/api/import-models", methods=["POST"])
-def import_models():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    f = request.files["file"]
-    if not f.filename or not f.filename.endswith(".xlsx"):
-        return jsonify({"error": "File must be .xlsx"}), 400
-
-    mode = request.form.get("mode", "add")
-
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-    try:
-        f.save(tmp.name)
-        tmp.close()
-        result = _import_from_excel(tmp.name, mode)
-        return jsonify(result)
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.exception("Model import failed: %s", e)
-        return jsonify({"error": "Import failed. Check the file matches the template format."}), 400
-    finally:
-        os.unlink(tmp.name)
-
-
 # ── Catalog import (CPUs / NICs / Drives in one file) ───────────────────────
 
 @admin_bp.route("/api/import-catalog", methods=["POST"])
@@ -1322,91 +1295,6 @@ def _add_storage(model, storage):
             db.session.add(StorageConfigDrive(
                 storage_config_id=sc.id, drive_id=drive.id,
             ))
-
-
-def _import_from_excel(file_path, mode):
-    from openpyxl import load_workbook
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-
-    model_rows = _sheet_rows(wb, "Models")
-    cpu_rows = _sheet_rows(wb, "CPU Options")
-    ram_rows = _sheet_rows(wb, "RAM Options")
-    stor_rows = _sheet_rows(wb, "Storage")
-    drv_rows = _sheet_rows(wb, "Drive Options")
-    nic_rows = _sheet_rows(wb, "NIC Options")
-    wb.close()
-
-    if not model_rows:
-        return {"error": "No models found in the 'Models' sheet"}
-
-    cpus_by_model, ram_by_model, stor_by_model, drives_by_model, nics_by_model = \
-        _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows)
-
-    created = 0
-    updated = 0
-    skipped = []
-
-    for r in model_rows:
-        name = str(r.get("Name", "")).strip()
-        if not name:
-            continue
-
-        existing = Model.query.filter_by(name=name).first()
-
-        if existing and mode == "add":
-            skipped.append(name)
-            continue
-
-        storage_data = stor_by_model.get(name, {})
-        drives = drives_by_model.get(name, [])
-        for drv in drives:
-            key = f"{drv['type'].lower()}_options_tb"
-            storage_data.setdefault(key, []).append(drv["size_tb"])
-
-        model_data = {
-            "name": name,
-            "status": str(r.get("Status", "Active")).strip(),
-            "category": str(r.get("Category", "")).strip(),
-            "form_factor": str(r.get("Form Factor", "") or "").strip() or None,
-            "chassis": str(r.get("Chassis", "") or "").strip() or None,
-            "socket": str(r.get("Socket", "single") or "single").strip(),
-            "psu": str(r.get("PSU", "") or "").strip() or None,
-            "ram_slots": int(r.get("RAM Slots", 0) or 0),
-            "min_nodes": int(r.get("Min Nodes", 1) or 1),
-            # Both are written by export_models(); reading them back was missed,
-            # so every imported model silently fell back to cost_tier 5.0 and
-            # validated_only False — and cost_tier feeds the ranker.
-            "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
-            "validated_only": str(r.get("Validated Only", "")).strip().lower()
-                              in ("yes", "true", "1"),
-            "vendor": _clean_vendor(r.get("Vendor")),
-            "exclude_from_recommendations": str(
-                r.get("Exclude From Recommendations", "")).strip().lower()
-                in ("yes", "true", "1"),
-            "notes": str(r.get("Notes", "") or "").strip() or None,
-            "cpu_options": cpus_by_model.get(name, []),
-            "ram_options_gb": ram_by_model.get(name, []),
-            "storage": storage_data,
-            "nic_options": nics_by_model.get(name, []),
-        }
-
-        if existing and mode == "replace":
-            db.session.delete(existing)
-            db.session.flush()
-            _build_model(model_data)
-            updated += 1
-        else:
-            _build_model(model_data)
-            created += 1
-
-    db.session.commit()
-
-    return {
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-        "total_in_file": len(model_rows),
-    }
 
 
 # ── Licence pricebook (§4.4: upload -> diff -> apply, all over HTTP) ─────────

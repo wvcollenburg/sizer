@@ -170,7 +170,7 @@ def api_key() -> Optional[str]:
 
 
 def model_name() -> str:
-    return os.environ.get("BOM_AGENT_MODEL") or os.environ.get("BOM_PREFILL_MODEL") or DEFAULT_MODEL
+    return os.environ.get("BOM_AGENT_MODEL") or DEFAULT_MODEL
 
 
 def sdk_available() -> bool:

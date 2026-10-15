@@ -21,9 +21,7 @@ let panelSizing = null;         // the sizing whose panel is open
 const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-function tt(key, vars) {
-    return (window.t ? window.t(key, vars) : key);
-}
+const tt = window.t;   // i18n.js loads in <head>
 
 async function api(url, opts) {
     const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts || {}));

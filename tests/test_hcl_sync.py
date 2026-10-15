@@ -113,7 +113,7 @@ def test_first_run_on_empty_catalog(app, snapshot):
     assert s["platforms"] == EXPECTED_PLATFORMS
     assert s["devices"] == EXPECTED_DEVICES
     assert s["components"] == sum(EXPECTED_DISTINCT_PARTS.values())
-    n_components = len(hs.snapshot_component_index(snapshot))
+    n_components = sum(EXPECTED_DISTINCT_PARTS.values())
     assert s["changes"] == {"add": EXPECTED_PLATFORMS + n_components + EXPECTED_DEVICES,
                             "update": 0, "delist": 0, "relist": 0, "merge": 0}
     assert s["pending_total"] == s["changes"]["add"]
@@ -142,7 +142,7 @@ def test_bulk_approve_all_seeds_the_catalog(app, snapshot):
     counts = hcl_data.catalog_counts()
     assert counts["platforms"] == {"active": EXPECTED_PLATFORMS, "delisted": 0}
     assert counts["devices"] == {"active": EXPECTED_DEVICES, "delisted": 0}
-    assert counts["components"]["active"] == len(hs.snapshot_component_index(snapshot))
+    assert counts["components"]["active"] == sum(EXPECTED_DISTINCT_PARTS.values())
     assert counts["components"]["delisted"] == 0
     assert counts["components"]["by_kind"] == EXPECTED_DISTINCT_PARTS
 
@@ -497,7 +497,7 @@ def test_touch_seen_bumps_last_seen_without_approval(app, snapshot):
     later = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     n = sync.touch_seen(_snap(snapshot), later)
     db.session.commit()
-    assert n == EXPECTED_PLATFORMS + EXPECTED_DEVICES + len(hs.snapshot_component_index(snapshot))
+    assert n == EXPECTED_PLATFORMS + EXPECTED_DEVICES + sum(EXPECTED_DISTINCT_PARTS.values())
     p = hm.HclPlatform.query.filter_by(brand="lenovo", sc_model="HC1350").one()
     assert p.last_seen.replace(tzinfo=None) == later.replace(tzinfo=None)
     assert p.first_seen.replace(tzinfo=None) != later.replace(tzinfo=None)
@@ -741,28 +741,6 @@ def test_load_hcl_data_from_catalog(app, snapshot):
     assert len(strict.hbas) == EXPECTED_DISTINCT_PARTS["hba"] - 1
 
 
-def test_hcl_data_from_snapshot_matches_catalog(app, snapshot):
-    _seed(snapshot)
-    from_db = hcl_data.load_hcl_data()
-    from_snap = hcl_data.hcl_data_from_snapshot(snapshot)
-
-    def _nics(d):
-        return {(n.part, n.type, n.speed, n.description, n.form_factor) for n in d.nics}
-
-    def _hbas(d):
-        return {(h.part, h.type, h.description, h.eol, h.supported) for h in d.hbas}
-
-    def _cpus(d):
-        return {(c.model, c.description, c.socket) for c in d.cpus}
-
-    assert _nics(from_db) == _nics(from_snap)
-    assert _hbas(from_db) == _hbas(from_snap)
-    assert _cpus(from_db) == _cpus(from_snap)
-    assert hcl_data.hcl_data_from_snapshot({}).nics == []
-    assert hcl_data.hcl_data_from_snapshot(snapshot, blocked="HPE, Acme").blocked_vendors == [
-        "hpe", "acme"]
-
-
 def test_blocked_vendors_round_trip(app):
     assert hcl_data.blocked_vendors() == []
     assert hcl_data.set_blocked_vendors([" HPE ", "acme", "hpe", ""]) == ["hpe", "acme"]
@@ -772,19 +750,3 @@ def test_blocked_vendors_round_trip(app):
     hcl_data.set_blocked_vendors([])
     db.session.commit()
     assert hcl_data.blocked_vendors() == []
-
-
-def test_platform_helpers(app, snapshot):
-    _seed(snapshot)
-    platforms = hcl_data.active_platforms("lenovo")
-    assert platforms and all(p.brand == "lenovo" for p in platforms)
-    index = hcl_data.platform_index()
-    assert "sr630v2" in index and any(p.sc_model == "HC1350" for p in index["sr630v2"])
-    hc1350 = next(p for p in index["sr630v2"] if p.sc_model == "HC1350")
-    nics = hcl_data.platform_components([hc1350.id], kind="nic")
-    assert nics and all(n["kind"] == "nic" and n["platform_id"] == hc1350.id for n in nics)
-    tce = next(n for n in nics if n["part_number"] == "4XC7A80566")
-    assert tce["tce"] is True and tce["platform_key"] == "lenovo/HC1350"
-    everything = hcl_data.platform_components([hc1350.id])
-    assert len(everything) == hc1350.to_dict()["component_count"]
-    assert hcl_data.platform_components([]) == []

@@ -60,7 +60,6 @@ EDITIONS = {
 WHITE = RGBColor(*_p.rgb(_p.WHITE))
 CALLOUT_FILL = {"manual-tip": _p.SURFACE_3, "manual-warn": _p.SURFACE_3, "manual-staff": _p.SURFACE_3}
 CALLOUT_BAR = {"manual-tip": "166534", "manual-warn": "B7791F", "manual-staff": _p.SC_DARK_NAVY}
-TOC_MARK = "{{p}}"
 
 
 # ── the source ─────────────────────────────────────────────────────────────
@@ -410,7 +409,7 @@ class Writer:
         h2 = sec.find("h2")
         title = re.sub(r"\s+", " ", h2.text or "").strip()   # without the Staff tag
         self.page_break()
-        h = self.doc.add_heading(title, level=1)
+        self.doc.add_heading(title, level=1)
         self.chapters.append(title)
         self.blocks([ch for ch in sec if ch is not h2])
 

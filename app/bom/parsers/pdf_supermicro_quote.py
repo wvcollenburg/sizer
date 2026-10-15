@@ -28,7 +28,7 @@ from typing import List, Optional
 
 from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
 from bom.parsers.common import categorize, is_absence
-from bom.parsers.pdf_common import Evidence, doc_head, first_word_x, money, whole_number
+from bom.parsers.pdf_common import Evidence, first_word_x, money, whole_number
 
 FORMAT = 'supermicro_quote_pdf'
 

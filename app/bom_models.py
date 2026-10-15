@@ -19,7 +19,6 @@ REVIEW_NONE = "none"
 REVIEW_OPEN = "open"
 REVIEW_CONFIRMED = "confirmed"
 REVIEW_INCORRECT = "incorrect"
-REVIEW_STATUSES = (REVIEW_NONE, REVIEW_OPEN, REVIEW_CONFIRMED, REVIEW_INCORRECT)
 
 # file_format of a check whose BOM the Claude agent read (bom/agent_ingest.py)
 # because no deterministic parser recognised the file.

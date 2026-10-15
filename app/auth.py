@@ -105,11 +105,6 @@ STALE_DAYS = 365
 PII_RETENTION_DAYS = 365
 ANON_LABEL = "[anonymized]"
 
-# String settings keys (auth_models.AppSetting).
-SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_username", "smtp_password",
-             "smtp_from", "smtp_use_tls", "verify_email_enabled"]
-
-
 # ── app settings (string key/value) ──────────────────────────────────────────
 
 def get_setting(key, default=None):

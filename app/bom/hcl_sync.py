@@ -30,7 +30,6 @@ Rules that follow from the plan:
   also driven by a background thread with no request context.
 """
 import json
-import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -183,7 +182,7 @@ def platform_record(platform: dict) -> Optional[dict]:
         "ssd_max": _int_or_none(platform.get("ssd_max")),
         "nic_listed": bool(platform["nic_listed"]) if "nic_listed" in platform else True,
     }
-    comps = {}  # type: Dict[str, dict]
+    comps: Dict[str, dict] = {}
     for comp in platform.get("components") or []:
         crec = component_record(comp)
         if crec is None:
@@ -220,9 +219,9 @@ def snapshot_records(snapshot: dict) -> dict:
     Components are collected across platforms; ``tce`` is True when any
     platform flags the part (the per-platform flag lives on the link).
     """
-    platforms = {}  # type: Dict[str, dict]
-    components = {}  # type: Dict[str, dict]
-    devices = {}  # type: Dict[str, dict]
+    platforms: Dict[str, dict] = {}
+    components: Dict[str, dict] = {}
+    devices: Dict[str, dict] = {}
     for p in snapshot.get("platforms") or []:
         rec = platform_record(p)
         if rec is None:
@@ -326,7 +325,7 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
     """
     complete = bool(snapshot.get("complete"))
     recs = snapshot_records(snapshot)
-    changes = []  # type: List[dict]
+    changes: List[dict] = []
 
     # -- platforms ----------------------------------------------------------
     db_platforms = {p.key: p for p in HclPlatform.query.all()}

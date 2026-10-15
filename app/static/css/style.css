@@ -477,36 +477,6 @@ select:disabled, input:disabled {
     color: var(--text);
 }
 
-.disk-row {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-}
-
-.disk-num {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: var(--on-accent);
-    border-radius: 50%;
-    font-size: 0.75rem;
-    font-weight: 700;
-    flex-shrink: 0;
-}
-
-.disk-row select {
-    flex: 1;
-    min-width: 0;
-}
-
 .tier-mode-toggle { display: flex; gap: 1rem; }
 
 .radio-inline {
@@ -662,11 +632,6 @@ textarea:focus-visible {
     display: grid;
     grid-template-columns: 1fr 1.3fr 1fr;
     gap: 1rem;
-}
-
-.results-export {
-    margin-top: 1rem;
-    text-align: right;
 }
 
 .result-card {
@@ -1158,19 +1123,6 @@ body { padding-bottom: 64px; }
     margin-bottom: 0;
 }
 
-.sizing-toggles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem 1.6rem;
-    align-items: center;
-    margin-top: 1rem;
-}
-.sizing-toggles .toggle-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
 /* Growth Projection Controls */
 
 .growth-control {
@@ -1310,13 +1262,6 @@ body { padding-bottom: 64px; }
     background: var(--red-bg);
     color: var(--red);
     cursor: help;
-}
-
-.full-cluster-option {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.9rem;
 }
 
 .checkbox-inline {
@@ -1909,34 +1854,6 @@ body { padding-bottom: 64px; }
 .rec-card .info-bar {
     margin: 0 1.2rem 1rem;
     font-size: 0.8rem;
-}
-
-.btn-export {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    height: 2rem;
-    background: var(--accent);
-    color: var(--on-accent);
-    border: 1px solid transparent;
-    padding: 0 0.75rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--fs-xs);
-    font-style: normal;
-    font-weight: 500;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-export:hover {
-    background: var(--accent-hover);
-}
-
-.btn-export:disabled {
-    opacity: 0.6;
-    cursor: wait;
 }
 
 .no-recs {
@@ -2603,86 +2520,6 @@ body.auth-required footer { display: none; }
     gap: 1rem;
     flex-wrap: wrap;
 }
-.cluster-separate-toggle {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    align-items: center;
-    gap: 0.35rem;
-}
-.cluster-tabs {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin: 0.25rem 0 1rem;
-}
-/* Segmented control, from SC//Design's default TabsList: a muted track
-   (`bg-muted rounded-lg p-[3px]`) with the active tab raised onto the card
-   surface (`data-[state=active]:bg-background shadow-sm`). Replaces the old
-   solid-accent pill, which read far heavier than anything in their UI. */
-.cluster-tab-row {
-    display: inline-flex;
-    gap: 3px;
-    flex-wrap: wrap;
-    background: var(--surface2);
-    border-radius: var(--radius);
-    padding: 3px;
-}
-/* Shared by the wizard bar, classic bar, VM-modal bar and DR tabs. */
-.cluster-tab {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    padding: 0.3rem 0.7rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
-}
-.cluster-tab:hover { color: var(--text); }
-.cluster-tab.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--shadow-xs);
-}
-.cluster-tab-badge {
-    font-size: var(--fs-xs);
-    font-weight: 500;
-    color: var(--text-muted);
-    opacity: 0.85;
-}
-.cluster-tab.active .cluster-tab-badge { color: var(--accent); opacity: 1; }
-.cluster-apply-all { white-space: nowrap; }
-.cluster-tab-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-.cluster-export-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-.cluster-export-label {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-.cluster-tabs-modal {
-    padding: 0 1.5rem;
-    margin: 0 0 0.75rem;
-    /* Buttons are direct children of this bar (no .cluster-tab-row wrapper), so
-       override the space-between spread and keep them grouped on the left. */
-    justify-content: flex-start;
-    gap: 0.4rem;
-}
 /* Per-card "use in combined export" picker (separate-clusters mode only). */
 .rec-select {
     margin-left: auto;
@@ -2706,62 +2543,14 @@ body.auth-required footer { display: none; }
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--ring);
 }
-/* "Selected clusters" review tab. */
-.cluster-tab-review { font-weight: 700; }
-#cluster-review .review-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-.review-cluster-block { margin-top: 1.25rem; }
-.review-cluster-title {
-    margin: 0 0 0.4rem;
-    font-size: 1rem;
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-}
-.review-cluster-rank {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--accent);
-}
-.review-none { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
 .review-loading { color: var(--text-muted); padding: 1rem 0; }
 
-/* Per-cluster replication (DR) config in the sizing options. */
-.replication-options {
-    margin-top: 1rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--border);
-}
-.replication-options .rep-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.replication-options .rep-head h4 { margin: 0; font-size: 0.95rem; }
 .rep-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.75rem;
     margin-top: 0.6rem;
 }
-/* Inbound replication note — carries the same gold as the replication band in
-   the utilisation bars, so the two read as the same subject. */
-.rep-inbound {
-    margin-top: 0.6rem;
-    font-size: var(--fs-xs);
-    color: var(--text);
-    background: rgba(161, 98, 7, 0.08);
-    border-left: 3px solid #a16207;
-    padding: 0.4rem 0.6rem;
-    border-radius: var(--radius-sm);
-}
-.rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
 
 /* "System reserved" sub-rows on the config result cards: the OS deduction that
    separates the physical configuration from the usable totals. */
@@ -2803,8 +2592,6 @@ body.auth-required footer { display: none; }
 .dr-mode-note { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.9em; }
 .dr-reserve-empty { margin: 0.4rem 0 0; color: var(--text-muted); }
 .dr-rec-list { margin-top: 0.75rem; }
-.dr-save-row { margin-top: 1rem; display: flex; justify-content: flex-end; }
-.cluster-tab-dedicated { font-style: italic; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
@@ -2862,14 +2649,6 @@ body.auth-required footer { display: none; }
 .legal-doc p { margin-bottom: 0.6rem; }
 .legal-meta { color: var(--text-muted); font-size: 0.85rem; }
 .legal-back { margin-top: 1.5rem; }
-.legal-template-note {
-    background: var(--orange-bg);
-    border: 1px solid #fde68a;
-    color: var(--orange);
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-}
 
 .auth-links { text-align: center; margin-top: 0.75rem; font-size: 0.82rem; }
 .auth-links a { color: var(--text-muted); text-decoration: none; }
@@ -2886,21 +2665,6 @@ body.auth-required footer { display: none; }
     letter-spacing: 0.5px;
 }
 .muted { color: var(--text-muted); font-size: 0.82rem; }
-
-/* Source CPU benchmark field + advisory perf comparison (import/manual sizing). */
-.perf-input-row { display: flex; gap: 0.5rem; }
-.perf-input-row select { flex: 0 0 auto; }
-.perf-input-row input { flex: 1; min-width: 0; }
-.perf-comparison {
-    margin-top: 0.75rem;
-    padding: 0.6rem 0.85rem;
-    background: var(--accent-light, var(--sc-50));
-    border: 1px solid var(--border, var(--sc-300));
-    border-radius: 6px;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-.perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
 
 /* Source CPU performance panel (inside the Source CPU modal). */
 .card-edit-link {
@@ -2986,27 +2750,13 @@ body.auth-required footer { display: none; }
 .wiz-pane-head h3 { margin: 0 0 0.25rem 0; }
 .wiz-intro { color: var(--text-muted); margin: 0 0 1.1rem 0; font-size: 0.92rem; }
 .wiz-chrome { margin-bottom: 1rem; }
-.wiz-chrome-after, .wiz-after-5 { margin-top: 1rem; }
+.wiz-chrome-after { margin-top: 1rem; }
 
 /* Navigation */
 .wizard-nav {
     display: flex; justify-content: space-between; gap: 1rem;
     margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--border);
 }
-
-/* Layout step */
-.wiz-layout-detected, .wiz-layout-single { color: var(--text); margin: 0 0 0.8rem 0; }
-.wiz-cluster-list { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.8rem 0; }
-.wiz-cluster-row {
-    display: flex; align-items: center; gap: 0.8rem;
-    padding: 0.55rem 0.8rem; background: var(--surface2);
-    border: 1px solid var(--border); border-radius: var(--radius);
-}
-.wiz-cluster-row.dedicated { border-style: dashed; }
-.wiz-cluster-name { font-weight: 600; }
-.wiz-cluster-meta { color: var(--text-muted); font-size: 0.85rem; }
-.wiz-cluster-tag { margin-left: auto; font-size: 0.78rem; color: var(--accent); }
-.wiz-layout-actions { margin-top: 0.6rem; }
 
 /* Environment caveats */
 .wiz-caveats {
@@ -3017,8 +2767,6 @@ body.auth-required footer { display: none; }
 .wiz-caveats ul { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: 0.88rem; }
 
 /* Options step */
-.wiz-clusterbar { margin-bottom: 1rem; }
-.wiz-opts-actions { margin: 0.4rem 0; }
 .wiz-adv-toggle { padding-left: 0; }
 .btn-link {
     background: none; border: none; color: var(--accent); cursor: pointer;
@@ -3044,7 +2792,6 @@ body.wiz-active #vm-triage-panel .vm-table-wrap {
 
 /* Export step */
 .wiz-export-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0; }
-.wiz-export-note { color: var(--text-muted); font-size: 0.85rem; }
 
 /* Classic view: link back to the guided wizard */
 .wiz-to-guided-bar { margin-bottom: 1rem; text-align: right; }
@@ -3212,7 +2959,6 @@ body.view-project  .account-bar .btn-account { display: none; }
 .rep-pct-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
 .rep-pct { width: 5.5rem; }
 .field-label-inline { font-size: 0.8rem; color: var(--text-muted); }
-.panel-rule { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
 
 /* Which project the open sizing belongs to. */
 .sizer-project-bar {
@@ -3255,9 +3001,6 @@ body.refresh-mode { visibility: hidden; }
 .notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); }
 
 /* Comparison table: options side by side, deltas against the first column. */
-.project-compare { margin: 1rem 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-.compare-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.compare-head h3 { margin: 0; font-size: 1rem; }
 .compare-scroll { overflow-x: auto; }
 .compare-table th:first-child, .compare-metric { text-align: left; white-space: nowrap; color: var(--text-muted); }
 .compare-note { font-size: 0.8rem; color: var(--text-muted); max-width: 26ch; }
@@ -3270,7 +3013,6 @@ body.refresh-mode { visibility: hidden; }
 
 /* Exports panel — a job runs whether or not anyone is watching, so there has
    to be a way back to a finished bundle. */
-.project-exports { margin-top: 1.5rem; }
 .export-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
 .export-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .export-note { color: var(--text-muted); font-size: 0.8rem; }
@@ -3475,9 +3217,6 @@ textarea.text-input:focus {
 /* Selection bar: count · compare | export group · clear. */
 .project-selection-bar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 0.85rem; }
 .selection-count { font-weight: 600; white-space: nowrap; }
-.selection-divider {
-    width: 1px; align-self: stretch; background: var(--border); margin: 0 0.15rem;
-}
 .export-controls {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     margin-left: auto;                 /* keep Clear at the far right */
@@ -3545,8 +3284,6 @@ textarea.text-input:focus {
     font-size: 0.8rem; font-weight: 500; word-break: break-all;
 }
 .bom-modal .upload-status { margin-top: 0.6rem; }
-.bom-modal .bom-field { margin-top: 0.9rem; }
-.bom-modal .bom-field .text-input { width: 100%; }
 
 .bom-modal #bom-step-upload > .import-info { margin: 0 0 0.8rem; }
 

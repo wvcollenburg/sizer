@@ -390,24 +390,6 @@ def test_detail_path_carries_mandatory_brand():
     assert hs.detail_path("HC5250D-V", "dell") == "/hcready/detail?model=HC5250D-V&brand=dell"
 
 
-def test_snapshot_component_index(manifest):
-    snap = hs.scrape_all(fetch=_fixture_fetch(manifest), sleep=lambda s: None)
-    index = hs.snapshot_component_index(snap)
-    counts = {}
-    for kind, _ in index:
-        counts[kind] = counts.get(kind, 0) + 1
-    assert counts == EXPECTED_DISTINCT_PARTS
-    cpu = index[("cpu", "PK8072205511700")]
-    assert cpu["description"] == "Intel® Xeon® Platinum 8593Q Processor"
-    assert cpu["attrs"]["cores"] == 64
-    assert len(cpu["platforms"]) > 1  # the same CPU is validated on many platforms
-    assert ("lenovo", "HC1450D", False) in cpu["platforms"]
-    nic = index[("nic", "4XC7A80566")]
-    assert nic["tce"] is True
-    assert ("lenovo", "HC1350", True) in nic["platforms"]
-    assert hs.snapshot_component_index({}) == {}
-
-
 # ---------------------------------------------------------------- fetch_page
 
 class _FakeResponse(object):

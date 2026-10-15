@@ -11,15 +11,11 @@ module flattens it back. Two things are deliberate:
   HCL", which is the right message for a BOM quoting a part that was on the
   list last quarter. Callers wanting a strict view pass
   ``include_delisted=False``.
-* ``hcl_data_from_snapshot`` builds the very same ``HclData`` straight from
-  a scrape snapshot, with no database. Tests and the archive eval harness
-  use it to run the rules against a fixture catalog, and having both paths
-  share the per-part mapping keeps them from drifting apart.
 
 Blocked vendors live in an AppSetting (comma list) so an admin can flip
 "we are not certifying HPE right now" over HTTP, not in an env file.
 """
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List
 
 from sqlalchemy.orm import joinedload
 
@@ -27,7 +23,7 @@ from bom.rules import HclCpu, HclData, HclGpu, HclHba, HclNic
 from database import db
 from hcl_models import (
     HclComponent, HclDevice, HclPlatform, HclPlatformComponent, ORIGIN_PREVIEW,
-    STATUS_ACTIVE, STATUS_DELISTED, server_key,
+    STATUS_ACTIVE, STATUS_DELISTED,
 )
 
 BLOCKED_VENDORS_SETTING = "bom_blocked_vendors"
@@ -199,79 +195,6 @@ def load_hcl_data(include_delisted: bool = True) -> HclData:
             "platforms": scope,
         })
     return _build(parts, blocked_vendors())
-
-
-def hcl_data_from_snapshot(snapshot: dict, blocked=None) -> HclData:
-    """Same HclData straight from a ``scrape_all`` snapshot (no DB)."""
-    from bom.hcl_scrape import snapshot_component_index
-    sockets = {}
-    for p in snapshot.get("platforms") or []:
-        sockets[((p.get("brand") or "").lower(), p.get("sc_model"))] = p.get("socket") or ""
-    index = snapshot_component_index(snapshot)
-    parts = []
-    for (kind, part), entry in index.items():
-        socket = ""
-        if kind == "cpu":
-            for brand, sc_model, _tce in entry["platforms"]:
-                socket = sockets.get(((brand or "").lower(), sc_model)) or ""
-                if socket:
-                    break
-        parts.append({
-            "kind": kind,
-            "part_number": part,
-            "description": entry.get("description") or "",
-            "attrs": entry.get("attrs") or {},
-            "delisted": False,
-            "socket": socket,
-        })
-    parts.sort(key=lambda p: p["kind"])
-    return _build(parts, _parse_vendors(blocked))
-
-
-# ---------------------------------------------------------------------------
-# platform / component lookups for platform_match + enrich
-# ---------------------------------------------------------------------------
-
-def active_platforms(brand: Optional[str] = None) -> List[HclPlatform]:
-    q = HclPlatform.query.filter_by(status=STATUS_ACTIVE)
-    if brand:
-        q = q.filter(HclPlatform.brand == brand.lower())
-    return q.order_by(HclPlatform.brand, HclPlatform.sc_model).all()
-
-
-def platform_index(brand: Optional[str] = None) -> Dict[str, List[HclPlatform]]:
-    """{server_key(server): [active platforms]} — the lookup platform_match
-    runs a BOM's server model through."""
-    index = {}  # type: Dict[str, List[HclPlatform]]
-    for p in active_platforms(brand):
-        key = server_key(p.server)
-        if key:
-            index.setdefault(key, []).append(p)
-    return index
-
-
-def platform_components(platform_ids, kind: Optional[str] = None) -> List[dict]:
-    """Active parts linked to any of ``platform_ids``: component dict plus
-    per-link ``tce`` and ``platform_id``/``platform_key``."""
-    ids = [int(i) for i in (platform_ids or [])]
-    if not ids:
-        return []
-    q = HclPlatformComponent.query.filter(
-        HclPlatformComponent.platform_id.in_(ids),
-        HclPlatformComponent.status == STATUS_ACTIVE,
-    ).options(joinedload(HclPlatformComponent.component),
-              joinedload(HclPlatformComponent.platform))
-    out = []
-    for link in q.all():
-        comp = link.component
-        if comp is None or comp.status != STATUS_ACTIVE:
-            continue
-        if kind and comp.kind != kind:
-            continue
-        out.append(dict(comp.to_dict(), tce=link.tce, platform_id=link.platform_id,
-                        platform_key=link.platform.key if link.platform else None))
-    out.sort(key=lambda d: (d["kind"], d["part_number"], d["platform_id"]))
-    return out
 
 
 def catalog_counts() -> dict:

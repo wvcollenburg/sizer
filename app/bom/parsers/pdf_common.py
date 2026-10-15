@@ -88,11 +88,6 @@ def first_word_x(line: Line, *labels: str) -> Optional[float]:
     return None
 
 
-def has_words(line: Line, *labels: str) -> bool:
-    text = " %s " % line.text.lower()
-    return all((" %s" % l.lower()) in text for l in labels)
-
-
 def doc_head(doc: PdfDoc, n: int = 40) -> str:
     """Lower-cased text of the first ``n`` lines, for format detection."""
     return "\n".join(l.text for l in doc.lines[:n]).lower()
@@ -102,5 +97,3 @@ def doc_head(doc: PdfDoc, n: int = 40) -> str:
 # bundles (486-85584). Wrapped SKU cells run together ('405-AAXY750-ACFR'),
 # so the four-character form must not swallow the next SKU's first digit.
 DELL_SKU = re.compile(r"\d{3}-(?:\d{5}(?![0-9])|[A-Z0-9]{4})")
-LENOVO_FEATURE = re.compile(r"^[A-Z0-9]{4}$")
-LENOVO_PART = re.compile(r"^[0-9A-Z]{2,4}[A-Z0-9]{3,8}$")

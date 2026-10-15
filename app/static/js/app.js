@@ -1664,14 +1664,6 @@ function closeClusterFanout() {
     document.getElementById('cluster-fanout-modal').style.display = 'none';
 }
 
-// "Size as one combined cluster": everything into one target, on this screen.
-async function fanoutCombined() {
-    if (!pendingMerge) return;
-    mergeAllInOne();
-    await refreshMerge();
-    await createPerClusterSizings();
-}
-
 function _targetSources(target) {
     const pm = pendingMerge;
     return target.sources.map(id => {
@@ -4000,46 +3992,6 @@ function downloadClusterDiagram() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-}
-
-// ---- Sizing helpers: build /api/recommend bodies from captured options ----
-// (Used to size clusters the user hasn't opened yet — combined project export
-// and DR reserve both rely on these; exports themselves are project-level now.)
-function _optVal(opts, id, dflt) {
-    const v = opts ? opts[id] : undefined;
-    return v === undefined ? dflt : v;
-}
-
-// Build a /api/recommend body from a captured options object (field-id -> value)
-// rather than the live DOM, so clusters not currently in view can be sized.
-function _recommendBodyFromOpts(summary, opts) {
-    const targetNodes = _optVal(opts, 'target-nodes', '');
-    const sep = _optVal(opts, 'separate-storage-growth', false);
-    const storageGrowth = (sep === true || sep === 'true')
-        ? parseFloat(_optVal(opts, 'storage-growth-pct', _optVal(opts, 'growth-pct', 10)))
-        : null;
-    return {
-        summary,
-        vcpu_ratio: parseFloat(_optVal(opts, 'ratio-slider', DEFAULT_SIZING_RATIO)),
-        years: parseInt(_optVal(opts, 'growth-years', 5), 10),
-        growth_pct: parseFloat(_optVal(opts, 'growth-pct', 10)),
-        ...(Number.isFinite(storageGrowth) ? { storage_growth_pct: storageGrowth } : {}),
-        snapshot_pct: parseFloat(_optVal(opts, 'snapshot-pct', 20)),
-        target_nodes: targetNodes ? parseInt(targetNodes, 10) : null,
-        storage_pref: _optVal(opts, 'storage-pref', 'auto'),
-        size_full_cluster: !!_optVal(opts, 'size-full-cluster', false),
-        sizing_mode: _optVal(opts, 'sizing-mode', 'certified'),
-        vendor: _optVal(opts, 'sizing-vendor', '') || null,
-        allow_storage_only: !!_optVal(opts, 'allow-storage-only', false),
-        target_model: _optVal(opts, 'sizing-model-select', '') || null,
-        include_eol_eos: !!_optVal(opts, 'sizing-include-eol', false),
-        max_day_one_storage_pct: parseFloat(_optVal(opts, 'max-day-one-storage', 100)),
-        max_day_one_ram_pct: parseFloat(_optVal(opts, 'max-day-one-ram', 100)),
-        license_term_years: parseInt(_optVal(opts, 'license-term-years', 5), 10),
-        guest_licensing: _optVal(opts, 'guest-licensing', 'windows'),
-        source_perf_index: null,
-        source_perf_type: 'specrate',
-    };
 }
 
 // ==================== VM EXCLUSION MODAL ====================

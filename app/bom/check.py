@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from bom import rules
-from bom.normalize import ConfigResult, NormalizedBOM, ValidationResult
+from bom.normalize import ConfigResult, NormalizedBOM
 from bom import enrich, part_notes, platform_match
 
 
@@ -79,9 +79,9 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
     # Reviewers' standing notes on specific parts (bom/part_notes.py).
     notes = part_notes.load_notes()
 
-    config_results = []  # type: List[ConfigResult]
-    config_dicts = []    # type: List[Dict]
-    suggestions = []     # type: List[Dict]
+    config_results: List[ConfigResult] = []
+    config_dicts: List[Dict] = []
+    suggestions: List[Dict] = []
     for config in bom.configs:
         if not rules.is_hardware_config(config):
             continue
