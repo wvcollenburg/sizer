@@ -215,6 +215,8 @@
   "admin.models.template": "Skabelon",
   "admin.models.validated_only": "Kun valideret",
   "admin.models.validated_only_title": "Kun valideret: ingen certificeret ækvivalent",
+  "admin.models.no_vendor": "Ingen leverandør",
+  "admin.models.no_vendor_title": "Kun valideret uden leverandør: Validated-dimensionering tilbyder den under ingen leverandør. Angiv leverandøren.",
   "admin.msg.delete_failed": "Sletning mislykkedes: {error}",
   "admin.msg.done": "Færdig.",
   "admin.msg.failed": "Mislykkedes.",

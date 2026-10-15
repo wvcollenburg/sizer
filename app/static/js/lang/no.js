@@ -215,6 +215,8 @@
   "admin.models.template": "Mal",
   "admin.models.validated_only": "Kun validert",
   "admin.models.validated_only_title": "Kun validert: ingen sertifisert ekvivalent",
+  "admin.models.no_vendor": "Ingen leverandør",
+  "admin.models.no_vendor_title": "Kun validert uten leverandør: Validated-dimensjonering tilbyr den under ingen leverandør. Angi leverandøren.",
   "admin.msg.delete_failed": "Sletting mislyktes: {error}",
   "admin.msg.done": "Ferdig.",
   "admin.msg.failed": "Mislyktes.",

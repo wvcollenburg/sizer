@@ -216,6 +216,8 @@
   "admin.models.template": "Template",
   "admin.models.validated_only": "Validated-only",
   "admin.models.validated_only_title": "Validated-only: no certified equivalent",
+  "admin.models.no_vendor": "No vendor",
+  "admin.models.no_vendor_title": "Validated-only without a vendor: Validated sizing offers it under no vendor. Set its vendor.",
   "admin.msg.delete_failed": "Delete failed: {error}",
   "admin.msg.done": "Done.",
   "admin.msg.failed": "Failed.",

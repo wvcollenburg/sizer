@@ -215,6 +215,8 @@
   "admin.models.template": "Modelo",
   "admin.models.validated_only": "Somente validado",
   "admin.models.validated_only_title": "Somente validado: sem equivalente certificado",
+  "admin.models.no_vendor": "Sem fabricante",
+  "admin.models.no_vendor_title": "Somente validado sem fabricante: o dimensionamento Validado não o oferece em nenhum fabricante. Defina o fabricante.",
   "admin.msg.delete_failed": "Falha ao excluir: {error}",
   "admin.msg.done": "Concluído.",
   "admin.msg.failed": "Falhou.",

@@ -326,7 +326,7 @@ function renderModelTable() {
         const storType = m.storage?.type || '-';
 
         tr.innerHTML = `
-            <td><strong>${esc(m.name)}</strong>${m.validated_only ? ` <span class="badge badge-validated" title="${esc(t('admin.models.validated_only_title'))}">${esc(t('admin.models.validated_only'))}</span>` : ''}</td>
+            <td><strong>${esc(m.name)}</strong>${m.validated_only ? ` <span class="badge badge-validated" title="${esc(t('admin.models.validated_only_title'))}">${esc(t('admin.models.validated_only'))}</span>` : ''}${m.validated_only && !m.vendor ? ` <span class="badge badge-eos" title="${esc(t('admin.models.no_vendor_title'))}">${esc(t('admin.models.no_vendor'))}</span>` : ''}</td>
             <td><span class="badge ${badgeClass}">${m.status}</span></td>
             <td>${esc(m.category)}</td>
             <td>${esc(m.form_factor || '-')}</td>

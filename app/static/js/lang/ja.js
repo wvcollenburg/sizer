@@ -215,6 +215,8 @@
   "admin.models.template": "テンプレート",
   "admin.models.validated_only": "Validated専用",
   "admin.models.validated_only_title": "Validated専用: Certified相当なし",
+  "admin.models.no_vendor": "ベンダーなし",
+  "admin.models.no_vendor_title": "ベンダー未設定のValidated専用モデル: Validatedサイジングではどのベンダーでも提示されません。ベンダーを設定してください。",
   "admin.msg.delete_failed": "削除に失敗しました: {error}",
   "admin.msg.done": "完了しました。",
   "admin.msg.failed": "失敗しました。",

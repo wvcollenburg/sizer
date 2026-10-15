@@ -215,6 +215,8 @@
   "admin.models.template": "Veidne",
   "admin.models.validated_only": "Tikai validēts",
   "admin.models.validated_only_title": "Tikai validēts: nav sertificēta ekvivalenta",
+  "admin.models.no_vendor": "Nav ražotāja",
+  "admin.models.no_vendor_title": "Tikai validēts bez ražotāja: Validated izmēru noteikšana to nepiedāvā nevienam ražotājam. Norādiet ražotāju.",
   "admin.msg.delete_failed": "Dzēšana neizdevās: {error}",
   "admin.msg.done": "Pabeigts.",
   "admin.msg.failed": "Neizdevās.",

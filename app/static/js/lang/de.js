@@ -215,6 +215,8 @@
   "admin.models.template": "Vorlage",
   "admin.models.validated_only": "Nur validiert",
   "admin.models.validated_only_title": "Nur validiert: kein zertifiziertes Äquivalent",
+  "admin.models.no_vendor": "Kein Hersteller",
+  "admin.models.no_vendor_title": "Nur validiert ohne Hersteller: Die Validated-Dimensionierung bietet dieses Modell bei keinem Hersteller an. Hersteller festlegen.",
   "admin.msg.delete_failed": "Löschen fehlgeschlagen: {error}",
   "admin.msg.done": "Fertig.",
   "admin.msg.failed": "Fehlgeschlagen.",

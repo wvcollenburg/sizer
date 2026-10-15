@@ -215,6 +215,8 @@
   "admin.models.template": "Mall",
   "admin.models.validated_only": "Ainult valideeritud",
   "admin.models.validated_only_title": "Ainult valideeritud: sertifitseeritud vastet pole",
+  "admin.models.no_vendor": "Tarnija puudub",
+  "admin.models.no_vendor_title": "Ainult valideeritud ilma tarnijata: Validated-mitoitus ei paku seda ühegi tarnija all. Määrake tarnija.",
   "admin.msg.delete_failed": "Kustutamine ebaõnnestus: {error}",
   "admin.msg.done": "Valmis.",
   "admin.msg.failed": "Ebaõnnestus.",

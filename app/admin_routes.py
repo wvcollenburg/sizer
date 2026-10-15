@@ -14,6 +14,7 @@ from orm_models import (
 )
 from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
 from xlsx_utils import sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
+from hcl_vendor import infer_vendor
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
 _TUNABLE_BY_KEY = {d["key"]: d for d in TUNABLE_DEFS}
@@ -469,6 +470,9 @@ def create_model():
 
     if Model.query.filter_by(name=data["name"]).first():
         return jsonify({"error": f"Model '{data['name']}' already exists"}), 409
+    error = _vendor_error(data)
+    if error:
+        return jsonify({"error": error}), 400
 
     model = _build_model(data)
     db.session.add(model)
@@ -486,6 +490,9 @@ def update_model(model_id):
     if data.get("name") and data["name"] != model.name:
         if Model.query.filter_by(name=data["name"]).first():
             return jsonify({"error": f"Model '{data['name']}' already exists"}), 409
+    error = _vendor_error(data, model)
+    if error:
+        return jsonify({"error": error}), 400
 
     model.name = data.get("name", model.name)
     model.status = data.get("status", model.status)
@@ -502,6 +509,8 @@ def update_model(model_id):
         model.validated_only = bool(data["validated_only"])
     if "vendor" in data:
         model.vendor = _clean_vendor(data["vendor"])
+    if model.validated_only and not model.vendor:
+        model.vendor = infer_vendor(model.chassis, model.name)
     if "exclude_from_recommendations" in data:
         model.exclude_from_recommendations = bool(data["exclude_from_recommendations"])
     model.notes = data.get("notes", model.notes)
@@ -1220,6 +1229,20 @@ def _clean_vendor(value):
     return value[:20] or None
 
 
+def _vendor_error(data, model=None):
+    """Why the admin form cannot save this model, or None. Validated sizing
+    lists a validated-only model only under its own vendor, so one with no
+    vendor (given or named by its chassis/name) would never be offered."""
+    def field(key):
+        return data[key] if key in data else getattr(model, key, None)
+    if not field("validated_only"):
+        return None
+    if _clean_vendor(field("vendor")) or infer_vendor(field("chassis"), field("name")):
+        return None
+    return ("A validated-only model needs a vendor: Validated sizing only "
+            "offers it under that vendor.")
+
+
 def _build_model(data):
     model = Model(
         name=data["name"],
@@ -1237,6 +1260,12 @@ def _build_model(data):
         exclude_from_recommendations=bool(data.get("exclude_from_recommendations", False)),
         notes=data.get("notes"),
     )
+    # A validated-only model without a vendor is offered under no vendor at
+    # all; take the brand its chassis or name starts with. The admin form
+    # refuses one that names none (_vendor_error); a spreadsheet import keeps
+    # it and the model list flags it.
+    if model.validated_only and not model.vendor:
+        model.vendor = infer_vendor(model.chassis, model.name)
     db.session.add(model)
     db.session.flush()
 

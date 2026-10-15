@@ -215,6 +215,8 @@
   "admin.models.template": "Modèle type",
   "admin.models.validated_only": "Validé uniquement",
   "admin.models.validated_only_title": "Validé uniquement : aucun équivalent certifié",
+  "admin.models.no_vendor": "Aucun fabricant",
+  "admin.models.no_vendor_title": "Validé uniquement sans fabricant : le dimensionnement Validated ne le propose sous aucun fabricant. Définissez son fabricant.",
   "admin.msg.delete_failed": "Échec de la suppression : {error}",
   "admin.msg.done": "Terminé.",
   "admin.msg.failed": "Échec.",

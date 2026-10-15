@@ -227,6 +227,7 @@ def _migrate_schema():
     _backfill_categories()
     _rebase_platform_tiers()
     _retire_confirmed_eos()
+    _backfill_validated_only_vendors()
     _backfill_projects()
     _seed_license_pricebook()
     _bootstrap_super_admin()
@@ -307,6 +308,25 @@ def _retire_confirmed_eos():
     if changed:
         db.session.commit()
         print(f"  end-of-sale models retired: {changed}")
+
+
+def _backfill_validated_only_vendors():
+    """Give validated-only models flagged before the vendor field existed the
+    vendor their chassis or name starts with. Without one, Validated sizing
+    offers them under no vendor at all. Only empty vendors are filled, so an
+    admin's choice is never overwritten; a model naming no brand stays empty
+    and is flagged in the admin model list."""
+    from hcl_vendor import infer_vendor
+    changed = 0
+    for model in Model.query.filter(Model.validated_only == True,   # noqa: E712
+                                    Model.vendor.is_(None)).all():
+        vendor = infer_vendor(model.chassis, model.name)
+        if vendor:
+            model.vendor = vendor
+            changed += 1
+    if changed:
+        db.session.commit()
+        print(f"  validated-only models given their vendor: {changed}")
 
 
 def _rebase_platform_tiers():

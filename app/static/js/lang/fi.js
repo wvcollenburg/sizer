@@ -215,6 +215,8 @@
   "admin.models.template": "Malli",
   "admin.models.validated_only": "Vain validoitu",
   "admin.models.validated_only_title": "Vain validoitu: ei sertifioitua vastinetta",
+  "admin.models.no_vendor": "Ei toimittajaa",
+  "admin.models.no_vendor_title": "Vain validoitu ilman toimittajaa: Validated-mitoitus ei tarjoa sitä minkään toimittajan alla. Aseta toimittaja.",
   "admin.msg.delete_failed": "Poisto epäonnistui: {error}",
   "admin.msg.done": "Valmis.",
   "admin.msg.failed": "Epäonnistui.",

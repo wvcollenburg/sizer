@@ -215,6 +215,8 @@
   "admin.models.template": "Modello file",
   "admin.models.validated_only": "Solo Validated",
   "admin.models.validated_only_title": "Solo Validated: nessun equivalente certificato",
+  "admin.models.no_vendor": "Nessun produttore",
+  "admin.models.no_vendor_title": "Solo Validated senza produttore: il dimensionamento Validated non lo propone con alcun produttore. Impostane il produttore.",
   "admin.msg.delete_failed": "Eliminazione non riuscita: {error}",
   "admin.msg.done": "Fatto.",
   "admin.msg.failed": "Operazione non riuscita.",

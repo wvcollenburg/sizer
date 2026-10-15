@@ -215,6 +215,8 @@
   "admin.models.template": "Plantilla",
   "admin.models.validated_only": "Solo Validado",
   "admin.models.validated_only_title": "Solo Validado: sin equivalente certificado",
+  "admin.models.no_vendor": "Sin fabricante",
+  "admin.models.no_vendor_title": "Solo Validado sin fabricante: el dimensionamiento Validated no lo ofrece con ningún fabricante. Defina su fabricante.",
   "admin.msg.delete_failed": "Error al eliminar: {error}",
   "admin.msg.done": "Listo.",
   "admin.msg.failed": "Error.",

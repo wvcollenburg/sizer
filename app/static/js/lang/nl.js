@@ -215,6 +215,8 @@
   "admin.models.template": "Sjabloon",
   "admin.models.validated_only": "Alleen gevalideerd",
   "admin.models.validated_only_title": "Alleen gevalideerd: geen gecertificeerd equivalent",
+  "admin.models.no_vendor": "Geen leverancier",
+  "admin.models.no_vendor_title": "Alleen gevalideerd zonder leverancier: Validated sizing biedt dit model onder geen enkele leverancier aan. Stel de leverancier in.",
   "admin.msg.delete_failed": "Verwijderen mislukt: {error}",
   "admin.msg.done": "Klaar.",
   "admin.msg.failed": "Mislukt.",

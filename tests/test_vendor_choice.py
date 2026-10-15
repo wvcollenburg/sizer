@@ -372,6 +372,61 @@ def test_admin_saves_a_validated_only_vendor(app):
     assert "edit-vendor" in c.get("/admin/").get_data(as_text=True)
 
 
+def test_infer_vendor_reads_the_leading_brand(app):
+    with app.app_context():
+        assert hcl_vendor.infer_vendor("Lenovo SR650 v4") == "lenovo"
+        assert hcl_vendor.infer_vendor("Dell-VxRAIL") == "dell"
+        assert hcl_vendor.infer_vendor("hpe ProLiant DL380") == "hpe"
+        # Chassis first, then the name.
+        assert hcl_vendor.infer_vendor("M70q Gen6", "Lenovo M70q") == "lenovo"
+        # A brand glued to more letters is not that brand.
+        assert hcl_vendor.infer_vendor("Dellwood 2U") is None
+        assert hcl_vendor.infer_vendor("M70q Gen6", "M70q Gen6") is None
+        assert hcl_vendor.infer_vendor(None, "") is None
+
+
+def test_boot_backfills_vendors_of_older_validated_only_models(app):
+    """Models flagged validated-only before the vendor field existed had none,
+    so Validated sizing offered them under no vendor (acceptance, 2026-10-15)."""
+    import seed
+    with app.app_context():
+        _validated_only("SR650 v4 Hybrid Storage Heavy D", "Lenovo SR650 v4", None)
+        _validated_only("M70q Gen6", "M70q Gen6", None)
+        # An admin's vendor is never overwritten.
+        _validated_only("Lenovo-built Dell", "Lenovo SR630", "dell")
+        db.session.commit()
+        seed._backfill_validated_only_vendors()
+        vendors = {m.name: m.vendor for m in om.Model.query.filter_by(validated_only=True)}
+    assert vendors == {"SR650 v4 Hybrid Storage Heavy D": "lenovo", "M70q Gen6": None,
+                       "Lenovo-built Dell": "dell"}
+    lenovo = _rec(app, sizing_mode="validated", vendor="lenovo")
+    assert "Lenovo SR650 v4" in _chassis(lenovo)
+
+
+def test_admin_refuses_a_validated_only_model_without_a_vendor(app):
+    from auth_models import ROLE_SUPER_ADMIN, User
+    c = _signed_in(app, "admin@scalecomputing.com")
+    with app.app_context():
+        u = User.query.filter_by(email="admin@scalecomputing.com").one()
+        u.role = ROLE_SUPER_ADMIN
+        db.session.commit()
+        model_id = om.Model.query.filter_by(name="HC1650D").one().id
+    # Chassis "Catalog chassis" names no brand: refused, and nothing changes.
+    resp = c.put(f"/admin/api/models/{model_id}", json={"validated_only": True})
+    assert resp.status_code == 400
+    with app.app_context():
+        assert db.session.get(om.Model, model_id).validated_only is False
+    # A chassis that names the brand is enough; the vendor is taken from it.
+    resp = c.put(f"/admin/api/models/{model_id}",
+                 json={"validated_only": True, "chassis": "Lenovo SR650 v4", "vendor": ""})
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.get(om.Model, model_id).vendor == "lenovo"
+    resp = c.post("/admin/api/models", json={"name": "Box", "validated_only": True,
+                                             "chassis": "Box 1U"})
+    assert resp.status_code == 400
+
+
 def test_do_not_recommend_keeps_a_model_out_of_every_ranking(app):
     with app.app_context():
         _validated_only("VxRAIL01", "Dell-VxRAIL", "cisco")

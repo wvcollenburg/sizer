@@ -215,6 +215,8 @@
   "admin.models.template": "Mall",
   "admin.models.validated_only": "Endast validerad",
   "admin.models.validated_only_title": "Endast validerad: ingen certifierad motsvarighet",
+  "admin.models.no_vendor": "Ingen leverantör",
+  "admin.models.no_vendor_title": "Endast validerad utan leverantör: Validated-dimensionering erbjuder den under ingen leverantör. Ange leverantören.",
   "admin.msg.delete_failed": "Borttagning misslyckades: {error}",
   "admin.msg.done": "Klart.",
   "admin.msg.failed": "Misslyckades.",

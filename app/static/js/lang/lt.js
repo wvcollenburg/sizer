@@ -215,6 +215,8 @@
   "admin.models.template": "Šablonas",
   "admin.models.validated_only": "Tik patvirtintas",
   "admin.models.validated_only_title": "Tik patvirtintas: nėra sertifikuoto atitikmens",
+  "admin.models.no_vendor": "Nėra gamintojo",
+  "admin.models.no_vendor_title": "Tik patvirtintas be gamintojo: Validated dydžio parinkimas jo nesiūlo jokiam gamintojui. Nurodykite gamintoją.",
   "admin.msg.delete_failed": "Ištrinti nepavyko: {error}",
   "admin.msg.done": "Atlikta.",
   "admin.msg.failed": "Nepavyko.",
