@@ -226,7 +226,8 @@ def test_models_picker_follows_vendor(app):
     assert set(certified) == {"HC1450", "HC3450F", "HE155-1", "HC5250D", "HC1650D"}
     dell = c.get("/api/models?mode=appliance&status=active&sizing=validated&vendor=dell").get_json()
     assert dell == {"dell/r740xd": {"category": "1U", "status": "Active",
-                                    "vendor_chassis": "Dell PowerEdge R740XD"}}
+                                    "vendor_chassis": "Dell PowerEdge R740XD",
+                                    "validated_only": False}}
     # Two SC models on one chassis are one picker entry, with no SC name in it.
     lenovo = c.get("/api/models?mode=appliance&status=active&sizing=validated&vendor=lenovo").get_json()
     assert set(lenovo) == {"lenovo/sr630v3", "lenovo/m70qtinygen6"}
@@ -350,6 +351,9 @@ def test_validated_only_models_join_their_vendor(app):
     c = _signed_in(app)
     picker = c.get("/api/models?mode=appliance&status=active&sizing=validated&vendor=dell").get_json()
     assert picker["dell/vo-vxrail"]["vendor_chassis"] == "Dell-VxRAIL"
+    # The picker marks the admin-defined box apart from the HCL chassis.
+    assert picker["dell/vo-vxrail"]["validated_only"] is True
+    assert not any(v["validated_only"] for k, v in picker.items() if k != "dell/vo-vxrail")
     # Targeting the validated-only chassis sizes that model alone.
     only = _rec(app, sizing_mode="validated", vendor="dell", target_model="dell/vo-vxrail")
     assert {r["model"] for r in only["recommendations"]} == {"VxRAIL01"}
