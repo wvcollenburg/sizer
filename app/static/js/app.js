@@ -155,6 +155,15 @@ async function requestSwitchMode(mode) {
             if (!saved) return;
         }
         try { sessionStorage.setItem('sizerPendingMode', mode); } catch (e) { /* private mode */ }
+        // The reload boots from the URL after sign-in. Left on
+        // ?project=<id>&sizing=<id> it would reopen the sizing just left, in
+        // its own mode, undoing the switch (and on ?project=<id> it would land
+        // on the project view); point it at a blank sizer in the same project.
+        const projectId = window.activeProjectId && window.activeProjectId();
+        if (projectId) {
+            history.replaceState({ screen: 'sizer', projectId: projectId }, '',
+                                 '/?project=' + encodeURIComponent(projectId) + '&new=1');
+        }
         location.reload();
         return;
     }
