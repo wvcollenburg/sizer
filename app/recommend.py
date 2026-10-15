@@ -18,7 +18,8 @@ def _rec_network_svg(rec, lang="en"):
     so_count = rec["storage_only"]["count"] if rec.get("storage_only") else 0
     hci_count = rec.get("hci_node_count") or (rec.get("node_count", 1) - so_count)
     return network_svg_for(hci_count, so_count, rec.get("nic_ports", 2), lang=lang)
-from tunables import T, refresh_from_db
+from tunables import T, DEFAULTS, refresh_from_db
+import storage_layout
 
 # Map internal storage drive-type tokens to the catalog/IOPS type keys.
 DRIVE_TYPE_KEY = {"nvme": "NVMe", "ssd": "SSD", "hdd": "HDD"}
@@ -676,8 +677,8 @@ def generate_recommendations(summary, vcpu_ratio=None, growth_pct=10,
     # can show whether the floor is on and what demand it sized against; the
     # per-config coverage lives on each recommendation's `compute_floor`.
     projection["compute_floor"] = {
-        "active": bool(getattr(T, "perf_scaling", 0)),
-        "balance": round(getattr(T, "perf_ghz_balance", 0.5), 2),
+        "active": bool(T.perf_scaling),
+        "balance": round(T.perf_ghz_balance, 2),
         "source_cpu_util_pct": round(needs.get("source_cpu_util", 1.0) * 100, 1),
         "required_ghz": round(needs.get("required_compute_ghz", 0), 1),
         "required_perf_index": (round(needs["required_perf_index"], 1)
@@ -749,7 +750,7 @@ def _license_context(term_years, guest_licensing, summary, region=None):
     missing feed must never fail a sizing: the engine still has to produce a
     recommendation, it just cannot price the licence.
     """
-    if not int(getattr(T, "license_scoring", 0) or 0):
+    if not int(T.license_scoring):
         return None
 
     from orm_models import load_license_book
@@ -765,14 +766,14 @@ def _license_context(term_years, guest_licensing, summary, region=None):
         exposure = parser_common.EXPOSURE_WINDOWS
 
     mult = {
-        parser_common.EXPOSURE_NONE: getattr(T, "guest_exposure_none", 0.0),
-        parser_common.EXPOSURE_WINDOWS: getattr(T, "guest_exposure_windows", 1.0),
-        parser_common.EXPOSURE_WINDOWS_DB: getattr(T, "guest_exposure_windows_db", 1.6),
+        parser_common.EXPOSURE_NONE: T.guest_exposure_none,
+        parser_common.EXPOSURE_WINDOWS: T.guest_exposure_windows,
+        parser_common.EXPOSURE_WINDOWS_DB: T.guest_exposure_windows_db,
     }[exposure]
 
     term = licensing.clamp_term(
         term_years if term_years is not None
-        else getattr(T, "default_license_term_years", 5))
+        else T.default_license_term_years)
 
     return {
         "book": book,
@@ -1003,7 +1004,7 @@ def _effective_cores(cpu):
     if p is None:
         return cpu["cores"]
     e = cpu.get("e_cores") or 0
-    eff = p * getattr(T, "w_pcore", 1.0) + e * getattr(T, "w_ecore", 0.0)
+    eff = p * T.w_pcore + e * T.w_ecore
     return int(eff) if eff == int(eff) else round(eff, 1)
 
 
@@ -1013,8 +1014,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
     results = []
     iops_cfg = iops_cfg or {"map": {}, "derating_pct": 0.35, "write_amp": 1.3}
     # Active compute floor (perf-based sizing) state, read once per model.
-    perf_scaling = bool(getattr(T, "perf_scaling", 0))
-    perf_balance = getattr(T, "perf_ghz_balance", 0.5)
+    perf_scaling = bool(T.perf_scaling)
+    perf_balance = T.perf_ghz_balance
     storage = model["storage"]
     # OS RAM overhead is tiered by this node's drive-bay count (SCRIBE scales with
     # drive count); compute it once for the model and use it everywhere below.
@@ -1362,7 +1363,8 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
                     license_ctx["term_years"])
 
             if license_block is not None and license_block["eur"] is not None:
-                rate = getattr(T, "eur_per_tier_point", 850.0) or 850.0
+                # A zero rate would divide by zero; fall back to the shipped default.
+                rate = T.eur_per_tier_point or DEFAULTS["eur_per_tier_point"]
                 lic_tier = license_block["eur"] / rate
                 core_burden = (T.w_core_burden * license_ctx["exposure_mult"]
                                * total_cores)
@@ -1591,65 +1593,15 @@ def _fit_model(model, needs, required_cores, validated=False, validated_only=Fal
 
 
 def _max_raw_per_node(storage):
-    stype = storage.get("type", "")
-    if stype == "nvme_only":
-        opts = storage.get("nvme_options_tb", [])
-        count = storage.get("drives_per_node", 1)
-        if opts:
-            biggest = max(opts)
-            return biggest * count, biggest
-    elif stype == "ssd_only":
-        opts = storage.get("ssd_options_tb", [])
-        count = storage.get("drives_per_node", 4)
-        if opts:
-            biggest = max(opts)
-            return biggest * count, biggest
-    elif stype == "hdd_only":
-        opts = storage.get("hdd_options_tb", [])
-        count = storage.get("drives_per_node", 4)
-        if opts:
-            biggest = max(opts)
-            return biggest * count, biggest
-    elif stype == "hybrid":
-        hdd_opts = storage.get("hdd_options_tb", [])
-        ssd_opts = storage.get("ssd_options_tb", [])
-        if hdd_opts and ssd_opts:
-            hdd_max = max(hdd_opts)
-            ssd_max = max(ssd_opts)
-            raw = hdd_max * storage.get("hdd_count", 3) + ssd_max * storage.get("ssd_count", 1)
-            return raw, max(hdd_max, ssd_max)
-    elif stype == "hybrid_nvme":
-        hdd_opts = storage.get("hdd_options_tb", [])
-        nvme_opts = storage.get("nvme_options_tb", [])
-        if hdd_opts and nvme_opts:
-            hdd_max = max(hdd_opts)
-            nvme_max = max(nvme_opts)
-            raw = hdd_max * storage.get("hdd_count", 3) + nvme_max * storage.get("nvme_count", 1)
-            return raw, max(hdd_max, nvme_max)
-    elif stype == "nvme_and_ssd":
-        nvme_opts = storage.get("nvme_options_tb", [])
-        ssd_opts = storage.get("ssd_options_tb", [])
-        if nvme_opts and ssd_opts:
-            nvme_max = max(nvme_opts)
-            ssd_max = max(ssd_opts)
-            return nvme_max + ssd_max, max(nvme_max, ssd_max)
-    return 0, 0
+    """(raw_tb, biggest_disk_tb) with every tier at its largest certified size."""
+    return storage_layout.max_raw_per_node(storage)
 
 
 def _bay_count(storage):
     """Total drive bays in one node, used to tier the OS RAM overhead (SCRIBE
     scales with drive count). Returns 0 (flat-overhead fallback) for cloud or
     unrecognised storage."""
-    stype = storage.get("type", "")
-    if stype in ("nvme_only", "ssd_only", "hdd_only"):
-        return storage.get("drives_per_node", 0)
-    if stype == "hybrid":
-        return storage.get("hdd_count", 0) + storage.get("ssd_count", 0)
-    if stype == "hybrid_nvme":
-        return storage.get("hdd_count", 0) + storage.get("nvme_count", 0)
-    if stype == "nvme_and_ssd":
-        return 2
-    return 0
+    return storage_layout.drive_count(storage)
 
 
 def _pick_ram(options, total_needed_gb, node_count, num_clusters=1, ram_overhead=None,
@@ -1709,19 +1661,19 @@ def _pick_storage_multi(storage, usable_needed_tb, cluster_layout, validated=Fal
     if stype == "nvme_only":
         return _pick_uniform_drives(
             storage.get("nvme_options_tb", []),
-            storage.get("drives_per_node", 1),
+            storage_layout.slot_count(storage, "nvme"),
             usable_needed_tb, cluster_layout, "nvme", validated, multi_disk
         )
     elif stype == "ssd_only":
         return _pick_uniform_drives(
             storage.get("ssd_options_tb", []),
-            storage.get("drives_per_node", 4),
+            storage_layout.slot_count(storage, "ssd"),
             usable_needed_tb, cluster_layout, "ssd", validated, multi_disk
         )
     elif stype == "hdd_only":
         return _pick_uniform_drives(
             storage.get("hdd_options_tb", []),
-            storage.get("drives_per_node", 4),
+            storage_layout.slot_count(storage, "hdd"),
             usable_needed_tb, cluster_layout, "hdd", validated, multi_disk
         )
     elif stype == "hybrid":
@@ -1802,8 +1754,8 @@ def _pick_uniform_drives(size_options, drives_per_node, usable_needed,
 def _pick_hybrid(storage, usable_needed, cluster_layout, flash_key, validated=False):
     hdd_options = sorted(storage.get("hdd_options_tb", []))
     flash_options = sorted(storage.get(f"{flash_key}_options_tb", []))
-    hdd_count = storage.get("hdd_count", 3)
-    flash_count = storage.get(f"{flash_key}_count", 1)
+    hdd_count = storage_layout.slot_count(storage, "hdd")
+    flash_count = storage_layout.slot_count(storage, flash_key)
     # Per-cluster disk cap binds on the largest cluster, not the total.
     max_cluster_nodes = max(cluster_layout)
 

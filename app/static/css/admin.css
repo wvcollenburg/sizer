@@ -555,9 +555,9 @@ hr {
     bottom: 0;
     z-index: 1000;
     padding: 0.55rem 1rem;
-    background: #fff3cd;
-    border-top: 1px solid #e0c068;
-    color: #6b5616;
+    background: var(--orange-bg);
+    border-top: 1px solid var(--orange);
+    color: var(--orange);
     font-size: 0.78rem;
     line-height: 1.35;
     text-align: center;
@@ -567,8 +567,11 @@ hr {
     margin-right: 0.5rem;
     padding: 0.1rem 0.45rem;
     border-radius: 4px;
-    background: #e0a800;
-    color: #fff;
+    /* Fill is --orange, so the ink must be its partner token: --on-accent is
+       near-white and became unreadable once --orange inverted to light amber
+       in the dark theme. */
+    background: var(--orange);
+    color: var(--orange-bg);
     font-weight: 700;
     font-size: 0.7rem;
     text-transform: uppercase;

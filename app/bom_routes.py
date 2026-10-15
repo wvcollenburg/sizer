@@ -23,6 +23,7 @@ import os
 import tempfile
 
 from flask import Blueprint, jsonify, request, send_file
+from request_utils import json_body
 
 from admin_routes import require_super_admin
 from auth import audit, current_user, login_required
@@ -462,7 +463,7 @@ def set_agent_job_notify(job_id):
     job, project = _visible_job(job_id, user)
     if job is None or job.user_id != user.id:
         return jsonify({"error": "Job not found"}), 404
-    job.notify_email = bool((request.get_json(silent=True) or {}).get("notify"))
+    job.notify_email = bool(json_body().get("notify"))
     db.session.commit()
     return jsonify(job.to_dict())
 
@@ -529,7 +530,7 @@ def recheck(check_id):
         return jsonify({"error": "BOM check not found"}), 404
     if not _can_write(check, project, user):
         return jsonify({"error": "You cannot re-check this BOM"}), 403
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     if "sizing_id" in data:
         sizing, err = _sizing_for(project, data.get("sizing_id"))
         if err:
@@ -594,7 +595,7 @@ def get_agent_settings():
 def put_agent_settings():
     """Caps are agent jobs per UTC day; 0 = unlimited."""
     from auth import set_setting
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     changes = []
     for key, setting in (("tenant_daily_cap", AGENT_TENANT_CAP_SETTING),
                          ("global_daily_cap", AGENT_GLOBAL_CAP_SETTING)):
@@ -669,7 +670,7 @@ def annotate_review(check_id):
     check = db.session.get(BomCheck, check_id)
     if check is None or check.is_deleted:
         return jsonify({"error": "BOM check not found"}), 404
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     status = (data.get("status") or "").strip().lower()
     if status not in (REVIEW_OPEN, REVIEW_CONFIRMED, REVIEW_INCORRECT):
         return jsonify({"error": "status must be open, confirmed or incorrect"}), 400
@@ -701,7 +702,7 @@ def accept_parts(check_id):
     check = db.session.get(BomCheck, check_id)
     if check is None or check.is_deleted:
         return jsonify({"error": "BOM check not found"}), 404
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     keys = data.get("keys")
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         return jsonify({"error": "keys must be a non-empty list of candidate keys"}), 400
@@ -885,7 +886,7 @@ def list_part_notes():
 
 @bom_notes_admin_bp.route("", methods=["POST"])
 def create_part_note():
-    data = request.json or {}
+    data = json_body()
     note, err = _note_from_payload(data)
     if err:
         return jsonify({"error": err}), 400
@@ -908,7 +909,7 @@ def update_part_note(note_id):
     note = db.session.get(BomPartNote, note_id)
     if note is None:
         return jsonify({"error": "Note not found"}), 404
-    note, err = _note_from_payload(request.json or {}, note)
+    note, err = _note_from_payload(json_body(), note)
     if err:
         return jsonify({"error": err}), 400
     audit("bom_part_note", "updated note #%d (%s, %s, %s)"

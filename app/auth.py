@@ -23,6 +23,7 @@ from email.message import EmailMessage
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session, g, redirect, current_app
+from request_utils import json_body
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import IntegrityError
@@ -862,7 +863,7 @@ def update_me():
     with the name derived from their email address on every new project.
     """
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     if "full_name" in data:
         user.full_name = (data.get("full_name") or "").strip()[:120] or None
     # Marketing-email consent is opt-in and withdrawable at any time (GDPR). Set
@@ -928,7 +929,7 @@ def delete_own_account():
 @auth_bp.route("/signup", methods=["POST"])
 @limiter.limit("15 per hour")
 def signup():
-    data = request.json or {}
+    data = json_body()
     email = normalize_email(data.get("email"))
     password = data.get("password") or ""
 
@@ -1032,7 +1033,7 @@ def signup():
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("10 per minute")
 def login():
-    data = request.json or {}
+    data = json_body()
     email = normalize_email(data.get("email"))
     password = data.get("password") or ""
 
@@ -1124,7 +1125,7 @@ def verify_email(token):
 @limiter.limit("10 per hour")
 def resend_verification():
     # Always returns a generic success so it can't be used to probe for accounts.
-    email = normalize_email((request.json or {}).get("email"))
+    email = normalize_email(json_body().get("email"))
     if email and verification_active():
         user = User.query.filter_by(email=email).first()
         if user and not user.is_verified and not user.is_disabled:
@@ -1138,7 +1139,7 @@ def resend_verification():
 def forgot_password():
     # Generic response regardless of outcome — never reveal whether an account
     # exists. Only does anything when SMTP is configured.
-    email = normalize_email((request.json or {}).get("email"))
+    email = normalize_email(json_body().get("email"))
     generic = jsonify({"message":
                        "If that account exists, a password reset email has been sent."})
     if not email or not smtp_configured():
@@ -1155,7 +1156,7 @@ def forgot_password():
 @auth_bp.route("/reset-password", methods=["POST"])
 @limiter.limit("15 per hour")
 def reset_password():
-    data = request.json or {}
+    data = json_body()
     token = (data.get("token") or "").strip()
     password = data.get("password") or ""
     pw_error = validate_password(password)
@@ -1430,7 +1431,7 @@ def _resolve_save_project(user, project_id):
 @login_required
 def create_config():
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     name = (data.get("name") or "").strip()
     payload = data.get("payload")
 
@@ -1559,7 +1560,7 @@ def update_config(config_id):
     if config.owner_id != user.id and not user.is_super_admin:
         return jsonify({"error": "Only the owner can edit this configuration"}), 403
 
-    data = request.json or {}
+    data = json_body()
     if "name" in data:
         new_name = (data.get("name") or "").strip()
         if not new_name:
@@ -1720,7 +1721,7 @@ def _active_super_admin_count():
 @super_admin_required
 def change_user_role(user_id):
     target = db.get_or_404(User, user_id)
-    new_role = (request.json or {}).get("role")
+    new_role = json_body().get("role")
     if new_role not in (ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN):
         return jsonify({"error": "Invalid role"}), 400
     if target.is_disabled:
@@ -1741,7 +1742,7 @@ def change_user_role(user_id):
 @super_admin_required
 def super_reset_password(user_id):
     target = db.get_or_404(User, user_id)
-    password = (request.json or {}).get("password") or ""
+    password = json_body().get("password") or ""
 
     # With a password supplied, set it directly. Without one, email a reset link
     # (requires SMTP) so the user chooses their own.
@@ -1796,7 +1797,7 @@ def stale_users():
 def purge_users():
     """Bulk hard-delete users by id (used by the inactive-users tab). Skips super
     admins and the acting user. Cascades each user's configs/links."""
-    ids = (request.json or {}).get("ids") or []
+    ids = json_body().get("ids") or []
     actor = current_user()
     purged = skipped = 0
     for uid in ids:
@@ -1824,7 +1825,7 @@ def list_tenants():
 @super_admin_required
 def reassign_tenant_admin(tenant_id):
     tenant = db.get_or_404(Tenant, tenant_id)
-    data = request.json or {}
+    data = json_body()
     new_admin = db.get_or_404(User, data.get("user_id"))
     if new_admin.tenant_id != tenant.id:
         return jsonify({"error": "User is not in this tenant"}), 400
@@ -1845,7 +1846,7 @@ def reassign_tenant_admin(tenant_id):
 def block_tenant(tenant_id):
     tenant = db.get_or_404(Tenant, tenant_id)
     actor = current_user()
-    blocked = bool((request.json or {}).get("blocked", True))
+    blocked = bool(json_body().get("blocked", True))
     tenant.is_blocked = blocked
     tenant.blocked_at = _utcnow() if blocked else None
     tenant.blocked_by_user_id = actor.id if blocked else None
@@ -1917,7 +1918,7 @@ def get_email_settings():
 @super_bp.route("/email-settings", methods=["PUT"])
 @super_admin_required
 def update_email_settings():
-    data = request.json or {}
+    data = json_body()
     for key in ["smtp_host", "smtp_port", "smtp_username", "smtp_from"]:
         if key in data:
             set_setting(key, str(data[key]).strip())
@@ -1951,7 +1952,7 @@ def update_email_settings():
 @super_bp.route("/email-settings/test", methods=["POST"])
 @super_admin_required
 def test_email_settings():
-    to = normalize_email((request.json or {}).get("to")) or current_user().email
+    to = normalize_email(json_body().get("to")) or current_user().email
     if not smtp_configured():
         return jsonify({"error": "Set an SMTP host and from-address first."}), 400
     msg = _build_message(

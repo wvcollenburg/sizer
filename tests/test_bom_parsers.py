@@ -667,6 +667,21 @@ def test_to_int_default_is_honoured():
     assert to_int(True, default=0) == 0
 
 
+def test_from_dict_coerces_quantities_like_the_parsers_do():
+    """The agent path (NormalizedBOM.from_dict) and the sheet parsers share
+    one quantity coercion: '3,0' is 3 on both, not the default."""
+    from bom import normalize
+    assert normalize.to_int is to_int
+    bom = NormalizedBOM.from_dict({"vendor": "Dell", "configs": [{
+        "name": "C", "nodeCount": 3, "components": [
+            {"description": "Xeon", "category": "cpu", "quantity": "3,0"},
+            {"description": "DIMM", "category": "memory", "quantity": "\xa012\xa0"},
+            {"description": "Blank", "category": "other", "quantity": float("inf")},
+        ]}]})
+    cfg = bom.configs[0]
+    assert [c.quantity for c in cfg.components] == [3, 12, 1]
+
+
 @pytest.mark.parametrize("value,expected", [
     (None, ""), (3.0, "3"), (3, "3"), (2.5, "2.5"), (" Qty\xa0", "Qty"), (True, "True"),
     (8123.0, "8123"), (float("nan"), "nan"),

@@ -86,19 +86,19 @@ def delisted_findings(config: BOMConfig,
         kinds = _CATEGORY_KINDS.get(c.category)
         if not kinds:
             continue
-        for comp in delisted:
-            if comp.kind in kinds and _matches_component(c, comp):
-                when = comp.delisted_at.date().isoformat() if comp.delisted_at else "an earlier date"
-                out.append(Finding(
-                    severity="warning",
-                    component=c.description,
-                    issue="Component was removed from the Hardware Compatibility List on %s" % when,
-                    remediation="This part (%s) was validated once but is no longer listed. "
-                                "Confirm with the product team before quoting, or pick a currently "
-                                "listed alternative." % comp.part_number,
-                    code=CODE_DELISTED,
-                ))
-                break
+        comp = find_delisted(c, delisted)
+        if comp is None:
+            continue
+        when = comp.delisted_at.date().isoformat() if comp.delisted_at else "an earlier date"
+        out.append(Finding(
+            severity="warning",
+            component=c.description,
+            issue="Component was removed from the Hardware Compatibility List on %s" % when,
+            remediation="This part (%s) was validated once but is no longer listed. "
+                        "Confirm with the product team before quoting, or pick a currently "
+                        "listed alternative." % comp.part_number,
+            code=CODE_DELISTED,
+        ))
     return out
 
 
@@ -478,3 +478,19 @@ def load_delisted() -> List[HclComponent]:
     return (HclComponent.query
             .filter(HclComponent.status == STATUS_DELISTED,
                     HclComponent.origin != ORIGIN_PREVIEW).all())
+
+
+def find_delisted(bom_comp: BOMComponent, delisted: Optional[List[HclComponent]] = None
+                  ) -> Optional[HclComponent]:
+    """The delisted catalog part a BOM line matches — the same rule, over the
+    same set (load_delisted), that delisted_findings raises its finding from.
+    None when the line's category has no HCL kind or nothing matches."""
+    kinds = _CATEGORY_KINDS.get(bom_comp.category)
+    if not kinds:
+        return None
+    if delisted is None:
+        delisted = load_delisted()
+    for comp in delisted:
+        if comp.kind in kinds and _matches_component(bom_comp, comp):
+            return comp
+    return None

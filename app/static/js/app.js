@@ -4084,11 +4084,14 @@ function renderVmTable() {
         </tr>`;
     }).join('');
 
-    document.querySelectorAll('.vm-table th.sortable').forEach(th => {
+    // Scoped to #vm-table: #manual-vm-table shares the .vm-table class and
+    // keeps its own arrows (renderManualVmTable), so an unscoped query here
+    // would strip them every time the import table re-renders.
+    document.querySelectorAll('#vm-table th.sortable').forEach(th => {
         const arrows = th.querySelector('.sort-arrow');
         if (arrows) arrows.remove();
     });
-    const headers = document.querySelectorAll('.vm-table th.sortable');
+    const headers = document.querySelectorAll('#vm-table th.sortable');
     headers.forEach(th => {
         const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
         if (field === vmSortField) {

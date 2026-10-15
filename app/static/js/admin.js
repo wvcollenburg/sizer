@@ -172,7 +172,7 @@ function renderTunables(values) {
                 const help = tOr('admin.tunable.' + d.key + '.help', d.help || '');
                 return `
                 <div class="form-group">
-                    <label title="${esc(help)}">${esc(label)}<button type="button" class="tunable-info-btn" title="${esc(t('admin.tunable.info_btn'))}" data-click='["showTunableInfo","${d.key}"]'>i</button></label>
+                    <label title="${esc(help)}">${esc(label)}<button type="button" class="tunable-info-btn" title="${esc(t('admin.tunable.info_btn'))}" data-click='["showTunableInfo",${tunableDefs.indexOf(d)}]'>i</button></label>
                     <input type="number" id="tun-${d.key}"
                            ${d.min != null ? `min="${d.min}"` : ''}
                            ${d.max != null ? `max="${d.max}"` : ''}
@@ -218,8 +218,8 @@ function showInfo(d) {
     document.getElementById('tunable-info-modal').style.display = 'flex';
 }
 
-function showTunableInfo(key) {
-    showInfo((tunableDefs || []).find(t => t.key === key));
+function showTunableInfo(idx) {
+    showInfo((tunableDefs || [])[idx]);
 }
 
 // IOPS fields are hand-built (not metadata-driven), so their info text lives here.
@@ -345,7 +345,7 @@ function renderModelTable() {
                 <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditModel",${m.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteModel",${m.id},"${esc(m.name)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteModel",${m.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -360,11 +360,13 @@ function syncModelVendorField() {
     if (group) group.hidden = !document.getElementById('edit-validated-only').checked;
 }
 
-function esc(s) {
-    if (s == null) return '';
-    const d = document.createElement('div');
-    d.textContent = String(s);
-    return d.innerHTML;
+// HTML-escape any value before interpolating it into an innerHTML string.
+// Same helper as app.js: it must also escape both quote characters because
+// most call sites sit inside ="..." attribute values.
+function esc(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ── Catalog Tables ─────────────────────────────────────────────────────────
@@ -398,7 +400,7 @@ function renderCpuCatalog() {
                 <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","cpu",${c.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","cpu",${c.id},"${esc(c.desc)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","cpu",${c.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -422,7 +424,7 @@ function renderNicCatalog() {
                 <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","nic",${n.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","nic",${n.id},"${esc(n.desc)}"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","nic",${n.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -445,7 +447,7 @@ function renderDriveCatalog() {
                 <button class="btn-icon" title="${esc(t('common.edit'))}" data-click='["openEditCatalogItem","drive",${d.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","drive",${d.id},"${d.drive_type} ${d.size_tb}TB"]'>
+                <button class="btn-icon danger" title="${esc(t('common.delete'))}" data-click='["deleteCatalogItem","drive",${d.id}]'>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </td>
@@ -619,8 +621,17 @@ async function saveCatalogItem() {
     }
 }
 
-async function deleteCatalogItem(type, id, label) {
-    if (!confirm(t('admin.confirm.delete_item', {label: label}))) return;
+// Label for the confirm comes from the in-memory catalog, keyed by id, so the
+// delegate spec stays free of user-supplied strings.
+function catalogItemLabel(type, id) {
+    const list = type === 'cpu' ? cpuCatalog : type === 'nic' ? nicCatalog : driveCatalog;
+    const item = (list || []).find(x => x.id === id);
+    if (!item) return String(id);
+    return type === 'drive' ? `${item.drive_type} ${item.size_tb}TB` : item.desc;
+}
+
+async function deleteCatalogItem(type, id) {
+    if (!confirm(t('admin.confirm.delete_item', {label: catalogItemLabel(type, id)}))) return;
     const base = `/admin/api/${type === 'cpu' ? 'cpus' : type === 'nic' ? 'nics' : 'drives'}`;
     try {
         const resp = await fetch(`${base}/${id}`, { method: 'DELETE' });
@@ -653,8 +664,11 @@ async function toggleModelRecommend(id, excluded) {
     }
 }
 
-async function deleteModel(id, name) {
-    if (!confirm(t('admin.confirm.delete_model', {name: name}))) return;
+async function deleteModel(id) {
+    // The delegate spec carries only the id; the name comes from the list
+    // state so no user-supplied text is ever baked into the JSON attribute.
+    const m = allModels.find(x => x.id === id);
+    if (!confirm(t('admin.confirm.delete_model', {name: m ? m.name : id}))) return;
     await fetch(`/admin/api/models/${id}`, { method: 'DELETE' });
     loadModels();
     loadCatalogs();
@@ -1400,12 +1414,6 @@ async function saveModel() {
 // These tabs drive the /api/admin/users and /api/admin/super endpoints. The whole
 // /admin area is already super-admin-gated server-side.
 
-function adminEsc(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
 function adminDate(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -1431,6 +1439,7 @@ async function adminApi(url, opts) {
 // ── Tenants ──────────────────────────────────────────────────────────────────
 
 let tenantCache = [];
+let userCache = [];     // last /users list, so row actions can look a user up by id
 
 async function loadAdminTenants() {
     const { ok, data } = await adminApi('/api/admin/super/tenants');
@@ -1440,24 +1449,24 @@ async function loadAdminTenants() {
     const filter = document.getElementById('users-tenant-filter');
     if (filter) {
         const cur = filter.value;
-        filter.innerHTML = `<option value="">${adminEsc(t('admin.users.all_tenants'))}</option>`
-            + data.map(t => `<option value="${t.id}">${adminEsc(t.domain)}</option>`).join('');
+        filter.innerHTML = `<option value="">${esc(t('admin.users.all_tenants'))}</option>`
+            + data.map(t => `<option value="${t.id}">${esc(t.domain)}</option>`).join('');
         filter.value = cur;
     }
     const body = document.getElementById('admin-tenants-tbody');
     body.innerHTML = data.map(t => `
         <tr>
-            <td>${adminEsc(t.domain)}</td>
-            <td>${t.is_scale ? adminEsc(window.t('common.yes')) : ''}</td>
+            <td>${esc(t.domain)}</td>
+            <td>${t.is_scale ? esc(window.t('common.yes')) : ''}</td>
             <td>${t.user_count}</td>
-            <td>${t.is_blocked ? `<span class="badge-blocked">${adminEsc(window.t('admin.tenants.blocked'))}</span>` : adminEsc(window.t('admin.status.active'))}</td>
+            <td>${t.is_blocked ? `<span class="badge-blocked">${esc(window.t('admin.tenants.blocked'))}</span>` : esc(window.t('admin.status.active'))}</td>
             <td class="col-actions">
                 <button class="btn btn-sm ${t.is_blocked ? 'btn-secondary' : 'btn-danger'}"
                         data-click='["toggleBlockTenant",${t.id},${t.is_blocked ? 'false' : 'true'}]'>
-                    ${t.is_blocked ? adminEsc(window.t('admin.tenants.unblock')) : adminEsc(window.t('admin.tenants.block'))}
+                    ${t.is_blocked ? esc(window.t('admin.tenants.unblock')) : esc(window.t('admin.tenants.block'))}
                 </button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="5">${adminEsc(window.t('admin.tenants.none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="5">${esc(window.t('admin.tenants.none'))}</td></tr>`;
 }
 
 async function toggleBlockTenant(id, block) {
@@ -1485,43 +1494,45 @@ async function loadAdminUsers() {
     const { ok, data } = await adminApi('/api/admin/super/users?' + params.toString());
     const body = document.getElementById('admin-users-tbody');
     if (!ok) { body.innerHTML = ''; setStatus('admin-status', t('admin.users.load_error'), true); return; }
+    userCache = data;
     const roleOpts = (sel) =>
-        `<option value="user"${sel === 'user' ? ' selected' : ''}>${adminEsc(t('admin.role.user'))}</option>`
-        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>${adminEsc(t('admin.role.tenant_admin'))}</option>`
-        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>${adminEsc(t('admin.role.super_admin'))}</option>`;
+        `<option value="user"${sel === 'user' ? ' selected' : ''}>${esc(t('admin.role.user'))}</option>`
+        + `<option value="tenant_admin"${sel === 'tenant_admin' ? ' selected' : ''}>${esc(t('admin.role.tenant_admin'))}</option>`
+        + `<option value="super_admin"${sel === 'super_admin' ? ' selected' : ''}>${esc(t('admin.role.super_admin'))}</option>`;
 
     body.innerHTML = data.map(u => {
         const actions = [];
         if (!u.is_disabled) {
-            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["resetUserPassword",${u.id},"${adminEsc(u.email)}"]'>${adminEsc(t('admin.users.reset_password'))}</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["resetUserPassword",${u.id}]'>${esc(t('admin.users.reset_password'))}</button>`);
             if (u.role !== 'super_admin') {
-                actions.push(`<button class="btn btn-sm btn-danger" data-click='["disableAdminUser",${u.id}]'>${adminEsc(t('admin.users.disable'))}</button>`);
+                actions.push(`<button class="btn btn-sm btn-danger" data-click='["disableAdminUser",${u.id}]'>${esc(t('admin.users.disable'))}</button>`);
             }
         } else {
-            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["restoreUser",${u.id}]'>${adminEsc(t('admin.users.restore'))}</button>`);
-            actions.push(`<button class="btn btn-sm btn-danger" data-click='["deleteUser",${u.id}]'>${adminEsc(t('common.delete'))}</button>`);
+            actions.push(`<button class="btn btn-sm btn-secondary" data-click='["restoreUser",${u.id}]'>${esc(t('admin.users.restore'))}</button>`);
+            actions.push(`<button class="btn btn-sm btn-danger" data-click='["deleteUser",${u.id}]'>${esc(t('common.delete'))}</button>`);
         }
         // Role is editable inline for active users; disabled users must be
         // restored before their role can change (server enforces this too).
         const roleCell = u.is_disabled
-            ? adminEsc(u.role)
-            : `<select class="role-select" data-change='["changeUserRole",${u.id},"$value","${adminEsc(u.role)}"]'>${roleOpts(u.role)}</select>`;
-        const statusCell = u.is_disabled ? adminEsc(t('admin.status.disabled'))
-            : (u.is_verified ? adminEsc(t('admin.status.active'))
-               : `<span class="badge-unverified">${adminEsc(t('admin.status.unactivated'))}</span>`);
+            ? esc(u.role)
+            : `<select class="role-select" data-change='["changeUserRole",${u.id},"$value"]'>${roleOpts(u.role)}</select>`;
+        const statusCell = u.is_disabled ? esc(t('admin.status.disabled'))
+            : (u.is_verified ? esc(t('admin.status.active'))
+               : `<span class="badge-unverified">${esc(t('admin.status.unactivated'))}</span>`);
         return `<tr class="${u.is_disabled ? 'row-disabled' : ''}">
-            <td>${adminEsc(u.email)}</td>
-            <td>${adminEsc(u.tenant_domain)}</td>
-            <td>${roleCell}${u.is_scale ? ` <span class="badge-scale">${adminEsc(t('admin.users.scale_badge'))}</span>` : ''}</td>
+            <td>${esc(u.email)}</td>
+            <td>${esc(u.tenant_domain)}</td>
+            <td>${roleCell}${u.is_scale ? ` <span class="badge-scale">${esc(t('admin.users.scale_badge'))}</span>` : ''}</td>
             <td>${statusCell}</td>
             <td>${adminDate(u.last_login_at)}</td>
             <td class="col-actions">${actions.join(' ')}</td>
         </tr>`;
-    }).join('') || `<tr><td colspan="6">${adminEsc(t('admin.users.none'))}</td></tr>`;
+    }).join('') || `<tr><td colspan="6">${esc(t('admin.users.none'))}</td></tr>`;
 }
 
-async function changeUserRole(id, role, prevRole) {
-    if (role === prevRole) return;
+async function changeUserRole(id, role) {
+    const u = userCache.find(x => x.id === id);
+    if (u && role === u.role) return;
     const label = { user: t('admin.role.user'), tenant_admin: t('admin.role.tenant_admin'), super_admin: t('admin.role.super_admin') }[role] || role;
     if (!confirm(t('admin.users.role_confirm', {role: label}))) { loadAdminUsers(); return; }
     const { ok, data } = await adminApi(`/api/admin/super/users/${id}/role`, {
@@ -1533,8 +1544,9 @@ async function changeUserRole(id, role, prevRole) {
     loadAdminUsers();
 }
 
-async function resetUserPassword(id, email) {
-    const pw = prompt(t('admin.users.reset_prompt', {email: email}));
+async function resetUserPassword(id) {
+    const u = userCache.find(x => x.id === id);
+    const pw = prompt(t('admin.users.reset_prompt', {email: u ? u.email : id}));
     if (pw === null) return;  // cancelled
     const body = pw.trim() ? { password: pw.trim() } : {};
     if (!pw.trim() && !confirm(t('admin.users.reset_email_confirm'))) return;
@@ -1579,16 +1591,16 @@ async function loadAdminSizings() {
     if (!ok) { body.innerHTML = ''; setStatus('sizings-status-admin', t('admin.sizings.load_error'), true); return; }
     body.innerHTML = data.map(c => `
         <tr class="${c.is_deleted ? 'row-disabled' : ''}">
-            <td>${adminEsc(c.name)}</td>
-            <td>${adminEsc(c.owner_email || '')}</td>
-            <td>${adminEsc(c.tenant_domain || '')}</td>
-            <td><code>${adminEsc(c.code)}</code></td>
-            <td>${c.is_deleted ? adminEsc(t('admin.status.deleted')) : adminEsc(t('admin.status.active'))}</td>
+            <td>${esc(c.name)}</td>
+            <td>${esc(c.owner_email || '')}</td>
+            <td>${esc(c.tenant_domain || '')}</td>
+            <td><code>${esc(c.code)}</code></td>
+            <td>${c.is_deleted ? esc(t('admin.status.deleted')) : esc(t('admin.status.active'))}</td>
             <td>${adminDate(c.updated_at)}</td>
             <td class="col-actions">
-                <button class="btn btn-sm btn-danger" data-click='["purgeSizing",${c.id}]'>${adminEsc(t('admin.sizings.purge'))}</button>
+                <button class="btn btn-sm btn-danger" data-click='["purgeSizing",${c.id}]'>${esc(t('admin.sizings.purge'))}</button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.sizings.none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="7">${esc(t('admin.sizings.none'))}</td></tr>`;
 }
 
 async function purgeSizing(id) {
@@ -1674,7 +1686,7 @@ async function sendTestEmail() {
 function auditDetailCell(detail) {
     const text = String(detail || '').trim();
     const firstBreak = text.indexOf('\n');
-    if (firstBreak === -1) return adminEsc(text);
+    if (firstBreak === -1) return esc(text);
 
     const summary = text.slice(0, firstBreak);
     const rest = text.slice(firstBreak + 1);
@@ -1682,9 +1694,9 @@ function auditDetailCell(detail) {
     const cause = split === -1 ? '' : rest.slice(0, split).trim();
     const trace = split === -1 ? rest.trim() : rest.slice(split + 2).trim();
 
-    let html = adminEsc(summary);
-    if (cause) html += `<div class="audit-cause">${adminEsc(cause)}</div>`;
-    if (trace) html += `<pre class="audit-trace">${adminEsc(trace)}</pre>`;
+    let html = esc(summary);
+    if (cause) html += `<div class="audit-cause">${esc(cause)}</div>`;
+    if (trace) html += `<pre class="audit-trace">${esc(trace)}</pre>`;
     return html;
 }
 
@@ -1699,11 +1711,11 @@ async function loadAuditLog() {
         return `
         <tr${warn ? ' class="audit-row-warn"' : ''}>
             <td>${adminDate(e.created_at)}</td>
-            <td>${adminEsc(e.actor_email || '')}</td>
-            <td><code>${adminEsc(e.action)}</code></td>
+            <td>${esc(e.actor_email || '')}</td>
+            <td><code>${esc(e.action)}</code></td>
             <td>${auditDetailCell(e.detail)}</td>
         </tr>`;
-    }).join('') || `<tr><td colspan="4">${adminEsc(t('admin.audit.none'))}</td></tr>`;
+    }).join('') || `<tr><td colspan="4">${esc(t('admin.audit.none'))}</td></tr>`;
 }
 
 
@@ -1718,18 +1730,18 @@ async function loadStaleUsers() {
     // Populate the per-domain selector from the result.
     const domains = [...new Set(data.map(u => u.tenant_domain).filter(Boolean))].sort();
     const sel = document.getElementById('stale-domain-select');
-    sel.innerHTML = `<option value="">${adminEsc(t('admin.stale.select_domain'))}</option>`
-        + domains.map(d => `<option value="${adminEsc(d)}">${adminEsc(d)} (${data.filter(u => u.tenant_domain === d).length})</option>`).join('');
+    sel.innerHTML = `<option value="">${esc(t('admin.stale.select_domain'))}</option>`
+        + domains.map(d => `<option value="${esc(d)}">${esc(d)} (${data.filter(u => u.tenant_domain === d).length})</option>`).join('');
 
     body.innerHTML = data.map(u => `
         <tr>
-            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${adminEsc(u.tenant_domain)}" data-click='["updateStaleCount"]'></td>
-            <td>${adminEsc(u.email)}</td>
-            <td>${adminEsc(u.tenant_domain)}</td>
-            <td>${adminEsc(u.role)}</td>
-            <td>${u.last_login_at ? adminDate(u.last_login_at) : `<span class="muted">${adminEsc(t('admin.stale.never'))}</span>`}</td>
+            <td><input type="checkbox" class="stale-check" value="${u.id}" data-domain="${esc(u.tenant_domain)}" data-click='["updateStaleCount"]'></td>
+            <td>${esc(u.email)}</td>
+            <td>${esc(u.tenant_domain)}</td>
+            <td>${esc(u.role)}</td>
+            <td>${u.last_login_at ? adminDate(u.last_login_at) : `<span class="muted">${esc(t('admin.stale.never'))}</span>`}</td>
             <td>${adminDate(u.created_at)}</td>
-        </tr>`).join('') || `<tr><td colspan="6">${adminEsc(t('admin.stale.none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="6">${esc(t('admin.stale.none'))}</td></tr>`;
     updateStaleCount();
 }
 
@@ -1783,7 +1795,7 @@ async function purgeSelectedStale() {
 // Front-end for docs/bom-checker-build.md §6 (admin endpoints) and §7. Every
 // top-level name here is prefixed hcl… / bomReview… because admin.js shares one
 // global scope with theme.js, i18n.js, delegate.js and toast.js. All server
-// strings pass through adminEsc() before they touch innerHTML.
+// strings pass through esc() before they touch innerHTML.
 
 let hclPollTimer = null;          // 3 s status poll while a scrape runs
 let hclWasRunning = false;        // to refresh the queue once a run finishes
@@ -1795,6 +1807,7 @@ let bomReviewRows = [];           // last list from /admin/api/bom-reviews
 let bomReviewCurrent = null;      // row open in the modal
 let bomReviewFull = null;         // its full check (result + normalised BOM), for part notes
 let bomPrevData = null;           // /acceptable payload for the open review modal
+let hclPreviewCache = { platforms: [], components: [] };  // last /hcl/preview payload, for row actions
 
 const HCL_KIND_BADGE = { add: 'badge-validated', update: 'badge-eol', delist: 'badge-eos', relist: 'badge-active', merge: 'badge-accent' };
 const HCL_VERDICT_BADGE = { PASS: 'badge-active', FAIL: 'badge-eos', INCONCLUSIVE: 'badge-eol' };
@@ -1854,7 +1867,7 @@ function hclFmtValue(v) {
     if (v == null || v === '') return '<span class="muted">—</span>';
     if (Array.isArray(v)) {
         const items = v.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x));
-        return `<span class="hcl-val" title="${adminEsc(items.join('\n'))}">${adminEsc(t('admin.hcl.n_items', { n: v.length }))}</span>`;
+        return `<span class="hcl-val" title="${esc(items.join('\n'))}">${esc(t('admin.hcl.n_items', { n: v.length }))}</span>`;
     }
     if (typeof v === 'object') {
         const keys = Object.keys(v);
@@ -1862,27 +1875,27 @@ function hclFmtValue(v) {
         const lines = keys.map(k => {
             const val = v[k];
             const text = (val != null && typeof val === 'object') ? JSON.stringify(val) : String(val == null ? '—' : val);
-            return `<div class="hcl-kv" title="${adminEsc(text)}"><span class="hcl-kv-key">${adminEsc(k)}</span>: ${adminEsc(hclTruncate(text, 48))}</div>`;
+            return `<div class="hcl-kv" title="${esc(text)}"><span class="hcl-kv-key">${esc(k)}</span>: ${esc(hclTruncate(text, 48))}</div>`;
         });
         return lines.join('');
     }
-    if (typeof v === 'boolean') return adminEsc(hclYesNo(v));
+    if (typeof v === 'boolean') return esc(hclYesNo(v));
     const s = String(v);
-    if (s.length > 60) return `<span class="hcl-val" title="${adminEsc(s)}">${adminEsc(hclTruncate(s, 60))}</span>`;
-    return adminEsc(s);
+    if (s.length > 60) return `<span class="hcl-val" title="${esc(s)}">${esc(hclTruncate(s, 60))}</span>`;
+    return esc(s);
 }
 
 function hclStatusBadge(status) {
     const active = status === 'active';
     const label = active ? t('admin.hcl.status_active') : t('admin.hcl.status_delisted');
-    return `<span class="badge ${active ? 'badge-active' : 'badge-eos'}">${adminEsc(label)}</span>`;
+    return `<span class="badge ${active ? 'badge-active' : 'badge-eos'}">${esc(label)}</span>`;
 }
 
 // Parts accepted from a BOM review that the HCL team has confirmed but not
 // yet published on the HCL carry origin "preview" until a scrape sees them.
 function hclPreviewBadge(origin) {
     if (origin !== 'preview') return '';
-    return ` <span class="badge badge-validated hcl-badge-tight" title="${adminEsc(t('admin.bomprev.badge_title'))}">${adminEsc(t('admin.bomprev.badge'))}</span>`;
+    return ` <span class="badge badge-validated hcl-badge-tight" title="${esc(t('admin.bomprev.badge_title'))}">${esc(t('admin.bomprev.badge'))}</span>`;
 }
 
 function hclComponentKindLabel(kind) {
@@ -1930,44 +1943,48 @@ async function hclLoadPreviewCount() {
     const { ok, data } = await adminApi('/admin/api/hcl/preview');
     const comps = (ok && data && Array.isArray(data.components)) ? data.components : [];
     const plats = (ok && data && Array.isArray(data.platforms)) ? data.platforms : [];
+    hclPreviewCache = { platforms: plats, components: comps };
     if (el) el.textContent = ok ? t('admin.bomprev.count', { n: comps.length }) : '';
     if (!body) return;
     const platRows = plats.map(p => `
         <tr>
-            <td><span class="badge badge-accent">${adminEsc(t('admin.bomprev.row_platform'))}</span></td>
-            <td><code>${adminEsc(p.sc_model)}</code></td>
-            <td>${adminEsc(p.server || '')}</td>
-            <td>${adminEsc(p.brand || '')}</td>
+            <td><span class="badge badge-accent">${esc(t('admin.bomprev.row_platform'))}</span></td>
+            <td><code>${esc(p.sc_model)}</code></td>
+            <td>${esc(p.server || '')}</td>
+            <td>${esc(p.brand || '')}</td>
             <td>${adminDate(p.first_seen)}</td>
             <td class="col-actions">
                 <button class="btn btn-sm btn-danger"
-                    data-click='["hclWithdrawPreview","platform",${p.id},"${adminEsc(p.key)}"]'
-                    >${adminEsc(t('admin.bomprev.withdraw'))}</button>
+                    data-click='["hclWithdrawPreview","platform",${p.id}]'
+                    >${esc(t('admin.bomprev.withdraw'))}</button>
             </td>
         </tr>`).join('');
     const compRows = comps.map(c => {
         const on = (c.platforms || []).map(p => p.sc_model).join(', ');
         return `
         <tr>
-            <td>${adminEsc(hclComponentKindLabel(c.kind))}</td>
-            <td><code>${adminEsc(c.part_number)}</code></td>
-            <td>${adminEsc(c.description || '')}</td>
-            <td>${adminEsc(on) || `<span class="muted">${adminEsc(t('admin.bomprev.unlinked'))}</span>`}</td>
+            <td>${esc(hclComponentKindLabel(c.kind))}</td>
+            <td><code>${esc(c.part_number)}</code></td>
+            <td>${esc(c.description || '')}</td>
+            <td>${esc(on) || `<span class="muted">${esc(t('admin.bomprev.unlinked'))}</span>`}</td>
             <td>${adminDate(c.first_seen)}</td>
             <td class="col-actions">
                 <button class="btn btn-sm btn-danger"
-                    data-click='["hclWithdrawPreview","component",${c.id},"${adminEsc(c.part_number)}"]'
-                    >${adminEsc(t('admin.bomprev.withdraw'))}</button>
+                    data-click='["hclWithdrawPreview","component",${c.id}]'
+                    >${esc(t('admin.bomprev.withdraw'))}</button>
             </td>
         </tr>`;
     }).join('');
     body.innerHTML = (platRows + compRows) ||
-        `<tr><td colspan="6">${adminEsc(t('admin.bomprev.list_none'))}</td></tr>`;
+        `<tr><td colspan="6">${esc(t('admin.bomprev.list_none'))}</td></tr>`;
 }
 
 // Taking an acceptance back. Spelled out in the confirm because a BOM check
 // that passed on this part will report its finding again after a re-check.
-async function hclWithdrawPreview(entityType, id, label) {
+async function hclWithdrawPreview(entityType, id) {
+    const list = entityType === 'platform' ? hclPreviewCache.platforms : hclPreviewCache.components;
+    const row = (list || []).find(x => x.id === id);
+    const label = row ? (entityType === 'platform' ? row.key : row.part_number) : String(id);
     if (!confirm(t('admin.bomprev.withdraw_confirm', { name: label }))) return;
     const { ok, data } = await hclJson(
         '/admin/api/hcl/preview/' + encodeURIComponent(entityType) + '/' + id + '/withdraw', 'POST', {});
@@ -2051,34 +2068,34 @@ async function hclLoadScrapeStatus() {
 
 function hclRenderLastRun(last, running) {
     const el = document.getElementById('hcl-last-run');
-    if (!last) { el.innerHTML = `<p class="muted">${adminEsc(t('admin.hcl.never_scraped'))}</p>`; return; }
+    if (!last) { el.innerHTML = `<p class="muted">${esc(t('admin.hcl.never_scraped'))}</p>`; return; }
     const summary = last.summary || {};
     const changes = summary.changes || {};
     const errors = Array.isArray(last.errors) ? last.errors : [];
     const statusKey = 'admin.hcl.run_status_' + (last.status || 'queued');
     const statusCls = last.status === 'succeeded' ? 'badge-active' : last.status === 'failed' ? 'badge-eos' : 'badge-eol';
     const rows = [
-        [t('admin.hcl.run_when'), adminEsc(adminDate(last.finished_at || last.started_at))],
-        [t('common.status'), `<span class="badge ${statusCls}">${adminEsc(hclTextOr(statusKey, last.status || ''))}</span>`],
-        [t('admin.hcl.run_source'), adminEsc(hclTextOr('admin.hcl.source_' + (last.source || 'scrape'), last.source || ''))],
-        [t('admin.hcl.run_pages'), adminEsc(`${last.pages_done || 0} / ${last.pages_total || 0}`)],
+        [t('admin.hcl.run_when'), esc(adminDate(last.finished_at || last.started_at))],
+        [t('common.status'), `<span class="badge ${statusCls}">${esc(hclTextOr(statusKey, last.status || ''))}</span>`],
+        [t('admin.hcl.run_source'), esc(hclTextOr('admin.hcl.source_' + (last.source || 'scrape'), last.source || ''))],
+        [t('admin.hcl.run_pages'), esc(`${last.pages_done || 0} / ${last.pages_total || 0}`)],
         [t('admin.hcl.run_complete'), last.complete
-            ? adminEsc(t('common.yes'))
-            : `<span class="hcl-warn" title="${adminEsc(t('admin.hcl.run_incomplete_hint'))}">${adminEsc(t('admin.hcl.run_incomplete'))}</span>`],
-        [t('admin.hcl.run_changes'), adminEsc(t('admin.hcl.run_changes_detail', {
+            ? esc(t('common.yes'))
+            : `<span class="hcl-warn" title="${esc(t('admin.hcl.run_incomplete_hint'))}">${esc(t('admin.hcl.run_incomplete'))}</span>`],
+        [t('admin.hcl.run_changes'), esc(t('admin.hcl.run_changes_detail', {
             add: changes.add || 0, update: changes.update || 0, delist: changes.delist || 0, relist: changes.relist || 0 }))],
     ];
-    let html = `<h4 class="hcl-last-run-title">${adminEsc(running ? t('admin.hcl.current_run') : t('admin.hcl.last_run'))}</h4>`
+    let html = `<h4 class="hcl-last-run-title">${esc(running ? t('admin.hcl.current_run') : t('admin.hcl.last_run'))}</h4>`
         + '<dl class="hcl-run-grid">'
-        + rows.map(r => `<dt>${adminEsc(r[0])}</dt><dd>${r[1]}</dd>`).join('')
+        + rows.map(r => `<dt>${esc(r[0])}</dt><dd>${r[1]}</dd>`).join('')
         + '</dl>';
-    if (last.error) html += `<p class="hcl-run-error">${adminEsc(last.error)}</p>`;
+    if (last.error) html += `<p class="hcl-run-error">${esc(last.error)}</p>`;
     if (errors.length) {
-        html += `<details class="hcl-run-errors"><summary>${adminEsc(t('admin.hcl.run_errors', { n: errors.length }))}</summary><ul>`
-            + errors.map(e => `<li>${adminEsc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('')
+        html += `<details class="hcl-run-errors"><summary>${esc(t('admin.hcl.run_errors', { n: errors.length }))}</summary><ul>`
+            + errors.map(e => `<li>${esc(typeof e === 'string' ? e : JSON.stringify(e))}</li>`).join('')
             + '</ul></details>';
     } else {
-        html += `<p class="muted">${adminEsc(t('admin.hcl.run_no_errors'))}</p>`;
+        html += `<p class="muted">${esc(t('admin.hcl.run_no_errors'))}</p>`;
     }
     el.innerHTML = html;
 }
@@ -2147,19 +2164,19 @@ async function loadHclPending() {
     if (!ok || !Array.isArray(data)) { body.innerHTML = ''; setStatus('hcl-status', t('admin.hcl.load_error'), true); return; }
     body.innerHTML = data.map(p => `
         <tr>
-            <td><input type="checkbox" class="hcl-pending-check" value="${p.id}" aria-label="${adminEsc(t('admin.hcl.select_row'))}" data-click='["hclUpdatePendingCount"]'></td>
-            <td><span class="badge ${HCL_KIND_BADGE[p.change_kind] || 'badge-validated'}">${adminEsc(hclTextOr('admin.hcl.kind_' + p.change_kind, p.change_kind))}</span></td>
-            <td>${adminEsc(hclEntityLabel(p.entity_type))}</td>
-            <td><strong>${adminEsc(p.label || p.entity_key || '')}</strong>${p.label && p.entity_key ? `<div class="muted hcl-key">${adminEsc(p.entity_key)}</div>` : ''}</td>
-            <td>${adminEsc(p.field || '')}</td>
+            <td><input type="checkbox" class="hcl-pending-check" value="${p.id}" aria-label="${esc(t('admin.hcl.select_row'))}" data-click='["hclUpdatePendingCount"]'></td>
+            <td><span class="badge ${HCL_KIND_BADGE[p.change_kind] || 'badge-validated'}">${esc(hclTextOr('admin.hcl.kind_' + p.change_kind, p.change_kind))}</span></td>
+            <td>${esc(hclEntityLabel(p.entity_type))}</td>
+            <td><strong>${esc(p.label || p.entity_key || '')}</strong>${p.label && p.entity_key ? `<div class="muted hcl-key">${esc(p.entity_key)}</div>` : ''}</td>
+            <td>${esc(p.field || '')}</td>
             <td class="hcl-val-cell">${hclFmtValue(p.old)}</td>
             <td class="hcl-val-cell">${hclFmtValue(p.new)}</td>
-            <td class="hcl-nowrap">${adminEsc(adminDate(p.created_at))}</td>
+            <td class="hcl-nowrap">${esc(adminDate(p.created_at))}</td>
             <td class="col-actions hcl-col-actions">
-                <button class="btn btn-sm btn-secondary" data-click='["hclPendingAction",${p.id},"approve"]'>${adminEsc(t('admin.hcl.approve'))}</button>
-                <button class="btn btn-sm btn-danger" data-click='["hclPendingAction",${p.id},"reject"]'>${adminEsc(t('admin.hcl.reject'))}</button>
+                <button class="btn btn-sm btn-secondary" data-click='["hclPendingAction",${p.id},"approve"]'>${esc(t('admin.hcl.approve'))}</button>
+                <button class="btn btn-sm btn-danger" data-click='["hclPendingAction",${p.id},"reject"]'>${esc(t('admin.hcl.reject'))}</button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="9" class="muted">${adminEsc(t('admin.hcl.pending_none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="9" class="muted">${esc(t('admin.hcl.pending_none'))}</td></tr>`;
     hclUpdatePendingCount();
 }
 
@@ -2265,8 +2282,8 @@ async function loadHclCatalog() {
         return;
     }
     count.textContent = t('admin.hcl.catalog_count', { n: data.length });
-    const th = keys => '<tr>' + keys.map(k => `<th>${adminEsc(t(k))}</th>`).join('') + '</tr>';
-    const empty = cols => `<tr><td colspan="${cols}" class="muted">${adminEsc(t('admin.hcl.catalog_none'))}</td></tr>`;
+    const th = keys => '<tr>' + keys.map(k => `<th>${esc(t(k))}</th>`).join('') + '</tr>';
+    const empty = cols => `<tr><td colspan="${cols}" class="muted">${esc(t('admin.hcl.catalog_none'))}</td></tr>`;
     if (kind === 'platforms') {
         thead.innerHTML = th(['admin.hcl.col_brand', 'admin.hcl.col_sc_model', 'admin.hcl.col_server', 'admin.hcl.col_form_factor',
             'admin.hcl.col_sockets', 'admin.hcl.col_memory_type', 'admin.hcl.col_max_ram', 'admin.hcl.col_components',
@@ -2287,26 +2304,26 @@ async function loadHclCatalog() {
             const title = platforms ? platforms.map(p => p.key || `${p.brand}/${p.sc_model}`).join('\n') : '';
             return `
         <tr class="${c.status === 'active' ? '' : 'row-disabled'}">
-            <td>${adminEsc(hclComponentKindLabel(c.kind))}</td>
-            <td><code>${adminEsc(c.part_number)}</code>${hclPreviewBadge(c.origin)}</td>
-            <td>${adminEsc(c.description || '')}</td>
+            <td>${esc(hclComponentKindLabel(c.kind))}</td>
+            <td><code>${esc(c.part_number)}</code>${hclPreviewBadge(c.origin)}</td>
+            <td>${esc(c.description || '')}</td>
             <td>${c.tce ? `<span class="badge badge-validated hcl-badge-tight">TCE</span>` : '<span class="muted">—</span>'}</td>
             <td>${hclStatusBadge(c.status)}</td>
-            <td class="hcl-nowrap">${adminEsc(adminDate(c.last_seen))}</td>
-            <td${title ? ` title="${adminEsc(title)}"` : ''}>${pc == null ? '<span class="muted">—</span>' : adminEsc(String(pc))}</td>
+            <td class="hcl-nowrap">${esc(adminDate(c.last_seen))}</td>
+            <td${title ? ` title="${esc(title)}"` : ''}>${pc == null ? '<span class="muted">—</span>' : esc(String(pc))}</td>
         </tr>`; }).join('') || empty(7);
     } else {
         thead.innerHTML = th(['admin.hcl.col_vendor_id', 'admin.hcl.col_device_id', 'admin.hcl.col_description', 'admin.hcl.col_driver',
             'admin.hcl.col_type', 'admin.hcl.col_supported', 'admin.hcl.col_since', 'common.status']);
         body.innerHTML = data.map(d => `
         <tr class="${d.status === 'active' ? '' : 'row-disabled'}">
-            <td><code>${adminEsc(d.ven_id)}</code></td>
-            <td><code>${adminEsc(d.dev_id)}</code></td>
-            <td>${adminEsc(d.description || '')}</td>
-            <td>${adminEsc(d.driver || '')}</td>
-            <td>${adminEsc(d.dev_type || '')}</td>
-            <td>${adminEsc(hclYesNo(d.supported))}</td>
-            <td>${adminEsc(d.since || '')}</td>
+            <td><code>${esc(d.ven_id)}</code></td>
+            <td><code>${esc(d.dev_id)}</code></td>
+            <td>${esc(d.description || '')}</td>
+            <td>${esc(d.driver || '')}</td>
+            <td>${esc(d.dev_type || '')}</td>
+            <td>${esc(hclYesNo(d.supported))}</td>
+            <td>${esc(d.since || '')}</td>
             <td>${hclStatusBadge(d.status)}</td>
         </tr>`).join('') || empty(8);
     }
@@ -2318,16 +2335,16 @@ function hclPlatformRow(p) {
         <tr class="hcl-row-click ${p.status === 'active' ? '' : 'row-disabled'}" id="hcl-platform-row-${p.id}" tabindex="0" role="button"
             aria-expanded="${open ? 'true' : 'false'}" aria-controls="hcl-platform-detail-${p.id}"
             data-click='["hclTogglePlatform",${p.id}]' data-keydown='["hclPlatformKeydown","$event",${p.id}]'>
-            <td>${adminEsc(p.brand || '')}</td>
-            <td><strong>${adminEsc(p.sc_model || '')}</strong></td>
-            <td>${adminEsc(p.server || '')}</td>
-            <td>${adminEsc(p.form_factor || '')}</td>
-            <td>${adminEsc(p.sockets == null ? '' : String(p.sockets))}</td>
-            <td>${adminEsc(p.memory_type || '')}</td>
-            <td>${p.max_ram_gb == null ? '' : adminEsc(t('admin.hcl.gb', { n: p.max_ram_gb }))}</td>
-            <td>${adminEsc(String(p.component_count == null ? '' : p.component_count))}</td>
+            <td>${esc(p.brand || '')}</td>
+            <td><strong>${esc(p.sc_model || '')}</strong></td>
+            <td>${esc(p.server || '')}</td>
+            <td>${esc(p.form_factor || '')}</td>
+            <td>${esc(p.sockets == null ? '' : String(p.sockets))}</td>
+            <td>${esc(p.memory_type || '')}</td>
+            <td>${p.max_ram_gb == null ? '' : esc(t('admin.hcl.gb', { n: p.max_ram_gb }))}</td>
+            <td>${esc(String(p.component_count == null ? '' : p.component_count))}</td>
             <td>${hclStatusBadge(p.status)}</td>
-            <td class="hcl-nowrap">${adminEsc(adminDate(p.last_seen))}</td>
+            <td class="hcl-nowrap">${esc(adminDate(p.last_seen))}</td>
         </tr>`;
 }
 
@@ -2355,12 +2372,12 @@ async function hclTogglePlatform(id, forceOpen) {
     const detail = document.createElement('tr');
     detail.className = 'hcl-detail-row';
     detail.id = `hcl-platform-detail-${id}`;
-    detail.innerHTML = `<td colspan="10"><span class="muted">${adminEsc(t('common.loading'))}</span></td>`;
+    detail.innerHTML = `<td colspan="10"><span class="muted">${esc(t('common.loading'))}</span></td>`;
     row.insertAdjacentElement('afterend', detail);
     const { ok, data } = await adminApi(`/admin/api/hcl/platforms/${id}`);
     if (hclExpandedPlatform !== id) return;   // closed or switched meanwhile
     if (!ok || !data) {
-        detail.innerHTML = `<td colspan="10"><span class="hcl-run-error">${adminEsc(hclErrorText(data))}</span></td>`;
+        detail.innerHTML = `<td colspan="10"><span class="hcl-run-error">${esc(hclErrorText(data))}</span></td>`;
         return;
     }
     detail.innerHTML = `<td colspan="10">${hclPlatformDetailHtml(data)}</td>`;
@@ -2385,12 +2402,12 @@ function hclPlatformDetailHtml(p) {
     let html = '<div class="hcl-detail">';
     if (facts.length) {
         html += '<dl class="hcl-run-grid hcl-detail-facts">'
-            + facts.map(f => `<dt>${adminEsc(t(f[0]))}</dt><dd>${adminEsc(String(f[1]))}</dd>`).join('')
+            + facts.map(f => `<dt>${esc(t(f[0]))}</dt><dd>${esc(String(f[1]))}</dd>`).join('')
             + '</dl>';
     }
     const comps = Array.isArray(p.components) ? p.components : [];
     if (!comps.length) {
-        html += `<p class="muted">${adminEsc(t('admin.hcl.platform_no_components'))}</p></div>`;
+        html += `<p class="muted">${esc(t('admin.hcl.platform_no_components'))}</p></div>`;
         return html;
     }
     const groups = {};
@@ -2400,11 +2417,11 @@ function hclPlatformDetailHtml(p) {
     order.forEach(kind => {
         const list = groups[kind];
         if (!list) return;
-        html += `<section class="hcl-detail-group"><h4>${adminEsc(hclComponentKindLabel(kind))} <span class="count-pill">${list.length}</span></h4><ul>`
+        html += `<section class="hcl-detail-group"><h4>${esc(hclComponentKindLabel(kind))} <span class="count-pill">${list.length}</span></h4><ul>`
             + list.map(c => `<li class="${(c.link_status || c.status) === 'active' ? '' : 'row-disabled'}">`
-                + `<code>${adminEsc(c.part_number)}</code> ${adminEsc(c.description || '')}`
+                + `<code>${esc(c.part_number)}</code> ${esc(c.description || '')}`
                 + (c.tce ? ' <span class="badge badge-validated hcl-badge-tight">TCE</span>' : '')
-                + ((c.link_status || c.status) === 'active' ? '' : ` <span class="badge badge-eos hcl-badge-tight">${adminEsc(t('admin.hcl.status_delisted'))}</span>`)
+                + ((c.link_status || c.status) === 'active' ? '' : ` <span class="badge badge-eos hcl-badge-tight">${esc(t('admin.hcl.status_delisted'))}</span>`)
                 + '</li>').join('')
             + '</ul></section>';
     });
@@ -2444,19 +2461,19 @@ async function hclSaveSettings() {
 function bomReviewVerdictChip(v) {
     if (!v) return '<span class="muted">—</span>';
     const cls = HCL_VERDICT_BADGE[v] || 'hcl-badge-plain';
-    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.verdict_' + String(v).toLowerCase(), v))}</span>`;
+    return `<span class="badge ${cls}">${esc(hclTextOr('admin.bom.verdict_' + String(v).toLowerCase(), v))}</span>`;
 }
 
 function bomReviewFitChip(v) {
     if (!v) return '<span class="muted">—</span>';
     const cls = HCL_FIT_BADGE[v] || 'hcl-badge-plain';
-    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.fit_' + v, v))}</span>`;
+    return `<span class="badge ${cls}">${esc(hclTextOr('admin.bom.fit_' + v, v))}</span>`;
 }
 
 function bomReviewStatusChip(s) {
     s = s || 'none';
     const cls = HCL_REVIEW_BADGE[s] || 'hcl-badge-plain';
-    return `<span class="badge ${cls}">${adminEsc(hclTextOr('admin.bom.status_' + s, s))}</span>`;
+    return `<span class="badge ${cls}">${esc(hclTextOr('admin.bom.status_' + s, s))}</span>`;
 }
 
 function bomReviewReasonText(code) {
@@ -2481,19 +2498,19 @@ async function loadBomReviews() {
         const reasonTitle = reasons.map(bomReviewReasonText).join('\n');
         return `
         <tr>
-            <td class="hcl-nowrap">${adminEsc(adminDate(r.created_at))}</td>
-            <td>${adminEsc(project.name || '')}${project.code ? ` <code>${adminEsc(project.code)}</code>` : ''}</td>
-            <td>${adminEsc(r.owner_email || '')}</td>
-            <td>${adminEsc(r.tenant_domain || '')}</td>
-            <td title="${adminEsc(r.filename || '')}">${adminEsc(hclTruncate(r.filename || r.name || '', 40))}</td>
+            <td class="hcl-nowrap">${esc(adminDate(r.created_at))}</td>
+            <td>${esc(project.name || '')}${project.code ? ` <code>${esc(project.code)}</code>` : ''}</td>
+            <td>${esc(r.owner_email || '')}</td>
+            <td>${esc(r.tenant_domain || '')}</td>
+            <td title="${esc(r.filename || '')}">${esc(hclTruncate(r.filename || r.name || '', 40))}</td>
             <td>${bomReviewVerdictChip(r.technical_verdict)}</td>
             <td>${bomReviewFitChip(r.fit_verdict)}</td>
-            <td class="hcl-reasons" title="${adminEsc(reasonTitle)}">${reasons.length ? adminEsc(reasons.join(', ')) : '<span class="muted">—</span>'}</td>
+            <td class="hcl-reasons" title="${esc(reasonTitle)}">${reasons.length ? esc(reasons.join(', ')) : '<span class="muted">—</span>'}</td>
             <td>${bomReviewStatusChip(r.review_status)}</td>
             <td class="col-actions hcl-col-actions">
-                <button class="btn btn-sm btn-secondary" data-click='["bomReviewOpen",${r.id}]'>${adminEsc(t('admin.bom.review_btn'))}</button>
+                <button class="btn btn-sm btn-secondary" data-click='["bomReviewOpen",${r.id}]'>${esc(t('admin.bom.review_btn'))}</button>
             </td>
-        </tr>`; }).join('') || `<tr><td colspan="10" class="muted">${adminEsc(t('admin.bom.none'))}</td></tr>`;
+        </tr>`; }).join('') || `<tr><td colspan="10" class="muted">${esc(t('admin.bom.none'))}</td></tr>`;
 }
 
 async function bomReviewOpen(id) {
@@ -2503,7 +2520,7 @@ async function bomReviewOpen(id) {
     bomPrevData = null;
     document.getElementById('bom-prev-accept').innerHTML = '';
     const summary = document.getElementById('bom-review-summary');
-    summary.innerHTML = bomReviewHeaderHtml(row) + `<p class="muted">${adminEsc(t('common.loading'))}</p>`;
+    summary.innerHTML = bomReviewHeaderHtml(row) + `<p class="muted">${esc(t('common.loading'))}</p>`;
     document.getElementById('bom-review-note').value = row.review_note || '';
     document.getElementById('bom-review-modal').style.display = 'flex';
     // Flagged checks may carry parts the HCL team has verified but not yet
@@ -2526,20 +2543,20 @@ function bomReviewHeaderHtml(r) {
     const project = r.project || {};
     const reasons = Array.isArray(r.flag_reasons) ? r.flag_reasons : [];
     const rows = [
-        [t('admin.bom.col_project'), adminEsc(project.name || '') + (project.code ? ` <code>${adminEsc(project.code)}</code>` : '')],
-        [t('admin.sizings.col_owner'), adminEsc(r.owner_email || '')],
-        [t('admin.bom.col_file'), adminEsc(r.filename || r.name || '')],
-        [t('admin.bom.col_when'), adminEsc(adminDate(r.created_at))],
+        [t('admin.bom.col_project'), esc(project.name || '') + (project.code ? ` <code>${esc(project.code)}</code>` : '')],
+        [t('admin.sizings.col_owner'), esc(r.owner_email || '')],
+        [t('admin.bom.col_file'), esc(r.filename || r.name || '')],
+        [t('admin.bom.col_when'), esc(adminDate(r.created_at))],
         [t('admin.bom.col_technical'), bomReviewVerdictChip(r.technical_verdict)],
         [t('admin.bom.col_fit'), bomReviewFitChip(r.fit_verdict)],
         [t('admin.bom.col_review'), bomReviewStatusChip(r.review_status)],
     ];
     let html = '<dl class="hcl-run-grid bom-review-facts">'
-        + rows.map(x => `<dt>${adminEsc(x[0])}</dt><dd>${x[1]}</dd>`).join('')
+        + rows.map(x => `<dt>${esc(x[0])}</dt><dd>${x[1]}</dd>`).join('')
         + '</dl>';
     if (reasons.length) {
-        html += `<h4 class="bom-review-h">${adminEsc(t('admin.bom.col_reason'))}</h4><ul class="bom-review-reasons">`
-            + reasons.map(c => `<li><code>${adminEsc(c)}</code> ${adminEsc(bomReviewReasonText(c))}</li>`).join('')
+        html += `<h4 class="bom-review-h">${esc(t('admin.bom.col_reason'))}</h4><ul class="bom-review-reasons">`
+            + reasons.map(c => `<li><code>${esc(c)}</code> ${esc(bomReviewReasonText(c))}</li>`).join('')
             + '</ul>';
     }
     return html;
@@ -2547,50 +2564,50 @@ function bomReviewHeaderHtml(r) {
 
 function bomReviewResultHtml(result, row) {
     if (!result || !result.technical) {
-        return `<p class="muted">${adminEsc(t('admin.bom.no_details'))}</p>`;
+        return `<p class="muted">${esc(t('admin.bom.no_details'))}</p>`;
     }
     const configs = Array.isArray(result.technical.config_results) ? result.technical.config_results : [];
-    let html = `<h4 class="bom-review-h">${adminEsc(t('admin.bom.findings_title'))}</h4>`;
-    if (!configs.length) html += `<p class="muted">${adminEsc(t('admin.bom.no_findings'))}</p>`;
+    let html = `<h4 class="bom-review-h">${esc(t('admin.bom.findings_title'))}</h4>`;
+    if (!configs.length) html += `<p class="muted">${esc(t('admin.bom.no_findings'))}</p>`;
     configs.forEach((cfg, ci) => {
         const findings = Array.isArray(cfg.findings) ? cfg.findings : [];
         const platform = cfg.platform || null;
-        html += `<div class="bom-review-config"><div class="bom-review-config-head"><strong>${adminEsc(cfg.config_name || '')}</strong> ${bomReviewVerdictChip(cfg.verdict)}`
-            + (platform ? ` <span class="muted">${adminEsc([platform.brand, (platform.sc_models || []).join('/'), platform.server].filter(Boolean).join(' · '))}</span>` : '')
+        html += `<div class="bom-review-config"><div class="bom-review-config-head"><strong>${esc(cfg.config_name || '')}</strong> ${bomReviewVerdictChip(cfg.verdict)}`
+            + (platform ? ` <span class="muted">${esc([platform.brand, (platform.sc_models || []).join('/'), platform.server].filter(Boolean).join(' · '))}</span>` : '')
             + '</div>';
         if (!findings.length) {
-            html += `<p class="muted">${adminEsc(t('admin.bom.no_findings'))}</p></div>`;
+            html += `<p class="muted">${esc(t('admin.bom.no_findings'))}</p></div>`;
             return;
         }
         html += '<table class="model-table bom-review-findings"><thead><tr>'
-            + `<th>${adminEsc(t('admin.bom.col_severity'))}</th><th>${adminEsc(t('admin.bom.col_component'))}</th>`
-            + `<th>${adminEsc(t('admin.bom.col_issue'))}</th><th>${adminEsc(t('admin.bom.col_remediation'))}</th>`
+            + `<th>${esc(t('admin.bom.col_severity'))}</th><th>${esc(t('admin.bom.col_component'))}</th>`
+            + `<th>${esc(t('admin.bom.col_issue'))}</th><th>${esc(t('admin.bom.col_remediation'))}</th>`
             + `<th class="col-actions"></th>`
             + '</tr></thead><tbody>'
             + findings.map((f, fi) => `<tr>
-                <td><span class="badge ${HCL_SEVERITY_BADGE[f.severity] || 'hcl-badge-plain'}">${adminEsc(hclTextOr('admin.bom.severity_' + f.severity, f.severity || ''))}</span></td>
-                <td>${adminEsc(f.component || '')}</td>
-                <td>${adminEsc(f.issue || '')}${f.code ? ` <code class="muted">${adminEsc(f.code)}</code>` : ''}</td>
-                <td>${adminEsc(f.remediation || '')}</td>
-                <td class="col-actions">${bomNoteLineFor(f.component) ? `<button class="btn btn-sm btn-secondary bom-note-add" data-click='["bomNoteFromFinding",${ci},${fi}]'>${adminEsc(t('admin.bomnote.add_btn'))}</button>` : ''}</td>
+                <td><span class="badge ${HCL_SEVERITY_BADGE[f.severity] || 'hcl-badge-plain'}">${esc(hclTextOr('admin.bom.severity_' + f.severity, f.severity || ''))}</span></td>
+                <td>${esc(f.component || '')}</td>
+                <td>${esc(f.issue || '')}${f.code ? ` <code class="muted">${esc(f.code)}</code>` : ''}</td>
+                <td>${esc(f.remediation || '')}</td>
+                <td class="col-actions">${bomNoteLineFor(f.component) ? `<button class="btn btn-sm btn-secondary bom-note-add" data-click='["bomNoteFromFinding",${ci},${fi}]'>${esc(t('admin.bomnote.add_btn'))}</button>` : ''}</td>
             </tr>`).join('')
             + '</tbody></table></div>';
     });
     const fit = result.fit || null;
     if (fit && Array.isArray(fit.dimensions) && fit.dimensions.length) {
-        html += `<h4 class="bom-review-h">${adminEsc(t('admin.bom.fit_title'))} ${bomReviewFitChip(fit.verdict)}`
-            + (fit.sizing && fit.sizing.name ? ` <span class="muted">${adminEsc(fit.sizing.name)}</span>` : '') + '</h4>';
+        html += `<h4 class="bom-review-h">${esc(t('admin.bom.fit_title'))} ${bomReviewFitChip(fit.verdict)}`
+            + (fit.sizing && fit.sizing.name ? ` <span class="muted">${esc(fit.sizing.name)}</span>` : '') + '</h4>';
         html += '<table class="model-table bom-review-findings"><thead><tr>'
-            + `<th>${adminEsc(t('admin.bom.col_dimension'))}</th><th>${adminEsc(t('admin.bom.col_relation'))}</th>`
-            + `<th>${adminEsc(t('admin.bom.col_bom'))}</th><th>${adminEsc(t('admin.bom.col_required'))}</th><th>${adminEsc(t('admin.bom.col_sized'))}</th>`
+            + `<th>${esc(t('admin.bom.col_dimension'))}</th><th>${esc(t('admin.bom.col_relation'))}</th>`
+            + `<th>${esc(t('admin.bom.col_bom'))}</th><th>${esc(t('admin.bom.col_required'))}</th><th>${esc(t('admin.bom.col_sized'))}</th>`
             + '</tr></thead><tbody>'
             + fit.dimensions.map(d => {
                 const unit = d.unit ? ' ' + d.unit : '';
                 const num = v => v == null ? '—' : String(v) + unit;
                 return `<tr>
-                <td title="${adminEsc(d.note || '')}">${adminEsc(hclTextOr('admin.bom.dim_' + d.key, d.key || ''))}</td>
-                <td>${adminEsc(hclTextOr('admin.bom.rel_' + d.relation, d.relation || ''))}</td>
-                <td>${adminEsc(num(d.bom))}</td><td>${adminEsc(num(d.required))}</td><td>${adminEsc(num(d.sized))}</td>
+                <td title="${esc(d.note || '')}">${esc(hclTextOr('admin.bom.dim_' + d.key, d.key || ''))}</td>
+                <td>${esc(hclTextOr('admin.bom.rel_' + d.relation, d.relation || ''))}</td>
+                <td>${esc(num(d.bom))}</td><td>${esc(num(d.required))}</td><td>${esc(num(d.sized))}</td>
             </tr>`; }).join('')
             + '</tbody></table>';
     }
@@ -2615,7 +2632,7 @@ async function bomPrevLoad(id, row) {
     const { ok, data } = await adminApi(`/admin/api/bom-reviews/${id}/acceptable`);
     if (bomReviewCurrent !== row) return;      // modal moved on meanwhile
     if (!ok || !data || !Array.isArray(data.candidates)) {
-        box.innerHTML = `<p class="muted">${adminEsc(t('admin.bomprev.load_error'))}</p>`;
+        box.innerHTML = `<p class="muted">${esc(t('admin.bomprev.load_error'))}</p>`;
         return;
     }
     bomPrevData = data;
@@ -2624,39 +2641,39 @@ async function bomPrevLoad(id, row) {
 
 function bomPrevSectionHtml(data) {
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
-    let html = `<h4 class="bom-review-h">${adminEsc(t('admin.bomprev.title'))}</h4>`
-        + `<p class="muted bom-prev-explain">${adminEsc(t('admin.bomprev.explain'))}</p>`
+    let html = `<h4 class="bom-review-h">${esc(t('admin.bomprev.title'))}</h4>`
+        + `<p class="muted bom-prev-explain">${esc(t('admin.bomprev.explain'))}</p>`
         + '<div class="bom-prev-list">';
     html += data.candidates.map((c, i) => {
         const inCat = !!c.already_in_catalog;
         const noPart = !c.part_number || String(c.part_number).indexOf('no-part:') === 0;
         const part = noPart
-            ? `<span class="muted">${adminEsc(t('admin.bomprev.no_part'))}</span>`
-            : `<code>${adminEsc(c.part_number)}</code>`;
+            ? `<span class="muted">${esc(t('admin.bomprev.no_part'))}</span>`
+            : `<code>${esc(c.part_number)}</code>`;
         const origin = t('admin.bomprev.found_in', { code: c.from_code || '', config: c.config_name || '' });
         return `<label class="bom-prev-item${inCat ? ' bom-prev-item-dim' : ''}">
             <input type="checkbox" class="bom-prev-check" data-idx="${i}"${inCat ? ' disabled' : ' checked'}>
-            <span class="badge hcl-badge-plain">${adminEsc(hclComponentKindLabel(c.kind))}</span>
+            <span class="badge hcl-badge-plain">${esc(hclComponentKindLabel(c.kind))}</span>
             <span class="bom-prev-part">${part}</span>
-            <span class="bom-prev-desc">${adminEsc(c.description || '')}
-                <span class="muted bom-prev-origin">${adminEsc(origin)}</span></span>
-            ${inCat ? `<span class="muted bom-prev-incat">${adminEsc(t('admin.bomprev.already'))}</span>` : ''}
+            <span class="bom-prev-desc">${esc(c.description || '')}
+                <span class="muted bom-prev-origin">${esc(origin)}</span></span>
+            ${inCat ? `<span class="muted bom-prev-incat">${esc(t('admin.bomprev.already'))}</span>` : ''}
         </label>`;
     }).join('');
     html += '</div>';
     if (platforms.length) {
         const names = platforms.map(p => [p.brand, p.sc_model, p.server].filter(Boolean).join(' '));
-        html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.link_to', { platforms: names.join(', ') }))}</p>`;
+        html += `<p class="muted bom-prev-platform">${esc(t('admin.bomprev.link_to', { platforms: names.join(', ') }))}</p>`;
     } else if (data.platform_suggestion) {
         // No platform identified but the backend can seed one: offer to create
         // it as pre-publication so the accepted parts are linked (scoped to the
         // platform) instead of unlinked.
         html += bomPrevPlatFormHtml(data.platform_suggestion);
     } else {
-        html += `<p class="muted bom-prev-platform">${adminEsc(t('admin.bomprev.no_platform'))}</p>`;
+        html += `<p class="muted bom-prev-platform">${esc(t('admin.bomprev.no_platform'))}</p>`;
     }
     html += `<div class="bom-prev-actions"><button class="btn btn-primary btn-sm" id="bom-prev-accept-btn"
-        data-click='["bomPrevAcceptSelected"]'>${adminEsc(t('admin.bomprev.accept_btn'))}</button></div>`;
+        data-click='["bomPrevAcceptSelected"]'>${esc(t('admin.bomprev.accept_btn'))}</button></div>`;
     return html;
 }
 
@@ -2669,20 +2686,20 @@ function bomPrevPlatFormHtml(sug) {
     return `<div class="bom-prev-plat" id="bom-prev-plat">
         <label class="bom-prev-plat-enable">
             <input type="checkbox" id="bom-prev-plat-enable" checked data-change='["bomPrevPlatToggle","$checked"]'>
-            <strong>${adminEsc(t('admin.bomprev.plat_title'))}</strong>
+            <strong>${esc(t('admin.bomprev.plat_title'))}</strong>
         </label>
         <div class="bom-prev-plat-grid" id="bom-prev-plat-grid">
-            <label for="bom-prev-plat-brand">${adminEsc(t('admin.bomprev.plat_brand'))}</label>
+            <label for="bom-prev-plat-brand">${esc(t('admin.bomprev.plat_brand'))}</label>
             <select id="bom-prev-plat-brand">${brands.map(b =>
                 `<option value="${b[0]}"${b[0] === cur ? ' selected' : ''}>${b[1]}</option>`).join('')}</select>
-            <label for="bom-prev-plat-sc">${adminEsc(t('admin.bomprev.plat_sc_model'))}</label>
+            <label for="bom-prev-plat-sc">${esc(t('admin.bomprev.plat_sc_model'))}</label>
             <input type="text" id="bom-prev-plat-sc" maxlength="40"
-                value="${adminEsc(sug.sc_model || '')}"
-                placeholder="${adminEsc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatNameTyped"]'>
-            <label for="bom-prev-plat-server">${adminEsc(t('admin.bomprev.plat_server'))}</label>
-            <input type="text" id="bom-prev-plat-server" maxlength="120" value="${adminEsc(sug.server || '')}">
+                value="${esc(sug.sc_model || '')}"
+                placeholder="${esc(t('admin.bomprev.plat_sc_ph'))}" data-input='["bomPrevPlatNameTyped"]'>
+            <label for="bom-prev-plat-server">${esc(t('admin.bomprev.plat_server'))}</label>
+            <input type="text" id="bom-prev-plat-server" maxlength="120" value="${esc(sug.server || '')}">
         </div>
-        <p class="muted bom-prev-plat-hint">${adminEsc(t('admin.bomprev.plat_hint'))}</p>
+        <p class="muted bom-prev-plat-hint">${esc(t('admin.bomprev.plat_hint'))}</p>
         <div class="bom-prev-plat-near" id="bom-prev-plat-near" hidden></div>
         <p class="admin-status status-err bom-prev-plat-err" id="bom-prev-plat-err" style="display:none"></p>
     </div>`;
@@ -2726,14 +2743,14 @@ function bomPrevRenderNear(matches) {
     if (!bomPrevNearMatches.length) { host.hidden = true; host.innerHTML = ''; return; }
     const rows = bomPrevNearMatches.map((m, i) => {
         const what = [m.brand, m.sc_model].filter(Boolean).join(' ');
-        const server = m.server ? ` <span class="muted">(${adminEsc(m.server)})</span>` : '';
+        const server = m.server ? ` <span class="muted">(${esc(m.server)})</span>` : '';
         const flag = m.origin === 'preview'
-            ? ` <span class="badge badge-validated hcl-badge-tight">${adminEsc(t('admin.bomprev.badge'))}</span>` : '';
-        return `<li><strong>${adminEsc(what)}</strong>${server}${flag}
+            ? ` <span class="badge badge-validated hcl-badge-tight">${esc(t('admin.bomprev.badge'))}</span>` : '';
+        return `<li><strong>${esc(what)}</strong>${server}${flag}
             <button class="btn btn-sm btn-secondary" data-click='["bomPrevLinkInstead",${i}]'
-                >${adminEsc(t('admin.bomprev.near_use'))}</button></li>`;
+                >${esc(t('admin.bomprev.near_use'))}</button></li>`;
     }).join('');
-    host.innerHTML = `<p class="bom-prev-near-title">${adminEsc(t('admin.bomprev.near_title'))}</p>
+    host.innerHTML = `<p class="bom-prev-near-title">${esc(t('admin.bomprev.near_title'))}</p>
         <ul class="bom-prev-near-list">${rows}</ul>`;
     host.hidden = false;
 }
@@ -2747,9 +2764,9 @@ function bomPrevLinkInstead(idx) {
     if (grid) grid.hidden = true;
     const host = document.getElementById('bom-prev-plat-near');
     if (host) {
-        host.innerHTML = `<p class="bom-prev-near-title">${adminEsc(t('admin.bomprev.near_linking', { name: m.key }))}
+        host.innerHTML = `<p class="bom-prev-near-title">${esc(t('admin.bomprev.near_linking', { name: m.key }))}
             <button class="btn btn-sm btn-secondary" data-click='["bomPrevLinkUndo"]'
-                >${adminEsc(t('admin.bomprev.near_undo'))}</button></p>`;
+                >${esc(t('admin.bomprev.near_undo'))}</button></p>`;
         host.hidden = false;
     }
     bomPrevPlatError('');
@@ -2883,23 +2900,23 @@ async function loadBomNotes() {
     if (!body) return;
     const { ok, data } = await adminApi('/admin/api/bom-part-notes');
     if (!ok || !Array.isArray(data)) {
-        body.innerHTML = `<tr><td colspan="6">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6">${esc(t('admin.bom.load_error'))}</td></tr>`;
         return;
     }
     bomNoteRows = data;
     body.innerHTML = data.map(n => `
         <tr class="${n.active ? '' : 'muted'}">
-            <td>${adminEsc(bomNoteMatchLabel(n))}</td>
-            <td>${adminEsc(n.category ? hclTextOr('admin.bomnote.cat_' + n.category, n.category) : t('admin.bomnote.cat_any'))}</td>
-            <td><span class="badge ${HCL_SEVERITY_BADGE[n.severity] || 'hcl-badge-plain'}">${adminEsc(hclTextOr('admin.bom.severity_' + n.severity, n.severity))}</span></td>
-            <td title="${adminEsc(n.remediation || '')}">${adminEsc(n.issue)}</td>
+            <td>${esc(bomNoteMatchLabel(n))}</td>
+            <td>${esc(n.category ? hclTextOr('admin.bomnote.cat_' + n.category, n.category) : t('admin.bomnote.cat_any'))}</td>
+            <td><span class="badge ${HCL_SEVERITY_BADGE[n.severity] || 'hcl-badge-plain'}">${esc(hclTextOr('admin.bom.severity_' + n.severity, n.severity))}</span></td>
+            <td title="${esc(n.remediation || '')}">${esc(n.issue)}</td>
             <td><input type="checkbox" ${n.active ? 'checked' : ''} data-change='["bomNoteToggle",${n.id},"$checked"]'
-                       aria-label="${adminEsc(t('admin.bomnote.active_label'))}"></td>
+                       aria-label="${esc(t('admin.bomnote.active_label'))}"></td>
             <td class="col-actions">
-                <button class="btn btn-sm btn-secondary" data-click='["bomNoteEdit",${n.id}]'>${adminEsc(t('common.edit'))}</button>
-                <button class="btn btn-sm btn-danger" data-click='["bomNoteDelete",${n.id}]'>${adminEsc(t('common.delete'))}</button>
+                <button class="btn btn-sm btn-secondary" data-click='["bomNoteEdit",${n.id}]'>${esc(t('common.edit'))}</button>
+                <button class="btn btn-sm btn-danger" data-click='["bomNoteDelete",${n.id}]'>${esc(t('common.delete'))}</button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="6" class="muted">${adminEsc(t('admin.bomnote.none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="6" class="muted">${esc(t('admin.bomnote.none'))}</td></tr>`;
 }
 
 function bomNoteFill(n) {
@@ -3028,20 +3045,20 @@ async function loadBomAgent() {
     const body = document.getElementById('bom-agent-usage-tbody');
     if (!body) return;
     if (!usage.ok || !Array.isArray(usage.data)) {
-        body.innerHTML = `<tr><td colspan="7">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7">${esc(t('admin.bom.load_error'))}</td></tr>`;
         return;
     }
     const n = (v) => Number(v || 0).toLocaleString();
     body.innerHTML = usage.data.map(r => `
         <tr>
-            <td>${adminEsc(r.day)}</td>
-            <td>${adminEsc(r.tenant || '')}</td>
+            <td>${esc(r.day)}</td>
+            <td>${esc(r.tenant || '')}</td>
             <td>${n(r.jobs)}</td>
             <td>${n(r.done)}</td>
             <td>${n(r.failed)}</td>
             <td>${n(r.input_tokens)}</td>
             <td>${n(r.output_tokens)}</td>
-        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.bomagent.no_usage'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="7">${esc(t('admin.bomagent.no_usage'))}</td></tr>`;
 }
 
 async function bomAgentSaveSettings() {
@@ -3074,22 +3091,22 @@ async function loadBomRejects() {
     if (!body) return;
     const { ok, data } = await adminApi('/admin/api/bom-rejects');
     if (!ok || !Array.isArray(data)) {
-        body.innerHTML = `<tr><td colspan="7">${adminEsc(t('admin.bom.load_error'))}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7">${esc(t('admin.bom.load_error'))}</td></tr>`;
         return;
     }
     body.innerHTML = data.map(r => `
         <tr>
             <td>${adminDate(r.created_at)}</td>
-            <td>${adminEsc(r.project_name || '')}</td>
-            <td>${adminEsc(r.owner_email || '')}<br><span class="muted">${adminEsc(r.tenant_domain || '')}</span></td>
-            <td>${adminEsc(r.filename)}</td>
+            <td>${esc(r.project_name || '')}</td>
+            <td>${esc(r.owner_email || '')}<br><span class="muted">${esc(r.tenant_domain || '')}</span></td>
+            <td>${esc(r.filename)}</td>
             <td>${bomRejSize(r.size_bytes)}</td>
-            <td title="${adminEsc(r.error || '')}">${adminEsc((r.error || '').slice(0, 70))}</td>
+            <td title="${esc(r.error || '')}">${esc((r.error || '').slice(0, 70))}</td>
             <td class="col-actions">
-                <a class="btn btn-sm btn-secondary" href="/admin/api/bom-rejects/${r.id}/file">${adminEsc(t('admin.bomrej.download'))}</a>
-                <button class="btn btn-sm btn-danger" data-click='["deleteBomReject",${r.id}]'>${adminEsc(t('common.delete'))}</button>
+                <a class="btn btn-sm btn-secondary" href="/admin/api/bom-rejects/${r.id}/file">${esc(t('admin.bomrej.download'))}</a>
+                <button class="btn btn-sm btn-danger" data-click='["deleteBomReject",${r.id}]'>${esc(t('common.delete'))}</button>
             </td>
-        </tr>`).join('') || `<tr><td colspan="7">${adminEsc(t('admin.bomrej.none'))}</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="7">${esc(t('admin.bomrej.none'))}</td></tr>`;
 }
 
 async function deleteBomReject(id) {

@@ -38,6 +38,9 @@ import warnings
 from typing import Any, List, Optional, Sequence, Tuple
 
 from xlsx_utils import MAX_SHEET_COLS, MAX_SHEET_ROWS, SheetTooLargeError
+# Quantity coercion lives with the normalized shape so the agent path and the
+# sheet parsers agree on '3,0'; re-exported here for the parsers.
+from bom.normalize import to_int  # noqa: F401
 
 # ─── identifiers ─────────────────────────────────────────────────────────────
 
@@ -63,24 +66,6 @@ def s(v: Any) -> str:
             return str(int(v))
         return str(v)
     return str(v).replace('\xa0', ' ').strip()
-
-
-def to_int(v: Any, default: int = 1) -> int:
-    """Quantity coercion: 3, 3.0, '3', '3,0', ' 3 ' -> 3; None/''/junk ->
-    default. Booleans are never quantities."""
-    if v is None or isinstance(v, bool):
-        return default
-    if isinstance(v, int):
-        return v
-    if isinstance(v, float):
-        return int(v) if math.isfinite(v) else default
-    text = str(v).strip().replace('\xa0', '')
-    if not text:
-        return default
-    try:
-        return int(float(text.replace(',', '.')))
-    except ValueError:
-        return default
 
 
 # ─── workbook access (bounded) ────────────────────────────────────────────────

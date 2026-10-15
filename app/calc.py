@@ -11,6 +11,7 @@ state, so they can be called from a route, a worker, or a test.
 """
 from orm_models import Model
 from tunables import T
+import storage_layout
 from recommend import (_cluster_layout, _cluster_usable_storage,
                        _effective_cores, license_annotations_for)
 from cluster_diagram import network_svg_for
@@ -274,35 +275,15 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     }, None
 
 
+def _chosen_sizes(data, storage):
+    """Chosen drive size per kind: the request's <kind>_tb, else the model's
+    smallest certified size for that tier."""
+    return {kind: data.get(f"{kind}_tb", storage[f"{kind}_options_tb"][0])
+            for kind, _ in storage_layout.drive_slots(storage)}
+
+
 def compute_raw_per_node_appliance(data, storage):
-    stype = storage["type"]
-    if stype == "nvme_only":
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        count = storage.get("drives_per_node", 1)
-        return nvme_tb * count
-    elif stype == "ssd_only":
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        count = storage.get("drives_per_node", 4)
-        return ssd_tb * count
-    elif stype == "hdd_only":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        count = storage.get("drives_per_node", 4)
-        return hdd_tb * count
-    elif stype == "hybrid":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        return (hdd_tb * storage["hdd_count"]) + (ssd_tb * storage["ssd_count"])
-    elif stype == "hybrid_nvme":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        return (hdd_tb * storage["hdd_count"]) + (nvme_tb * storage["nvme_count"])
-    elif stype == "nvme_and_ssd":
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        return nvme_tb + ssd_tb
-    elif stype == "cloud":
-        return 0
-    return 0
+    return storage_layout.raw_per_node(storage, _chosen_sizes(data, storage))
 
 
 def _sns_storage_error(storage, model_name):
@@ -323,36 +304,11 @@ def compute_drive_count_appliance(data, storage):
     """Number of physical drives in one node — used to decide whether a Single
     Node System can mirror (RF2). A single-disk node has no second drive to
     mirror to, so it runs unprotected (usable = raw)."""
-    stype = storage["type"]
-    if stype in ("nvme_only", "ssd_only", "hdd_only"):
-        return storage.get("drives_per_node", 1)
-    elif stype == "hybrid":
-        return storage["hdd_count"] + storage["ssd_count"]
-    elif stype == "hybrid_nvme":
-        return storage["hdd_count"] + storage["nvme_count"]
-    elif stype == "nvme_and_ssd":
-        return 2
-    return 0
+    return storage_layout.drive_count(storage)
 
 
 def compute_biggest_disk_appliance(data, storage):
-    stype = storage["type"]
-    if stype == "nvme_only":
-        return data.get("nvme_tb", storage["nvme_options_tb"][0])
-    elif stype == "ssd_only":
-        return data.get("ssd_tb", storage["ssd_options_tb"][0])
-    elif stype == "hdd_only":
-        return data.get("hdd_tb", storage["hdd_options_tb"][0])
-    elif stype == "hybrid":
-        return max(data.get("hdd_tb", storage["hdd_options_tb"][0]),
-                   data.get("ssd_tb", storage["ssd_options_tb"][0]))
-    elif stype == "hybrid_nvme":
-        return max(data.get("hdd_tb", storage["hdd_options_tb"][0]),
-                   data.get("nvme_tb", storage["nvme_options_tb"][0]))
-    elif stype == "nvme_and_ssd":
-        return max(data.get("nvme_tb", storage["nvme_options_tb"][0]),
-                   data.get("ssd_tb", storage["ssd_options_tb"][0]))
-    return 0
+    return storage_layout.biggest_disk_tb(storage, _chosen_sizes(data, storage))
 
 
 def calculate_validated(data, node_count):
@@ -369,10 +325,8 @@ def calculate_validated(data, node_count):
         return {"error": "At least 1 disk required per node"}
 
     disk_count = len(disks)
-    # 2 disks per node is supported in a multi-node cluster (Validated here is
-    # always 2+ nodes) but not on a Single Node System (owner, 2026-10-08). A
-    # 1-disk node still calculates, but the GUI warns that a
-    # disk failure then takes the whole node down (owner decision 2026-09-17).
+    # A 1-disk node still calculates, but the GUI warns that a disk failure
+    # then takes the whole node down (owner decision 2026-09-17).
 
     # Optional storage-only nodes: same disks, virtualization disabled. They add
     # capacity and disks to the cluster but no usable compute.
@@ -531,12 +485,6 @@ def calculate_validated(data, node_count):
         "n_minus_1": n_minus_1,
         "single_node": total_nodes == 1,
         "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
-        "validation": {
-            "disk_count_valid": disk_count >= 1,
-            "hybrid_ratio_valid": True,
-            "no_raid": True,
-            "internal_only": True,
-        },
     }
 
 

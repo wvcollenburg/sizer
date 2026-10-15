@@ -38,12 +38,14 @@ the agent should look.
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from bom import pdf_extract
+
 DEFAULT_THRESHOLD = 85
 THRESHOLD_SETTING = "bom_pdf_min_certainty"
 
-_DANGEROUS = {"JavaScript", "JS", "Launch", "EmbeddedFile", "EmbeddedFiles", "RichMedia",
-              "XFA", "SubmitForm", "ImportData", "GoToE", "GoToR", "RichMediaExecute",
-              "Rendition", "Sound", "Movie", "TooManyObjects"}
+# Everything the extractor inventories as active content, plus its own
+# "gave up walking the object graph" marker.
+_DANGEROUS = frozenset(pdf_extract.ACTIVE_KEYS | pdf_extract.ACTIVE_ACTIONS | {"TooManyObjects"})
 
 
 @dataclass
@@ -52,6 +54,11 @@ class Certainty:
     reasons: List[dict] = field(default_factory=list)
     hard_stop: bool = False
     hidden_words: int = 0
+
+    def cost(self, code, points, text, hard=False):
+        """Record a deduction; a hard stop is scored 100 and zeroes the result."""
+        self.reasons.append({"code": code, "points": 100 if hard else points, "text": text})
+        self.hard_stop = self.hard_stop or hard
 
     def to_dict(self):
         return {"score": self.score, "hard_stop": self.hard_stop,
@@ -70,10 +77,7 @@ def safety(doc) -> Certainty:
     """File-level signals only: used on its own for PDFs no parser knows
     (the agent path records them) and as the start of assess()."""
     c = Certainty(score=100)
-
-    def cost(code, points, text, hard=False):
-        c.reasons.append({"code": code, "points": 100 if hard else points, "text": text})
-        c.hard_stop = c.hard_stop or hard
+    cost = c.cost
 
     active = set(doc.active)
     dangerous = sorted(active & _DANGEROUS)
@@ -103,10 +107,7 @@ def _in_regions(word, regions) -> bool:
 
 def assess(doc, ev, bom) -> Certainty:
     c = safety(doc)
-
-    def cost(code, points, text, hard=False):
-        c.reasons.append({"code": code, "points": 100 if hard else points, "text": text})
-        c.hard_stop = c.hard_stop or hard
+    cost = c.cost
 
     hidden = doc.hidden_words
     if hidden:

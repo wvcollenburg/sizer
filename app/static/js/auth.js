@@ -656,7 +656,7 @@ function renderSizings() {
     };
     body.innerHTML = rows.map(c => {
         const del = c.can_delete
-            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id},"${esc(c.source)}"]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
+            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id}]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
             : '';
         return `<tr>
             <td>${esc(c.name)}</td>
@@ -855,7 +855,9 @@ async function retrieveByCode() {
     if (window.markSizingClean) window.markSizingClean();
 }
 
-async function deleteSizing(id, source) {
+async function deleteSizing(id) {
+    const row = sizingsCache.find(c => c.id === id);
+    const source = row ? row.source : '';
     const msg = source === 'linked' ? t('auth.confirm_remove') : t('auth.confirm_delete');
     if (!confirm(msg)) return;
     const { ok, data } = await apiJson('/api/configs/' + id, { method: 'DELETE' });

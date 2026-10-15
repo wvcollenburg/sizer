@@ -986,11 +986,8 @@ body { padding-bottom: 64px; }
 }
 /* In the 420px rail the label, slider and readout do not fit on one line, so
    the label takes its own — otherwise the trailing ":1" is clipped away. */
-.ratio-slider-row label { flex: 1 0 100%; }
-.ratio-slider-row input[type="range"] { min-width: 0; }
-.ratio-value { flex: 0 0 auto; }
-
 .ratio-slider-row label {
+    flex: 1 0 100%;
     font-size: var(--fs-sm);
     font-weight: 500;
     color: var(--text);
@@ -999,6 +996,7 @@ body { padding-bottom: 64px; }
 
 .ratio-slider-row input[type="range"] {
     flex: 1;
+    min-width: 0;
     -webkit-appearance: none;
     appearance: none;
     height: 6px;
@@ -1031,6 +1029,7 @@ body { padding-bottom: 64px; }
 }
 
 .ratio-value {
+    flex: 0 0 auto;
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--text);
@@ -2819,17 +2818,18 @@ body.view-project  .account-bar .btn-account { display: none; }
 
 .project-screen { animation: fadeIn 0.15s ease-out; }
 
+/* Title block left, actions right, both on one line until the screen is small. */
 .project-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
     margin-bottom: 0.5rem;
 }
 .project-head h2 { margin: 0.25rem 0; }
-.project-head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.project-title-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+.project-head-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.project-title-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 .project-meta { color: var(--text-muted); font-size: 0.85rem; }
 .project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
 .project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
@@ -2906,11 +2906,10 @@ body.view-project  .account-bar .btn-account { display: none; }
    look like a row of warnings. */
 .icon-btn-danger:hover { background: var(--red-bg); color: var(--red); }
 
-.sizing-table .col-actions { white-space: nowrap; }
+.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-table .col-actions .icon-btn + .icon-btn { margin-left: 0.15rem; }
 
 .sizing-table .col-check { width: 2rem; }
-.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-name { font-weight: 500; }
 .sizing-source { color: var(--text-muted); font-size: 0.82rem; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-dot { color: var(--accent); font-size: 0.7rem; cursor: help; }
@@ -2932,7 +2931,7 @@ body.view-project  .account-bar .btn-account { display: none; }
 
 /* Tags: freeform, project-scoped, used both as filters and in the panel. */
 .project-tag-filter { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.75rem 0; }
-.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
 .tag-chip {
     font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 999px;
     border: 1px solid var(--border); background: var(--surface);
@@ -2941,12 +2940,13 @@ body.view-project  .account-bar .btn-account { display: none; }
 .tag-chip-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .tag-chip-sm { font-size: 0.7rem; cursor: default; }
 .tag-chip-clear { border-style: dashed; color: var(--text-muted); }
-.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 .tag-add-row .text-input { flex: 1; }
 
+/* Selection bar: count · compare | export group · clear. */
 .project-selection-bar {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem;
+    padding: 0.6rem 0.85rem; margin: 0.5rem 0;
     background: var(--surface); border: 1px solid var(--accent);
     border-radius: var(--radius); font-size: 0.85rem;
 }
@@ -2956,7 +2956,7 @@ body.view-project  .account-bar .btn-account { display: none; }
 .rep-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
 .rep-list li { padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .rep-terms { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.4rem; }
-.rep-pct-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
 .rep-pct { width: 5.5rem; }
 .field-label-inline { font-size: 0.8rem; color: var(--text-muted); }
 
@@ -2997,8 +2997,8 @@ body.refresh-mode { visibility: hidden; }
     font-size: 0.82rem; color: var(--orange);
 }
 
-.inline-select { width: auto; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
-.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); }
+.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
+.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }  /* nowrap: was wrapping onto three lines */
 
 /* Comparison table: options side by side, deltas against the first column. */
 .compare-scroll { overflow-x: auto; }
@@ -3101,7 +3101,6 @@ textarea.text-input:focus {
     margin: 0 0 0.2rem;
 }
 
-.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
 .rep-pct-row .panel-field { margin-bottom: 0; flex: 1; }
 
 /* Tags: what's on this sizing, then what else the project offers. Assigned
@@ -3112,7 +3111,6 @@ textarea.text-input:focus {
     font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
     text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.35rem;
 }
-.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
 
 /* Assigned: solid, and carries the × that takes it off. */
 .tag-chip-assigned {
@@ -3133,7 +3131,6 @@ textarea.text-input:focus {
 .tag-chip-add:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
 
 .tag-empty { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
-.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 
 /* .modal-body is padding:0 app-wide because the big modals hold edge-to-edge
    tables. The project modals are forms, so they need real gutters — without
@@ -3192,11 +3189,6 @@ textarea.text-input:focus {
 .btn-ghost { background: none; color: var(--text-muted); }
 .btn-ghost:hover { background: var(--surface2); color: var(--text); }
 
-/* Title block left, actions right, both on one line until the screen is small. */
-.project-head { align-items: center; }
-.project-head-actions { align-items: center; }
-.project-title-block { gap: 0.35rem; }
-
 /* "← All projects" reads as the loudest control on the page as a filled
    button; theirs is a plain accent text link above the title. */
 .project-back {
@@ -3214,15 +3206,11 @@ textarea.text-input:focus {
 .project-back:hover { background: none; color: var(--accent-dark); text-decoration: underline; }
 .project-title-block h2 { line-height: 1.2; }
 
-/* Selection bar: count · compare | export group · clear. */
-.project-selection-bar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 0.85rem; }
 .selection-count { font-weight: 600; white-space: nowrap; }
 .export-controls {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     margin-left: auto;                 /* keep Clear at the far right */
 }
-.notify-check { white-space: nowrap; }  /* was wrapping onto three lines */
-.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
 
 /* Exports list: the download stays a button, not a full-width bar. */
 .export-list li .btn, .export-list li a.btn { flex: 0 0 auto; width: auto; margin: 0; }
