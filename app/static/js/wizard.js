@@ -35,8 +35,7 @@
 
     function lastStep() { return PANES; }
 
-    var t = window.t;       // i18n.js loads in <head>
-    var esc = window.esc;   // app.js loads before wizard.js
+    var t = window.t;       // i18n.js loads in <head>; esc() is global from common.js
     function $(id) { return document.getElementById(id); }
     function qs(sel) { return document.querySelector(sel); }
 

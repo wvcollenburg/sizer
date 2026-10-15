@@ -182,3 +182,69 @@ def test_storage_growth_toggle_is_wired_and_saved():
     assert "toggleStorageGrowth" in _defined_handlers({"app.js": app_js})
     shared = re.search(r"const _SHARED_SIZING_FIELDS = \[(.*?)\];", app_js, re.S).group(1)
     assert "'separate-storage-growth'" in shared and "'storage-growth-pct'" in shared
+
+
+# ── common.js: the helpers every page script shares ──────────────────────────
+
+COMMON_HELPERS = ("esc", "fetchJson", "sendJson", "setStatus", "flashStatus",
+                  "withBusy", "openModal", "closeModal", "fmtDateTime",
+                  "saveErrorText")
+
+
+def _loaded_scripts(template):
+    html = _read(os.path.join(TEMPLATES, template))
+    return [os.path.basename(m) for m in re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
+
+
+def test_common_js_loads_on_both_pages_before_the_page_scripts():
+    """common.js is a classic script the page scripts call as globals, so it
+    sits with the other shared helper (right after toast.js) and before any
+    page script that relies on it."""
+    for template, page_scripts in (("index.html", ["app.js", "wizard.js", "auth.js",
+                                                   "projects.js", "bom.js"]),
+                                   ("admin.html", ["admin.js"])):
+        loaded = _loaded_scripts(template)
+        assert "common.js" in loaded, f"{template} does not load common.js"
+        at = loaded.index("common.js")
+        assert loaded.index("toast.js") < at, f"{template}: common.js must follow toast.js"
+        for name in page_scripts:
+            assert name in loaded and loaded.index(name) > at, (
+                f"{template}: {name} must load after common.js")
+
+
+def test_common_js_exports_the_shared_helpers():
+    text = _read(os.path.join(JS_DIR, "common.js"))
+    exported = _defined_handlers({"common.js": text})
+    missing = [h for h in COMMON_HELPERS if h not in exported]
+    assert not missing, f"common.js no longer exposes {missing} on window"
+
+
+def test_page_scripts_do_not_shadow_the_shared_helpers():
+    """common.js assigns its helpers onto window from inside an IIFE, which the
+    collision test above cannot see — a page script declaring `function esc`
+    again would silently replace the shared one for every script after it."""
+    sources = _js_sources()
+    shadowed = {}
+    for name, text in sources.items():
+        if name == "common.js" or name.startswith("lang"):
+            continue
+        declared = set(re.findall(r"^(?:async\s+)?function\s+(\w+)", text, re.M))
+        declared |= set(re.findall(r"^(?:const|let|var)\s+(\w+)", text, re.M))
+        clash = sorted(declared & set(COMMON_HELPERS))
+        if clash:
+            shadowed[name] = clash
+    assert not shadowed, f"page scripts re-declare common.js helpers: {shadowed}"
+
+
+def test_no_native_alerts_in_page_scripts():
+    """Failures and validation messages go through toastError / the info modal
+    (owner decision, cleanup phase 3); window.alert blocks the page."""
+    offenders = {}
+    for name, text in _js_sources().items():
+        if name == "toast.js":   # its comment explains why alert() went away
+            continue
+        hits = [ln for ln, line in enumerate(text.splitlines(), 1)
+                if re.search(r"(?<![\w.])alert\(", line) and not line.lstrip().startswith("//")]
+        if hits:
+            offenders[name] = hits
+    assert not offenders, f"native alert() calls remain: {offenders}"

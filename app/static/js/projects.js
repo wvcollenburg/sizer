@@ -18,17 +18,8 @@ let selectedSizings = new Set();
 let activeTagFilter = null;
 let panelSizing = null;         // the sizing whose panel is open
 
-const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
-    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-
 const tt = window.t;   // i18n.js loads in <head>
-
-async function api(url, opts) {
-    const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts || {}));
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* empty body */ }
-    return { ok: res.ok, status: res.status, data };
-}
+// esc(), fetchJson(), sendJson(), setStatus(), openModal() … come from common.js.
 
 // ── screen switching ────────────────────────────────────────────────────────
 // One body class decides what's visible: the sizer is hidden while a project
@@ -101,7 +92,7 @@ async function bootFromUrl() {
     const blank = params.get('new') === '1';
     const sizingId = parseInt(params.get('sizing'), 10);
 
-    const { ok, data } = await api('/api/projects/' + projectId);
+    const { ok, data } = await fetchJson('/api/projects/' + projectId);
     if (!ok) return false;
     currentProject = data;
     selectedSizings = new Set();
@@ -160,11 +151,11 @@ async function loadProjects() {
     const scope = projectScope();
     const box = document.getElementById('project-scope-all');
     if (box) box.checked = scope === 'tenant';
-    const { ok, data } = await api('/api/projects/?scope=' + scope);
+    const { ok, data } = await fetchJson('/api/projects/?scope=' + scope);
     const host = document.getElementById('project-list');
     if (!host) return;
     if (!ok) {
-        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.home.load_failed'))}</p>`;
+        host.innerHTML = `<p class="project-empty">${esc(tt('project.home.load_failed'))}</p>`;
         return;
     }
     projectList = data || [];
@@ -172,7 +163,7 @@ async function loadProjects() {
         // Distinguish "you have none" from "none of yours, but colleagues have
         // some" — otherwise the toggle looks broken when the list stays empty.
         const key = scope === 'tenant' ? 'project.home.empty' : 'project.home.empty_mine';
-        host.innerHTML = `<p class="project-empty">${escHtml(tt(key))}</p>`;
+        host.innerHTML = `<p class="project-empty">${esc(tt(key))}</p>`;
         return;
     }
     host.innerHTML = projectList.map(projectCard).join('');
@@ -181,43 +172,35 @@ async function loadProjects() {
 function projectCard(p) {
     const count = p.sizing_count || 0;
     const sub = [
-        p.customer_name ? escHtml(p.customer_name) : '',
+        p.customer_name ? esc(p.customer_name) : '',
         tt('project.card.sizings', { count: count }),
         // Only when there is one: most projects have no BOM checked yet.
         p.bom_count ? tt('project.card.boms', { count: p.bom_count }) : '',
-        fmtProjectDate(p.updated_at),
+        fmtDateTime(p.updated_at, { dateOnly: true }),
     ].filter(Boolean).join(' · ');
     const badge = p.is_scratch
-        ? `<span class="project-badge" title="${escHtml(tt('project.card.scratch_hint'))}">${escHtml(tt('project.card.scratch'))}</span>`
+        ? `<span class="project-badge" title="${esc(tt('project.card.scratch_hint'))}">${esc(tt('project.card.scratch'))}</span>`
         : '';
     const shared = p.source && p.source !== 'owned'
-        ? `<span class="project-badge project-badge-shared">${escHtml(tt('project.card.shared'))}</span>` : '';
+        ? `<span class="project-badge project-badge-shared">${esc(tt('project.card.shared'))}</span>` : '';
     return `<button class="project-card" data-click='["openProject",${p.id}]'>
-        <span class="project-card-name">${escHtml(p.name)}${badge}${shared}</span>
+        <span class="project-card-name">${esc(p.name)}${badge}${shared}</span>
         <span class="project-card-sub">${sub}</span>
     </button>`;
-}
-
-function fmtProjectDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return isNaN(d) ? '' : d.toLocaleDateString();
 }
 
 // ── new project ─────────────────────────────────────────────────────────────
 
 function openNewProject() {
-    const modal = document.getElementById('new-project-modal');
     const input = document.getElementById('new-project-name');
     hideError('new-project-error');
     if (input) input.value = '';
-    if (modal) modal.style.display = 'flex';
+    openModal('new-project-modal');
     if (input) setTimeout(() => input.focus(), 30);
 }
 
 function closeNewProject() {
-    const modal = document.getElementById('new-project-modal');
-    if (modal) modal.style.display = 'none';
+    closeModal('new-project-modal');
 }
 
 function onNewProjectKey(e) {
@@ -231,11 +214,7 @@ async function submitNewProject() {
 
     // The project remembers the language it was created in, so an export can
     // later ask which language to use when the session differs (decision 25).
-    const { ok, data } = await api('/api/projects/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, lang: window.I18N_ACTIVE || undefined }),
-    });
+    const { ok, data } = await sendJson('/api/projects/', 'POST', { name: name, lang: window.I18N_ACTIVE || undefined });
     if (!ok) return showError('new-project-error', (data && data.error) || tt('auth.generic_error'));
     closeNewProject();
     openProject(data.id);
@@ -244,7 +223,7 @@ async function submitNewProject() {
 async function openProjectByCodePrompt() {
     const code = window.prompt(tt('project.home.code_prompt'));
     if (!code) return;
-    const { ok, data } = await api('/api/projects/code/' + encodeURIComponent(code.trim()));
+    const { ok, data } = await fetchJson('/api/projects/code/' + encodeURIComponent(code.trim()));
     if (!ok) {
         return window.showInfoModal
             ? window.showInfoModal(tt('project.home.not_found_title'), (data && data.error) || '')
@@ -254,7 +233,7 @@ async function openProjectByCodePrompt() {
 }
 
 async function startQuickSizing() {
-    const { ok, data } = await api('/api/projects/scratch', { method: 'POST' });
+    const { ok, data } = await fetchJson('/api/projects/scratch', { method: 'POST' });
     if (!ok) return;
     // Same clean-slate reload as "New sizing" — a quick sizing started after
     // another one must not inherit its import.
@@ -264,7 +243,7 @@ async function startQuickSizing() {
 // ── project view ────────────────────────────────────────────────────────────
 
 async function openProject(projectId, suppressRefresh, push) {
-    const { ok, data } = await api('/api/projects/' + projectId);
+    const { ok, data } = await fetchJson('/api/projects/' + projectId);
     if (!ok) return openProjectsHome();
     currentProject = data;
     selectedSizings = new Set();
@@ -286,14 +265,14 @@ function renderProject() {
     const meta = document.getElementById('project-view-meta');
     if (meta) {
         const bits = [];
-        if (currentProject.customer_name) bits.push(escHtml(currentProject.customer_name));
-        if (currentProject.opportunity_ref) bits.push(escHtml(currentProject.opportunity_ref));
-        bits.push(`<code class="sizing-code">${escHtml(currentProject.code)}</code>`);
+        if (currentProject.customer_name) bits.push(esc(currentProject.customer_name));
+        if (currentProject.opportunity_ref) bits.push(esc(currentProject.opportunity_ref));
+        bits.push(`<code class="sizing-code">${esc(currentProject.code)}</code>`);
         if (currentProject.salesforce_url) {
             // Present only for scale users — the server omits the key entirely
             // for everyone else, so this link cannot leak by rendering.
-            bits.push(`<a href="${escHtml(currentProject.salesforce_url)}" target="_blank"
-                rel="noopener noreferrer" class="sf-link">${escHtml(tt('project.view.salesforce'))}</a>`);
+            bits.push(`<a href="${esc(currentProject.salesforce_url)}" target="_blank"
+                rel="noopener noreferrer" class="sf-link">${esc(tt('project.view.salesforce'))}</a>`);
         }
         meta.innerHTML = bits.join(' · ');
     }
@@ -318,9 +297,9 @@ function renderTagFilter() {
     if (!tags.length) { host.innerHTML = ''; return; }
     host.innerHTML = tags.map(tag => {
         const on = activeTagFilter === tag.id ? ' tag-chip-active' : '';
-        return `<button class="tag-chip${on}" data-click='["filterByTag",${tag.id}]'>${escHtml(tag.name)}</button>`;
+        return `<button class="tag-chip${on}" data-click='["filterByTag",${tag.id}]'>${esc(tag.name)}</button>`;
     }).join('') + (activeTagFilter
-        ? `<button class="tag-chip tag-chip-clear" data-click='["filterByTag",null]'>${escHtml(tt('project.view.all_tags'))}</button>`
+        ? `<button class="tag-chip tag-chip-clear" data-click='["filterByTag",null]'>${esc(tt('project.view.all_tags'))}</button>`
         : '');
 }
 
@@ -335,7 +314,7 @@ function renderSizingRows() {
     if (!host) return;
     const rows = visibleSizings();
     if (!rows.length) {
-        host.innerHTML = `<p class="project-empty">${escHtml(tt('project.view.empty'))}</p>`;
+        host.innerHTML = `<p class="project-empty">${esc(tt('project.view.empty'))}</p>`;
         return;
     }
     const canEdit = !!(currentProject && currentProject.can_edit);
@@ -374,13 +353,13 @@ function sourceLabel(meta) {
 
 function sizingRow(s, canEdit) {
     const checked = selectedSizings.has(s.id) ? ' checked' : '';
-    const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${escHtml(t.name)}</span>`).join('');
+    const tags = (s.tags || []).map(t => `<span class="tag-chip tag-chip-sm">${esc(t.name)}</span>`).join('');
     const role = s.role
-        ? `<span class="role-chip role-${escHtml(s.role)}">${escHtml(tt('project.role.' + s.role))}</span>`
+        ? `<span class="role-chip role-${esc(s.role)}">${esc(tt('project.role.' + s.role))}</span>`
         : `<span class="role-chip role-unset">—</span>`;
     const source = s.is_dr_target
-        ? escHtml(tt('project.table.dr_target'))
-        : escHtml(sourceLabel(s.source_meta) || tt('project.table.manual'));
+        ? esc(tt('project.table.dr_target'))
+        : esc(sourceLabel(s.source_meta) || tt('project.table.manual'));
 
     // Three distinct states, deliberately not merged: a re-import cannot be
     // fixed by recalculating (§3.3), so it must not read as ordinary staleness.
@@ -389,15 +368,15 @@ function sizingRow(s, canEdit) {
         // Machine-created from a multi-cluster import; no human has reviewed
         // it. Takes precedence: an unreviewed sizing must not read as merely
         // "no result yet".
-        state = `<span class="state-badge state-untouched" title="${escHtml(tt('project.state.untouched_hint'))}">${escHtml(tt('project.state.untouched'))}</span>`;
+        state = `<span class="state-badge state-untouched" title="${esc(tt('project.state.untouched_hint'))}">${esc(tt('project.state.untouched'))}</span>`;
     } else if (s.needs_reimport) {
-        state = `<span class="state-badge state-reimport" title="${escHtml(tt('project.state.reimport_hint'))}">${escHtml(tt('project.state.reimport'))}</span>`;
+        state = `<span class="state-badge state-reimport" title="${esc(tt('project.state.reimport_hint'))}">${esc(tt('project.state.reimport'))}</span>`;
     } else if (!s.has_result) {
-        state = `<span class="state-badge state-none">${escHtml(tt('project.state.none'))}</span>`;
+        state = `<span class="state-badge state-none">${esc(tt('project.state.none'))}</span>`;
     } else if (s.stale) {
-        state = `<span class="state-badge state-stale" title="${escHtml(tt('project.state.stale_hint'))}">${escHtml(tt('project.state.stale'))}</span>`;
+        state = `<span class="state-badge state-stale" title="${esc(tt('project.state.stale_hint'))}">${esc(tt('project.state.stale'))}</span>`;
     } else {
-        state = `<span class="state-badge state-fresh">${escHtml(tt('project.state.fresh'))}</span>`;
+        state = `<span class="state-badge state-fresh">${esc(tt('project.state.fresh'))}</span>`;
     }
 
     // Icon actions, following SC//Design's scenario card (pencil / copy / trash).
@@ -410,7 +389,7 @@ function sizingRow(s, canEdit) {
     // attributes would never be swapped and the buttons would ship nameless.
     // All four labels already exist, so no new strings.
     const iconBtn = (fn, key, icon, extra = '') => {
-        const label = escHtml(tt(key));
+        const label = esc(tt(key));
         return `<button class="icon-btn ${extra}" data-click='["${fn}",${s.id}]'`
             + ` title="${label}" aria-label="${label}">${icon}</button>`;
     };
@@ -426,17 +405,17 @@ function sizingRow(s, canEdit) {
     // quoted on another, which is invisible until the document is opened.
     const ea = s.export_as;
     const exportAs = (ea && ea.chassis)
-        ? `<div class="export-as-badge" title="${escHtml(tt(ea.bom_check_name
+        ? `<div class="export-as-badge" title="${esc(tt(ea.bom_check_name
                 ? 'exportas.badge_bom_hint' : 'exportas.badge_manual_hint',
             {chassis: ea.chassis, bom: ea.bom_check_name || ''}))}">`
-          + `${ICON_SERVER}<span>${escHtml(ea.chassis)}</span></div>`
+          + `${ICON_SERVER}<span>${esc(ea.chassis)}</span></div>`
         : '';
 
     return `<tr>
         <td class="col-check"><input type="checkbox"${checked} data-change='["toggleSizing",${s.id},"$checked"]'></td>
         <td class="sizing-name"><button class="sizing-open" data-click='["openSizing",${s.id}]'`
-        + ` title="${escHtml(tt('project.action.open'))}">${escHtml(s.name)}</button>`
-        + `${s.notes ? ` <span class="note-dot" title="${escHtml(s.notes)}">●</span>` : ''}`
+        + ` title="${esc(tt('project.action.open'))}">${esc(s.name)}</button>`
+        + `${s.notes ? ` <span class="note-dot" title="${esc(s.notes)}">●</span>` : ''}`
         + exportAs + `</td>
         <td>${tags}</td>
         <td>${role}</td>
@@ -451,13 +430,13 @@ function renderReplication() {
     if (!host) return;
     const links = (currentProject && currentProject.replication_links) || [];
     if (!links.length) { host.innerHTML = ''; return; }
-    host.innerHTML = `<h3 class="rep-heading">${escHtml(tt('project.rep.title'))}</h3>
+    host.innerHTML = `<h3 class="rep-heading">${esc(tt('project.rep.title'))}</h3>
         <ul class="rep-list">${links.map(l => `<li>
-            <strong>${escHtml(l.source_label)}</strong> →
-            <strong>${escHtml(l.target_label)}</strong>
-            <span class="rep-terms">${l.compute_pct}% ${escHtml(tt('project.rep.compute'))} ·
-                ${l.storage_pct}% ${escHtml(tt('project.rep.storage'))} ·
-                ${escHtml(tt('project.sizing.rep_' + l.mode))}</span>
+            <strong>${esc(l.source_label)}</strong> →
+            <strong>${esc(l.target_label)}</strong>
+            <span class="rep-terms">${l.compute_pct}% ${esc(tt('project.rep.compute'))} ·
+                ${l.storage_pct}% ${esc(tt('project.rep.storage'))} ·
+                ${esc(tt('project.sizing.rep_' + l.mode))}</span>
         </li>`).join('')}</ul>`;
 }
 
@@ -640,7 +619,7 @@ function openComparisons() {
     if (!currentProject) return;
     cmpState = { mode: null, lastBody: null, lastData: null };
     _cmpShowStep('mode');
-    document.getElementById('comparisons-modal').style.display = 'flex';
+    openModal('comparisons-modal');
 }
 
 function closeComparisons() {
@@ -649,7 +628,7 @@ function closeComparisons() {
     if (list) list.innerHTML = '';
     const res = document.getElementById('cmp-step-result');
     if (res) res.innerHTML = '';
-    document.getElementById('comparisons-modal').style.display = 'none';
+    closeModal('comparisons-modal');
 }
 
 function _cmpShowStep(step) {
@@ -669,36 +648,63 @@ function _cmpShowStep(step) {
     if (step === 'pick') updateCmpPickCount();
 }
 
-function cmpChooseMode(mode) {
-    cmpState.mode = mode === 'tags' ? 'tags' : 'sizings';
-    const list = document.getElementById('cmp-pick-list');
-    const hint = document.getElementById('cmp-pick-hint');
-    if (cmpState.mode === 'tags') {
-        const seen = new Map();   // id -> {name, count}
-        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
-            const e = seen.get(t.id) || { name: t.name, count: 0 };
-            e.count++;
-            seen.set(t.id, e);
-        }));
-        hint.textContent = tt(seen.size < 2 ? 'project.compare.need_two_tags'
-                                            : 'cmp.pick_tags');
-        const tags = [...seen.entries()].sort((a, b) =>
-            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
-        list.innerHTML = tags.map(([id, t]) => `
+// ── pick lists shared by the Compare and Export wizards ─────────────────────
+
+// Tags used in the project with how many sizings carry each: [[id, {name, count}]],
+// sorted by name.
+function tagCounts(sizings) {
+    const seen = new Map();   // id -> {name, count}
+    (sizings || []).forEach(s => (s.tags || []).forEach(t => {
+        const e = seen.get(t.id) || { name: t.name, count: 0 };
+        e.count++;
+        seen.set(t.id, e);
+    }));
+    return [...seen.entries()].sort((a, b) =>
+        a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
+}
+
+// Checkbox rows for either the project's tags or its sizings. `idAttr` names
+// the data attribute carrying the id, `onChange` the delegate handler that
+// recounts, `checked` pre-ticks every row.
+function renderPickList(listEl, mode, opts) {
+    const checked = opts.checked ? ' checked' : '';
+    const change = `data-change='["${opts.onChange}"]'`;
+    if (mode === 'tags') {
+        listEl.innerHTML = tagCounts(currentProject.sizings).map(([id, t]) => `
             <label class="fanout-row">
-                <input type="checkbox" checked data-cmp-id="${id}" data-change='["updateCmpPickCount"]'>
-                <span class="fanout-name">${escHtml(t.name)}</span>
-                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
+                <input type="checkbox"${checked} ${opts.idAttr}="${id}" ${change}>
+                <span class="fanout-name">${esc(t.name)}</span>
+                <span class="fanout-meta">${esc(tt('project.compare.members', {count: t.count}))}</span>
             </label>`).join('');
     } else {
-        hint.textContent = tt('cmp.pick_sizings');
-        list.innerHTML = (currentProject.sizings || []).map(s => `
+        listEl.innerHTML = (currentProject.sizings || []).map(s => `
             <label class="fanout-row">
-                <input type="checkbox" data-cmp-id="${s.id}" data-change='["updateCmpPickCount"]'>
-                <span class="fanout-name">${escHtml(s.name)}</span>
-                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
+                <input type="checkbox"${checked} ${opts.idAttr}="${s.id}" ${change}>
+                <span class="fanout-name">${esc(s.name)}</span>
+                <span class="fanout-meta">${s.role ? esc(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + esc(tt('project.table.dr_target')) : ''}</span>
             </label>`).join('');
     }
+}
+
+// Ids of the ticked rows in a pick list.
+function chosenIds(listSel, idAttr) {
+    return [...document.querySelectorAll(`${listSel} input[${idAttr}]`)]
+        .filter(cb => cb.checked)
+        .map(cb => parseInt(cb.getAttribute(idAttr), 10));
+}
+
+function cmpChooseMode(mode) {
+    cmpState.mode = mode === 'tags' ? 'tags' : 'sizings';
+    const hint = document.getElementById('cmp-pick-hint');
+    if (cmpState.mode === 'tags') {
+        // Tags start ticked: comparing every tagged group is the usual ask.
+        hint.textContent = tt(tagCounts(currentProject.sizings).length < 2
+            ? 'project.compare.need_two_tags' : 'cmp.pick_tags');
+    } else {
+        hint.textContent = tt('cmp.pick_sizings');
+    }
+    renderPickList(document.getElementById('cmp-pick-list'), cmpState.mode,
+        { idAttr: 'data-cmp-id', checked: cmpState.mode === 'tags', onChange: 'updateCmpPickCount' });
     _cmpShowStep('pick');
 }
 
@@ -707,11 +713,7 @@ function cmpBack() {
     _cmpShowStep(onResult ? 'pick' : 'mode');
 }
 
-function _cmpChosenIds() {
-    return [...document.querySelectorAll('#cmp-pick-list input[data-cmp-id]')]
-        .filter(cb => cb.checked)
-        .map(cb => parseInt(cb.dataset.cmpId, 10));
-}
+function _cmpChosenIds() { return chosenIds('#cmp-pick-list', 'data-cmp-id'); }
 
 function updateCmpPickCount() {
     const btn = document.getElementById('cmp-run-btn');
@@ -724,13 +726,10 @@ async function runComparison() {
     const body = cmpState.mode === 'tags' ? { tag_ids: ids } : { sizing_ids: ids };
     const host = document.getElementById('cmp-step-result');
     _cmpShowStep('result');
-    host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.loading'))}</p>`;
+    host.innerHTML = `<p class="project-empty">${esc(tt('project.compare.loading'))}</p>`;
 
-    const { ok, data } = await api(`/api/projects/${currentProject.id}/compare`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    if (!ok) { host.innerHTML = `<p class="project-empty">${escHtml(tt('project.compare.failed'))}</p>`; return; }
+    const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/compare`, 'POST', body);
+    if (!ok) { host.innerHTML = `<p class="project-empty">${esc(tt('project.compare.failed'))}</p>`; return; }
     cmpState.lastBody = body;
     cmpState.lastData = data;
     host.innerHTML = _compareTableHtml(data);
@@ -769,33 +768,33 @@ function _compareTableHtml(data) {
 
     const warn = (data.warnings || []).map(w => {
         const key = 'project.compare.warn_' + w.code;
-        return `<li>${escHtml(tt(key, { name: w.name || '' }))}</li>`;
+        return `<li>${esc(tt(key, { name: w.name || '' }))}</li>`;
     }).join('');
 
-    const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${escHtml(tt('project.compare.rollup', {
+    const rollup = data.mode === 'tags' ? '' : data.rollup ? `<p class="compare-rollup">${esc(tt('project.compare.rollup', {
         count: data.rollup.count, nodes: data.rollup.nodes,
         clusters: data.rollup.clusters,
         cores: data.rollup.cores, ram: data.rollup.ram_gb,
         storage: round(data.rollup.usable_tb),
-    }))}</p>` : `<p class="compare-rollup compare-rollup-none">${escHtml(tt('project.compare.no_rollup'))}</p>`;
+    }))}</p>` : `<p class="compare-rollup compare-rollup-none">${esc(tt('project.compare.no_rollup'))}</p>`;
 
     return `
         ${warn ? `<ul class="compare-warnings">${warn}</ul>` : ''}
         <div class="compare-scroll"><table class="sizing-table compare-table">
-            <thead><tr><th>${escHtml(tt('project.compare.metric'))}</th>
+            <thead><tr><th>${esc(tt('project.compare.metric'))}</th>
                 ${rows.map(r => {
                     const chip = r.member_count != null
-                        ? ` <span class="role-chip role-additive">${escHtml(tt('project.compare.members', {count: r.member_count}))}</span>`
-                        : (r.role ? ` <span class="role-chip role-${escHtml(r.role)}">${escHtml(tt('project.role.' + r.role))}</span>` : '');
-                    return `<th>${escHtml(r.name)}${chip}</th>`;
+                        ? ` <span class="role-chip role-additive">${esc(tt('project.compare.members', {count: r.member_count}))}</span>`
+                        : (r.role ? ` <span class="role-chip role-${esc(r.role)}">${esc(tt('project.role.' + r.role))}</span>` : '');
+                    return `<th>${esc(r.name)}${chip}</th>`;
                 }).join('')}
             </tr></thead>
             <tbody>${_compareMetricRows().map(([label, render, num]) => `<tr>
-                <td class="compare-metric">${escHtml(tt(label))}</td>
-                ${rows.map(r => `<td>${escHtml(render(r))} ${delta(num, r)}</td>`).join('')}
+                <td class="compare-metric">${esc(tt(label))}</td>
+                ${rows.map(r => `<td>${esc(render(r))} ${delta(num, r)}</td>`).join('')}
             </tr>`).join('')}
-            <tr><td class="compare-metric">${escHtml(tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why'))}</td>
-                ${rows.map(r => `<td class="compare-note">${escHtml(r.notes || '—')}</td>`).join('')}</tr>
+            <tr><td class="compare-metric">${esc(tt(data.mode === 'tags' ? 'project.compare.sizings_row' : 'project.compare.why'))}</td>
+                ${rows.map(r => `<td class="compare-note">${esc(r.notes || '—')}</td>`).join('')}</tr>
             </tbody>
         </table></div>
         ${rollup}`;
@@ -874,7 +873,7 @@ function openExports() {
     fmt.querySelectorAll('option[data-editable]').forEach(o => { o.hidden = o.disabled = !editable; });
     if (fmt.selectedOptions[0] && fmt.selectedOptions[0].disabled) fmt.value = 'pdf';
     _expShowStep('mode');
-    document.getElementById('exports-modal').style.display = 'flex';
+    openModal('exports-modal');
     loadExports();
 }
 
@@ -882,7 +881,7 @@ function closeExports() {
     expState = { mode: null };
     const list = document.getElementById('exp-pick-list');
     if (list) list.innerHTML = '';
-    document.getElementById('exports-modal').style.display = 'none';
+    closeModal('exports-modal');
 }
 
 function _expShowStep(step) {
@@ -901,43 +900,16 @@ function _expShowStep(step) {
 
 function expChooseMode(mode) {
     expState.mode = mode === 'tags' ? 'tags' : 'sizings';
-    const list = document.getElementById('exp-pick-list');
-    const hint = document.getElementById('exp-pick-hint');
-    if (expState.mode === 'tags') {
-        const seen = new Map();
-        (currentProject.sizings || []).forEach(s => (s.tags || []).forEach(t => {
-            const e = seen.get(t.id) || { name: t.name, count: 0 };
-            e.count++;
-            seen.set(t.id, e);
-        }));
-        hint.textContent = tt('exp.pick_tags');
-        const tags = [...seen.entries()].sort((a, b) =>
-            a[1].name.toLowerCase() < b[1].name.toLowerCase() ? -1 : 1);
-        list.innerHTML = tags.map(([id, t]) => `
-            <label class="fanout-row">
-                <input type="checkbox" data-exp-id="${id}" data-change='["updateExpPickCount"]'>
-                <span class="fanout-name">${escHtml(t.name)}</span>
-                <span class="fanout-meta">${escHtml(tt('project.compare.members', {count: t.count}))}</span>
-            </label>`).join('');
-    } else {
-        hint.textContent = tt('exp.pick_sizings');
-        list.innerHTML = (currentProject.sizings || []).map(s => `
-            <label class="fanout-row">
-                <input type="checkbox" data-exp-id="${s.id}" data-change='["updateExpPickCount"]'>
-                <span class="fanout-name">${escHtml(s.name)}</span>
-                <span class="fanout-meta">${s.role ? escHtml(tt('project.role.' + s.role)) : ''}${s.is_dr_target ? ' · ' + escHtml(tt('project.table.dr_target')) : ''}</span>
-            </label>`).join('');
-    }
+    document.getElementById('exp-pick-hint').textContent =
+        tt(expState.mode === 'tags' ? 'exp.pick_tags' : 'exp.pick_sizings');
+    renderPickList(document.getElementById('exp-pick-list'), expState.mode,
+        { idAttr: 'data-exp-id', checked: false, onChange: 'updateExpPickCount' });
     _expShowStep('pick');
 }
 
 function expBack() { _expShowStep('mode'); }
 
-function _expChosenIds() {
-    return [...document.querySelectorAll('#exp-pick-list input[data-exp-id]')]
-        .filter(cb => cb.checked)
-        .map(cb => parseInt(cb.dataset.expId, 10));
-}
+function _expChosenIds() { return chosenIds('#exp-pick-list', 'data-exp-id'); }
 
 function updateExpPickCount() {
     const btn = document.getElementById('exp-run-btn');
@@ -961,13 +933,10 @@ async function runExport() {
     }
     const fmt = document.getElementById('exp-format').value;
     const notify = document.getElementById('exp-notify').checked;
-    const { ok, data } = await api(`/api/projects/${currentProject.id}/export`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/export`, 'POST', {
             format: fmt, sizing_ids: sizingIds,
             notify_email: notify, lang: currentProject.lang || window.I18N_ACTIVE,
-        }),
-    });
+        });
     if (!ok) return info(tt('project.export.failed'), (data && data.error) || '');
     // Land on the downloads view so the new job is the next thing seen.
     _expShowStep('mode');
@@ -979,7 +948,7 @@ async function runExport() {
 // open, so the badge appears the moment a download is ready.
 async function loadExports() {
     if (!currentProject) return;
-    const { ok, data } = await api(`/api/projects/${currentProject.id}/exports`);
+    const { ok, data } = await fetchJson(`/api/projects/${currentProject.id}/exports`);
     if (!ok) return;
     lastExportJobs = data || [];
     renderExportsList();
@@ -1005,20 +974,20 @@ function updateExportsBadge() {
 }
 
 function exportRow(j) {
-    const when = fmtProjectDate(j.created_at);
+    const when = fmtDateTime(j.created_at, { dateOnly: true });
     let right;
     if (j.status === 'done' && !j.expired) {
-        right = `<a class="btn btn-cta btn-xs" href="/api/export-jobs/${j.id}/file">${escHtml(tt('project.export.download'))}</a>`;
+        right = `<a class="btn btn-cta btn-xs" href="/api/export-jobs/${j.id}/file">${esc(tt('project.export.download'))}</a>`;
     } else if (j.status === 'done') {
-        right = `<span class="export-note">${escHtml(tt('project.export.expired'))}</span>`;
+        right = `<span class="export-note">${esc(tt('project.export.expired'))}</span>`;
     } else if (j.status === 'failed') {
-        right = `<span class="export-note export-failed" title="${escHtml(j.error || '')}">${escHtml(tt('project.export.failed_short'))}</span>`;
+        right = `<span class="export-note export-failed" title="${esc(j.error || '')}">${esc(tt('project.export.failed_short'))}</span>`;
     } else {
-        right = `<span class="export-note">${escHtml(tt('project.export.working'))}</span>`;
+        right = `<span class="export-note">${esc(tt('project.export.working'))}</span>`;
     }
     const note = j.status === 'done' && j.error
-        ? `<div class="export-skip">${escHtml(j.error)}</div>` : '';
-    return `<li><span>${escHtml(j.format.toUpperCase())} · ${escHtml(when)}</span>${right}${note}</li>`;
+        ? `<div class="export-skip">${esc(j.error)}</div>` : '';
+    return `<li><span>${esc(j.format.toUpperCase())} · ${esc(when)}</span>${right}${note}</li>`;
 }
 
 function startExportPolling() {
@@ -1051,7 +1020,7 @@ function openBatchEdit() {
     const addHost = document.getElementById('batch-add-tags');
     addHost.innerHTML = all.map(t =>
         `<button class="tag-chip tag-chip-add" data-batch-add="${t.id}"
-                 data-click='["toggleBatchTag","add",${t.id}]'>${escHtml(t.name)}</button>`).join('');
+                 data-click='["toggleBatchTag","add",${t.id}]'>${esc(t.name)}</button>`).join('');
     const onSelected = new Map();
     (currentProject.sizings || []).forEach(s => {
         if (!selectedSizings.has(s.id)) return;
@@ -1060,23 +1029,23 @@ function openBatchEdit() {
     const remHost = document.getElementById('batch-remove-tags');
     remHost.innerHTML = [...onSelected.entries()].map(([id, name]) =>
         `<button class="tag-chip tag-chip-add" data-batch-remove="${id}"
-                 data-click='["toggleBatchTag","remove",${id}]'>${escHtml(name)}</button>`).join('')
-        || `<span class="tag-empty">${escHtml(tt('project.sizing.tag_none_on_sizing'))}</span>`;
+                 data-click='["toggleBatchTag","remove",${id}]'>${esc(name)}</button>`).join('')
+        || `<span class="tag-empty">${esc(tt('project.sizing.tag_none_on_sizing'))}</span>`;
 
     // Replication targets: any sizing NOT in the selection (a link to a
     // selected source would be fine, but to itself is not — filtered on apply).
     const target = document.getElementById('batch-rep-target');
-    target.innerHTML = `<option value="">${escHtml(tt('batch.keep'))}</option>`
-        + `<option value="none">${escHtml(tt('batch.rep_none'))}</option>`
+    target.innerHTML = `<option value="">${esc(tt('batch.keep'))}</option>`
+        + `<option value="none">${esc(tt('batch.rep_none'))}</option>`
         + (currentProject.sizings || [])
             .filter(s => !selectedSizings.has(s.id))
-            .map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+            .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
     updateBatchRepFields();
-    document.getElementById('batch-edit-modal').style.display = 'flex';
+    openModal('batch-edit-modal');
 }
 
 function closeBatchEdit() {
-    document.getElementById('batch-edit-modal').style.display = 'none';
+    closeModal('batch-edit-modal');
 }
 
 function toggleBatchTag(kind, id) {
@@ -1104,10 +1073,7 @@ async function applyBatchEdit() {
 
     // A typed tag is created once at project level, then added like a chip.
     if (newTag) {
-        const { ok, data } = await api(`/api/projects/${currentProject.id}/tags`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newTag }),
-        });
+        const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/tags`, 'POST', { name: newTag });
         if (ok && data && data.id) addIds.push(data.id);
     }
 
@@ -1116,33 +1082,24 @@ async function applyBatchEdit() {
     for (const s of rows) {
         const calls = [];
         if (role) {
-            calls.push(api(`/api/sizings/${s.id}/role`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role }),
-            }));
+            calls.push(sendJson(`/api/sizings/${s.id}/role`, 'POST', { role }));
         }
         if (addIds.length || removeIds.size) {
             const tagIds = new Set((s.tags || []).map(t => t.id));
             addIds.forEach(id => tagIds.add(id));
             removeIds.forEach(id => tagIds.delete(id));
-            calls.push(api(`/api/sizings/${s.id}/tags`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag_ids: [...tagIds] }),
-            }));
+            calls.push(sendJson(`/api/sizings/${s.id}/tags`, 'POST', { tag_ids: [...tagIds] }));
         }
         if (repTarget === 'none') {
-            calls.push(api(`/api/sizings/${s.id}/replication?source_cluster=`, { method: 'DELETE' }));
+            calls.push(fetchJson(`/api/sizings/${s.id}/replication?source_cluster=`, { method: 'DELETE' }));
         } else if (repTarget) {
-            calls.push(api(`/api/sizings/${s.id}/replication`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            calls.push(sendJson(`/api/sizings/${s.id}/replication`, 'POST', {
                     target_configuration_id: parseInt(repTarget, 10),
                     source_cluster: '', target_cluster: '',
                     compute_pct: parseInt(document.getElementById('batch-rep-compute').value, 10) || 100,
                     storage_pct: parseInt(document.getElementById('batch-rep-storage').value, 10) || 100,
                     mode: document.getElementById('batch-rep-mode').value,
-                }),
-            }));
+                }));
         }
         const results = await Promise.all(calls);
         results.forEach(r => { if (!r.ok && !failed) failed = `${s.name}: ${(r.data && r.data.error) || ''}`; });
@@ -1172,17 +1129,13 @@ async function addDrTarget() {
     if (!currentProject) return;
     const name = window.prompt(tt('project.view.dr_prompt'), tt('project.view.dr_default'));
     if (!name) return;
-    const { ok, data } = await api(`/api/projects/${currentProject.id}/dr-target`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name }),
-    });
+    const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/dr-target`, 'POST', { name: name });
     if (!ok) return info(tt('project.view.dr_failed'), (data && data.error) || '');
     openProject(currentProject.id);
 }
 
 async function openSizing(id, push) {
-    const { ok, data } = await api('/api/configs/' + id);
+    const { ok, data } = await fetchJson('/api/configs/' + id);
     if (!ok) return;
     const projectId = data.project_id || (currentProject && currentProject.id);
     pushScreen('/?project=' + encodeURIComponent(projectId) +
@@ -1201,7 +1154,7 @@ async function openSizing(id, push) {
     // Inbound replication reserve (links targeting this sizing) must be set
     // BEFORE restore: restore's recalc is what folds it into the sizing.
     if (window.setInboundReserve) {
-        const inb = await api(`/api/sizings/${id}/inbound-reserve`);
+        const inb = await fetchJson(`/api/sizings/${id}/inbound-reserve`);
         window.setInboundReserve(inb.ok ? inb.data : null);
     }
     if (window.restoreSizingState) await window.restoreSizingState(data.payload);
@@ -1212,11 +1165,7 @@ async function openSizing(id, push) {
 }
 
 async function duplicateSizing(id) {
-    const { ok, data } = await api(`/api/sizings/${id}/duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-    });
+    const { ok, data } = await sendJson(`/api/sizings/${id}/duplicate`, 'POST', {});
     if (!ok) return info(tt('project.action.duplicate_failed'), (data && data.error) || '');
     // A copy of someone else's sizing lands in the copier's own project, so go
     // where the copy actually is rather than assuming it stayed here.
@@ -1225,7 +1174,7 @@ async function duplicateSizing(id) {
 
 async function deleteProjectSizing(id) {
     if (!window.confirm(tt('project.action.delete_confirm'))) return;
-    const { ok, data } = await api('/api/configs/' + id, { method: 'DELETE' });
+    const { ok, data } = await fetchJson('/api/configs/' + id, { method: 'DELETE' });
     if (!ok) {
         // 409: something replicates into this sizing and would lose its
         // reserve. Name the dependents rather than just refusing.
@@ -1248,11 +1197,11 @@ function openSizingPanel(id) {
     document.getElementById('sizing-notes').value = panelSizing.notes || '';
     renderTagPicker();
     renderRepPicker();
-    document.getElementById('sizing-modal').style.display = 'flex';
+    openModal('sizing-modal');
 }
 
 function closeSizingPanel() {
-    document.getElementById('sizing-modal').style.display = 'none';
+    closeModal('sizing-modal');
     panelSizing = null;
 }
 
@@ -1272,22 +1221,22 @@ function renderTagPicker() {
     const assignedHtml = mine.length
         ? mine.map(tag => `<button class="tag-chip tag-chip-assigned"
                 data-click='["togglePanelTag",${tag.id}]'
-                title="${escHtml(tt('project.sizing.tag_remove'))}">${escHtml(tag.name)}
+                title="${esc(tt('project.sizing.tag_remove'))}">${esc(tag.name)}
                 <span class="tag-chip-remove">×</span></button>`).join('')
-        : `<span class="tag-empty">${escHtml(tt('project.sizing.tag_none_on_sizing'))}</span>`;
+        : `<span class="tag-empty">${esc(tt('project.sizing.tag_none_on_sizing'))}</span>`;
 
     let html = `<div class="tag-group">
-        <div class="tag-group-label">${escHtml(tt('project.sizing.tag_assigned'))}</div>
+        <div class="tag-group-label">${esc(tt('project.sizing.tag_assigned'))}</div>
         <div class="tag-picker">${assignedHtml}</div>
     </div>`;
 
     if (available.length) {
         html += `<div class="tag-group">
-            <div class="tag-group-label">${escHtml(tt('project.sizing.tag_available'))}</div>
+            <div class="tag-group-label">${esc(tt('project.sizing.tag_available'))}</div>
             <div class="tag-picker">${available.map(tag =>
                 `<button class="tag-chip tag-chip-add"
                     data-click='["togglePanelTag",${tag.id}]'
-                    title="${escHtml(tt('project.sizing.tag_add'))}">${escHtml(tag.name)}</button>`
+                    title="${esc(tt('project.sizing.tag_add'))}">${esc(tag.name)}</button>`
             ).join('')}</div>
         </div>`;
     }
@@ -1313,11 +1262,7 @@ async function addTagFromInput() {
     const input = document.getElementById('sizing-new-tag');
     const name = (input && input.value || '').trim();
     if (!name || !currentProject) return;
-    const { ok, data } = await api(`/api/projects/${currentProject.id}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name }),
-    });
+    const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/tags`, 'POST', { name: name });
     if (!ok) return showError('sizing-modal-error', (data && data.error) || '');
     input.value = '';
     currentProject.tags = currentProject.tags || [];
@@ -1335,10 +1280,10 @@ function renderRepPicker() {
     const existing = ((currentProject.replication_links || [])
         .find(l => l.source_configuration_id === panelSizing.id)) || null;
 
-    select.innerHTML = `<option value="">${escHtml(tt('project.sizing.rep_none'))}</option>` +
+    select.innerHTML = `<option value="">${esc(tt('project.sizing.rep_none'))}</option>` +
         others.map(s => {
             const sel = existing && existing.target_configuration_id === s.id ? ' selected' : '';
-            return `<option value="${s.id}"${sel}>${escHtml(s.name)}</option>`;
+            return `<option value="${s.id}"${sel}>${esc(s.name)}</option>`;
         }).join('');
 
     document.getElementById('sizing-rep-compute').value = existing ? existing.compute_pct : 100;
@@ -1355,34 +1300,22 @@ async function submitSizingPanel() {
 
     let failed = null;
     const calls = [
-        api(`/api/sizings/${id}/role`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: role }),
-        }),
-        api(`/api/sizings/${id}/notes`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes: notes }),
-        }),
-        api(`/api/sizings/${id}/tags`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tag_ids: tagIds }),
-        }),
+        sendJson(`/api/sizings/${id}/role`, 'POST', { role: role }),
+        sendJson(`/api/sizings/${id}/notes`, 'POST', { notes: notes }),
+        sendJson(`/api/sizings/${id}/tags`, 'POST', { tag_ids: tagIds }),
     ];
 
     const targetId = document.getElementById('sizing-rep-target').value;
     if (targetId) {
-        calls.push(api(`/api/sizings/${id}/replication`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        calls.push(sendJson(`/api/sizings/${id}/replication`, 'POST', {
                 target_configuration_id: parseInt(targetId, 10),
                 source_cluster: '', target_cluster: '',
                 compute_pct: parseInt(document.getElementById('sizing-rep-compute').value, 10),
                 storage_pct: parseInt(document.getElementById('sizing-rep-storage').value, 10),
                 mode: document.getElementById('sizing-rep-mode').value,
-            }),
-        }));
+            }));
     } else {
-        calls.push(api(`/api/sizings/${id}/replication?source_cluster=`, { method: 'DELETE' }));
+        calls.push(fetchJson(`/api/sizings/${id}/replication?source_cluster=`, { method: 'DELETE' }));
     }
 
     const results = await Promise.all(calls);
@@ -1415,7 +1348,7 @@ function openProjectSettings() {
     if (hasField) document.getElementById('ps-salesforce').value = currentProject.salesforce_url || '';
 
     refreshPreparedByHint();
-    document.getElementById('project-settings-modal').style.display = 'flex';
+    openModal('project-settings-modal');
 }
 
 // Offer to drop your own name into "Prepared by", but only when it isn't
@@ -1442,7 +1375,7 @@ function usePreparedByMe() {
 }
 
 function closeProjectSettings() {
-    document.getElementById('project-settings-modal').style.display = 'none';
+    closeModal('project-settings-modal');
 }
 
 async function submitProjectSettings() {
@@ -1458,10 +1391,7 @@ async function submitProjectSettings() {
     const row = document.getElementById('ps-salesforce-row');
     if (row && !row.hidden) body.salesforce_url = document.getElementById('ps-salesforce').value;
 
-    const { ok, data } = await api('/api/projects/' + currentProject.id, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
+    const { ok, data } = await sendJson('/api/projects/' + currentProject.id, 'PUT', body);
     if (!ok) return showError('project-settings-error', (data && data.error) || '');
     closeProjectSettings();
     openProject(currentProject.id);
@@ -1470,7 +1400,7 @@ async function submitProjectSettings() {
 async function deleteCurrentProject() {
     if (!currentProject) return;
     if (!window.confirm(tt('project.settings.delete_confirm', { name: currentProject.name }))) return;
-    const { ok, data } = await api('/api/projects/' + currentProject.id, { method: 'DELETE' });
+    const { ok, data } = await fetchJson('/api/projects/' + currentProject.id, { method: 'DELETE' });
     if (!ok) return showError('project-settings-error', (data && data.error) || '');
     closeProjectSettings();
     backToProjects();
@@ -1550,7 +1480,7 @@ async function openExportAs(id) {
     const sizing = (currentProject.sizings || []).find(s => s.id === id);
     if (!sizing) return;
     hideError('export-as-error');
-    const res = await api(`/api/sizings/${id}/export-override`);
+    const res = await fetchJson(`/api/sizings/${id}/export-override`);
     if (!res.ok) { info(tt('exportas.title'), (res.data && res.data.error) || ''); return; }
     exportAsState = Object.assign({sizingId: id}, res.data);
     document.getElementById('export-as-title').textContent =
@@ -1559,11 +1489,11 @@ async function openExportAs(id) {
     fillExportAsManual(res.data.setting.manual || {});
     renderExportAsSummary();
     loadChassisOptions(id);
-    document.getElementById('export-as-modal').style.display = 'flex';
+    openModal('export-as-modal');
 }
 
 function closeExportAs() {
-    document.getElementById('export-as-modal').style.display = 'none';
+    closeModal('export-as-modal');
     exportAsState = null;
 }
 
@@ -1578,14 +1508,14 @@ function renderExportAsSource() {
         ? tt('exportas.src_auto_named',
              {name: (checks.find(c => c.id === suggested) || {}).name || ''})
         : tt('exportas.src_auto_none');
-    const opts = [`<option value="auto">${escHtml(autoLabel)}</option>`,
-        `<option value="none">${escHtml(tt('exportas.src_none'))}</option>`];
+    const opts = [`<option value="auto">${esc(autoLabel)}</option>`,
+        `<option value="none">${esc(tt('exportas.src_none'))}</option>`];
     checks.forEach(c => {
         const flags = [];
         if (c.technical_verdict === 'FAIL') flags.push(tt('exportas.flag_failed'));
         if (c.fit_verdict === 'smaller') flags.push(tt('exportas.flag_smaller'));
         const suffix = flags.length ? ` — ${flags.join(', ')}` : '';
-        opts.push(`<option value="${c.id}">${escHtml(c.name + suffix)}</option>`);
+        opts.push(`<option value="${c.id}">${esc(c.name + suffix)}</option>`);
     });
     sel.innerHTML = opts.join('');
     sel.value = String((exportAsState.setting || {}).bom || 'auto');
@@ -1656,7 +1586,7 @@ function renderExportAsSummary() {
         check = (exportAsState.checks || []).find(c => c.id === Number(pick)) || null;
     }
     if (!check) {
-        host.innerHTML = `<p class="field-hint">${escHtml(tt('exportas.from_rec'))}</p>`;
+        host.innerHTML = `<p class="field-hint">${esc(tt('exportas.from_rec'))}</p>`;
         return;
     }
     const v = check.values || {};
@@ -1668,10 +1598,10 @@ function renderExportAsSummary() {
         [tt('exportas.storage'), v.storage_desc],
         [tt('exportas.nodes'), v.node_count],
     ].filter(r => r[1] !== undefined && r[1] !== null && r[1] !== '');
-    host.innerHTML = `<p class="field-hint">${escHtml(tt('exportas.from_bom',
+    host.innerHTML = `<p class="field-hint">${esc(tt('exportas.from_bom',
         {name: check.name}))}</p><dl class="exportas-dl">`
         + rows.map(([k, val]) =>
-            `<dt>${escHtml(k)}</dt><dd>${escHtml(String(val))}</dd>`).join('')
+            `<dt>${esc(k)}</dt><dd>${esc(String(val))}</dd>`).join('')
         + '</dl>';
 }
 
@@ -1694,22 +1624,20 @@ function onExportAsChassis(value) {
 }
 
 async function loadChassisOptions(id) {
-    const res = await api(`/api/sizings/${id}/chassis-options`);
+    const res = await fetchJson(`/api/sizings/${id}/chassis-options`);
     if (!res.ok || !exportAsState) return;
     exportAsState.chassisOptions = (res.data && res.data.chassis) || [];
     const list = document.getElementById('export-as-chassis-list');
     if (!list) return;
     list.innerHTML = exportAsState.chassisOptions
-        .map(c => `<option value="${escHtml(c.label)}"></option>`).join('');
+        .map(c => `<option value="${esc(c.label)}"></option>`).join('');
 }
 
 async function submitExportAs() {
     if (!exportAsState) return;
     const sel = document.getElementById('export-as-source');
     const body = {bom: sel ? sel.value : 'auto', manual: readExportAsManual()};
-    const res = await api(`/api/sizings/${exportAsState.sizingId}/export-override`,
-        {method: 'PUT', headers: {'Content-Type': 'application/json'},
-         body: JSON.stringify(body)});
+    const res = await sendJson(`/api/sizings/${exportAsState.sizingId}/export-override`, 'PUT', body);
     if (!res.ok) {
         showError('export-as-error', (res.data && res.data.error) || tt('exportas.save_failed'));
         return;
@@ -1722,9 +1650,7 @@ async function resetExportAs() {
     if (!exportAsState) return;
     // "Use the recommendation" is an explicit no-override, not a cleared form:
     // an empty form would fall back to AUTO and pick the BOM check up again.
-    const res = await api(`/api/sizings/${exportAsState.sizingId}/export-override`,
-        {method: 'PUT', headers: {'Content-Type': 'application/json'},
-         body: JSON.stringify({bom: 'none', manual: {}})});
+    const res = await sendJson(`/api/sizings/${exportAsState.sizingId}/export-override`, 'PUT', {bom: 'none', manual: {}});
     if (!res.ok) {
         showError('export-as-error', (res.data && res.data.error) || tt('exportas.save_failed'));
         return;
@@ -1736,10 +1662,7 @@ async function resetExportAs() {
 // ── small helpers ───────────────────────────────────────────────────────────
 
 function showError(id, msg) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = msg || '';
-    el.hidden = !msg;
+    setStatus(id, msg, true, { okClass: '', errClass: '', hide: 'hidden' });
 }
 
 function hideError(id) { showError(id, ''); }

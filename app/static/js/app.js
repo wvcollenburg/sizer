@@ -1,12 +1,5 @@
-// HTML-escape any value before interpolating it into an innerHTML string.
-// Imported file fields (cluster/platform/VM names, OS strings) and other
-// user-supplied text are untrusted and must never reach innerHTML raw — they
-// can be saved into a shared sizing and fire as stored XSS for whoever opens it.
-function esc(v) {
-    return String(v == null ? '' : v)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+// esc(), fetchJson(), sendJson(), setStatus(), withBusy(), openModal() and the
+// other page-wide helpers come from common.js (loaded before this script).
 
 let currentMode = 'appliance';
 // Which workload flow currently owns the shared sizing block: 'import' or
@@ -35,8 +28,7 @@ let vmExclusions = { compute: new Set(), storage: new Set() };
 // Lets the user right-size individual workloads (e.g. underused physical servers)
 // without mutating the pristine import, which the summary is recomputed from.
 let vmConfig = {};
-let vmSortField = 'name';
-let vmSortAsc = true;
+let vmSort = { field: 'name', asc: true };
 // VMs the user added (net-new workload not in the import) — indices into
 // importVms. Their storage is additive; compute/RAM fall out of the recompute.
 let vmAdded = new Set();
@@ -176,11 +168,11 @@ let _leaveResolver = null;
 function confirmLeavePage() {
     return new Promise(resolve => {
         _leaveResolver = resolve;
-        document.getElementById('leave-page-modal').style.display = 'flex';
+        openModal('leave-page-modal');
     });
 }
 function chooseLeave(choice) {
-    document.getElementById('leave-page-modal').style.display = 'none';
+    closeModal('leave-page-modal');
     const r = _leaveResolver;
     _leaveResolver = null;
     if (r) r(choice);
@@ -270,9 +262,9 @@ function switchMode(mode) {
 
 async function loadModels() {
     const status = document.getElementById('status-filter').value;
-    const resp = await fetch(`/api/models?mode=appliance&status=${status}`);
+    const resp = await fetchJson(`/api/models?mode=appliance&status=${status}`);
     if (!resp.ok) return;  // not signed in yet — the login gate will prompt
-    modelsCache = await resp.json();
+    modelsCache = resp.data || {};
 
     const select = document.getElementById('model-select');
     select.innerHTML = `<option value="">${window.t('results.select_model_option')}</option>`;
@@ -318,14 +310,9 @@ async function populateSizingModelDropdown(selectId, includeEolEos, sizing, vend
     if (vendor === undefined) vendor = document.getElementById('sizing-vendor')?.value || '';
     let url = `/api/models?mode=appliance&status=${status}&sizing=${sizing}`;
     if (sizing === 'validated' && vendor) url += `&vendor=${encodeURIComponent(vendor)}`;
-    let models;
-    try {
-        const resp = await fetch(url);
-        if (!resp.ok) return;
-        models = await resp.json();
-    } catch (e) {
-        return;
-    }
+    const resp = await fetchJson(url);
+    if (!resp.ok || !resp.data) return;
+    const models = resp.data;
     const categories = {};
     for (const [name, data] of Object.entries(models)) {
         (categories[data.category] = categories[data.category] || []).push(name);
@@ -631,14 +618,7 @@ async function calculate() {
         };
     }
 
-    const resp = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload),
-    });
-
-    const result = await resp.json();
-    displayResults(result);
+    await postCalculate(payload);
 }
 
 async function calculateValidated() {
@@ -695,14 +675,7 @@ async function calculateValidated() {
         };
     }
 
-    const resp = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload),
-    });
-
-    const result = await resp.json();
-    displayResults(result);
+    await postCalculate(payload);
 }
 
 function validateDisks(disks) {
@@ -880,9 +853,9 @@ function populateRamOptions(sizes) {
 // than hardcoded arrays. Safe to call again after sign-in or a catalog change —
 // existing selections are preserved.
 async function loadValidatedNics() {
-    const resp = await fetch('/api/models?mode=validated');
-    if (!resp.ok) return;  // not signed in yet
-    const data = await resp.json();
+    const resp = await fetchJson('/api/models?mode=validated');
+    if (!resp.ok || !resp.data) return;  // not signed in yet
+    const data = resp.data;
 
     VALIDATED_DISK_SIZES = data.disk_sizes || VALIDATED_DISK_SIZES;
     // Refresh any already-rendered size dropdowns against the fresh catalog,
@@ -938,6 +911,14 @@ function witnessBarHtml() {
         '<span class="info-bar-icon">i</span>' +
         `<span>${window.t('results.witness_message')}</span>` +
         '</div>';
+}
+
+// POST a sizing payload and render the answer. A refused request (non-2xx or
+// network down) lands in the same error box as a server-side validation
+// error instead of throwing out of the click handler.
+async function postCalculate(payload) {
+    const { ok, data } = await sendJson('/api/calculate', 'POST', payload);
+    displayResults(ok ? data : { error: (data && data.error) || window.t('auth.generic_error') });
 }
 
 function displayResults(result) {
@@ -1147,8 +1128,8 @@ async function uploadFile(file) {
     formData.append('file', file);
 
     try {
-        const resp = await fetch('/api/import-liveoptics', { method: 'POST', body: formData });
-        const data = await resp.json();
+        const { ok, data } = await fetchJson('/api/import-liveoptics', { method: 'POST', body: formData });
+        if (!data) throw new Error(window.t('auth.generic_error'));
 
         if (data.error) {
             // Coded rejections (e.g. an incomplete Live Optics export) carry a
@@ -1245,15 +1226,14 @@ async function splitLegacySizing() {
     if (!id) return;
     if (!confirm(window.t('legacy.split_confirm'))) return;
     try {
-        const resp = await fetch(`/api/sizings/${id}/split`, {method: 'POST'});
-        const d = await resp.json();
-        if (!resp.ok) throw new Error(d.error || 'split failed');
+        const { ok, data: d } = await fetchJson(`/api/sizings/${id}/split`, {method: 'POST'});
+        if (!ok) throw new Error((d && d.error) || window.t('auth.generic_error'));
         legacyMultiSizing = false;
         if (window.openProject && d.project_id != null) {
             await window.openProject(d.project_id);
         }
     } catch (e) {
-        alert(window.t('legacy.split_failed', {error: e.message}));
+        toastError(window.t('legacy.split_failed', {error: e.message}));
     }
 }
 
@@ -1363,9 +1343,8 @@ function extractDroppedFiles(dt) {
 async function _parseRaw(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const resp = await fetch('/api/import-liveoptics?raw=1', { method: 'POST', body: formData });
-    let data = null;
-    try { data = await resp.json(); } catch (e) { data = null; }
+    const resp = await fetchJson('/api/import-liveoptics?raw=1', { method: 'POST', body: formData });
+    const data = resp.data;
     if (!resp.ok || !data || data.error) {
         const msg = data && data.error_code
             ? window.t('upload.reject.' + data.error_code, data.error_params || {})
@@ -1404,10 +1383,8 @@ async function uploadFiles(files, opts) {
         const ds = _asDataset(data, _datasetId(data.source_meta, taken));
         if (projectId && sha) {
             try {
-                const r = await fetch(`/api/projects/${projectId}/source-check`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ file_sha256: sha }) });
-                const d = r.ok ? await r.json() : null;
+                const r = await sendJson(`/api/projects/${projectId}/source-check`, 'POST', { file_sha256: sha });
+                const d = r.ok ? r.data : null;
                 if (d && d.duplicate && !(opts.append && window.loadedConfigId
                         && d.sizing_id === window.loadedConfigId())) {
                     notices.push(window.t('merge.already_in_project',
@@ -1440,25 +1417,19 @@ async function openMergeDialog(datasets, opts) {
         tagInput.value = datasets.length > 1 ? 'multi-import' : _fanoutDefaultTag();
     }
     const ok = await refreshMerge();
-    if (ok) document.getElementById('cluster-fanout-modal').style.display = 'flex';
+    if (ok) openModal('cluster-fanout-modal');
 }
 
 async function refreshMerge() {
     const pm = pendingMerge;
     if (!pm) return false;
     const seq = ++mergeSeq;
-    let data = null, resp = null;
-    try {
-        resp = await fetch('/api/import-merge', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ datasets: pm.datasets, resolutions: pm.resolutions,
-                                   mapping: pm.mapping }),
-        });
-        data = await resp.json();
-    } catch (e) { data = null; }
+    const resp = await sendJson('/api/import-merge', 'POST',
+        { datasets: pm.datasets, resolutions: pm.resolutions, mapping: pm.mapping });
+    const data = resp.data;
     if (seq !== mergeSeq) return false;
-    if (!resp || !resp.ok || !data || data.error) {
-        showUploadStatus(window.t('merge.failed', {error: (data && data.error) || (resp && resp.status)}), true);
+    if (!resp.ok || !data || data.error) {
+        showUploadStatus(window.t('merge.failed', {error: (data && data.error) || resp.status}), true);
         closeClusterFanout();
         return false;
     }
@@ -1661,7 +1632,7 @@ function _fanoutDefaultTag() {
 }
 
 function closeClusterFanout() {
-    document.getElementById('cluster-fanout-modal').style.display = 'none';
+    closeModal('cluster-fanout-modal');
 }
 
 function _targetSources(target) {
@@ -1731,18 +1702,12 @@ function _targetAsImport(target) {
     };
 }
 
-function _saveErrorText(status, data, vmCount) {
-    if (status === 413) return window.t('merge.too_large', {vms: vmCount});
-    return (data && data.error) || 'save failed';
-}
-
 async function createPerClusterSizings() {
     const pm = pendingMerge;
     if (!pm || !pm.result) return;
     const targets = pm.result.targets;
     if (!targets.length) return;
     const btn = document.getElementById('fanout-create-btn');
-    btn.disabled = true;
 
     // Appending: the target holding this sizing's own records stays here.
     let home = null;
@@ -1754,55 +1719,50 @@ async function createPerClusterSizings() {
     }
     const others = targets.filter(t => t !== home);
 
-    try {
-        const fields = _captureFields('import');
-        const projectId = window.activeProjectId ? window.activeProjectId() : null;
-        let landingProject = projectId;
-        for (const t of others) {
-            const resp = await fetch('/api/configs/', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    name: t.name,
-                    payload: _fanoutSnap(t, fields),
-                    project_id: projectId || undefined,
-                    source_meta: _combinedSourceMeta(_targetMetas(t), t.name),
-                    // Marks the sizing "to be sized" until a person opens and
-                    // saves it; also asks the server for option-N name dedup.
-                    untouched: true,
-                    // Split clusters are complementary parts of one
-                    // environment: they count towards the project total.
-                    role: 'additive',
-                    // Group tag from the chooser (blank = no tagging), so the
-                    // set is immediately comparable via "Compare tags".
-                    tag: targets.length > 1
-                        ? ((document.getElementById('fanout-tag') || {value: ''}).value.trim() || undefined)
-                        : undefined,
-                }),
-            });
-            let d = null;
-            try { d = await resp.json(); } catch (e) { d = null; }
-            if (!resp.ok) throw new Error(_saveErrorText(resp.status, d, t.vms.length));
-            landingProject = d.project_id;   // quick path resolves to scratch
-        }
-        closeClusterFanout();
-        if (home) {
-            if (pm.append) _applyAppend(home);
-            else _finishMergedImport(home);
+    await withBusy(btn, async () => {
+        try {
+            const fields = _captureFields('import');
+            const projectId = window.activeProjectId ? window.activeProjectId() : null;
+            let landingProject = projectId;
+            for (const t of others) {
+                const resp = await sendJson('/api/configs/', 'POST', {
+                        name: t.name,
+                        payload: _fanoutSnap(t, fields),
+                        project_id: projectId || undefined,
+                        source_meta: _combinedSourceMeta(_targetMetas(t), t.name),
+                        // Marks the sizing "to be sized" until a person opens and
+                        // saves it; also asks the server for option-N name dedup.
+                        untouched: true,
+                        // Split clusters are complementary parts of one
+                        // environment: they count towards the project total.
+                        role: 'additive',
+                        // Group tag from the chooser (blank = no tagging), so the
+                        // set is immediately comparable via "Compare tags".
+                        tag: targets.length > 1
+                            ? ((document.getElementById('fanout-tag') || {value: ''}).value.trim() || undefined)
+                            : undefined,
+                    });
+                if (!resp.ok) throw new Error(saveErrorText(resp.status, resp.data, t.vms.length));
+                landingProject = resp.data.project_id;   // quick path resolves to scratch
+            }
+            closeClusterFanout();
+            if (home) {
+                if (pm.append) _applyAppend(home);
+                else _finishMergedImport(home);
+                pendingMerge = null;
+                return;
+            }
             pendingMerge = null;
-            return;
+            // Land on the project so the new rows (badged "to be sized") are the
+            // next thing the user sees; opening each one is the review.
+            if (window.openProject && landingProject != null) {
+                await window.openProject(landingProject);
+            }
+        } catch (e) {
+            showUploadStatus(window.t('fanout.failed', {error: e.message}), true);
+            closeClusterFanout();
         }
-        pendingMerge = null;
-        // Land on the project so the new rows (badged "to be sized") are the
-        // next thing the user sees; opening each one is the review.
-        if (window.openProject && landingProject != null) {
-            await window.openProject(landingProject);
-        }
-    } catch (e) {
-        btn.disabled = false;
-        showUploadStatus(window.t('fanout.failed', {error: e.message}), true);
-        closeClusterFanout();
-    }
+    });
 }
 
 // One target from a fresh import: size it on this screen.
@@ -1937,7 +1897,7 @@ function startAppendFiles() {
     if (!lastImportSources || !lastImportSources.length) {
         const msg = window.t('merge.append_unsupported');
         if (window.showInfoModal) window.showInfoModal(window.t('merge.add_files'), msg);
-        else alert(msg);
+        else toastError(msg);
         return;
     }
     const input = document.getElementById('append-file-input');
@@ -1952,10 +1912,7 @@ function handleAppendSelect(input) {
 }
 
 function showUploadStatus(msg, isError) {
-    const el = document.getElementById('upload-status');
-    el.textContent = msg;
-    el.className = 'upload-status ' + (isError ? 'upload-error' : 'upload-ok');
-    el.style.display = 'block';
+    setStatus('upload-status', msg, isError);
 }
 
 let ratioDebounce = null;
@@ -2077,8 +2034,8 @@ async function renderSourceCpus(sourceCpus) {
     await Promise.all(sourceCpus.map(async (c, i) => {
         const status = document.getElementById('src-cpu-status-' + i);
         try {
-            const resp = await fetch('/api/cpu-perf?q=' + encodeURIComponent(c.model));
-            const d = await resp.json();
+            const { ok, data: d } = await fetchJson('/api/cpu-perf?q=' + encodeURIComponent(c.model));
+            if (!ok || !d) return;   // best-effort lookup
             if (!d.found) { if (status) status.textContent = window.t('import.source_cpu_not_found'); return; }
             panel.querySelector(`.source-cpu-type[data-srcidx="${i}"]`).value = d.perf_type;
             panel.querySelector(`.source-cpu-score[data-srcidx="${i}"]`).value = d.perf_index;
@@ -2100,13 +2057,11 @@ function updateSourcePerfCard() {
 }
 
 function openSourceCpuModal() {
-    const m = document.getElementById('source-cpu-modal');
-    if (m) m.style.display = 'flex';
+    openModal('source-cpu-modal');
 }
 
 function closeSourceCpuModal() {
-    const m = document.getElementById('source-cpu-modal');
-    if (m) m.style.display = 'none';
+    closeModal('source-cpu-modal');
     updateSourcePerfCard();
 }
 
@@ -2155,43 +2110,42 @@ async function recalcRecommendations() {
     updateSourcePerfCard();
 
     try {
-        const resp = await fetch('/api/recommend', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                summary: summary,
-                vcpu_ratio: ratio,
-                years: years,
-                growth_pct: growthPct,
-                // Only with "Separate storage growth" on; absent = one rate.
-                ...(storageGrowthPct !== null ? { storage_growth_pct: storageGrowthPct } : {}),
-                snapshot_pct: snapshotPct,
-                target_nodes: targetNodes,
-                storage_pref: storagePref,
-                size_full_cluster: sizeFullCluster,
-                sizing_mode: sizingMode,
-                vendor: sizingVendor,
-                allow_storage_only: allowStorageOnly,
-                target_model: targetModel,
-                include_eol_eos: includeEolEos,
-                max_day_one_storage_pct: maxDayOneStorage,
-                max_day_one_ram_pct: maxDayOneRam,
-                source_perf_index: sourcePerfIndex,
-                source_perf_type: sourcePerfType,
-                // Project-level inbound replication (links targeting this
-                // sizing): reserve capacity for the replicas on top of the
-                // sizing's own workload.
-                replication_reserve: inboundReserve ? inboundReserve.reserve : null,
-                replication_compute_mode: inboundReserve ? inboundReserve.mode : 'reserved',
-                // Licence term is its own control, NOT `years` above — a
-                // customer can buy 3 years of licence while sizing 5 years of
-                // growth. Guest licensing starts from what the import detected
-                // and the SA can correct it.
-                license_term_years: licenseTermYears,
-                guest_licensing: guestLicensing,
-            }),
+        const { ok, data } = await sendJson('/api/recommend', 'POST', {
+            summary: summary,
+            vcpu_ratio: ratio,
+            years: years,
+            growth_pct: growthPct,
+            // Only with "Separate storage growth" on; absent = one rate.
+            ...(storageGrowthPct !== null ? { storage_growth_pct: storageGrowthPct } : {}),
+            snapshot_pct: snapshotPct,
+            target_nodes: targetNodes,
+            storage_pref: storagePref,
+            size_full_cluster: sizeFullCluster,
+            sizing_mode: sizingMode,
+            vendor: sizingVendor,
+            allow_storage_only: allowStorageOnly,
+            target_model: targetModel,
+            include_eol_eos: includeEolEos,
+            max_day_one_storage_pct: maxDayOneStorage,
+            max_day_one_ram_pct: maxDayOneRam,
+            source_perf_index: sourcePerfIndex,
+            source_perf_type: sourcePerfType,
+            // Project-level inbound replication (links targeting this
+            // sizing): reserve capacity for the replicas on top of the
+            // sizing's own workload.
+            replication_reserve: inboundReserve ? inboundReserve.reserve : null,
+            replication_compute_mode: inboundReserve ? inboundReserve.mode : 'reserved',
+            // Licence term is its own control, NOT `years` above — a
+            // customer can buy 3 years of licence while sizing 5 years of
+            // growth. Guest licensing starts from what the import detected
+            // and the SA can correct it.
+            license_term_years: licenseTermYears,
+            guest_licensing: guestLicensing,
         });
-        const data = await resp.json();
+        if (!ok || !data) {
+            toastError((data && data.error) || window.t('auth.generic_error'));
+            return;
+        }
         // Store projection first: renderRecommendationsTo reads lastProjection
         // for the IOPS demand/headroom line.
         if (data.projection) lastProjection[activeMode] = data.projection;
@@ -2646,10 +2600,8 @@ window.readRecRow = function (i) {
 // is a separate decision, and the wizard's "Save & close" already offers it.
 window.saveRecSelection = async function () {
     if (!window.saveCurrentSizing) return;
-    const btn = document.getElementById('rec-save-btn');
-    if (btn) btn.disabled = true;
     try {
-        await window.saveCurrentSizing();
+        await withBusy(document.getElementById('rec-save-btn'), () => window.saveCurrentSizing());
     } finally {
         rerenderRecommendations();
     }
@@ -2718,9 +2670,8 @@ async function loadExportAsInfo() {
     quotedRecCache = {key: null, rec: null, pending: null};
     if (id) {
         try {
-            const res = await fetch(`/api/sizings/${id}/export-override`,
-                {credentials: 'same-origin'});
-            if (res.ok) exportAsInfo = (await res.json()).effective || null;
+            const res = await fetchJson(`/api/sizings/${id}/export-override`);
+            if (res.ok && res.data) exportAsInfo = res.data.effective || null;
         } catch (e) { /* the badge is informational; never block the sizer */ }
     }
     // The quoted card depends on the badge; a list rendered before it arrived
@@ -3187,15 +3138,9 @@ async function fetchQuotedRec(key, base) {
     if (quotedRecCache.pending === key) return;
     quotedRecCache.pending = key;
     const id = window.loadedConfigId ? window.loadedConfigId() : null;
-    let rec = null;
-    try {
-        const res = await fetch(`/api/sizings/${id}/export-override/preview`, {
-            method: 'POST', credentials: 'same-origin',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({recommendation: base}),
-        });
-        if (res.ok) rec = (await res.json()).recommendation || null;
-    } catch (e) { /* the card is additive; never block the sizer on it */ }
+    // The card is additive: a failed preview just leaves it out.
+    const res = await sendJson(`/api/sizings/${id}/export-override/preview`, 'POST', {recommendation: base});
+    const rec = (res.ok && res.data && res.data.recommendation) || null;
     if (quotedRecCache.pending !== key) return;   // superseded meanwhile
     quotedRecCache = {key, rec, pending: null};
     if (rec) rerenderActiveRecList();
@@ -3646,11 +3591,11 @@ function openManualVmModal() {
     if (!manualVms.length) addManualVm();   // start with one editable row
     renderManualVmTable();
     updateManualVmSummary();
-    document.getElementById('manual-vm-modal').style.display = 'flex';
+    openModal('manual-vm-modal');
 }
 
 function closeManualVmModal() {
-    document.getElementById('manual-vm-modal').style.display = 'none';
+    closeModal('manual-vm-modal');
 }
 
 function addManualVm() {
@@ -3683,12 +3628,11 @@ function openCloneModal(i) {
     document.getElementById('clone-count').value = 1;
     document.getElementById('clone-autoinc').checked = true;
     document.getElementById('clone-source-name').textContent = vm ? (vm.name || window.t('manual.default_vm_name')) : window.t('manual.default_vm_name');
-    document.getElementById('clone-vm-modal').style.display = 'flex';
-    document.getElementById('clone-count').focus();
+    openModal('clone-vm-modal', { focus: 'clone-count' });
 }
 
 function closeCloneModal() {
-    document.getElementById('clone-vm-modal').style.display = 'none';
+    closeModal('clone-vm-modal');
     cloneSrcIdx = null;
 }
 
@@ -3760,9 +3704,31 @@ function setManualVm(i, field, value) {
     updateManualVmSummary();
 }
 
+// Click on a column header: same column flips the direction, another column
+// starts ascending. `state` is the table's {field, asc}.
+function toggleSort(state, field) {
+    if (state.field === field) state.asc = !state.asc;
+    else { state.field = field; state.asc = true; }
+}
+
+// Sort indicator on the active column header. Scoped to the given table:
+// #vm-table and #manual-vm-table share the .vm-table class and each keeps its
+// own arrows, so an unscoped query would strip the other's on every render.
+function renderSortArrows(tableEl, field, asc) {
+    if (!tableEl) return;
+    tableEl.querySelectorAll('th.sortable').forEach(th => {
+        const old = th.querySelector('.sort-arrow');
+        if (old) old.remove();
+        if (JSON.parse(th.getAttribute('data-click') || '[]')[1] !== field) return;
+        const arrow = document.createElement('span');
+        arrow.className = 'sort-arrow';
+        arrow.textContent = asc ? ' ▲' : ' ▼';
+        th.appendChild(arrow);
+    });
+}
+
 function sortManualVm(field) {
-    if (manualVmSort.field === field) manualVmSort.asc = !manualVmSort.asc;
-    else manualVmSort = { field, asc: true };
+    toggleSort(manualVmSort, field);
     renderManualVmTable();
 }
 
@@ -3802,17 +3768,7 @@ function renderManualVmTable() {
             </td>
         </tr>`).join('');
 
-    document.querySelectorAll('#manual-vm-table th.sortable').forEach(th => {
-        const old = th.querySelector('.sort-arrow');
-        if (old) old.remove();
-        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
-        if (field === manualVmSort.field) {
-            const arrow = document.createElement('span');
-            arrow.className = 'sort-arrow';
-            arrow.textContent = manualVmSort.asc ? ' ▲' : ' ▼';
-            th.appendChild(arrow);
-        }
-    });
+    renderSortArrows(document.getElementById('manual-vm-table'), manualVmSort.field, manualVmSort.asc);
 }
 
 function manualVmTotals() {
@@ -3970,11 +3926,11 @@ function openClusterDiagram(mode, recIndex) {
     body.innerHTML = rec.network_svg;
     body.dataset.filename =
         `SC_Network_${String(recDisplayModel(rec)).replace(/[^A-Za-z0-9]+/g, '')}_${nodes}node`;
-    document.getElementById('diagram-modal').style.display = 'flex';
+    openModal('diagram-modal');
 }
 
 function closeClusterDiagram() {
-    document.getElementById('diagram-modal').style.display = 'none';
+    closeModal('diagram-modal');
     document.getElementById('diagram-modal-body').innerHTML = '';
 }
 
@@ -4011,13 +3967,13 @@ function openVmExclusionModal() {
     if (!importVms.length) return;
     renderVmTable();
     updateVmExclusionSummary();
-    document.getElementById('vm-exclusion-modal').style.display = 'flex';
+    openModal('vm-exclusion-modal');
     document.getElementById('vm-search').value = '';
     document.getElementById('vm-search').focus();
 }
 
 function closeVmExclusionModal() {
-    document.getElementById('vm-exclusion-modal').style.display = 'none';
+    closeModal('vm-exclusion-modal');
 }
 
 // Effective (possibly user-edited) value for a VM field, falling back to the
@@ -4034,12 +3990,12 @@ function renderVmTable() {
     sorted.sort((a, b) => {
         // Sort on the effective (possibly edited) values so order matches the
         // displayed Model / Cores / RAM.
-        let va = vmVal(a, a._idx, vmSortField), vb = vmVal(b, b._idx, vmSortField);
-        if (vmSortField === 'model') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+        let va = vmVal(a, a._idx, vmSort.field), vb = vmVal(b, b._idx, vmSort.field);
+        if (vmSort.field === 'model') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
         else if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
         else if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
-        if (va < vb) return vmSortAsc ? -1 : 1;
-        if (va > vb) return vmSortAsc ? 1 : -1;
+        if (va < vb) return vmSort.asc ? -1 : 1;
+        if (va > vb) return vmSort.asc ? 1 : -1;
         return 0;
     });
 
@@ -4084,32 +4040,11 @@ function renderVmTable() {
         </tr>`;
     }).join('');
 
-    // Scoped to #vm-table: #manual-vm-table shares the .vm-table class and
-    // keeps its own arrows (renderManualVmTable), so an unscoped query here
-    // would strip them every time the import table re-renders.
-    document.querySelectorAll('#vm-table th.sortable').forEach(th => {
-        const arrows = th.querySelector('.sort-arrow');
-        if (arrows) arrows.remove();
-    });
-    const headers = document.querySelectorAll('#vm-table th.sortable');
-    headers.forEach(th => {
-        const field = JSON.parse(th.getAttribute('data-click') || '[]')[1];
-        if (field === vmSortField) {
-            const arrow = document.createElement('span');
-            arrow.className = 'sort-arrow';
-            arrow.textContent = vmSortAsc ? ' ▲' : ' ▼';
-            th.appendChild(arrow);
-        }
-    });
+    renderSortArrows(document.getElementById('vm-table'), vmSort.field, vmSort.asc);
 }
 
 function sortVmTable(field) {
-    if (vmSortField === field) {
-        vmSortAsc = !vmSortAsc;
-    } else {
-        vmSortField = field;
-        vmSortAsc = true;
-    }
+    toggleSort(vmSort, field);
     renderVmTable();
     filterVmTable();
 }
@@ -4742,13 +4677,6 @@ window.buildResultSnapshot = buildResultSnapshot;
 let drTargetConfig = null;   // the loaded DR-target configuration row
 let drTargetResult = null;   // last /dr-recommend response
 
-async function _drFetchJson(url, opts) {
-    const resp = await fetch(url, opts);
-    let data = null;
-    try { data = await resp.json(); } catch (e) { data = null; }
-    return { ok: resp.ok, status: resp.status, data };
-}
-
 async function enterDrTarget(config) {
     drTargetConfig = config;
     drTargetResult = null;
@@ -4805,12 +4733,12 @@ function _maybeShowDrGrowthNotice(config) {
             snapshot: dr.snapshot_pct != null ? dr.snapshot_pct : 20,
         });
     }
-    document.getElementById('dr-growth-notice-modal').style.display = 'flex';
+    openModal('dr-growth-notice-modal');
     return true;
 }
 
 async function dismissDrGrowthNotice() {
-    document.getElementById('dr-growth-notice-modal').style.display = 'none';
+    closeModal('dr-growth-notice-modal');
     const config = drTargetConfig;
     if (!config || !_isLegacyDrPayload(config.payload) || !config.can_edit) return;
     const dr = { ...config.payload.dr, follows_sources: true };
@@ -4818,10 +4746,7 @@ async function dismissDrGrowthNotice() {
     delete dr.years;
     delete dr.snapshot_pct;
     const payload = { ...config.payload, dr };
-    const put = await _drFetchJson(`/api/configs/${config.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload }),
-    });
+    const put = await sendJson(`/api/configs/${config.id}`, 'PUT', { payload });
     if (put.ok) config.payload = payload;
 }
 
@@ -4858,11 +4783,7 @@ async function sizeDrTarget() {
     if (!drTargetConfig) return;
     const list = document.getElementById('dr-rec-list');
     list.innerHTML = `<div class="review-loading">${window.t('results.generating')}</div>`;
-    const { ok, data } = await _drFetchJson(
-        `/api/sizings/${drTargetConfig.id}/dr-recommend`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(_drOptions()),
-        });
+    const { ok, data } = await sendJson(`/api/sizings/${drTargetConfig.id}/dr-recommend`, 'POST', _drOptions());
     if (!ok || !data) {
         list.innerHTML = `<div class="rec-warning">${esc((data && data.error) || window.t('results.export_failed'))}</div>`;
         return;
@@ -4989,10 +4910,7 @@ async function saveDrTarget() {
     // Growth is not a DR option: each inbound link follows its source sizing.
     const payload = { mode: 'dr_target',
                       dr: { ...opts, selectedRec: sel, follows_sources: true } };
-    const put = await _drFetchJson(`/api/configs/${drTargetConfig.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload }),
-    });
+    const put = await sendJson(`/api/configs/${drTargetConfig.id}`, 'PUT', { payload });
     if (!put.ok) {
         if (window.toastError) toastError((put.data && put.data.error) || window.t('results.export_failed'));
         return false;
@@ -5012,10 +4930,7 @@ async function saveDrTarget() {
         }],
         totals: null,
     };
-    await _drFetchJson(`/api/sizings/${drTargetConfig.id}/result`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snapshot),
-    });
+    await sendJson(`/api/sizings/${drTargetConfig.id}/result`, 'PUT', snapshot);
 
     if (window.toast) window.toast(window.t('dr.saved'), 'success');
     if (window.backToProject) window.backToProject();
@@ -5044,17 +4959,14 @@ async function runRefreshMode(configId) {
         } catch (e) { /* opener went away */ }
     };
     try {
-        const resp = await fetch('/api/configs/' + configId, { credentials: 'same-origin' });
+        const resp = await fetchJson('/api/configs/' + configId);
         if (!resp.ok) return report({ ok: false, error: 'load-failed' });
-        const data = await resp.json();
+        const data = resp.data;
 
         // Inbound replication reserve must be in place BEFORE the restore's
         // recalc, or a refreshed target caches a result without its reserve.
-        try {
-            const inb = await fetch(`/api/sizings/${configId}/inbound-reserve`,
-                                    { credentials: 'same-origin' });
-            window.setInboundReserve(inb.ok ? await inb.json() : null);
-        } catch (e) { window.setInboundReserve(null); }
+        const inb = await fetchJson(`/api/sizings/${configId}/inbound-reserve`);
+        window.setInboundReserve(inb.ok ? inb.data : null);
 
         await restoreSizingState(data.payload);
 
@@ -5070,11 +4982,7 @@ async function runRefreshMode(configId) {
         }
         if (!snapshot) return report({ ok: false, error: 'no-result' });
 
-        const put = await fetch('/api/sizings/' + configId + '/result', {
-            method: 'PUT', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(snapshot),
-        });
+        const put = await sendJson('/api/sizings/' + configId + '/result', 'PUT', snapshot);
         report({ ok: put.ok });
     } catch (err) {
         report({ ok: false, error: String(err && err.message || err) });
