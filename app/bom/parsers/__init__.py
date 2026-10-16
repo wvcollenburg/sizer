@@ -11,7 +11,7 @@ file is the *trigger* for the template / AI pre-fill path, not something to
 approximate. So each parser has a narrow structural signature (survey §2)
 and the ladder returns the first match, in an order where the more specific
 signatures come first: our own template marker, then the Lenovo DCSC title
-cell, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
+cell, the header-less Lenovo hardware breakdown, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
 header AND a 'Quote number:' cell), the D&H bid sheet, the VNET module
 export, the Dell solution export (grouped module/option rows, localised
 headers), and finally the three hand-typed Dell list layouts. Anything else
@@ -43,6 +43,7 @@ class UnrecognizedFormat(ValueError):
 FORMAT_LABELS = {
     'template': 'Scale Computing BOM template',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
+    'lenovo_hw_breakdown': 'Lenovo hardware breakdown (feature code / description / qty)',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
     'dh_bid': 'D&H bid quotation',
@@ -104,7 +105,8 @@ def _as_xlsx(path: str):
 
 def _detect_xlsx(path: str) -> Optional[str]:
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, item_list, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_breakdown,
+                             lenovo_dcsc, template)
     from bom.parsers.common import load_workbook_safe
     from xlsx_utils import SheetTooLargeError
     try:
@@ -118,6 +120,9 @@ def _detect_xlsx(path: str) -> Optional[str]:
             return template.FORMAT
         if lenovo_dcsc.detect(wb):
             return lenovo_dcsc.FORMAT
+        # The same blocks retyped as three bare columns, no header.
+        if lenovo_breakdown.detect(wb):
+            return lenovo_breakdown.FORMAT
         if dell_service_tag.detect(wb):
             return dell_service_tag.FORMAT
         if dell_quote.detect_quote(wb):
@@ -160,7 +165,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     template.TemplateError (our template, but invalid) or
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, item_list, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_breakdown,
+                             lenovo_dcsc, template)
     if _extension(filename, path) == '.xls':
         # Legacy workbook: parse its .xlsx copy with the same ladder.
         with _as_xlsx(path) as converted:
@@ -184,6 +190,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
             bom.vendor = detect_vendor(bom)
     elif fmt == lenovo_dcsc.FORMAT:
         bom = lenovo_dcsc.parse(path)
+    elif fmt == lenovo_breakdown.FORMAT:
+        bom = lenovo_breakdown.parse(path)
     elif fmt == dell_service_tag.FORMAT:
         bom = dell_service_tag.parse(path)
     elif fmt == dell_quote.FORMAT_QUOTE:

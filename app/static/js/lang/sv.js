@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell-offert",
   "bom.format.dell_service_tag": "Dell service-tag-export",
   "bom.format.lenovo_dcsc": "Lenovo DCSC-export",
+  "bom.format.lenovo_hw_breakdown": "Lenovo maskinvaruspecifikation",
   "bom.format.template": "SC// BOM-mall",
   "bom.format.unknown": "Okänt format",
   "bom.help.template_download": "Ladda ner den tomma mallen",

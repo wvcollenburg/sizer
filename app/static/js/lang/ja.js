@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell見積書",
   "bom.format.dell_service_tag": "Dellサービスタグエクスポート",
   "bom.format.lenovo_dcsc": "Lenovo DCSCエクスポート",
+  "bom.format.lenovo_hw_breakdown": "Lenovo ハードウェア内訳",
   "bom.format.template": "SC// BOMテンプレート",
   "bom.format.unknown": "不明な形式",
   "bom.help.template_download": "空のテンプレートをダウンロード",

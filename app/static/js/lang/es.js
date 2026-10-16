@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Cotización de Dell",
   "bom.format.dell_service_tag": "Exportación de service tag de Dell",
   "bom.format.lenovo_dcsc": "Exportación de Lenovo DCSC",
+  "bom.format.lenovo_hw_breakdown": "Desglose de hardware Lenovo",
   "bom.format.template": "Plantilla BOM de SC//",
   "bom.format.unknown": "Formato desconocido",
   "bom.help.template_download": "Descargar la plantilla en blanco",

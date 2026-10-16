@@ -1083,3 +1083,24 @@ def test_distributor_item_list(tmp_path):
     assert "709-BBHI" not in first                    # service line dropped
     second = {c.part_number: c.category for c in bom.configs[1].components}
     assert second["405-ABDU"] == "controller"         # bare 'H965i Adapter' is a PERC
+
+
+def test_lenovo_breakdown_names_configs_after_the_option_and_keeps_totals():
+    """The header-less three-column retype of a DCSC configuration: one
+    config per option sheet, named by the A1 title, the CTO row's count as
+    node_count, feature quantities kept as totals across the machines, the
+    XClarity software block folded away and label/filler lines dropped."""
+    from bom.parsers import parse_file
+    path = os.path.join(FIXTURES, "synthetic_lenovo_breakdown.xlsx")
+    bom, fmt = parse_file(path, "synthetic_lenovo_breakdown.xlsx")
+    assert fmt == "lenovo_hw_breakdown" and bom.vendor == "Lenovo"
+    assert [c.name for c in bom.configs] == ["7.68TB", "3.84TB"]
+    big, small = bom.configs
+    assert big.node_count == 3 and big.server_model == "ThinkSystem SR630 V4"
+    by_part = {c.part_number: c for c in big.components}
+    assert by_part["C0TQ"].quantity == 24 and by_part["C0TQ"].category == "memory"
+    assert by_part["C0ZT"].quantity == 12 and by_part["C0ZT"].category == "storage"
+    assert {c.part_number for c in big.components if c.category == "nic"} == {"BCD4", "BCD6"}
+    assert "AURS" not in by_part and "AVEN" not in by_part and "C20D" not in by_part
+    assert "7.68TB" in by_part["C0ZT"].description
+    assert "3.84TB" in {c.part_number: c for c in small.components}["C0ZT"].description

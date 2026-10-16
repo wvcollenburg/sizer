@@ -1226,6 +1226,7 @@
   "bom.format.dell_quote": "Dell quote",
   "bom.format.dell_service_tag": "Dell service-tag export",
   "bom.format.lenovo_dcsc": "Lenovo DCSC export",
+  "bom.format.lenovo_hw_breakdown": "Lenovo hardware breakdown",
   "bom.format.template": "SC// BOM template",
   "bom.format.unknown": "Unknown format",
   "bom.help.template_download": "Download the blank template",

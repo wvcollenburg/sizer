@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell piedāvājums",
   "bom.format.dell_service_tag": "Dell service-tag eksports",
   "bom.format.lenovo_dcsc": "Lenovo DCSC eksports",
+  "bom.format.lenovo_hw_breakdown": "Lenovo aparatūras izklāsts",
   "bom.format.template": "SC// BOM veidne",
   "bom.format.unknown": "Nezināms formāts",
   "bom.help.template_download": "Lejupielādēt tukšo veidni",

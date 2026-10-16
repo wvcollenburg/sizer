@@ -1,0 +1,188 @@
+{
+  "vendor": "Lenovo",
+  "configs": [
+    {
+      "name": "7.68TB",
+      "serverModel": "ThinkSystem SR630 V4",
+      "components": [
+        {
+          "partNumber": "C1XE",
+          "description": "ThinkSystem 1U V4 10x2.5\" Chassis",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "C5R5",
+          "description": "Intel Xeon 6724P 16C 210W 3.6GHz Processor",
+          "quantity": 3,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "BPFK",
+          "description": "ThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "C0TQ",
+          "description": "ThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": "5977",
+          "description": "Select Storage devices - no configured RAID required",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "C0ZT",
+          "description": "ThinkSystem 2.5\" U.2 VA 7.68TB Read Intensive NVMe PCIe 5.0 x4 HS SSD",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": "C2NN",
+          "description": "ThinkSystem 1U V4 4x2.5\" NVMe Gen5 Backplane",
+          "quantity": 6,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "BCD4",
+          "description": "ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "BCD6",
+          "description": "ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "C0U4",
+          "description": "ThinkSystem 1300W 230V/115V Titanium CRPS Premium Hot-Swap Power Supply",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "6400",
+          "description": "2.8m, 13A/100-250V, C13 to C14 Jumper Cord",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "C1YT",
+          "description": "ThinkSystem 1U V4 Performance Fan Module",
+          "quantity": 9,
+          "category": "other"
+        },
+        {
+          "partNumber": "C2DH",
+          "description": "ThinkSystem Toolless Slide Rail Kit V4",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "BPKR",
+          "description": "TPM 2.0",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    },
+    {
+      "name": "3.84TB",
+      "serverModel": "ThinkSystem SR630 V4",
+      "components": [
+        {
+          "partNumber": "C1XE",
+          "description": "ThinkSystem 1U V4 10x2.5\" Chassis",
+          "quantity": 3,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "C5R5",
+          "description": "Intel Xeon 6724P 16C 210W 3.6GHz Processor",
+          "quantity": 3,
+          "category": "cpu"
+        },
+        {
+          "partNumber": "BPFK",
+          "description": "ThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "C0TQ",
+          "description": "ThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM",
+          "quantity": 24,
+          "category": "memory"
+        },
+        {
+          "partNumber": "5977",
+          "description": "Select Storage devices - no configured RAID required",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "C0ZT",
+          "description": "ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD",
+          "quantity": 12,
+          "category": "storage"
+        },
+        {
+          "partNumber": "C2NN",
+          "description": "ThinkSystem 1U V4 4x2.5\" NVMe Gen5 Backplane",
+          "quantity": 6,
+          "category": "chassis"
+        },
+        {
+          "partNumber": "BCD4",
+          "description": "ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "BCD6",
+          "description": "ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter",
+          "quantity": 3,
+          "category": "nic"
+        },
+        {
+          "partNumber": "C0U4",
+          "description": "ThinkSystem 1300W 230V/115V Titanium CRPS Premium Hot-Swap Power Supply",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "6400",
+          "description": "2.8m, 13A/100-250V, C13 to C14 Jumper Cord",
+          "quantity": 6,
+          "category": "other"
+        },
+        {
+          "partNumber": "C1YT",
+          "description": "ThinkSystem 1U V4 Performance Fan Module",
+          "quantity": 9,
+          "category": "other"
+        },
+        {
+          "partNumber": "C2DH",
+          "description": "ThinkSystem Toolless Slide Rail Kit V4",
+          "quantity": 3,
+          "category": "other"
+        },
+        {
+          "partNumber": "BPKR",
+          "description": "TPM 2.0",
+          "quantity": 3,
+          "category": "other"
+        }
+      ],
+      "nodeCount": 3
+    }
+  ],
+  "rawText": "=== Sheet: 7.68TB HW Breakdown ===\n7.68TB\n7ZZ9CTO1WW\tServer : ThinkSystem SR630 V4-3yr Base Warranty\t3\nC1XE\tThinkSystem 1U V4 10x2.5\" Chassis\t3\nC3JB\tThinkSystem General Computing - Power Efficiency\t3\nC5R5\tIntel Xeon 6724P 16C 210W 3.6GHz Processor\t3\nBPFK\tThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink\t3\nC0TQ\tThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM\t24\n5977\tSelect Storage devices - no configured RAID required\t3\nC0ZT\tThinkSystem 2.5\" U.2 VA 7.68TB Read Intensive NVMe PCIe 5.0 x4 HS SSD\t12\nC2NN\tThinkSystem 1U V4 4x2.5\" NVMe Gen5 Backplane\t6\nBCD4\tThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter\t3\nBCD6\tThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter\t3\nC0U4\tThinkSystem 1300W 230V/115V Titanium CRPS Premium Hot-Swap Power Supply\t6\n6400\t2.8m, 13A/100-250V, C13 to C14 Jumper Cord\t6\nC1YT\tThinkSystem 1U V4 Performance Fan Module\t9\nC2DH\tThinkSystem Toolless Slide Rail Kit V4\t3\nBPKR\tTPM 2.0\t3\nB7XZ\tDisable IPMI-over-LAN\t3\nC20D\tThinkSystem SR630 V4 model name Label\t3\nAURS\tLenovo ThinkSystem Memory Dummy\t24\nAVEN\tThinkSystem 1x1 2.5\" HDD Filler\t12\nC3K9\tXClarity Platinum Upgrade v3\t3\n7S0XCTO6WW\tXClarity One\t3\nSCJD\tXClarity One - Standard, Per Endpoint w/3 Yr SW S&S\t3\n=== Sheet: 3.84TB HW Breakdown ===\n3.84TB\n7ZZ9CTO1WW\tServer : ThinkSystem SR630 V4-3yr Base Warranty\t3\nC1XE\tThinkSystem 1U V4 10x2.5\" Chassis\t3\nC3JB\tThinkSystem General Computing - Power Efficiency\t3\nC5R5\tIntel Xeon 6724P 16C 210W 3.6GHz Processor\t3\nBPFK\tThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink\t3\nC0TQ\tThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM\t24\n5977\tSelect Storage devices - no configured RAID required\t3\nC0ZT\tThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD\t12\nC2NN\tThinkSystem 1U V4 4x2.5\" NVMe Gen5 Backplane\t6\nBCD4\tThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter\t3\nBCD6\tThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter\t3\nC0U4\tThinkSystem 1300W 230V/115V Titanium CRPS Premium Hot-Swap Power Supply\t6\n6400\t2.8m, 13A/100-250V, C13 to C14 Jumper Cord\t6\nC1YT\tThinkSystem 1U V4 Performance Fan Module\t9\nC2DH\tThinkSystem Toolless Slide Rail Kit V4\t3\nBPKR\tTPM 2.0\t3\nB7XZ\tDisable IPMI-over-LAN\t3\nC20D\tThinkSystem SR630 V4 model name Label\t3\nAURS\tLenovo ThinkSystem Memory Dummy\t24\nAVEN\tThinkSystem 1x1 2.5\" HDD Filler\t12\nC3K9\tXClarity Platinum Upgrade v3\t3\n7S0XCTO6WW\tXClarity One\t3\nSCJD\tXClarity One - Standard, Per Endpoint w/3 Yr SW S&S\t3"
+}

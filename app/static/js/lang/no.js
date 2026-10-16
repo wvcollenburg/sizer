@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell-tilbud",
   "bom.format.dell_service_tag": "Dell service-tag-eksport",
   "bom.format.lenovo_dcsc": "Lenovo DCSC-eksport",
+  "bom.format.lenovo_hw_breakdown": "Lenovo maskinvareoversikt",
   "bom.format.template": "SC// BOM-mal",
   "bom.format.unknown": "Ukjent format",
   "bom.help.template_download": "Last ned den tomme malen",

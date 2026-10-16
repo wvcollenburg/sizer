@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Preventivo Dell",
   "bom.format.dell_service_tag": "Export service tag Dell",
   "bom.format.lenovo_dcsc": "Export Lenovo DCSC",
+  "bom.format.lenovo_hw_breakdown": "Dettaglio hardware Lenovo",
   "bom.format.template": "Modello BOM SC//",
   "bom.format.unknown": "Formato sconosciuto",
   "bom.help.template_download": "Scarica il modello vuoto",

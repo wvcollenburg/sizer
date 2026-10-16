@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Delli pakkumine",
   "bom.format.dell_service_tag": "Delli service-tag eksport",
   "bom.format.lenovo_dcsc": "Lenovo DCSC eksport",
+  "bom.format.lenovo_hw_breakdown": "Lenovo riistvara jaotus",
   "bom.format.template": "SC// BOM-i mall",
   "bom.format.unknown": "Tundmatu vorming",
   "bom.help.template_download": "Laadi alla tühi mall",

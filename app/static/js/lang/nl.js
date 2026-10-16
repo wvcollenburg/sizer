@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell-offerte",
   "bom.format.dell_service_tag": "Dell service-tag-export",
   "bom.format.lenovo_dcsc": "Lenovo DCSC-export",
+  "bom.format.lenovo_hw_breakdown": "Lenovo hardware-opsomming",
   "bom.format.template": "SC// BOM-sjabloon",
   "bom.format.unknown": "Onbekend formaat",
   "bom.help.template_download": "Leeg sjabloon downloaden",

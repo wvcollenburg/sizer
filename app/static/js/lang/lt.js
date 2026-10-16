@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell pasiūlymas",
   "bom.format.dell_service_tag": "Dell service-tag eksportas",
   "bom.format.lenovo_dcsc": "Lenovo DCSC eksportas",
+  "bom.format.lenovo_hw_breakdown": "Lenovo aparatinės įrangos išklotinė",
   "bom.format.template": "SC// BOM šablonas",
   "bom.format.unknown": "Nežinomas formatas",
   "bom.help.template_download": "Atsisiųsti tuščią šabloną",

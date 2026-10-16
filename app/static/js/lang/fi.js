@@ -1225,6 +1225,7 @@
   "bom.format.dell_quote": "Dell-tarjous",
   "bom.format.dell_service_tag": "Dell service tag -vienti",
   "bom.format.lenovo_dcsc": "Lenovo DCSC -vienti",
+  "bom.format.lenovo_hw_breakdown": "Lenovo-laitteistoerittely",
   "bom.format.template": "SC// BOM -malli",
   "bom.format.unknown": "Tuntematon muoto",
   "bom.help.template_download": "Lataa tyhjä malli",

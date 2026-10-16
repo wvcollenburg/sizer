@@ -51,7 +51,7 @@
     const FIT_CLASS = { match: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const RELATION_CLASS = { equal: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const SEVERITY_CLASS = { error: 'badge-fail', warning: 'badge-warn', info: 'badge-info' };
-    const KNOWN_FORMATS = ['lenovo_dcsc', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent'];
+    const KNOWN_FORMATS = ['lenovo_dcsc', 'lenovo_hw_breakdown', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent'];
     const KNOWN_DIMS = ['nodes', 'cores', 'compute', 'ram', 'largest_vm', 'storage', 'nic'];
     const UNIT_KEYS = { nodes: 'nodes', cores: 'cores', GB: 'gb', TB: 'tb', GbE: 'gbe', '%': 'pct' };
 
