@@ -13,6 +13,7 @@ Sub-modules are pure Python with no Flask dependency unless stated:
   normalize      - NormalizedBOM: the one shape every ingestion path must produce
   part_notes     - apply reviewers' part notes to a BOM check's findings
   pdf_certainty  - how sure are we that a PDF parse is the whole, honest BOM? (0-100)
+  sheet_certainty - the same score for a spreadsheet read by column shape (parsers/sheet_guess)
   pdf_doc        - a PDF, read safely, as the words a person would see
   pdf_extract    - PDF -> positioned words, rules and safety signals, in a separate process
   platform_match - map a BOM config to the HC-Ready platform(s) it is built on
@@ -20,4 +21,5 @@ Sub-modules are pure Python with no Flask dependency unless stated:
   rules          - deterministic BOM validation, a 1:1 port of SC//Design's validator.ts
   text           - small text helpers (whitespace/alnum keys, text decoding) the modules share
   parsers        - deterministic file parsers (Lenovo DCSC, Dell, Supermicro, PDFs, strict template)
+                   and the best-effort column-shape reader for spreadsheets no parser knows
 """

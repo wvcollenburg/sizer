@@ -44,6 +44,7 @@ FORMAT_LABELS = {
     'template': 'Scale Computing BOM template',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
     'lenovo_hw_breakdown': 'Lenovo hardware breakdown (feature code / description / qty)',
+    'sheet_guess': 'Spreadsheet read by column shape (best effort)',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
     'dh_bid': 'D&H bid quotation',
@@ -270,6 +271,50 @@ def _pdf_parsers():
     # The Scale quotation first: it is refused, never parsed as a BOM.
     return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_dell_solution,
             pdf_dell_quote, pdf_dell_arrow, pdf_lenovo_arrow, pdf_supermicro_quote]
+
+
+@dataclass
+class SheetOutcome:
+    """A spreadsheet no strict parser recognised, read by column shape
+    (parsers/sheet_guess.py) and scored (bom/sheet_certainty.py)."""
+    bom: Optional[NormalizedBOM] = None
+    fmt: Optional[str] = None
+    certainty: Optional['object'] = None    # bom.pdf_certainty.Certainty
+    evidence: Optional['object'] = None
+    error: Optional[str] = None
+
+    def meta(self) -> dict:
+        out = {'kind': 'sheet', 'format': self.fmt, 'error': self.error}
+        if self.certainty is not None:
+            out.update(self.certainty.to_dict())
+        if self.evidence is not None:
+            out['rows'] = self.evidence.rows
+            out['notes'] = list(self.evidence.notes)[:10]
+        return out
+
+
+def read_sheet_guess(path: str, filename: Optional[str] = None) -> SheetOutcome:
+    """The best-effort tier for .xlsx/.xls: a column-shape read and its
+    certainty. Never raises for an unreadable workbook (the outcome says);
+    SheetTooLargeError propagates like everywhere else."""
+    from bom import sheet_certainty
+    from bom.parsers import sheet_guess
+    from xlsx_utils import SheetTooLargeError
+    if _extension(filename, path) == '.xls':
+        with _as_xlsx(path) as converted:
+            if converted is None:
+                return SheetOutcome(error='not a readable workbook')
+            return read_sheet_guess(converted, 'converted.xlsx')
+    try:
+        bom, ev = sheet_guess.read(path)
+    except SheetTooLargeError:
+        raise
+    except Exception as exc:                   # not a workbook, or a reader bug
+        return SheetOutcome(error='%s: %s' % (type(exc).__name__, str(exc)[:120]))
+    if bom is None:
+        return SheetOutcome(evidence=ev, certainty=sheet_certainty.assess(ev, None))
+    return SheetOutcome(bom=bom, fmt=sheet_guess.FORMAT, evidence=ev,
+                        certainty=sheet_certainty.assess(ev, bom))
 
 
 def read_pdf(path: str) -> PdfOutcome:

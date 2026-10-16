@@ -18,7 +18,7 @@ themselves without one).
 from typing import Any, Dict, List
 
 from bom import fit
-from bom.parsers import parse_file
+from bom.parsers import UnrecognizedFormat, parse_file
 from bom.rules import is_hardware_config
 
 ARCHIVE_EXTENSIONS = (".xlsx", ".xls", ".csv", ".pdf")
@@ -60,11 +60,39 @@ def bom_facts(path: str) -> Dict[str, Any]:
     parser recognises it."""
     if path.lower().endswith(".pdf"):
         return _pdf_facts(path)
-    bom, fmt = parse_file(path, path)
+    try:
+        bom, fmt = parse_file(path, path)
+    except UnrecognizedFormat:
+        if not path.lower().endswith((".xlsx", ".xls")):
+            raise
+        return _sheet_guess_facts(path)
     return {
         "format": fmt,
         "vendor": bom.vendor,
         "configs": [config_facts(c) for c in bom.configs if is_hardware_config(c)],
+    }
+
+
+def _sheet_guess_facts(path: str) -> Dict[str, Any]:
+    """A spreadsheet no strict parser knows counts as read only when the
+    column-shape read passes the DEFAULT threshold (bom/sheet_certainty.py),
+    for the same reason as a PDF: the archive must read the same whoever
+    last tuned the live threshold."""
+    from bom import pdf_certainty, sheet_certainty
+    from bom.parsers import read_sheet_guess
+    out = read_sheet_guess(path, path)
+    if out.bom is None and out.fmt is None:
+        raise UnrecognizedFormat("spreadsheet in a layout no parser knows%s"
+                                 % (" (%s)" % out.error if out.error else ""))
+    if out.bom is None or not sheet_certainty.passes(out.certainty, pdf_certainty.DEFAULT_THRESHOLD):
+        raise UnrecognizedFormat("spreadsheet not read with enough certainty (%s): %s"
+                                 % (out.certainty.score if out.certainty else "-",
+                                    sheet_certainty.summary(out.certainty) or "unknown layout"))
+    return {
+        "format": out.fmt,
+        "vendor": out.bom.vendor,
+        "certainty": out.certainty.score,
+        "configs": [config_facts(c) for c in out.bom.configs if is_hardware_config(c)],
     }
 
 

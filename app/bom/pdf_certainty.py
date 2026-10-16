@@ -145,6 +145,14 @@ def assess(doc, ev, bom) -> Certainty:
     if stray:
         cost("stray_lines", min(20, 4 * len(stray)), "%d item-like line(s) outside the table." % len(stray))
 
+    _bom_deductions(c, bom)
+    return _finish(c)
+
+
+def _bom_deductions(c: Certainty, bom) -> None:
+    """What a read BOM itself says about how complete the read was: shared
+    with the spreadsheet score (bom/sheet_certainty.py)."""
+    cost = c.cost
     for cfg in bom.configs:
         cats = {comp.category for comp in cfg.components}
         label = cfg.name or "Config"
@@ -159,7 +167,6 @@ def assess(doc, ev, bom) -> Certainty:
         big = [comp for comp in cfg.components if comp.quantity > 1000]
         if big:
             cost("quantity", 20, "%s: implausible quantity (%d)." % (label, big[0].quantity))
-    return _finish(c)
 
 
 def _finish(c: Certainty) -> Certainty:

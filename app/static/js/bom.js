@@ -51,7 +51,7 @@
     const FIT_CLASS = { match: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const RELATION_CLASS = { equal: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const SEVERITY_CLASS = { error: 'badge-fail', warning: 'badge-warn', info: 'badge-info' };
-    const KNOWN_FORMATS = ['lenovo_dcsc', 'lenovo_hw_breakdown', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent'];
+    const KNOWN_FORMATS = ['lenovo_dcsc', 'lenovo_hw_breakdown', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent', 'sheet_guess'];
     const KNOWN_DIMS = ['nodes', 'cores', 'compute', 'ram', 'largest_vm', 'storage', 'nic'];
     const UNIT_KEYS = { nodes: 'nodes', cores: 'cores', GB: 'gb', TB: 'tb', GbE: 'gbe', '%': 'pct' };
 
@@ -569,7 +569,7 @@
         const lines = [`<p class="bom-agent-banner-title">${esc(t('bom.agent.banner'))}</p>`];
         if (a.pdf_certainty !== null && a.pdf_certainty !== undefined) {
             // A PDF layout we parse locally, not trusted this time: say why.
-            lines.push(`<p>${esc(t('bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
+            lines.push(`<p>${esc(t(a.pdf_kind === 'sheet' ? 'bom.agent.low_certainty_sheet' : 'bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
             if ((a.pdf_reasons || []).length) {
                 lines.push(`<ul class="bom-agent-dropped">${a.pdf_reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>`);
             }
@@ -753,7 +753,7 @@
         if (check.pdf && check.pdf.score !== null && check.pdf.score !== undefined) {
             // Why not 100: the score's reasons as a tooltip (server wording).
             const why = (check.pdf.reasons || []).join('\n');
-            metaBits.push(`<span${why ? ` title="${esc(why)}" class="bom-certainty-why"` : ''}>${esc(t('bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
+            metaBits.push(`<span${why ? ` title="${esc(why)}" class="bom-certainty-why"` : ''}>${esc(t(check.pdf.kind === 'sheet' ? 'bom.result.sheet_certainty' : 'bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
         }
         if (check.vendor) metaBits.push(esc(check.vendor));
         if (check.filename && check.filename !== check.name) metaBits.push(esc(check.filename));

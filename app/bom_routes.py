@@ -211,7 +211,8 @@ def list_checks(project_id):
 
 def _parse_upload(path, filename):
     """(bom, fmt, refusal, ingest_meta):
-      (bom, fmt, None, meta)   a local parser read it (meta: PDF certainty);
+      (bom, fmt, None, meta)   a local parser read it (meta: certainty of a
+                               PDF or best-effort spreadsheet read);
       (None, None, reply, _)   refuse outright;
       (None, None, None, meta) no parser could read it with confidence: a
                                case for the agent (meta: why, for PDFs)."""
@@ -236,6 +237,10 @@ def _parse_upload(path, filename):
         # Oversized sheet or a zip decompression bomb: a clear refusal.
         return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
     except UnrecognizedFormat:
+        if ext in (".xlsx", ".xls"):
+            # Nearly a layout we know: the column-shape read, trusted on the
+            # same certainty threshold as a PDF parse.
+            return _parse_sheet_guess(path, filename)
         return None, None, None, None
     except Exception as exc:                     # a parser crash: let the agent try
         from flask import current_app
@@ -259,6 +264,23 @@ def _parse_pdf(path):
     return None, None, None, meta
 
 
+def _parse_sheet_guess(path, filename):
+    """A spreadsheet through the best-effort reader and the certainty score
+    (bom/sheet_certainty): trusted at or above the admin threshold,
+    otherwise the agent's, with the reasons kept."""
+    from bom import sheet_certainty
+    from bom.parsers import read_sheet_guess
+    from xlsx_utils import SheetTooLargeError
+    try:
+        outcome = read_sheet_guess(path, filename)
+    except SheetTooLargeError as exc:
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
+    meta = {"pdf": dict(outcome.meta(), threshold=sheet_certainty.threshold())}
+    if outcome.bom is not None and sheet_certainty.passes(outcome.certainty):
+        return outcome.bom, outcome.fmt, None, meta
+    return None, None, None, meta
+
+
 def _refuse_unrecognised(local_meta=None):
     details = []
     pdf = (local_meta or {}).get("pdf") or {}
@@ -267,7 +289,7 @@ def _refuse_unrecognised(local_meta=None):
         details = [r.get("text", "") for r in (pdf.get("reasons") or [])][:5]
     return jsonify({"error": "This file is not a BOM format the checker recognises."
                              if not pdf.get("format") else
-                             "The checker could not read this PDF with enough certainty.",
+                             "The checker could not read this file with enough certainty.",
                     "hint": "Download the blank template, fill it in and upload that instead.",
                     "retainable": True, "details": details}), 400
 

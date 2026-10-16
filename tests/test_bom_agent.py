@@ -27,20 +27,23 @@ from database import db
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
+# An offer written out in prose, one cell per line: no part, description or
+# quantity column for the column-shape reader (bom/parsers/sheet_guess.py) to
+# find, so only the agent can read it. (A 'Qty | Part | Description' table,
+# the earlier shape of this fixture, is now read locally.)
 QUOTE_LINES = [
-    ["Quote for Acme", "", ""],
-    ["Server", "ThinkSystem SR630 V3", ""],
-    ["Qty", "Part", "Description"],
-    [3, "BLK4", 'ThinkSystem V3 1U 10x2.5" Chassis'],
-    [3, "BYVX", "Intel Xeon Gold 6526Y 16C 195W 2.8GHz Processor"],
-    [24, "BWJC", "ThinkSystem 32GB TruDDR5 5600MHz (2Rx8) RDIMM"],
-    [12, "C18M", 'ThinkSystem 2.5" U.2 VA 3.84TB Read Intensive NVMe PCIe 4.0 x4 HS SSD'],
-    [3, "BP8L", "ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter"],
+    ["Quote for Acme - ThinkSystem SR630 V3, three nodes"],
+    ['3 x BLK4 ThinkSystem V3 1U 10x2.5" Chassis'],
+    ["3 x BYVX Intel Xeon Gold 6526Y 16C 195W 2.8GHz Processor"],
+    ["24 x BWJC ThinkSystem 32GB TruDDR5 5600MHz (2Rx8) RDIMM"],
+    ['12 x C18M ThinkSystem 2.5" U.2 VA 3.84TB Read Intensive NVMe PCIe 4.0 x4 HS SSD'],
+    ["3 x BP8L ThinkSystem Intel E810-DA4 10/25GbE SFP28 4-Port OCP Ethernet Adapter"],
 ]
 
 
 def unknown_xlsx(lines=QUOTE_LINES):
-    """A spreadsheet in a layout none of the deterministic parsers know."""
+    """A spreadsheet no local tier can read: not a deterministic parser's
+    layout, and nothing the column-shape reader can trust."""
     from openpyxl import Workbook
     wb = Workbook()
     ws = wb.active

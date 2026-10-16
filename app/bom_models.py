@@ -161,15 +161,18 @@ class BomCheck(db.Model):
             # A PDF layout we know, read with too little certainty to trust:
             # the score and the reasons, so the user sees why the agent ran.
             "pdf_certainty": local.get("score") if local.get("format") else None,
+            "pdf_kind": local.get("kind") or "pdf",
             "pdf_reasons": [r.get("text") for r in (local.get("reasons") or [])][:5],
         }
 
     def pdf_summary(self):
-        """Certainty of a PDF read by a local parser; None otherwise."""
+        """Certainty of a PDF, or of a spreadsheet read by column shape
+        (kind 'sheet'), by a local parser; None otherwise."""
         pdf = (self.ingest_meta or {}).get("pdf") if not self.is_agent_read else None
         if not pdf:
             return None
         return {"score": pdf.get("score"), "format": pdf.get("format"),
+                "kind": pdf.get("kind") or "pdf",
                 "reasons": [r.get("text") for r in (pdf.get("reasons") or [])][:5]}
 
     def to_dict(self, full=False):

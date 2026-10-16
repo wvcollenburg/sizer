@@ -488,6 +488,9 @@ _CAP = r'\d+(?:[.,]\d+)?\s*(?:TB|GB)\b'
 _DRV = (r'(?:SSD|HDD|NVMe|NVME|Hard Drive|Hard Disk|Solid State|Drive|Disk|'
         r'disco r[íi]gido|estado s[óo]lido)')
 
+# 'MB' is a motherboard ('SR630 V3 MB', 'MB w/IO') unless a bare number sits
+# before it ('60 MB Cache' on a CPU line): the lookbehinds let a model token's
+# digit through and block a size.
 RULES = [
     ('other', re.compile(
         r'\b(?:Label|Filler|Dummy|Blank|Sponge|Air Duct|Cable|CBL|Cabo|Cord|Clip|Clipe|Latch|Trava|'
@@ -495,7 +498,7 @@ RULES = [
         r'Power Supply|Fonte de alimenta[çc][ãa]o|PSU|Riser|Cage|Compartimento|TPM|'
         r'Trusted Platform|iDRAC|XClarity|XCC|Shipping|Marking|Warranty|Support|Services?|'
         r'License|Licen[çc]a|Subscription|Placement|Mechanical Parts|Bracket|Tray|Foam|'
-        r'Interposer|Duct|Duto|Placa do processador|Placa de E/S|MB|'
+        r'Interposer|Duct|Duto|Placa do processador|Placa de E/S|(?<![^A-Za-z]\d\s)(?<![^A-Za-z]\d)MB|'
         r'Board\b(?!.*\bLOM\b)|Motherboard(?!.*\bLOM\b))\b', re.I)),
     ('boss', re.compile(
         r'\b(?:BOSS(?:-[NS]\d)?|M\.2 RAID|B540p|M\.2 Mirroring|M\.2 .*Adapter|'
