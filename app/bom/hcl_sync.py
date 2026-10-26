@@ -30,7 +30,6 @@ Rules that follow from the plan:
   also driven by a background thread with no request context.
 """
 import json
-import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -39,6 +38,7 @@ from sqlalchemy import func
 from auth_models import _utcnow
 from database import db
 from bom.hcl_scrape import synthetic_part_number
+from bom.text import squash_ws
 from hcl_models import (
     APPROVED, CHANGE_ADD, CHANGE_DELIST, CHANGE_MERGE, CHANGE_RELIST, CHANGE_UPDATE,
     COMPONENT_KINDS, HclComponent, HclDevice, HclPendingChange, HclPlatform,
@@ -183,7 +183,7 @@ def platform_record(platform: dict) -> Optional[dict]:
         "ssd_max": _int_or_none(platform.get("ssd_max")),
         "nic_listed": bool(platform["nic_listed"]) if "nic_listed" in platform else True,
     }
-    comps = {}  # type: Dict[str, dict]
+    comps: Dict[str, dict] = {}
     for comp in platform.get("components") or []:
         crec = component_record(comp)
         if crec is None:
@@ -220,9 +220,9 @@ def snapshot_records(snapshot: dict) -> dict:
     Components are collected across platforms; ``tce`` is True when any
     platform flags the part (the per-platform flag lives on the link).
     """
-    platforms = {}  # type: Dict[str, dict]
-    components = {}  # type: Dict[str, dict]
-    devices = {}  # type: Dict[str, dict]
+    platforms: Dict[str, dict] = {}
+    components: Dict[str, dict] = {}
+    devices: Dict[str, dict] = {}
     for p in snapshot.get("platforms") or []:
         rec = platform_record(p)
         if rec is None:
@@ -326,7 +326,7 @@ def diff_snapshot(snapshot: dict) -> List[dict]:
     """
     complete = bool(snapshot.get("complete"))
     recs = snapshot_records(snapshot)
-    changes = []  # type: List[dict]
+    changes: List[dict] = []
 
     # -- platforms ----------------------------------------------------------
     db_platforms = {p.key: p for p in HclPlatform.query.all()}
@@ -810,10 +810,6 @@ def _apply_platform(change, now, user, result):
     result["reason"] = "unknown change kind %r" % kind
 
 
-def _norm_desc(text) -> str:
-    return " ".join((text or "").lower().split())
-
-
 def _merge_platform(placeholder, change, now, result):
     """Retire a pre-publication placeholder into the platform the HCL
     published for the same server.
@@ -842,7 +838,7 @@ def _merge_platform(placeholder, change, now, result):
     published = {}
     for link in successor.links:
         if link.status == STATUS_ACTIVE and link.component.status == STATUS_ACTIVE:
-            published[(link.component.kind, _norm_desc(link.component.description))] = link.component
+            published[(link.component.kind, squash_ws(link.component.description))] = link.component
 
     moved, superseded = [], []
     for link in placeholder.links:
@@ -850,7 +846,7 @@ def _merge_platform(placeholder, change, now, result):
             continue
         comp = link.component
         link.status = STATUS_DELISTED
-        twin = published.get((comp.kind, _norm_desc(comp.description)))
+        twin = published.get((comp.kind, squash_ws(comp.description)))
         if twin is not None and twin.id != comp.id:
             if comp.status == STATUS_ACTIVE:
                 comp.status = STATUS_DELISTED

@@ -11,11 +11,12 @@ file is the *trigger* for the template / AI pre-fill path, not something to
 approximate. So each parser has a narrow structural signature (survey §2)
 and the ladder returns the first match, in an order where the more specific
 signatures come first: our own template marker, then the Lenovo DCSC title
-cell, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
+cell, the header-less Lenovo hardware breakdown, then the Dell service-tag header, the Dell quote (SKU/Description/Qty
 header AND a 'Quote number:' cell), the D&H bid sheet, the VNET module
 export, the Dell solution export (grouped module/option rows, localised
-headers), and finally the three hand-typed Dell list layouts. Anything else —
-including a PDF — raises UnrecognizedFormat with a hint for the UI.
+headers), and finally the three hand-typed Dell list layouts. Anything else
+raises UnrecognizedFormat with a hint for the UI; PDFs take their own ladder
+through ``read_pdf``, which also scores how far the parse can be trusted.
 
 Both files types are checked by magic before openpyxl/csv see them: an xlsx
 must be a ZIP ('PK\\x03\\x04') and a CSV must decode as UTF-8 or latin-1
@@ -42,6 +43,8 @@ class UnrecognizedFormat(ValueError):
 FORMAT_LABELS = {
     'template': 'Scale Computing BOM template',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
+    'lenovo_hw_breakdown': 'Lenovo hardware breakdown (feature code / description / qty)',
+    'sheet_guess': 'Spreadsheet read by column shape (best effort)',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
     'dh_bid': 'D&H bid quotation',
@@ -103,7 +106,8 @@ def _as_xlsx(path: str):
 
 def _detect_xlsx(path: str) -> Optional[str]:
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, item_list, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_breakdown,
+                             lenovo_dcsc, template)
     from bom.parsers.common import load_workbook_safe
     from xlsx_utils import SheetTooLargeError
     try:
@@ -117,6 +121,9 @@ def _detect_xlsx(path: str) -> Optional[str]:
             return template.FORMAT
         if lenovo_dcsc.detect(wb):
             return lenovo_dcsc.FORMAT
+        # The same blocks retyped as three bare columns, no header.
+        if lenovo_breakdown.detect(wb):
+            return lenovo_breakdown.FORMAT
         if dell_service_tag.detect(wb):
             return dell_service_tag.FORMAT
         if dell_quote.detect_quote(wb):
@@ -159,7 +166,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     template.TemplateError (our template, but invalid) or
     xlsx_utils.SheetTooLargeError (oversized sheet)."""
     from bom.parsers import (dell_lists, dell_quote, dell_service_tag,
-                             dell_solution, item_list, lenovo_dcsc, template)
+                             dell_solution, item_list, lenovo_breakdown,
+                             lenovo_dcsc, template)
     if _extension(filename, path) == '.xls':
         # Legacy workbook: parse its .xlsx copy with the same ladder.
         with _as_xlsx(path) as converted:
@@ -183,6 +191,8 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
             bom.vendor = detect_vendor(bom)
     elif fmt == lenovo_dcsc.FORMAT:
         bom = lenovo_dcsc.parse(path)
+    elif fmt == lenovo_breakdown.FORMAT:
+        bom = lenovo_breakdown.parse(path)
     elif fmt == dell_service_tag.FORMAT:
         bom = dell_service_tag.parse(path)
     elif fmt == dell_quote.FORMAT_QUOTE:
@@ -205,6 +215,7 @@ def detect_vendor(bom: NormalizedBOM) -> str:
     template): Lenovo/Dell/Supermicro/HPE markers in models, parts and
     descriptions; 'Unknown' otherwise (survey §2)."""
     import re
+    from bom.parsers.common import DELL_SKU_LINE, LENOVO_CTO_WORD
     texts = []
     for cfg in bom.configs:
         texts.append(cfg.server_model or '')
@@ -212,9 +223,9 @@ def detect_vendor(bom: NormalizedBOM) -> str:
             texts.append(comp.part_number or '')
             texts.append(comp.description or '')
     blob = '\n'.join(texts)
-    if re.search(r'ThinkSystem|\b7[0-9A-Z]{3}CTO\d+WW\b', blob):
+    if 'ThinkSystem' in blob or LENOVO_CTO_WORD.search(blob):
         return 'Lenovo'
-    if re.search(r'PowerEdge|^\d{3}-[A-Z0-9]{4}$', blob, re.M):
+    if 'PowerEdge' in blob or DELL_SKU_LINE.search(blob):
         return 'Dell'
     if re.search(r'\b(?:SYS-|AOC-|MEM-DR|HDS-|PWS-|MCP-)', blob):
         return 'Supermicro'
@@ -260,6 +271,50 @@ def _pdf_parsers():
     # The Scale quotation first: it is refused, never parsed as a BOM.
     return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_dell_solution,
             pdf_dell_quote, pdf_dell_arrow, pdf_lenovo_arrow, pdf_supermicro_quote]
+
+
+@dataclass
+class SheetOutcome:
+    """A spreadsheet no strict parser recognised, read by column shape
+    (parsers/sheet_guess.py) and scored (bom/sheet_certainty.py)."""
+    bom: Optional[NormalizedBOM] = None
+    fmt: Optional[str] = None
+    certainty: Optional['object'] = None    # bom.pdf_certainty.Certainty
+    evidence: Optional['object'] = None
+    error: Optional[str] = None
+
+    def meta(self) -> dict:
+        out = {'kind': 'sheet', 'format': self.fmt, 'error': self.error}
+        if self.certainty is not None:
+            out.update(self.certainty.to_dict())
+        if self.evidence is not None:
+            out['rows'] = self.evidence.rows
+            out['notes'] = list(self.evidence.notes)[:10]
+        return out
+
+
+def read_sheet_guess(path: str, filename: Optional[str] = None) -> SheetOutcome:
+    """The best-effort tier for .xlsx/.xls: a column-shape read and its
+    certainty. Never raises for an unreadable workbook (the outcome says);
+    SheetTooLargeError propagates like everywhere else."""
+    from bom import sheet_certainty
+    from bom.parsers import sheet_guess
+    from xlsx_utils import SheetTooLargeError
+    if _extension(filename, path) == '.xls':
+        with _as_xlsx(path) as converted:
+            if converted is None:
+                return SheetOutcome(error='not a readable workbook')
+            return read_sheet_guess(converted, 'converted.xlsx')
+    try:
+        bom, ev = sheet_guess.read(path)
+    except SheetTooLargeError:
+        raise
+    except Exception as exc:                   # not a workbook, or a reader bug
+        return SheetOutcome(error='%s: %s' % (type(exc).__name__, str(exc)[:120]))
+    if bom is None:
+        return SheetOutcome(evidence=ev, certainty=sheet_certainty.assess(ev, None))
+    return SheetOutcome(bom=bom, fmt=sheet_guess.FORMAT, evidence=ev,
+                        certainty=sheet_certainty.assess(ev, bom))
 
 
 def read_pdf(path: str) -> PdfOutcome:

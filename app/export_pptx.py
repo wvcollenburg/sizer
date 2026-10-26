@@ -18,6 +18,7 @@ from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
 
+from export_format import fmt_ram, fmt_num, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -50,7 +51,6 @@ MID_GRAY = _c(_p.TEXT_MUTED)
 GREEN = _c(_p.TEMPLATE_GREEN)         # accent4
 RED = _c(_p.RED)                      # semantic warning (no template red)
 ORANGE = _c(_p.TEMPLATE_ORANGE)       # accent6
-BORDER_SUBTLE = _c(_p.BORDER)
 CARD_BG = _c(_p.SURFACE_3)
 CARD_BORDER = _c(_p.BORDER)
 
@@ -104,29 +104,6 @@ def _content_layout(prs):
     return _blank_layout(prs)
 
 
-def _svg_to_png_bytes(svg, out_width=2000):
-    """Rasterise an SVG string to PNG bytes. Production uses cairosvg; on the dev
-    mac (no cairo) it falls back to qlmanage so the export can be tested locally.
-    Returns None if neither is available (the caller then skips the diagram)."""
-    try:
-        import cairosvg
-        return cairosvg.svg2png(bytestring=svg.encode("utf-8"), output_width=out_width)
-    except Exception:
-        pass
-    try:  # macOS dev fallback
-        import subprocess, tempfile, os
-        with tempfile.TemporaryDirectory() as d:
-            sp = os.path.join(d, "d.svg")
-            with open(sp, "w") as f:
-                f.write(svg)
-            subprocess.run(["qlmanage", "-t", "-s", str(out_width), "-o", d, sp],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
-            png = sp + ".png"
-            return open(png, "rb").read() if os.path.exists(png) else None
-    except Exception:
-        return None
-
-
 def _slide_network(prs, recommendation, t, lang="en"):
     """A 'Cluster Network' slide with the recommendation's diagram, scaled to fit
     the content area (preserving the SVG's aspect ratio). Skipped if there's no
@@ -136,7 +113,7 @@ def _slide_network(prs, recommendation, t, lang="en"):
     svg = _rec_network_svg(recommendation, lang) or recommendation.get("network_svg")
     if not svg:
         return
-    png = _svg_to_png_bytes(svg)
+    png = svg_to_png(svg)
     if not png:
         return
     slide = _add_slide(prs)
@@ -157,14 +134,23 @@ def generate_proposal(summary, recommendation, projection, source_perf=None, lan
     t = translator(lang)
     prs = _new_deck()
 
-    _slide_current_env(prs, summary, t, lang)
-    _slide_workload(prs, summary, t, lang)
-    _slide_proposal(prs, recommendation, projection, t, lang)
-    _slide_sizing(prs, recommendation, summary, t, lang)
-    _slide_benchmark(prs, recommendation, source_perf, t, lang)
-    _slide_network(prs, recommendation, t, lang)
-    _slide_projection(prs, summary, recommendation, projection, t, lang)
+    _proposal_slides(prs, summary, recommendation, projection, source_perf, t, lang)
+    return _deck_bytes(prs)
 
+
+def _proposal_slides(prs, s, r, p, sp, t, lang):
+    """The proposal slide run for one recommendation: current environment →
+    workload → proposal → sizing → benchmark → network → projection."""
+    _slide_current_env(prs, s, t, lang)
+    _slide_workload(prs, s, t, lang)
+    _slide_proposal(prs, r, p, t, lang)
+    _slide_sizing(prs, r, s, t, lang)
+    _slide_benchmark(prs, r, sp, t, lang)
+    _slide_network(prs, r, t, lang)
+    _slide_projection(prs, s, r, p, t, lang)
+
+
+def _deck_bytes(prs):
     buf = io.BytesIO()
     prs.save(buf)
     buf.seek(0)
@@ -177,7 +163,7 @@ def _slide_replication_topology(prs, clusters, t, lang="en"):
     svg = render_replication_topology_svg(clusters, lang)
     if not svg:
         return
-    png = _svg_to_png_bytes(svg)
+    png = svg_to_png(svg)
     if not png:
         return
     slide = _add_slide(prs)
@@ -269,32 +255,10 @@ def generate_bundle_proposal(clusters, lang="en"):
         if cl.get("config") and not cl.get("recommendation"):
             _slides_config(prs, cl["config"], t, lang)
             continue
-        s = cl["summary"]
-        r = cl["recommendation"]
-        p = cl["projection"]
-        sp = cl.get("source_perf")
-        _slide_current_env(prs, s, t, lang)
-        _slide_workload(prs, s, t, lang)
-        _slide_proposal(prs, r, p, t, lang)
-        _slide_sizing(prs, r, s, t, lang)
-        _slide_benchmark(prs, r, sp, t, lang)
-        _slide_network(prs, r, t, lang)
-        _slide_projection(prs, s, r, p, t, lang)
+        _proposal_slides(prs, cl["summary"], cl["recommendation"], cl["projection"],
+                         cl.get("source_perf"), t, lang)
 
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
-
-
-def generate_config_slide(result, lang="en"):
-    t = translator(lang)
-    prs = _new_deck()
-    _slides_config(prs, result, t, lang)
-    buf = io.BytesIO()
-    prs.save(buf)
-    buf.seek(0)
-    return buf
+    return _deck_bytes(prs)
 
 
 def _slides_config(prs, result, t, lang="en"):
@@ -325,12 +289,6 @@ def _slides_config(prs, result, t, lang="en"):
     pn_cores = pn.get("physical_cores", pn["cores"])
     pn_ram = pn.get("physical_ram_gb", pn["ram_gb"])
 
-    def _reserved_row(val, as_ram=False):
-        if not val:
-            return []
-        return [[t("export.common.system_reserved"),
-                 _fmt_ram(val) if as_ram else str(val)]]
-
     if mode == "appliance":
         title = t("export.pptx.configuration_model", model=result.get('model', ''))
         subtitle_parts = [nodes_label]
@@ -346,7 +304,7 @@ def _slides_config(prs, result, t, lang="en"):
             [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn_ram)],
+            [t("export.common.ram"), fmt_ram(pn_ram)],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
     else:
@@ -363,24 +321,14 @@ def _slides_config(prs, result, t, lang="en"):
             [t("export.common.cores"), str(pn_cores)],
             [t("export.common.threads"), str(pn["threads"])],
             [t("export.common.clock_speed"), f"{pn['ghz']} GHz"],
-            [t("export.common.ram"), _fmt_ram(pn_ram)],
+            [t("export.common.ram"), fmt_ram(pn_ram)],
             [t("export.pptx.drives"), str(pn.get("disk_count", 0))],
             [t("export.common.raw_storage"), f"{pn['raw_storage_tb']} TB"],
         ]
 
     _add_table(slide, 0.6, 1.6, 4.0, node_rows, [1.5, 2.5])
 
-    total_rows = ([
-        [t("export.common.cluster_total"), ""],
-        [t("export.common.cores"), str(cl["cores"])]]
-        + _reserved_row(cl.get("reserved_cores"))
-        + [[t("export.common.threads"), str(cl["threads"])],
-        ["GHz", str(cl["total_ghz"])],
-        [t("export.common.ram"), _fmt_ram(cl["ram_gb"])]]
-        + _reserved_row(cl.get("reserved_ram_gb"), as_ram=True)
-        + [[t("export.common.raw_storage"), f"{cl['raw_storage_tb']} TB"],
-        [t("export.common.usable_storage"), f"{cl['usable_storage_tb']} TB"],
-    ])
+    total_rows = _capacity_rows(t("export.common.cluster_total"), cl, t, reserved=True)
     # Required licence, when scoring priced it — the config slide's tables
     # start at the sentence's y-slot, so it goes into the totals table instead.
     _lic_short = license_required_short(result, lang)
@@ -394,16 +342,8 @@ def _slides_config(prs, result, t, lang="en"):
         _add_no_redundancy_box(slide, 9.0, 1.6, 4.0,
                                t("export.common.no_redundancy"), t)
     else:
-        n1_rows = ([
-            [t("export.common.n1_available"), ""],
-            [t("export.common.cores"), str(n1["cores"])]]
-            + _reserved_row(n1.get("reserved_cores"))
-            + [[t("export.common.threads"), str(n1["threads"])],
-            ["GHz", str(n1["total_ghz"])],
-            [t("export.common.ram"), _fmt_ram(n1["ram_gb"])]]
-            + _reserved_row(n1.get("reserved_ram_gb"), as_ram=True)
-            + [[t("export.common.usable_storage"), f"{n1['usable_storage_tb']} TB"],
-        ])
+        n1_rows = _capacity_rows(t("export.common.n1_available"), n1, t,
+                                 raw=False, reserved=True)
         _add_table(slide, 9.0, 1.6, 4.0, n1_rows, [1.5, 2.5])
 
     if so:
@@ -618,10 +558,29 @@ def _add_table(slide, left, top, width, rows_data, col_widths=None):
     return table_shape
 
 
-def _fmt_ram(gb):
-    if gb >= 1024:
-        return f"{gb / 1024:.1f} TB"
-    return f"{gb} GB"
+def _capacity_rows(header, blk, t, raw=True, reserved=False, iops_val=None):
+    """Label/value rows for a cluster-total or N-1 capacity block: cores,
+    threads, GHz, RAM, storage (raw optional) and, when asked, the OS-reserved
+    cores/RAM lines and a net-IOPS line."""
+    def _reserved_row(val, as_ram=False):
+        if not (reserved and val):
+            return []
+        return [[t("export.common.system_reserved"),
+                 fmt_ram(val) if as_ram else str(val)]]
+
+    rows = [[header, ""],
+            [t("export.common.cores"), str(blk["cores"])]]
+    rows += _reserved_row(blk.get("reserved_cores"))
+    rows += [[t("export.common.threads"), str(blk["threads"])],
+             ["GHz", str(blk["total_ghz"])],
+             [t("export.common.ram"), fmt_ram(blk["ram_gb"])]]
+    rows += _reserved_row(blk.get("reserved_ram_gb"), as_ram=True)
+    if raw:
+        rows.append([t("export.common.raw_storage"), f"{blk['raw_storage_tb']} TB"])
+    rows.append([t("export.common.usable_storage"), f"{blk['usable_storage_tb']} TB"])
+    if iops_val is not None:
+        rows.append([t("export.pptx.net_iops"), f"{iops_val:,}"])
+    return rows
 
 
 def _storage_only_desc(so):
@@ -657,17 +616,11 @@ def _add_storage_only_note(slide, so, top, t):
         "export.pptx.storage_only_desc",
         count=so['count'],
         cpu=_storage_only_desc(so),
-        ram=_fmt_ram(so['ram_gb']),
+        ram=fmt_ram(so['ram_gb']),
         raw=so['raw_storage_tb'],
     )
     run2.font.size = Pt(11)
     run2.font.color.rgb = CHARCOAL
-
-
-def _fmt_num(n):
-    if isinstance(n, float):
-        return f"{n:,.1f}"
-    return f"{n:,}"
 
 
 # ── Slide 1: Current Environment ─────────────────────────────────────────────
@@ -681,10 +634,10 @@ def _slide_current_env(prs, s, t, lang="en"):
     y = 2.35
     cards = [
         (t("export.pptx.hosts"), s.get("host_count", 0)),
-        (t("export.pptx.total_cores"), _fmt_num(s.get("total_host_cores", 0))),
-        (t("export.pptx.total_threads"), _fmt_num(s.get("total_host_threads", 0))),
-        (t("export.pptx.total_ghz"), _fmt_num(s.get("total_host_ghz", 0))),
-        (t("export.pptx.total_ram"), _fmt_ram(s.get("total_host_ram_gb", 0))),
+        (t("export.pptx.total_cores"), fmt_num(s.get("total_host_cores", 0))),
+        (t("export.pptx.total_threads"), fmt_num(s.get("total_host_threads", 0))),
+        (t("export.pptx.total_ghz"), fmt_num(s.get("total_host_ghz", 0))),
+        (t("export.pptx.total_ram"), fmt_ram(s.get("total_host_ram_gb", 0))),
     ]
     for i, (label, val) in enumerate(cards):
         _add_card(slide, 0.6 + i * 2.5, y, 2.3, 0.9, label, val, lang=lang)
@@ -701,12 +654,12 @@ def _slide_current_env(prs, s, t, lang="en"):
 
     y3 = 4.75
     iops = [
-        (t("export.pptx.avg_iops"), _fmt_num(s.get("total_avg_iops", 0))),
-        (t("export.pptx.peak_iops"), _fmt_num(s.get("total_peak_iops", 0))),
+        (t("export.pptx.avg_iops"), fmt_num(s.get("total_avg_iops", 0))),
+        (t("export.pptx.peak_iops"), fmt_num(s.get("total_peak_iops", 0))),
     ]
     p95 = s.get("p95_iops", 0)
     if p95 and p95 > 0:
-        iops.append((t("export.pptx.p95_iops"), _fmt_num(p95)))
+        iops.append((t("export.pptx.p95_iops"), fmt_num(p95)))
     iops.append((t("export.pptx.nic_speed"), f"{s.get('nic_speed_mbps', 0) / 1000:.0f} GbE"))
 
     for i, (label, val) in enumerate(iops):
@@ -730,9 +683,9 @@ def _slide_workload(prs, s, t, lang="en"):
 
     y = 2.35
     compute = [
-        (t("export.pptx.total_vcpus"), _fmt_num(s.get("total_vcpus", 0)), True),
-        (t("export.pptx.provisioned_ram"), _fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)), True),
-        (t("export.pptx.used_ram"), _fmt_ram(s.get("total_vm_used_memory_gb", 0)), False),
+        (t("export.pptx.total_vcpus"), fmt_num(s.get("total_vcpus", 0)), True),
+        (t("export.pptx.provisioned_ram"), fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)), True),
+        (t("export.pptx.used_ram"), fmt_ram(s.get("total_vm_used_memory_gb", 0)), False),
     ]
     for i, (label, val, accent) in enumerate(compute):
         _add_card(slide, 0.6 + i * 4.0, y, 3.7, 1.0, label, val, accent, lang=lang)
@@ -759,9 +712,7 @@ def _slide_workload(prs, s, t, lang="en"):
 
 # ── Slide 3: Proposed Configuration ──────────────────────────────────────────
 
-def _slide_proposal(prs, r, projection=None, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_proposal(prs, r, projection, t, lang="en"):
     slide = _add_slide(prs)
 
     num_cl = r.get("num_clusters", 1)
@@ -808,42 +759,23 @@ def _slide_proposal(prs, r, projection=None, t=None, lang="en"):
         ["CPU", r["cpu"]],
         [t("export.common.cores"), str(r["cores_per_node"])],
         [t("export.common.threads"), str(r["threads_per_node"])],
-        [t("export.common.ram"), _fmt_ram(r["ram_per_node_gb"])],
+        [t("export.common.ram"), fmt_ram(r["ram_per_node_gb"])],
         [t("export.common.storage"), r["storage_config"]["desc"]],
     ]
     if iops:
         node_rows.append([t("export.pptx.net_iops"), f"{iops['per_node']:,}"])
     _add_table(slide, 0.6, 2.35, 4.0, node_rows, [1.5, 2.5])
 
-    tot = r["totals"]
-    total_rows = [
-        [t("export.common.cluster_total"), ""],
-        [t("export.common.cores"), str(tot["cores"])],
-        [t("export.common.threads"), str(tot["threads"])],
-        ["GHz", str(tot["total_ghz"])],
-        [t("export.common.ram"), _fmt_ram(tot["ram_gb"])],
-        [t("export.common.raw_storage"), f"{tot['raw_storage_tb']} TB"],
-        [t("export.common.usable_storage"), f"{tot['usable_storage_tb']} TB"],
-    ]
-    if iops:
-        total_rows.append([t("export.pptx.net_iops"), f"{iops['total']:,}"])
+    total_rows = _capacity_rows(t("export.common.cluster_total"), r["totals"], t,
+                                iops_val=iops["total"] if iops else None)
     _add_table(slide, 4.8, 2.35, 4.0, total_rows, [1.5, 2.5])
 
-    n = r["n_minus_1"]
     if num_cl > 1:
         n1_label = t("export.pptx.n1_spares", count=num_cl)
     else:
         n1_label = t("export.common.n1_available")
-    n1_rows = [
-        [n1_label, ""],
-        [t("export.common.cores"), str(n["cores"])],
-        [t("export.common.threads"), str(n["threads"])],
-        ["GHz", str(n["total_ghz"])],
-        [t("export.common.ram"), _fmt_ram(n["ram_gb"])],
-        [t("export.common.usable_storage"), f"{n['usable_storage_tb']} TB"],
-    ]
-    if iops:
-        n1_rows.append([t("export.pptx.net_iops"), f"{iops['n_minus_1']:,}"])
+    n1_rows = _capacity_rows(n1_label, r["n_minus_1"], t, raw=False,
+                             iops_val=iops["n_minus_1"] if iops else None)
     _add_table(slide, 9.0, 2.35, 4.0, n1_rows, [1.5, 2.5])
 
     if so:
@@ -902,9 +834,7 @@ def _add_textbox(slide, left, top, width, height, lines, lang="en"):
 
 # ── Sizing rationale: utilization bars + how the node count was reached ──────
 
-def _slide_sizing(prs, r, s, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_sizing(prs, r, s, t, lang="en"):
     u = r.get("utilization")
     if not u:
         return
@@ -969,9 +899,7 @@ def _slide_sizing(prs, r, s, t=None, lang="en"):
 
 # ── Benchmark performance: current environment vs recommended cluster ────────
 
-def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_benchmark(prs, r, source_perf, t, lang="en"):
     tgt = (r.get("totals") or {}).get("perf_index")
     if not source_perf or not source_perf.get("total_specrate") or not tgt:
         return
@@ -989,10 +917,10 @@ def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
     for c in source_perf.get("cpus", []):
         is_pm = c.get("type") == "passmark"
         used_pm = used_pm or is_pm
-        score_lbl = f"{_fmt_num(c['score'])} {'PassMark' if is_pm else 'SPECrate'}"
+        score_lbl = f"{fmt_num(c['score'])} {'PassMark' if is_pm else 'SPECrate'}"
         src_rows.append([c.get("model", ""), str(c.get("sockets", "")),
-                         score_lbl, _fmt_num(c.get("total", 0))])
-    src_rows.append([t("export.pptx.total_environment"), "", "", _fmt_num(src_total)])
+                         score_lbl, fmt_num(c.get("total", 0))])
+    src_rows.append([t("export.pptx.total_environment"), "", "", fmt_num(src_total)])
     _add_table(slide, 0.6, 2.75, 7.0, src_rows, [3.4, 1.0, 1.6, 1.0])
 
     _add_textbox(slide, 8.0, 2.3, 4.7, 0.4,
@@ -1001,7 +929,7 @@ def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
     tgt_rows = [[t("export.pptx.recommended_cluster"), ""],
                 [t("export.pptx.cpu_per_node"), r.get("cpu", "")],
                 [t("export.pptx.nodes"), str(r.get("node_count", ""))],
-                ["Cluster SPECrate2017", _fmt_num(tgt)]]
+                ["Cluster SPECrate2017", fmt_num(tgt)]]
     _add_table(slide, 8.0, 2.75, 4.7, tgt_rows, [2.3, 2.4])
 
     if ratio >= 1:
@@ -1020,9 +948,7 @@ def _slide_benchmark(prs, r, source_perf, t=None, lang="en"):
 
 # ── Slide 4: Growth Projection ───────────────────────────────────────────────
 
-def _slide_projection(prs, s, r, p, t=None, lang="en"):
-    if t is None:
-        t = translator(lang)
+def _slide_projection(prs, s, r, p, t, lang="en"):
     slide = _add_slide(prs)
     full_cluster = r.get("sized_full_cluster", False)
     cpu_basis = t("export.pptx.cpu_basis_full") if full_cluster else "N-1"
@@ -1063,14 +989,14 @@ def _slide_projection(prs, s, r, p, t=None, lang="en"):
 
     rows = [
         headers,
-        ["vCPUs", _fmt_num(p["base_vcpus"]), _fmt_num(p["projected_vcpus"]),
-         t("export.pptx.vcpu_basis", cores=_fmt_num(cpu_basis_cores),
+        ["vCPUs", fmt_num(p["base_vcpus"]), fmt_num(p["projected_vcpus"]),
+         t("export.pptx.vcpu_basis", cores=fmt_num(cpu_basis_cores),
            ratio=f"{r['vcpu_ratio']:.1f}")
          + (" (N)" if full_cluster else ""),
-         t("export.pptx.vcpu_headroom", value=_fmt_num(int(vcpu_headroom)))],
-        [t("export.common.ram"), _fmt_ram(p["base_ram_gb"]), _fmt_ram(p["projected_ram_gb"]),
-         _fmt_ram(n1["ram_gb"]),
-         f"+{_fmt_ram(round(ram_headroom, 1))}"],
+         t("export.pptx.vcpu_headroom", value=fmt_num(int(vcpu_headroom)))],
+        [t("export.common.ram"), fmt_ram(p["base_ram_gb"]), fmt_ram(p["projected_ram_gb"]),
+         fmt_ram(n1["ram_gb"]),
+         f"+{fmt_ram(round(ram_headroom, 1))}"],
         ["GHz", f"{p.get('base_ghz', 0)}", f"{p.get('projected_ghz', 0)}",
          f"{n1['total_ghz']}",
          f"+{round(ghz_headroom, 1)} GHz"],
@@ -1080,8 +1006,7 @@ def _slide_projection(prs, s, r, p, t=None, lang="en"):
          f"+{round(stor_headroom, 2)} TB"],
     ]
 
-    table_shape = _add_table(slide, 0.6, 2.6, 12.1, rows,
-                              [1.5, 2.2, 3.0, 3.0, 2.4])
+    _add_table(slide, 0.6, 2.6, 12.1, rows, [1.5, 2.2, 3.0, 3.0, 2.4])
 
     y = 4.9
     params = [

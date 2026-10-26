@@ -16,8 +16,9 @@
  *
  * Classic script sharing one global scope with projects.js — everything lives
  * inside this IIFE and only the delegate handlers are exported (all carrying a
- * "bom"/"Bom" name so they cannot collide). Helpers that projects.js already
- * defines (api, escHtml, tt, currentProject) are CALLED, never redeclared.
+ * "bom"/"Bom" name so they cannot collide). Shared helpers (esc, fetchJson,
+ * sendJson, setStatus, withBusy, fmtDateTime — common.js) and projects.js's
+ * tt / currentProject are CALLED, never redeclared.
  * Result payload keys are read defensively in both the §5 snake_case spelling
  * and the camelCase spelling normalize.py emits (config_results /
  * configResults, config_name / configName).
@@ -50,11 +51,11 @@
     const FIT_CLASS = { match: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const RELATION_CLASS = { equal: 'badge-pass', bigger: 'badge-info', fits: 'badge-info', smaller: 'badge-fail', unknown: 'badge-neutral' };
     const SEVERITY_CLASS = { error: 'badge-fail', warning: 'badge-warn', info: 'badge-info' };
-    const KNOWN_FORMATS = ['lenovo_dcsc', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent'];
+    const KNOWN_FORMATS = ['lenovo_dcsc', 'lenovo_hw_breakdown', 'dell_service_tag', 'dell_quote', 'template', 'ai_agent', 'sheet_guess'];
     const KNOWN_DIMS = ['nodes', 'cores', 'compute', 'ram', 'largest_vm', 'storage', 'nic'];
     const UNIT_KEYS = { nodes: 'nodes', cores: 'cores', GB: 'gb', TB: 'tb', GbE: 'gbe', '%': 'pct' };
 
-    function t(key, vars) { return window.t ? window.t(key, vars) : key; }
+    const t = window.t;   // i18n.js loads in <head>
 
     function $(id) { return document.getElementById(id); }
 
@@ -69,13 +70,6 @@
         const n = Number(v);
         if (Number.isInteger(n)) return n.toLocaleString();
         return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-    }
-
-    function fmtWhen(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return String(iso);
-        return d.toLocaleString();
     }
 
     function unitLabel(unit) {
@@ -104,7 +98,7 @@
         const v = String(verdict || '').toUpperCase();
         const cls = VERDICT_CLASS[v] || 'badge-neutral';
         const label = VERDICT_CLASS[v] ? t('bom.verdict.' + v.toLowerCase()) : (v || '—');
-        return `<span class="state-badge bom-chip ${cls}">${escHtml(label)}</span>`;
+        return `<span class="state-badge bom-chip ${cls}">${esc(label)}</span>`;
     }
 
     function fitChip(verdict, sizingName) {
@@ -112,8 +106,8 @@
         if (!v) return '';
         const cls = FIT_CLASS[v] || 'badge-neutral';
         const label = FIT_CLASS[v] ? t('bom.fit.verdict.' + v) : v;
-        const who = sizingName ? ` · ${escHtml(sizingName)}` : '';
-        return `<span class="state-badge bom-chip ${cls}" title="${escHtml(t('bom.fit.chip_title'))}">${escHtml(label)}${who}</span>`;
+        const who = sizingName ? ` · ${esc(sizingName)}` : '';
+        return `<span class="state-badge bom-chip ${cls}" title="${esc(t('bom.fit.chip_title'))}">${esc(label)}${who}</span>`;
     }
 
     // ── errors inside the modal ──────────────────────────────────────────────
@@ -126,7 +120,7 @@
         if (text) text.textContent = msg || '';
         if (list) {
             const items = Array.isArray(details) ? details : [];
-            list.innerHTML = items.map(d => `<li>${escHtml(typeof d === 'string' ? d : JSON.stringify(d))}</li>`).join('');
+            list.innerHTML = items.map(d => `<li>${esc(typeof d === 'string' ? d : JSON.stringify(d))}</li>`).join('');
             list.hidden = items.length === 0;
         }
         box.hidden = !msg;
@@ -161,14 +155,8 @@
         const fd = new FormData();
         fd.append('file', bomState.file);
         if (bomState.retainError) fd.append('error', bomState.retainError);
-        setBusy(true);
-        let res;
-        try {
-            res = await api(`/api/projects/${currentProject.id}/bom-rejects`, { method: 'POST', body: fd });
-        } catch (e) {
-            res = { ok: false, data: { error: e.message || String(e) } };
-        }
-        setBusy(false);
+        const res = await busy(() =>
+            fetchJson(`/api/projects/${currentProject.id}/bom-rejects`, { method: 'POST', body: fd }));
         const done = $('bom-retain-done');
         if (res.ok) {
             const box = $('bom-retain-offer');
@@ -198,24 +186,26 @@
         return !(agent && agent.source_kind === 'pdf' && agent.pdf_mode === 'document');
     }
 
-    function setStatus(msg, isError) {
-        const el = $('bom-upload-status');
-        if (!el) return;
-        el.textContent = msg || '';
-        el.className = 'upload-status ' + (isError ? 'upload-error' : 'upload-ok');
-        el.style.display = msg ? 'block' : 'none';
+    function bomStatus(msg, isError) {
+        setStatus('bom-upload-status', msg, isError);
     }
 
+    const BUSY_BUTTONS = ['bom-run-btn', 'bom-recheck-btn', 'bom-delete-btn'];
+
+    // The busy look: the Run label and a modal class the CSS keys on. The
+    // buttons themselves are disabled by withBusy() around the request.
     function setBusy(on) {
         bomState.busy = !!on;
-        ['bom-run-btn', 'bom-recheck-btn', 'bom-delete-btn'].forEach(id => {
-            const el = $(id);
-            if (el) el.disabled = !!on;
-        });
         const run = $('bom-run-btn');
         if (run) run.textContent = on ? t('bom.working_short') : t('bom.run');
         const modal = $('bom-modal');
         if (modal) modal.classList.toggle('bom-busy', !!on);
+    }
+
+    // Run one request with the whole checker marked busy.
+    function busy(fn) {
+        setBusy(true);
+        return withBusy(BUSY_BUTTONS, fn).finally(() => setBusy(false));
     }
 
     // ── capabilities ─────────────────────────────────────────────────────────
@@ -223,7 +213,7 @@
     function loadCapabilities() {
         if (bomState.capabilities) return Promise.resolve(bomState.capabilities);
         if (bomState.capsPromise) return bomState.capsPromise;
-        bomState.capsPromise = api('/api/bom/capabilities').then(({ ok, data }) => {
+        bomState.capsPromise = fetchJson('/api/bom/capabilities').then(({ ok, data }) => {
             bomState.capabilities = (ok && data) ? data : {
                 agent_available: false,
                 accepted_extensions: DEFAULT_ACCEPT,
@@ -260,7 +250,7 @@
         const list = $('bom-formats-list');
         if (list) {
             const labels = Object.keys(caps.formats || {}).map(k => formatLabel(k));
-            list.innerHTML = labels.map(l => `<li>${escHtml(l)}</li>`).join('');
+            list.innerHTML = labels.map(l => `<li>${esc(l)}</li>`).join('');
         }
         const agentNote = $('bom-formats-agent');
         if (agentNote) agentNote.hidden = !caps.agent_available;
@@ -273,7 +263,7 @@
                 cat.textContent = t('bom.catalog_line', {
                     platforms: fmtNum(c.platforms || 0),
                     components: fmtNum(c.components || 0),
-                    when: c.last_scrape_at ? fmtWhen(c.last_scrape_at) : '—',
+                    when: c.last_scrape_at ? fmtDateTime(c.last_scrape_at) : '—',
                 });
                 cat.hidden = false;
             } else {
@@ -307,7 +297,7 @@
     function renderSizingSelect(id) {
         const sel = $(id);
         if (!sel) return;
-        const opts = [`<option value="">${escHtml(t('bom.pick.none'))}</option>`];
+        const opts = [`<option value="">${esc(t('bom.pick.none'))}</option>`];
         sizingOptions().forEach(s => {
             const enabled = !!s.has_result;
             const meta = [];
@@ -315,7 +305,7 @@
             if (s.is_dr_target) meta.push(tt('project.table.dr_target'));
             if (!enabled) meta.push(t('bom.pick.no_result'));
             const label = s.name + (meta.length ? ' — ' + meta.join(' · ') : '');
-            opts.push(`<option value="${Number(s.id)}"${enabled ? '' : ' disabled'}>${escHtml(label)}</option>`);
+            opts.push(`<option value="${Number(s.id)}"${enabled ? '' : ' disabled'}>${esc(label)}</option>`);
         });
         sel.innerHTML = opts.join('');
         sel.value = String(bomState.sizingId || '');
@@ -354,14 +344,14 @@
         if (!file) return;
         if (!hasExtension(file.name, acceptedExtensions())) {
             bomState.file = null;
-            setStatus(t('bom.upload.bad_extension', { formats: acceptedExtensions().join(', ') }), true);
+            bomStatus(t('bom.upload.bad_extension', { formats: acceptedExtensions().join(', ') }), true);
             showFileName();
             return;
         }
         bomState.file = file;
         bomState.uploadedCheckId = null;
         bomShowRetainOffer(false);
-        setStatus('', false);
+        bomStatus('', false);
         bomClearError();
         showFileName();
         const nameInput = $('bom-name');
@@ -416,13 +406,12 @@
         const nameInput = $('bom-name');
         if (nameInput) { nameInput.value = ''; nameInput.placeholder = t('bom.name_hint'); }
         showFileName();
-        setStatus('', false);
+        bomStatus('', false);
     }
 
     function showModal() {
         bindDropZone();
-        const modal = $('bom-modal');
-        if (modal) modal.style.display = 'flex';
+        openModal('bom-modal');
         loadCapabilities().then(applyCapabilities);
     }
 
@@ -438,8 +427,7 @@
     }
 
     function closeBomChecker() {
-        const modal = $('bom-modal');
-        if (modal) modal.style.display = 'none';
+        closeModal('bom-modal');
         stopPolling();
         bomState.current = null;
         setBusy(false);
@@ -472,19 +460,14 @@
         if (name) fd.append('name', name);
         fd.append('lang', (currentProject && currentProject.lang) || window.I18N_ACTIVE || 'en');
 
-        setBusy(true);
-        setStatus(t('bom.working'), false);
-        let res;
-        try {
-            res = await api(`/api/projects/${currentProject.id}/bom-checks`, { method: 'POST', body: fd });
-        } catch (e) {
-            setBusy(false);
-            setStatus('', false);
-            bomShowError(t('bom.err.network', { error: e.message || String(e) }), []);
+        bomStatus(t('bom.working'), false);
+        const res = await busy(() =>
+            fetchJson(`/api/projects/${currentProject.id}/bom-checks`, { method: 'POST', body: fd }));
+        bomStatus('', false);
+        if (res.status === 0) {   // never reached the server
+            bomShowError(t('bom.err.network', { error: res.data.error }), []);
             return;
         }
-        setBusy(false);
-        setStatus('', false);
         if (!res.ok || !res.data) {
             const d = res.data || {};
             bomShowError(d.error || t('bom.err.failed'), d.details || []);
@@ -537,7 +520,7 @@
         if (!id) return;
         let res;
         try {
-            res = await api(`/api/bom-agent-jobs/${Number(id)}`);
+            res = await fetchJson(`/api/bom-agent-jobs/${Number(id)}`);
         } catch (e) {
             res = { ok: false };
         }
@@ -545,7 +528,7 @@
         const job = res.ok ? res.data : null;
         if (job && job.status === 'done' && job.check_id) {
             stopPolling();
-            const r = await api(`/api/bom-checks/${Number(job.check_id)}`);
+            const r = await fetchJson(`/api/bom-checks/${Number(job.check_id)}`);
             loadBomChecks();
             if (r.ok && r.data) {
                 bomState.uploadedCheckId = r.data.id;
@@ -570,47 +553,44 @@
     function showJobTemplateLink(job) {
         const list = $('bom-error-details');
         if (!list) return;
-        list.innerHTML = `<li><a href="/api/bom-agent-jobs/${Number(job.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a> — ${escHtml(t('bom.agent.template_fix_hint'))}</li>`;
+        list.innerHTML = `<li><a href="/api/bom-agent-jobs/${Number(job.id)}/template" download>${esc(t('bom.agent.download_template'))}</a> — ${esc(t('bom.agent.template_fix_hint'))}</li>`;
         list.hidden = false;
     }
 
     async function bomAgentNotify(input) {
         const id = bomState.jobId;
         if (!id || !input) return;
-        await api(`/api/bom-agent-jobs/${Number(id)}/notify`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notify: !!input.checked }),
-        });
+        await sendJson(`/api/bom-agent-jobs/${Number(id)}/notify`, 'POST', { notify: !!input.checked });
     }
 
     function agentBanner(check) {
         const a = check.agent;
         if (!a) return '';
-        const lines = [`<p class="bom-agent-banner-title">${escHtml(t('bom.agent.banner'))}</p>`];
+        const lines = [`<p class="bom-agent-banner-title">${esc(t('bom.agent.banner'))}</p>`];
         if (a.pdf_certainty !== null && a.pdf_certainty !== undefined) {
             // A PDF layout we parse locally, not trusted this time: say why.
-            lines.push(`<p>${escHtml(t('bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
+            lines.push(`<p>${esc(t(a.pdf_kind === 'sheet' ? 'bom.agent.low_certainty_sheet' : 'bom.agent.low_certainty', { score: a.pdf_certainty }))}</p>`);
             if ((a.pdf_reasons || []).length) {
-                lines.push(`<ul class="bom-agent-dropped">${a.pdf_reasons.map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>`);
+                lines.push(`<ul class="bom-agent-dropped">${a.pdf_reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>`);
             }
         }
         if (a.hidden_words) {
-            lines.push(`<p class="bom-agent-alert">${escHtml(t('bom.agent.hidden_words', { n: a.hidden_words }))}</p>`);
+            lines.push(`<p class="bom-agent-alert">${esc(t('bom.agent.hidden_words', { n: a.hidden_words }))}</p>`);
         }
         if (!a.grounded) {
-            lines.push(`<p>${escHtml(t('bom.agent.not_grounded'))}</p>`);
+            lines.push(`<p>${esc(t('bom.agent.not_grounded'))}</p>`);
         }
         if (a.instructions_detected) {
-            lines.push(`<p class="bom-agent-alert">${escHtml(t('bom.agent.instructions'))}</p>`);
+            lines.push(`<p class="bom-agent-alert">${esc(t('bom.agent.instructions'))}</p>`);
         }
         const dropped = (a.dropped || []).concat(a.model_changed || []);
         if (dropped.length) {
-            lines.push(`<p>${escHtml(t('bom.agent.dropped', { n: dropped.length }))}</p>
-                <ul class="bom-agent-dropped">${dropped.map(d => `<li>${escHtml(d)}</li>`).join('')}</ul>`);
+            lines.push(`<p>${esc(t('bom.agent.dropped', { n: dropped.length }))}</p>
+                <ul class="bom-agent-dropped">${dropped.map(d => `<li>${esc(d)}</li>`).join('')}</ul>`);
         }
         lines.push(`<p class="bom-agent-actions">
-            <a class="btn btn-soft btn-xs" href="/api/bom-checks/${Number(check.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a>
-            <span class="field-hint">${escHtml(t('bom.agent.template_hint'))}</span></p>`);
+            <a class="btn btn-soft btn-xs" href="/api/bom-checks/${Number(check.id)}/template" download>${esc(t('bom.agent.download_template'))}</a>
+            <span class="field-hint">${esc(t('bom.agent.template_hint'))}</span></p>`);
         return `<div class="bom-agent-banner" role="note">${lines.join('')}</div>`;
     }
 
@@ -626,13 +606,13 @@
     }
 
     function platformLine(platform) {
-        if (!platform) return `<span class="bom-platform bom-platform-unknown">${escHtml(t('bom.result.platform_unknown'))}</span>`;
+        if (!platform) return `<span class="bom-platform bom-platform-unknown">${esc(t('bom.result.platform_unknown'))}</span>`;
         const models = Array.isArray(platform.sc_models) ? platform.sc_models.join(', ') : (platform.sc_model || '');
         const bits = [];
-        if (models) bits.push(escHtml(t('bom.result.platform_identified', { models })));
-        if (platform.server) bits.push(escHtml(platform.server));
-        if (platform.form_factor) bits.push(escHtml(platform.form_factor));
-        if (!bits.length) return `<span class="bom-platform bom-platform-unknown">${escHtml(t('bom.result.platform_unknown'))}</span>`;
+        if (models) bits.push(esc(t('bom.result.platform_identified', { models })));
+        if (platform.server) bits.push(esc(platform.server));
+        if (platform.form_factor) bits.push(esc(platform.form_factor));
+        if (!bits.length) return `<span class="bom-platform bom-platform-unknown">${esc(t('bom.result.platform_unknown'))}</span>`;
         return `<span class="bom-platform">${bits.join(' · ')}</span>`;
     }
 
@@ -642,24 +622,24 @@
             const rb = SEVERITY_RANK[String(b.severity).toLowerCase()];
             return (ra === undefined ? 9 : ra) - (rb === undefined ? 9 : rb);
         });
-        if (!rows.length) return `<p class="import-info muted bom-no-findings">${escHtml(t('bom.result.no_findings'))}</p>`;
+        if (!rows.length) return `<p class="import-info muted bom-no-findings">${esc(t('bom.result.no_findings'))}</p>`;
         const body = rows.map(f => {
             const sev = String(f.severity || 'info').toLowerCase();
             const cls = SEVERITY_CLASS[sev] || 'badge-neutral';
             const label = SEVERITY_CLASS[sev] ? t('bom.severity.' + sev) : sev;
             return `<tr>
-                <td class="bom-col-sev"><span class="state-badge ${cls}">${escHtml(label)}</span></td>
-                <td class="bom-col-comp">${escHtml(f.component || '')}</td>
-                <td>${escHtml(f.issue || '')}</td>
-                <td class="bom-col-fix">${escHtml(f.remediation || '')}</td>
+                <td class="bom-col-sev"><span class="state-badge ${cls}">${esc(label)}</span></td>
+                <td class="bom-col-comp">${esc(f.component || '')}</td>
+                <td>${esc(f.issue || '')}</td>
+                <td class="bom-col-fix">${esc(f.remediation || '')}</td>
             </tr>`;
         }).join('');
         return `<div class="compare-scroll"><table class="sizing-table bom-findings">
             <thead><tr>
-                <th>${escHtml(t('bom.table.severity'))}</th>
-                <th>${escHtml(t('bom.table.component'))}</th>
-                <th>${escHtml(t('bom.table.issue'))}</th>
-                <th>${escHtml(t('bom.table.remediation'))}</th>
+                <th>${esc(t('bom.table.severity'))}</th>
+                <th>${esc(t('bom.table.component'))}</th>
+                <th>${esc(t('bom.table.issue'))}</th>
+                <th>${esc(t('bom.table.remediation'))}</th>
             </tr></thead>
             <tbody>${body}</tbody>
         </table></div>`;
@@ -667,25 +647,25 @@
 
     function candidateLine(c) {
         const bits = [];
-        if (c.part_number) bits.push(`<code class="sizing-code">${escHtml(c.part_number)}</code>`);
-        if (c.description) bits.push(escHtml(c.description));
+        if (c.part_number) bits.push(`<code class="sizing-code">${esc(c.part_number)}</code>`);
+        if (c.description) bits.push(esc(c.description));
         const tags = [];
-        if (c.tce) tags.push(`<span class="state-badge badge-accent" title="${escHtml(t('bom.suggest.tce_title'))}">${escHtml(t('bom.suggest.tce'))}</span>`);
-        if (c.speed_gbe) tags.push(`<span class="state-badge badge-neutral">${escHtml(fmtNum(c.speed_gbe))} ${escHtml(t('bom.unit.gbe'))}</span>`);
-        if (c.ports) tags.push(`<span class="state-badge badge-neutral">${escHtml(t('bom.suggest.ports', { n: fmtNum(c.ports) }))}</span>`);
-        if (c.form_factor) tags.push(`<span class="state-badge badge-neutral">${escHtml(c.form_factor)}</span>`);
+        if (c.tce) tags.push(`<span class="state-badge badge-accent" title="${esc(t('bom.suggest.tce_title'))}">${esc(t('bom.suggest.tce'))}</span>`);
+        if (c.speed_gbe) tags.push(`<span class="state-badge badge-neutral">${esc(fmtNum(c.speed_gbe))} ${esc(t('bom.unit.gbe'))}</span>`);
+        if (c.ports) tags.push(`<span class="state-badge badge-neutral">${esc(t('bom.suggest.ports', { n: fmtNum(c.ports) }))}</span>`);
+        if (c.form_factor) tags.push(`<span class="state-badge badge-neutral">${esc(c.form_factor)}</span>`);
         return `<li><span class="bom-cand-main">${bits.join(' ')}</span><span class="bom-cand-tags">${tags.join('')}</span></li>`;
     }
 
     function suggestionCards(suggestions) {
         if (!suggestions || !suggestions.length) return '';
         return `<div class="bom-suggestions">
-            <h4 class="rep-heading">${escHtml(t('bom.suggest.heading'))}</h4>
+            <h4 class="rep-heading">${esc(t('bom.suggest.heading'))}</h4>
             ${suggestions.map(s => `<div class="bom-suggest-card">
-                <div class="bom-suggest-title">${escHtml(t('bom.suggest.instead_of', { component: s.component || '' }))}</div>
+                <div class="bom-suggest-title">${esc(t('bom.suggest.instead_of', { component: s.component || '' }))}</div>
                 ${(s.candidates && s.candidates.length)
                     ? `<ul class="bom-cand-list">${s.candidates.map(candidateLine).join('')}</ul>`
-                    : `<p class="import-info muted">${escHtml(t('bom.suggest.none'))}</p>`}
+                    : `<p class="import-info muted">${esc(t('bom.suggest.none'))}</p>`}
             </div>`).join('')}
         </div>`;
     }
@@ -703,45 +683,45 @@
         else if (rel === 'fits') label = hasDelta ? t('bom.rel.fits', { delta: '−' + abs }) : t('bom.rel.fits_plain');
         else if (rel === 'smaller') label = t('bom.rel.smaller');
         else label = t('bom.rel.unknown');
-        return `<span class="state-badge bom-rel ${cls}">${escHtml(label)}</span>`;
+        return `<span class="state-badge bom-rel ${cls}">${esc(label)}</span>`;
     }
 
     function valueCell(v, unit) {
         if (v === null || v === undefined) return '<td class="bom-num bom-num-empty">—</td>';
         const u = unitLabel(unit);
-        return `<td class="bom-num">${escHtml(fmtNum(v))}${u ? ` <span class="bom-unit">${escHtml(u)}</span>` : ''}</td>`;
+        return `<td class="bom-num">${esc(fmtNum(v))}${u ? ` <span class="bom-unit">${esc(u)}</span>` : ''}</td>`;
     }
 
     function fitSection(fit) {
         if (!fit) return '';
         const sizing = fit.sizing || {};
         const dims = Array.isArray(fit.dimensions) ? fit.dimensions : [];
-        const rows = dims.map(d => `<tr class="bom-rel-${escHtml(String(d.relation || 'unknown'))}">
-            <td class="bom-col-dim">${escHtml(dimLabel(d.key))}</td>
+        const rows = dims.map(d => `<tr class="bom-rel-${esc(String(d.relation || 'unknown'))}">
+            <td class="bom-col-dim">${esc(dimLabel(d.key))}</td>
             <td>${relationBadge(d)}</td>
             ${valueCell(d.bom, d.unit)}
             ${valueCell(d.required, d.unit)}
             ${valueCell(d.sized, d.unit)}
-            <td class="bom-col-note">${escHtml(d.note || '')}</td>
+            <td class="bom-col-note">${esc(d.note || '')}</td>
         </tr>`).join('');
         const notes = Array.isArray(fit.notes) && fit.notes.length
-            ? `<ul class="bom-fit-notes">${fit.notes.map(n => `<li>${escHtml(n)}</li>`).join('')}</ul>` : '';
+            ? `<ul class="bom-fit-notes">${fit.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
         const compared = configNameOf(fit);
         const intro = t('bom.fit.intro', { sizing: sizing.name || '', config: compared || '—' });
         return `<section class="bom-section bom-fit">
-            <h3 class="rep-heading">${escHtml(t('bom.fit.heading'))}</h3>
-            <p class="import-info">${escHtml(intro)} ${fitChip(fit.verdict, sizing.name)}</p>
+            <h3 class="rep-heading">${esc(t('bom.fit.heading'))}</h3>
+            <p class="import-info">${esc(intro)} ${fitChip(fit.verdict, sizing.name)}</p>
             ${dims.length ? `<div class="compare-scroll"><table class="sizing-table bom-dims">
                 <thead><tr>
-                    <th>${escHtml(t('bom.fit.col_dimension'))}</th>
-                    <th>${escHtml(t('bom.fit.col_relation'))}</th>
-                    <th class="bom-num">${escHtml(t('bom.fit.col_bom'))}</th>
-                    <th class="bom-num">${escHtml(t('bom.fit.col_required'))}</th>
-                    <th class="bom-num">${escHtml(t('bom.fit.col_sized'))}</th>
-                    <th>${escHtml(t('bom.fit.col_note'))}</th>
+                    <th>${esc(t('bom.fit.col_dimension'))}</th>
+                    <th>${esc(t('bom.fit.col_relation'))}</th>
+                    <th class="bom-num">${esc(t('bom.fit.col_bom'))}</th>
+                    <th class="bom-num">${esc(t('bom.fit.col_required'))}</th>
+                    <th class="bom-num">${esc(t('bom.fit.col_sized'))}</th>
+                    <th>${esc(t('bom.fit.col_note'))}</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
-            </table></div>` : `<p class="import-info muted">${escHtml(t('bom.fit.no_dimensions'))}</p>`}
+            </table></div>` : `<p class="import-info muted">${esc(t('bom.fit.no_dimensions'))}</p>`}
             ${notes}
         </section>`;
     }
@@ -750,13 +730,13 @@
         const status = String(check.review_status || 'none');
         if (status === 'none') return '';
         if (status === 'open') {
-            return `<p class="bom-review bom-review-open"><span class="state-badge badge-warn">${escHtml(t('bom.review.open'))}</span> ${escHtml(t('bom.review.open_hint'))}</p>`;
+            return `<p class="bom-review bom-review-open"><span class="state-badge badge-warn">${esc(t('bom.review.open'))}</span> ${esc(t('bom.review.open_hint'))}</p>`;
         }
         const cls = status === 'confirmed' ? 'badge-pass' : 'badge-fail';
         const label = status === 'confirmed' ? t('bom.review.confirmed') : t('bom.review.incorrect');
-        const note = check.review_note ? ` — ${escHtml(check.review_note)}` : '';
-        const when = check.reviewed_at ? ` <span class="muted">(${escHtml(fmtWhen(check.reviewed_at))})</span>` : '';
-        return `<p class="bom-review"><span class="state-badge ${cls}">${escHtml(t('bom.review.reviewed'))}: ${escHtml(label)}</span>${note}${when}</p>`;
+        const note = check.review_note ? ` — ${esc(check.review_note)}` : '';
+        const when = check.reviewed_at ? ` <span class="muted">(${esc(fmtDateTime(check.reviewed_at))})</span>` : '';
+        return `<p class="bom-review"><span class="state-badge ${cls}">${esc(t('bom.review.reviewed'))}: ${esc(label)}</span>${note}${when}</p>`;
     }
 
     function renderResult(check) {
@@ -769,16 +749,16 @@
         const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
 
         const metaBits = [];
-        metaBits.push(escHtml(formatLabel(check.file_format)));
+        metaBits.push(esc(formatLabel(check.file_format)));
         if (check.pdf && check.pdf.score !== null && check.pdf.score !== undefined) {
             // Why not 100: the score's reasons as a tooltip (server wording).
             const why = (check.pdf.reasons || []).join('\n');
-            metaBits.push(`<span${why ? ` title="${escHtml(why)}" class="bom-certainty-why"` : ''}>${escHtml(t('bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
+            metaBits.push(`<span${why ? ` title="${esc(why)}" class="bom-certainty-why"` : ''}>${esc(t(check.pdf.kind === 'sheet' ? 'bom.result.sheet_certainty' : 'bom.result.pdf_certainty', { score: check.pdf.score }))}</span>`);
         }
-        if (check.vendor) metaBits.push(escHtml(check.vendor));
-        if (check.filename && check.filename !== check.name) metaBits.push(escHtml(check.filename));
+        if (check.vendor) metaBits.push(esc(check.vendor));
+        if (check.filename && check.filename !== check.name) metaBits.push(esc(check.filename));
         const when = check.checked_at || (result.checked_at) || check.created_at;
-        if (when) metaBits.push(escHtml(t('bom.result.checked_at', { when: fmtWhen(when) })));
+        if (when) metaBits.push(esc(t('bom.result.checked_at', { when: fmtDateTime(when) })));
 
         const configs = configResultsOf(result);
         const configBlocks = configs.map(cr => {
@@ -786,7 +766,7 @@
             const mine = suggestions.filter(s => configNameOf(s) === name);
             return `<section class="bom-section bom-config">
                 <div class="bom-config-head">
-                    <h3 class="bom-config-name">${escHtml(name || t('bom.result.config_unnamed'))}</h3>
+                    <h3 class="bom-config-name">${esc(name || t('bom.result.config_unnamed'))}</h3>
                     ${verdictChip(cr.verdict)}
                 </div>
                 ${platformLine(cr.platform)}
@@ -803,15 +783,15 @@
             ${agentBanner(check)}
             <div class="bom-result-head">
                 <div class="bom-result-title">
-                    <h3>${escHtml(check.name || check.filename || '')}</h3>
+                    <h3>${esc(check.name || check.filename || '')}</h3>
                     <div class="bom-result-meta">${metaBits.join(' · ')}</div>
                 </div>
                 <div class="bom-result-chips">
-                    <span class="bom-chip-label">${escHtml(t('bom.result.technical'))}</span>${verdictChip(techVerdict)}
-                    ${fit ? `<span class="bom-chip-label">${escHtml(t('bom.result.fit'))}</span>${fitChip(check.fit_verdict || fit.verdict, '')}` : ''}
+                    <span class="bom-chip-label">${esc(t('bom.result.technical'))}</span>${verdictChip(techVerdict)}
+                    ${fit ? `<span class="bom-chip-label">${esc(t('bom.result.fit'))}</span>${fitChip(check.fit_verdict || fit.verdict, '')}` : ''}
                 </div>
             </div>
-            ${configBlocks || `<p class="import-info muted">${escHtml(t('bom.result.no_configs'))}</p>`}
+            ${configBlocks || `<p class="import-info muted">${esc(t('bom.result.no_configs'))}</p>`}
             ${orphan.length ? `<section class="bom-section">${suggestionCards(orphan)}</section>` : ''}
             ${fitSection(fit)}
             ${reviewLine(check)}
@@ -826,8 +806,8 @@
         if (!currentProject) return;
         const pid = currentProject.id;
         const [checks, jobs] = await Promise.all([
-            api(`/api/projects/${pid}/bom-checks`),
-            api(`/api/projects/${pid}/bom-agent-jobs`),
+            fetchJson(`/api/projects/${pid}/bom-checks`),
+            fetchJson(`/api/projects/${pid}/bom-agent-jobs`),
         ]);
         if (!currentProject || currentProject.id !== pid) return;
         // A missing backend (404) or a transient error: keep the UI usable.
@@ -862,19 +842,19 @@
     }
 
     function checkRow(c) {
-        const when = fmtWhen(c.checked_at || c.created_at);
+        const when = fmtDateTime(c.checked_at || c.created_at);
         const sizing = c.sizing_name
             ? t('bom.history.against', { sizing: c.sizing_name })
             : t('bom.history.compat_only');
         const review = c.review_status === 'open'
-            ? `<span class="state-badge badge-warn bom-chip-sm">${escHtml(t('bom.review.open'))}</span>` : '';
+            ? `<span class="state-badge badge-warn bom-chip-sm">${esc(t('bom.review.open'))}</span>` : '';
         const agent = c.agent
-            ? `<span class="state-badge badge-accent bom-chip-sm" title="${escHtml(t('bom.agent.banner'))}">${escHtml(t('bom.agent.chip'))}</span>` : '';
+            ? `<span class="state-badge badge-accent bom-chip-sm" title="${esc(t('bom.agent.banner'))}">${esc(t('bom.agent.chip'))}</span>` : '';
         return `<li class="bom-row">
             <button class="bom-row-open" data-click='["openBomCheckResult",${Number(c.id)}]'>
-                <span class="bom-row-name">${escHtml(c.name || c.filename || '')}</span>
+                <span class="bom-row-name">${esc(c.name || c.filename || '')}</span>
                 <span class="bom-row-chips">${verdictChip(c.technical_verdict)}${c.fit_verdict ? fitChip(c.fit_verdict, '') : ''}${agent}${review}</span>
-                <span class="bom-row-meta">${escHtml(sizing)} · ${escHtml(when)}</span>
+                <span class="bom-row-meta">${esc(sizing)} · ${esc(when)}</span>
             </button>
         </li>`;
     }
@@ -882,18 +862,18 @@
     function jobRow(j) {
         if (j.status === 'failed') {
             const tpl = j.has_template
-                ? ` <a href="/api/bom-agent-jobs/${Number(j.id)}/template" download>${escHtml(t('bom.agent.download_template'))}</a>` : '';
+                ? ` <a href="/api/bom-agent-jobs/${Number(j.id)}/template" download>${esc(t('bom.agent.download_template'))}</a>` : '';
             return `<li class="bom-row bom-row-failed">
-                <span class="bom-row-name">${escHtml(j.name || j.filename || '')}</span>
-                <span class="bom-row-chips"><span class="state-badge badge-fail bom-chip-sm">${escHtml(t('bom.agent.failed_chip'))}</span></span>
-                <span class="bom-row-meta">${escHtml(j.error || t('bom.agent.failed'))}${tpl}</span>
+                <span class="bom-row-name">${esc(j.name || j.filename || '')}</span>
+                <span class="bom-row-chips"><span class="state-badge badge-fail bom-chip-sm">${esc(t('bom.agent.failed_chip'))}</span></span>
+                <span class="bom-row-meta">${esc(j.error || t('bom.agent.failed'))}${tpl}</span>
             </li>`;
         }
         return `<li class="bom-row bom-row-pending">
-            <span class="bom-row-name">${escHtml(j.name || j.filename || '')}</span>
+            <span class="bom-row-name">${esc(j.name || j.filename || '')}</span>
             <span class="bom-row-chips"><span class="bom-spinner bom-spinner-sm" aria-hidden="true"></span>
-                <span class="state-badge badge-neutral bom-chip-sm">${escHtml(t('bom.agent.reading_chip'))}</span></span>
-            <span class="bom-row-meta">${escHtml(fmtWhen(j.created_at))}</span>
+                <span class="state-badge badge-neutral bom-chip-sm">${esc(t('bom.agent.reading_chip'))}</span></span>
+            <span class="bom-row-meta">${esc(fmtDateTime(j.created_at))}</span>
         </li>`;
     }
 
@@ -904,7 +884,7 @@
         const checks = mine ? bomState.checks : [];
         const jobs = mine ? bomState.jobs : [];
         if (!checks.length && !jobs.length) { host.innerHTML = ''; return; }
-        host.innerHTML = `<h3 class="rep-heading">${escHtml(t('bom.section.title'))}</h3>
+        host.innerHTML = `<h3 class="rep-heading">${esc(t('bom.section.title'))}</h3>
             <ul class="bom-list">${jobs.map(jobRow).join('')}${checks.map(checkRow).join('')}</ul>`;
     }
 
@@ -912,14 +892,14 @@
         if (!currentProject || bomState.busy) return;
         stopPolling();
         const host = $('bom-result');
-        if (host) host.innerHTML = `<p class="project-empty">${escHtml(t('bom.loading'))}</p>`;
+        if (host) host.innerHTML = `<p class="project-empty">${esc(t('bom.loading'))}</p>`;
         renderSizingPicker();
         showStep('result');
         showModal();
         // formatLabel() reads capabilities.formats; make sure they are in
         // before the header renders (cached after the first load).
         await loadCapabilities();
-        const { ok, data } = await api(`/api/bom-checks/${Number(id)}`);
+        const { ok, data } = await fetchJson(`/api/bom-checks/${Number(id)}`);
         if (!ok || !data) {
             bomShowError((data && data.error) || t('bom.err.load_failed'), []);
             if (host) host.innerHTML = '';
@@ -938,14 +918,10 @@
         const check = bomState.current;
         if (!check || bomState.busy) return;
         bomClearError();
-        setBusy(true);
         const sel = $('bom-recheck-sizing');
         const sizingId = sel ? sel.value : bomState.sizingId;
         const body = { sizing_id: sizingId ? Number(sizingId) : null };
-        const { ok, data } = await api(`/api/bom-checks/${check.id}/recheck`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-        setBusy(false);
+        const { ok, data } = await busy(() => sendJson(`/api/bom-checks/${check.id}/recheck`, 'POST', body));
         if (!ok || !data) {
             bomShowError((data && data.error) || t('bom.err.recheck_failed'), (data && data.details) || []);
             return;
@@ -960,9 +936,7 @@
         const check = bomState.current;
         if (!check || bomState.busy) return;
         if (!window.confirm(t('bom.confirm_delete', { name: check.name || '' }))) return;
-        setBusy(true);
-        const { ok, data } = await api(`/api/bom-checks/${check.id}`, { method: 'DELETE' });
-        setBusy(false);
+        const { ok, data } = await busy(() => fetchJson(`/api/bom-checks/${check.id}`, { method: 'DELETE' }));
         if (!ok) {
             bomShowError((data && data.error) || t('bom.err.delete_failed'), []);
             return;

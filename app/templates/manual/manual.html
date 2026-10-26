@@ -28,19 +28,9 @@
 <!DOCTYPE html>
 <html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if scale %}Staff manual{% else %}User manual{% endif %} — SC// Infrastructure Sizer</title>
-    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/manual.css') }}">
-    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
-    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
-    <script src="{{ asset('js/theme.js') }}"></script>
-    <script src="{{ asset('js/lang/en.js') }}"></script>
-    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
-    <script src="{{ asset('js/i18n.js') }}"></script>
+    {% set page_title = ('Staff manual' if scale else 'User manual') ~ ' — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style', 'manual'] %}
+    {% include "_partials/head_assets.html" %}
 </head>
 <body class="manual-page">
     <header>
@@ -64,24 +54,7 @@
                 {% endif %}
                 <a class="btn btn-sm" href="/" data-i18n="manual.back">Back to the sizer</a>
             </div>
-            <button class="theme-btn" data-click='["toggleTheme"]'
-                    data-i18n-title="header.theme" title="Theme"
-                    data-i18n-aria="header.theme" aria-label="Theme">
-                <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            </button>
-            <div class="lang-menu">
-                <button class="lang-btn" data-click='["toggleLangMenu"]'
-                        data-i18n-aria="header.language" aria-label="Language"
-                        data-i18n-title="header.language" title="Language">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                </button>
-                <ul class="lang-dropdown" id="lang-dropdown" hidden>
-                    {% for code in supported_langs %}
-                    <li><button class="lang-option{% if code == lang %} active{% endif %}" data-click='["setLang","{{ code }}"]'>{{ lang_names[code] }}</button></li>
-                    {% endfor %}
-                </ul>
-            </div>
+            {% include "_partials/header_controls.html" %}
         </div>
     </header>
 

@@ -19,7 +19,6 @@ REVIEW_NONE = "none"
 REVIEW_OPEN = "open"
 REVIEW_CONFIRMED = "confirmed"
 REVIEW_INCORRECT = "incorrect"
-REVIEW_STATUSES = (REVIEW_NONE, REVIEW_OPEN, REVIEW_CONFIRMED, REVIEW_INCORRECT)
 
 # file_format of a check whose BOM the Claude agent read (bom/agent_ingest.py)
 # because no deterministic parser recognised the file.
@@ -162,15 +161,18 @@ class BomCheck(db.Model):
             # A PDF layout we know, read with too little certainty to trust:
             # the score and the reasons, so the user sees why the agent ran.
             "pdf_certainty": local.get("score") if local.get("format") else None,
+            "pdf_kind": local.get("kind") or "pdf",
             "pdf_reasons": [r.get("text") for r in (local.get("reasons") or [])][:5],
         }
 
     def pdf_summary(self):
-        """Certainty of a PDF read by a local parser; None otherwise."""
+        """Certainty of a PDF, or of a spreadsheet read by column shape
+        (kind 'sheet'), by a local parser; None otherwise."""
         pdf = (self.ingest_meta or {}).get("pdf") if not self.is_agent_read else None
         if not pdf:
             return None
         return {"score": pdf.get("score"), "format": pdf.get("format"),
+                "kind": pdf.get("kind") or "pdf",
                 "reasons": [r.get("text") for r in (pdf.get("reasons") or [])][:5]}
 
     def to_dict(self, full=False):
@@ -206,6 +208,35 @@ class BomCheck(db.Model):
             d["result"] = self.result
             d["history"] = self.history or []
         return d
+
+
+def live_sizing(sizing, project_id):
+    """``sizing`` if it is still a live member of ``project_id``, else None.
+    A check or an agent job keeps a sizing id, but sizings get deleted and
+    moved between projects (projects.move_sizing) meanwhile, and a check must
+    never run against one that left the project it was uploaded to."""
+    if sizing is None or sizing.is_deleted or sizing.project_id != project_id:
+        return None
+    return sizing
+
+
+def store_check(*, project_id, user, name, filename, digest, file_format, bom,
+                meta, sizing, result):
+    """Create the BomCheck for a freshly read BOM with ``result`` from
+    bom.check.run_check applied, and add it to the session (flushed, not
+    committed — the caller commits). Used by the upload route for parsed
+    files and by the agent path for files the Claude agent read."""
+    check = BomCheck(
+        project_id=project_id, user_id=user.id, tenant_id=user.tenant_id,
+        name=name, filename=(filename or "")[:200], file_sha256=digest,
+        file_format=file_format, vendor=bom.vendor, normalized=bom.to_dict(),
+        ingest_meta=meta, history=[],
+    )
+    check.apply_result(result, sizing)
+    check.history = [check.history_entry()]
+    db.session.add(check)
+    db.session.flush()
+    return check
 
 
 class BomRejectedFile(db.Model):

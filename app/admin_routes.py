@@ -1,6 +1,5 @@
 """Admin blueprint – model CRUD + Excel import/export."""
 import io
-import tempfile
 import os
 
 from flask import Blueprint, render_template, jsonify, request, send_file, redirect, current_app
@@ -13,7 +12,10 @@ from orm_models import (
     ModelCpuOption, ModelNicOption, StorageConfigDrive,
 )
 from tunables import TUNABLE_DEFS, DEFAULTS as TUNABLE_DEFAULTS
-from xlsx_utils import sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
+from coerce import to_float, to_int
+from xlsx_utils import XLSX_MIME, sheet_rows as _sheet_rows, parse_quantity as _parse_quantity
+from request_utils import json_body, spooled_xlsx, UploadError
+import storage_layout
 from hcl_vendor import infer_vendor
 
 DRIVE_IOPS_TYPES = ["HDD", "SSD", "NVMe"]
@@ -72,20 +74,6 @@ def list_cpus():
     return jsonify(result)
 
 
-def _cpu_num(v):
-    try:
-        return float(v) if v is not None and v != "" else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _cpu_int(v):
-    try:
-        return int(v) if v is not None and v != "" else None
-    except (TypeError, ValueError):
-        return None
-
-
 def _apply_cpu_specs(cpu, data):
     """Set the optional generation/clock/core/benchmark columns from a
     create or update payload. Only touches keys actually present, so a partial
@@ -94,21 +82,56 @@ def _apply_cpu_specs(cpu, data):
         cpu.generation = (data["generation"] or None)
     for key in ("p_cores", "e_cores", "passmark_cpu_mark"):
         if key in data:
-            setattr(cpu, key, _cpu_int(data[key]))
+            setattr(cpu, key, to_int(data[key]))
     for key in ("base_ghz", "all_core_turbo_ghz", "max_turbo_ghz", "specrate_int"):
         if key in data:
-            setattr(cpu, key, _cpu_num(data[key]))
+            setattr(cpu, key, to_float(data[key]))
+
+
+def _dup_conflict(model, label, **unique):
+    """409 response when a catalog row with these unique columns already
+    exists, else None."""
+    if model.query.filter_by(**unique).first():
+        return jsonify({"error": f"{label} already exists"}), 409
+    return None
+
+
+def _catalog_delete(row, used_count, label, used_by="model(s)"):
+    """Delete a catalog row unless a model still references it (409)."""
+    if used_count:
+        return jsonify({"error": f"{label} is used by {used_count} {used_by}. "
+                                 "Remove it from those models first."}), 409
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({"message": f"{label} deleted"})
+
+
+def _numbers(data, **fields):
+    """({key: value}, None) for the numeric payload fields given as
+    key=(default, converter), or (None, 400 response) naming the first one
+    the client sent as something that is not a number. An absent key takes
+    its default (the row's current value on an update)."""
+    out = {}
+    for key, (default, conv) in fields.items():
+        val = conv(data.get(key, default))
+        if val is None:
+            return None, (jsonify({"error": f"Invalid {key}"}), 400)
+        out[key] = val
+    return out, None
 
 
 @admin_bp.route("/api/cpus", methods=["POST"])
 def create_cpu():
-    data = request.json
-    if not data or not data.get("desc"):
+    data = json_body()
+    if not data.get("desc"):
         return jsonify({"error": "Description is required"}), 400
-    if CpuCatalog.query.filter_by(description=data["desc"]).first():
-        return jsonify({"error": "CPU already exists"}), 409
-    cpu = CpuCatalog(description=data["desc"], cores=int(data.get("cores", 0)),
-                     threads=int(data.get("threads", 0)), ghz=float(data.get("ghz", 0)))
+    conflict = _dup_conflict(CpuCatalog, "CPU", description=data["desc"])
+    if conflict:
+        return conflict
+    nums, err = _numbers(data, cores=(0, to_int), threads=(0, to_int), ghz=(0, to_float))
+    if err:
+        return err
+    cpu = CpuCatalog(description=data["desc"], **nums)
     _apply_cpu_specs(cpu, data)
     db.session.add(cpu)
     db.session.commit()
@@ -118,14 +141,17 @@ def create_cpu():
 @admin_bp.route("/api/cpus/<int:cpu_id>", methods=["PUT"])
 def update_cpu(cpu_id):
     cpu = db.get_or_404(CpuCatalog, cpu_id)
-    data = request.json
+    data = json_body()
     if data.get("desc") and data["desc"] != cpu.description:
-        if CpuCatalog.query.filter_by(description=data["desc"]).first():
-            return jsonify({"error": "CPU already exists"}), 409
+        conflict = _dup_conflict(CpuCatalog, "CPU", description=data["desc"])
+        if conflict:
+            return conflict
+    nums, err = _numbers(data, cores=(cpu.cores, to_int), threads=(cpu.threads, to_int),
+                         ghz=(cpu.ghz, to_float))
+    if err:
+        return err
     cpu.description = data.get("desc", cpu.description)
-    cpu.cores = int(data.get("cores", cpu.cores))
-    cpu.threads = int(data.get("threads", cpu.threads))
-    cpu.ghz = float(data.get("ghz", cpu.ghz))
+    cpu.cores, cpu.threads, cpu.ghz = nums["cores"], nums["threads"], nums["ghz"]
     _apply_cpu_specs(cpu, data)
     db.session.commit()
     return jsonify({"id": cpu.id, **cpu.to_dict()})
@@ -135,11 +161,7 @@ def update_cpu(cpu_id):
 def delete_cpu(cpu_id):
     cpu = db.get_or_404(CpuCatalog, cpu_id)
     used = ModelCpuOption.query.filter_by(cpu_id=cpu.id).count()
-    if used:
-        return jsonify({"error": f"CPU is used by {used} model(s). Remove it from those models first."}), 409
-    db.session.delete(cpu)
-    db.session.commit()
-    return jsonify({"message": "CPU deleted"})
+    return _catalog_delete(cpu, used, "CPU")
 
 
 @admin_bp.route("/api/nics")
@@ -154,13 +176,16 @@ def list_nics():
 
 @admin_bp.route("/api/nics", methods=["POST"])
 def create_nic():
-    data = request.json
-    if not data or not data.get("desc"):
+    data = json_body()
+    if not data.get("desc"):
         return jsonify({"error": "Description is required"}), 400
-    if NicCatalog.query.filter_by(description=data["desc"]).first():
-        return jsonify({"error": "NIC already exists"}), 409
-    nic = NicCatalog(description=data["desc"], ports=int(data.get("ports", 0)),
-                     speed=data.get("speed", ""))
+    conflict = _dup_conflict(NicCatalog, "NIC", description=data["desc"])
+    if conflict:
+        return conflict
+    nums, err = _numbers(data, ports=(0, to_int))
+    if err:
+        return err
+    nic = NicCatalog(description=data["desc"], ports=nums["ports"], speed=data.get("speed", ""))
     db.session.add(nic)
     db.session.commit()
     return jsonify({"id": nic.id, **nic.to_dict()}), 201
@@ -169,12 +194,16 @@ def create_nic():
 @admin_bp.route("/api/nics/<int:nic_id>", methods=["PUT"])
 def update_nic(nic_id):
     nic = db.get_or_404(NicCatalog, nic_id)
-    data = request.json
+    data = json_body()
     if data.get("desc") and data["desc"] != nic.description:
-        if NicCatalog.query.filter_by(description=data["desc"]).first():
-            return jsonify({"error": "NIC already exists"}), 409
+        conflict = _dup_conflict(NicCatalog, "NIC", description=data["desc"])
+        if conflict:
+            return conflict
+    nums, err = _numbers(data, ports=(nic.ports, to_int))
+    if err:
+        return err
     nic.description = data.get("desc", nic.description)
-    nic.ports = int(data.get("ports", nic.ports))
+    nic.ports = nums["ports"]
     nic.speed = data.get("speed", nic.speed)
     db.session.commit()
     return jsonify({"id": nic.id, **nic.to_dict()})
@@ -184,11 +213,7 @@ def update_nic(nic_id):
 def delete_nic(nic_id):
     nic = db.get_or_404(NicCatalog, nic_id)
     used = ModelNicOption.query.filter_by(nic_id=nic.id).count()
-    if used:
-        return jsonify({"error": f"NIC is used by {used} model(s). Remove it from those models first."}), 409
-    db.session.delete(nic)
-    db.session.commit()
-    return jsonify({"message": "NIC deleted"})
+    return _catalog_delete(nic, used, "NIC")
 
 
 @admin_bp.route("/api/drives")
@@ -203,13 +228,14 @@ def list_drives():
 
 @admin_bp.route("/api/drives", methods=["POST"])
 def create_drive():
-    data = request.json
+    data = json_body()
     dtype = data.get("drive_type", "")
-    size = float(data.get("size_tb", 0))
-    if not dtype or size <= 0:
+    size = to_float(data.get("size_tb", 0))
+    if not dtype or size is None or size <= 0:
         return jsonify({"error": "Drive type and size are required"}), 400
-    if DriveCatalog.query.filter_by(drive_type=dtype, size_tb=size).first():
-        return jsonify({"error": "Drive already exists"}), 409
+    conflict = _dup_conflict(DriveCatalog, "Drive", drive_type=dtype, size_tb=size)
+    if conflict:
+        return conflict
     drive = DriveCatalog(drive_type=dtype, size_tb=size)
     db.session.add(drive)
     db.session.commit()
@@ -219,12 +245,16 @@ def create_drive():
 @admin_bp.route("/api/drives/<int:drive_id>", methods=["PUT"])
 def update_drive(drive_id):
     drive = db.get_or_404(DriveCatalog, drive_id)
-    data = request.json
+    data = json_body()
     new_type = data.get("drive_type", drive.drive_type)
-    new_size = float(data.get("size_tb", drive.size_tb))
-    if (new_type != drive.drive_type or new_size != drive.size_tb):
-        if DriveCatalog.query.filter_by(drive_type=new_type, size_tb=new_size).first():
-            return jsonify({"error": "Drive already exists"}), 409
+    nums, err = _numbers(data, size_tb=(drive.size_tb, to_float))
+    if err:
+        return err
+    new_size = nums["size_tb"]
+    if new_type != drive.drive_type or new_size != drive.size_tb:
+        conflict = _dup_conflict(DriveCatalog, "Drive", drive_type=new_type, size_tb=new_size)
+        if conflict:
+            return conflict
     drive.drive_type = new_type
     drive.size_tb = new_size
     db.session.commit()
@@ -235,11 +265,7 @@ def update_drive(drive_id):
 def delete_drive(drive_id):
     drive = db.get_or_404(DriveCatalog, drive_id)
     used = StorageConfigDrive.query.filter_by(drive_id=drive.id).count()
-    if used:
-        return jsonify({"error": f"Drive is used by {used} storage config(s). Remove it from those models first."}), 409
-    db.session.delete(drive)
-    db.session.commit()
-    return jsonify({"message": "Drive deleted"})
+    return _catalog_delete(drive, used, "Drive", used_by="storage config(s)")
 
 
 # ── Per-drive-type IOPS (configurable) ───────────────────────────────────────
@@ -253,7 +279,7 @@ def list_drive_iops():
 
 @admin_bp.route("/api/drive-iops", methods=["PUT"])
 def update_drive_iops():
-    data = request.json or {}
+    data = json_body()
     # Accept either {"HDD": n, ...} or [{"drive_type": "HDD", "iops": n}, ...].
     if isinstance(data, list):
         data = {d.get("drive_type"): d.get("iops") for d in data}
@@ -297,7 +323,7 @@ def get_sizing_config():
 
 @admin_bp.route("/api/sizing-config", methods=["PUT"])
 def update_sizing_config():
-    data = request.json or {}
+    data = json_body()
     # (key, parser/validator) — each returns the stored float or raises ValueError.
     def frac(v):
         f = float(v)
@@ -385,7 +411,7 @@ def get_tunables():
 
 @admin_bp.route("/api/tunables", methods=["PUT"])
 def update_tunables():
-    data = request.json or {}
+    data = json_body()
     updates = {}
     for key, raw in data.items():
         d = _TUNABLE_BY_KEY.get(key)
@@ -464,13 +490,13 @@ def get_model(model_id):
 
 @admin_bp.route("/api/models", methods=["POST"])
 def create_model():
-    data = request.json
-    if not data or not data.get("name"):
+    data = json_body()
+    if not data.get("name"):
         return jsonify({"error": "Model name is required"}), 400
 
     if Model.query.filter_by(name=data["name"]).first():
         return jsonify({"error": f"Model '{data['name']}' already exists"}), 409
-    error = _vendor_error(data)
+    error = _vendor_error(data) or _storage_error(data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -485,12 +511,12 @@ def create_model():
 @admin_bp.route("/api/models/<int:model_id>", methods=["PUT"])
 def update_model(model_id):
     model = db.get_or_404(Model, model_id)
-    data = request.json
+    data = json_body()
 
     if data.get("name") and data["name"] != model.name:
         if Model.query.filter_by(name=data["name"]).first():
             return jsonify({"error": f"Model '{data['name']}' already exists"}), 409
-    error = _vendor_error(data, model)
+    error = _vendor_error(data, model) or _storage_error(data)
     if error:
         return jsonify({"error": error}), 400
 
@@ -701,65 +727,30 @@ def export_models():
     wb.save(buf)
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="SC_Catalog_Backup.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument."
-                              "spreadsheetml.sheet")
+                     mimetype=XLSX_MIME)
 
-
-
-# ── Import from Excel ────────────────────────────────────────────────────────
-
-@admin_bp.route("/api/import-models", methods=["POST"])
-def import_models():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    f = request.files["file"]
-    if not f.filename or not f.filename.endswith(".xlsx"):
-        return jsonify({"error": "File must be .xlsx"}), 400
-
-    mode = request.form.get("mode", "add")
-
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-    try:
-        f.save(tmp.name)
-        tmp.close()
-        result = _import_from_excel(tmp.name, mode)
-        return jsonify(result)
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.exception("Model import failed: %s", e)
-        return jsonify({"error": "Import failed. Check the file matches the template format."}), 400
-    finally:
-        os.unlink(tmp.name)
 
 
 # ── Catalog import (CPUs / NICs / Drives in one file) ───────────────────────
 
 @admin_bp.route("/api/import-catalog", methods=["POST"])
 def import_catalog():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
-    f = request.files["file"]
-    if not f.filename or not f.filename.endswith(".xlsx"):
-        return jsonify({"error": "File must be .xlsx"}), 400
-
     # "add" (default) never changes an existing row; "replace" makes the file
     # authoritative, which is what restoring a backup has to mean.
     mode = request.form.get("mode", "add")
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     try:
-        f.save(tmp.name)
-        tmp.close()
-        result = _import_catalog_from_excel(tmp.name, mode)
-        return jsonify(result)
+        with spooled_xlsx(request) as path:
+            return jsonify(_import_catalog_from_excel(path, mode))
+    except UploadError as exc:
+        return jsonify({"error": str(exc)}), exc.status
+    except storage_layout.StorageLayoutError as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Import refused: {exc}"}), 400
     except Exception as e:
         db.session.rollback()
         current_app.logger.exception("Catalog import failed: %s", e)
         return jsonify({"error": "Import failed. Check the file matches the template format."}), 400
-    finally:
-        os.unlink(tmp.name)
 
 
 def _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows):
@@ -831,9 +822,9 @@ def _cpu_fields_from_row(r):
         if attr in _CPU_STR_COLUMNS:
             v = str(v).strip() if v not in (None, "") else None
         elif attr in _CPU_INT_COLUMNS:
-            v = _cpu_int(v)
+            v = to_int(v)
         else:
-            v = _cpu_num(v)
+            v = to_float(v)
         out[attr] = v
     return out
 
@@ -1006,9 +997,13 @@ def _import_catalog_from_excel(file_path, mode="add"):
                 "notes": str(r.get("Notes", "") or "").strip() or None,
                 "cpu_options": cpus_by_model.get(name, []),
                 "ram_options_gb": ram_by_model.get(name, []),
-                "storage": storage_data,
                 "nic_options": nics_by_model.get(name, []),
             }
+            # A model the workbook gives no storage row or drives for keeps
+            # no storage config, rather than a made-up one without the drive
+            # count the engine needs (storage_layout).
+            if storage_data:
+                model_data["storage"] = storage_data
             if existing:
                 db.session.delete(existing)
                 db.session.flush()
@@ -1026,7 +1021,7 @@ def _import_catalog_from_excel(file_path, mode="add"):
     iops_set = 0
     for r in iops_rows:
         dtype = str(r.get("Drive Type", "")).strip()
-        val = _cpu_int(r.get("IOPS"))
+        val = to_int(r.get("IOPS"))
         if not dtype or val is None:
             continue
         row = DriveTypeIops.query.filter_by(drive_type=dtype).first()
@@ -1042,7 +1037,7 @@ def _import_catalog_from_excel(file_path, mode="add"):
     settings_set = 0
     for r in setting_rows:
         key = str(r.get("Key", "")).strip()
-        val = _cpu_num(r.get("Value"))
+        val = to_float(r.get("Value"))
         if not key or val is None:
             continue
         row = SizingSetting.query.filter_by(key=key).first()
@@ -1190,7 +1185,7 @@ def catalog_template():
     wb.save(buf)
     buf.seek(0)
     return send_file(buf, as_attachment=True, download_name="SC_Import_Template.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                     mimetype=XLSX_MIME)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1298,10 +1293,34 @@ def _build_model(data):
     return model
 
 
+def _storage_error(data):
+    """Why the payload's storage block can't be stored, or None. A drive
+    count the storage type needs (drives_per_node, hdd_count, ...) is
+    required: the calculator and the engine refuse a model without one."""
+    storage = data.get("storage")
+    if storage is None:
+        return None
+    if not isinstance(storage, dict):
+        return "Invalid storage"
+    try:
+        storage_layout.drive_slots(_with_storage_type(storage))
+    except storage_layout.StorageLayoutError as exc:
+        return str(exc)
+    return None
+
+
+def _with_storage_type(storage):
+    """The storage block with the type a missing one is stored as."""
+    return dict(storage, type=storage.get("type", "nvme_only"))
+
+
 def _add_storage(model, storage):
+    storage = _with_storage_type(storage)
+    # Refuse a catalog entry the sizing engine could not use.
+    storage_layout.drive_slots(storage)
     sc = StorageConfig(
         model_id=model.id,
-        storage_type=storage.get("type", "nvme_only"),
+        storage_type=storage["type"],
         hdd_count=storage.get("hdd_count"),
         ssd_count=storage.get("ssd_count"),
         nvme_count=storage.get("nvme_count"),
@@ -1322,91 +1341,6 @@ def _add_storage(model, storage):
             db.session.add(StorageConfigDrive(
                 storage_config_id=sc.id, drive_id=drive.id,
             ))
-
-
-def _import_from_excel(file_path, mode):
-    from openpyxl import load_workbook
-    wb = load_workbook(file_path, read_only=True, data_only=True)
-
-    model_rows = _sheet_rows(wb, "Models")
-    cpu_rows = _sheet_rows(wb, "CPU Options")
-    ram_rows = _sheet_rows(wb, "RAM Options")
-    stor_rows = _sheet_rows(wb, "Storage")
-    drv_rows = _sheet_rows(wb, "Drive Options")
-    nic_rows = _sheet_rows(wb, "NIC Options")
-    wb.close()
-
-    if not model_rows:
-        return {"error": "No models found in the 'Models' sheet"}
-
-    cpus_by_model, ram_by_model, stor_by_model, drives_by_model, nics_by_model = \
-        _model_option_maps(cpu_rows, ram_rows, stor_rows, drv_rows, nic_rows)
-
-    created = 0
-    updated = 0
-    skipped = []
-
-    for r in model_rows:
-        name = str(r.get("Name", "")).strip()
-        if not name:
-            continue
-
-        existing = Model.query.filter_by(name=name).first()
-
-        if existing and mode == "add":
-            skipped.append(name)
-            continue
-
-        storage_data = stor_by_model.get(name, {})
-        drives = drives_by_model.get(name, [])
-        for drv in drives:
-            key = f"{drv['type'].lower()}_options_tb"
-            storage_data.setdefault(key, []).append(drv["size_tb"])
-
-        model_data = {
-            "name": name,
-            "status": str(r.get("Status", "Active")).strip(),
-            "category": str(r.get("Category", "")).strip(),
-            "form_factor": str(r.get("Form Factor", "") or "").strip() or None,
-            "chassis": str(r.get("Chassis", "") or "").strip() or None,
-            "socket": str(r.get("Socket", "single") or "single").strip(),
-            "psu": str(r.get("PSU", "") or "").strip() or None,
-            "ram_slots": int(r.get("RAM Slots", 0) or 0),
-            "min_nodes": int(r.get("Min Nodes", 1) or 1),
-            # Both are written by export_models(); reading them back was missed,
-            # so every imported model silently fell back to cost_tier 5.0 and
-            # validated_only False — and cost_tier feeds the ranker.
-            "cost_tier": float(r["Cost"]) if r.get("Cost") not in (None, "") else 5.0,
-            "validated_only": str(r.get("Validated Only", "")).strip().lower()
-                              in ("yes", "true", "1"),
-            "vendor": _clean_vendor(r.get("Vendor")),
-            "exclude_from_recommendations": str(
-                r.get("Exclude From Recommendations", "")).strip().lower()
-                in ("yes", "true", "1"),
-            "notes": str(r.get("Notes", "") or "").strip() or None,
-            "cpu_options": cpus_by_model.get(name, []),
-            "ram_options_gb": ram_by_model.get(name, []),
-            "storage": storage_data,
-            "nic_options": nics_by_model.get(name, []),
-        }
-
-        if existing and mode == "replace":
-            db.session.delete(existing)
-            db.session.flush()
-            _build_model(model_data)
-            updated += 1
-        else:
-            _build_model(model_data)
-            created += 1
-
-    db.session.commit()
-
-    return {
-        "created": created,
-        "updated": updated,
-        "skipped": skipped,
-        "total_in_file": len(model_rows),
-    }
 
 
 # ── Licence pricebook (§4.4: upload -> diff -> apply, all over HTTP) ─────────
@@ -1443,67 +1377,62 @@ def import_pricebook():
     region's current feed, and write NOTHING until the same file is re-posted
     with apply=1. A silent install of a mis-parsed list would move real
     proposals with nobody noticing."""
-    import licensing
     import pricebook_import
-
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    f = request.files["file"]
-    if not f.filename or not f.filename.endswith(".xlsx"):
-        return jsonify({"error": "File must be .xlsx"}), 400
-    head = f.stream.read(4)
-    f.stream.seek(0)
-    if head != b"PK\x03\x04":
-        return jsonify({"error": "File must be .xlsx"}), 400
 
     region = (request.form.get("region") or pricebook_import.DEFAULT_REGION).strip().upper()[:16]
     label = (request.form.get("label") or "").strip()[:200]
     apply_it = request.form.get("apply") == "1"
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     try:
-        f.save(tmp.name)
-        tmp.close()
-        try:
-            parsed = pricebook_import.parse_pricebook(tmp.name)
-        except pricebook_import.PricebookFormatError as exc:
-            # The early warning that the export format moved. Refuse loudly.
-            return jsonify({"error": str(exc)}), 400
+        with spooled_xlsx(request) as path:
+            return _import_pricebook_file(path, request.files["file"].filename,
+                                          region, label, apply_it)
+    except UploadError as exc:
+        return jsonify({"error": str(exc)}), exc.status
 
-        editions = sorted({b["edition"] for b in parsed["bands"]})
-        summary = {
-            "counts": parsed["counts"],
-            "currency": parsed["currency"],
-            "unmatched": parsed["unmatched"][:20],
-            "new_editions": [e for e in editions
-                             if e not in licensing.EDITION_NAMES],
-            "region": region,
-        }
 
-        if not apply_it:
-            summary["applied"] = False
-            summary["diff"] = pricebook_import.diff_feed(parsed, region)
-            return jsonify(summary)
+def _import_pricebook_file(path, file_name, region, label, apply_it):
+    import licensing
+    import pricebook_import
 
-        from auth import audit
-        user = current_user()
-        feed, installed = pricebook_import.seed_feed_from_file(
-            tmp.name, region=region,
-            label=label or os.path.splitext(f.filename)[0],
-            uploaded_by=user.id if user else None,
-            source_filename=f.filename)
-        already_current = installed is None
-        if not already_current:
-            audit("pricebook_import",
-                  f"feed #{feed.id} {feed.region} '{feed.label}' from "
-                  f"{f.filename}: {summary['counts']['banded']} bands, "
-                  f"{summary['counts']['flat']} flat, "
-                  f"{summary['counts']['unmatched']} unmatched")
-            db.session.commit()
-        summary["applied"] = not already_current
-        summary["already_current"] = already_current
-        summary["feed"] = {"id": feed.id, "region": feed.region,
-                           "label": feed.label, "currency": feed.currency}
+    try:
+        parsed = pricebook_import.parse_pricebook(path)
+    except pricebook_import.PricebookFormatError as exc:
+        # The early warning that the export format moved. Refuse loudly.
+        return jsonify({"error": str(exc)}), 400
+
+    editions = sorted({b["edition"] for b in parsed["bands"]})
+    summary = {
+        "counts": parsed["counts"],
+        "currency": parsed["currency"],
+        "unmatched": parsed["unmatched"][:20],
+        "new_editions": [e for e in editions
+                         if e not in licensing.EDITION_NAMES],
+        "region": region,
+    }
+
+    if not apply_it:
+        summary["applied"] = False
+        summary["diff"] = pricebook_import.diff_feed(parsed, region)
         return jsonify(summary)
-    finally:
-        os.unlink(tmp.name)
+
+    from auth import audit
+    user = current_user()
+    feed, installed = pricebook_import.seed_feed_from_file(
+        path, region=region,
+        label=label or os.path.splitext(file_name)[0],
+        uploaded_by=user.id if user else None,
+        source_filename=file_name)
+    already_current = installed is None
+    if not already_current:
+        audit("pricebook_import",
+              f"feed #{feed.id} {feed.region} '{feed.label}' from "
+              f"{file_name}: {summary['counts']['banded']} bands, "
+              f"{summary['counts']['flat']} flat, "
+              f"{summary['counts']['unmatched']} unmatched")
+        db.session.commit()
+    summary["applied"] = not already_current
+    summary["already_current"] = already_current
+    summary["feed"] = {"id": feed.id, "region": feed.region,
+                       "label": feed.label, "currency": feed.currency}
+    return jsonify(summary)

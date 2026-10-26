@@ -7,9 +7,10 @@ recommendation's node count into physical appliance clusters. Here "cluster"
 means the source-side vSphere cluster (e.g. "Print", "Prosess").
 
 The public entry point is `cluster_summaries(data, build_summary)`: it groups the
-data by source cluster and runs the caller's own `_build_summary` on each group,
-returning one summary per cluster (or `[]` when the dataset is a single cluster,
-in which case the aggregate summary already covers it).
+data by source cluster and runs the summary builder the caller passes (every
+importer hands it `parser_common.build_summary`) on each group, returning one
+summary per cluster (or `[]` when the dataset is a single cluster, in which case
+the aggregate summary already covers it).
 """
 
 UNCLUSTERED = "(unclustered)"

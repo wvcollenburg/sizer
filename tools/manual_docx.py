@@ -25,9 +25,7 @@ import io
 import os
 import re
 import shutil
-import subprocess
 import sys
-import tempfile
 from datetime import date
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -60,7 +58,6 @@ EDITIONS = {
 WHITE = RGBColor(*_p.rgb(_p.WHITE))
 CALLOUT_FILL = {"manual-tip": _p.SURFACE_3, "manual-warn": _p.SURFACE_3, "manual-staff": _p.SURFACE_3}
 CALLOUT_BAR = {"manual-tip": "166534", "manual-warn": "B7791F", "manual-staff": _p.SC_DARK_NAVY}
-TOC_MARK = "{{p}}"
 
 
 # ── the source ─────────────────────────────────────────────────────────────
@@ -323,10 +320,7 @@ class Writer:
         scale = self.width / sum(weights)
         ex._fixed_layout(t, [w * scale for w in weights])
         # header row repeats on every page a long table runs over
-        trPr = t.rows[0]._tr.get_or_add_trPr()
-        trPr.append(OxmlElement("w:tblHeader"))
-        for row in t.rows:
-            row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
+        ex._no_split_rows(t, repeat_header=True)
         ex._pin_heading_to_table(t)
         self._space(4)
 
@@ -348,7 +342,7 @@ class Writer:
         for run in p.runs:
             run.font.size = Pt(9.5)
         ex._fixed_layout(t, [self.width])
-        t.rows[0]._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
+        ex._no_split_rows(t, repeat_header=False)
         self._space(4)
 
     def list(self, lst, depth=0):
@@ -410,7 +404,7 @@ class Writer:
         h2 = sec.find("h2")
         title = re.sub(r"\s+", " ", h2.text or "").strip()   # without the Staff tag
         self.page_break()
-        h = self.doc.add_heading(title, level=1)
+        self.doc.add_heading(title, level=1)
         self.chapters.append(title)
         self.blocks([ch for ch in sec if ch is not h2])
 
@@ -491,21 +485,19 @@ def _restore_list_indents(doc):
 
 # ── PDF ────────────────────────────────────────────────────────────────────
 
+def _brand_fonts(home):
+    """A private HOME whose ~/.fonts holds the brand fonts, for this run only."""
+    shutil.copytree(FONTS, os.path.join(home, ".fonts"))
+
+
 def to_pdf(docx_bytes):
-    soffice = shutil.which("soffice") or shutil.which("libreoffice")
-    if not soffice:
+    if not ex._soffice_bin():
         raise SystemExit("LibreOffice (soffice) not found — run this where it is installed")
-    with tempfile.TemporaryDirectory() as d:
-        # a private HOME whose ~/.fonts holds the brand fonts, for this run only
-        shutil.copytree(FONTS, os.path.join(d, ".fonts"))
-        src = os.path.join(d, "manual.docx")
-        with open(src, "wb") as fh:
-            fh.write(docx_bytes)
-        subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", d, src],
-                       check=True, timeout=300, stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL, env={**os.environ, "HOME": d})
-        with open(os.path.join(d, "manual.pdf"), "rb") as fh:
-            return fh.read()
+    pdf = ex._soffice_convert(docx_bytes, "docx", timeout=300, prepare_home=_brand_fonts)
+    if pdf is None:
+        raise RuntimeError("LibreOffice did not convert the manual to PDF (failed, timed out, "
+                           "or wrote no output)")
+    return pdf
 
 
 def chapter_pages(pdf_bytes, titles):

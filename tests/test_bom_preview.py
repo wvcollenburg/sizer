@@ -1045,3 +1045,37 @@ def test_withdrawing_twice_is_harmless(app):
     assert admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid).status_code == 200
     r = admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid)
     assert r.status_code == 200 and r.get_json().get("already") is True
+
+
+def test_a_withdrawn_preview_part_is_never_matched_as_delisted(app):
+    """A delisted PREVIEW part was never on the HCL, so neither the checker
+    (enrich.load_delisted) nor the accept surface may treat it as one the
+    HCL removed: it must not be offered for relisting."""
+    import bom_models
+    from bom import enrich
+    partner, admin, check = _accepted(app)
+    with app.app_context():
+        cid = hm.HclComponent.query.filter_by(part_number=NIC_PART).one().id
+    assert admin.post("/admin/api/hcl/preview/component/%d/withdraw" % cid).status_code == 200
+
+    nic_line = [c for c in _bom().configs[0].components if c.category == "nic"][0]
+    with app.app_context():
+        comp = db.session.get(hm.HclComponent, cid)
+        assert comp.status == hm.STATUS_DELISTED and comp.origin == hm.ORIGIN_PREVIEW
+        assert enrich.find_delisted(nic_line) is None
+
+        # the accept surface follows the same lookup: a stored result that
+        # carries a component_delisted finding for the line offers nothing
+        row = db.session.get(bom_models.BomCheck, check["id"])
+        result = copy.deepcopy(row.result)
+        cr = result["technical"]["config_results"][0]
+        cr["findings"] = [{"code": enrich.CODE_DELISTED, "component": NIC_DESC}]
+        row.result = result
+        db.session.commit()
+        assert NIC_KEY not in [c["key"] for c in preview.candidates_for(row)["candidates"]]
+
+        # a part the HCL really dropped (scrape origin) is still found
+        comp.origin = hm.ORIGIN_SCRAPE
+        db.session.commit()
+        assert enrich.find_delisted(nic_line).id == cid
+        assert NIC_KEY in [c["key"] for c in preview.candidates_for(row)["candidates"]]

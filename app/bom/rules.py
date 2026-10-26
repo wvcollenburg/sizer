@@ -34,19 +34,11 @@ from bom.normalize import (
     BOMConfig,
     ConfigResult,
     Finding,
-    NormalizedBOM,
-    ValidationResult,
+    _pick,
     normalize_part,
 )
 
 # ─── HCL shapes (mirror hcl.ts) ──────────────────────────────────────────────
-
-
-def _pick(d: Dict[str, Any], *keys: str, default: Any = None) -> Any:
-    for k in keys:
-        if k in d:
-            return d[k]
-    return default
 
 
 @dataclass
@@ -776,24 +768,14 @@ def determine_verdict(findings: List[Finding]) -> str:
     return 'PASS'
 
 
-# ─── main entry point ─────────────────────────────────────────────────────────
-
-
-def validate_bom(bom: NormalizedBOM, hcl: HclData,
-                 form_factor: Optional[str] = None) -> ValidationResult:
-    """Validate every hardware-bearing config; a BOM with none (services-only
-    quote, or a parser that found nothing) is INCONCLUSIVE, never PASS."""
-    config_results = [
-        validate_config(config, bom.vendor, hcl, form_factor=form_factor)
-        for config in bom.configs if is_hardware_config(config)
-    ]
-
-    verdict = 'PASS'
-    if len(config_results) == 0:
-        verdict = 'INCONCLUSIVE'
-    elif any(r.verdict == 'FAIL' for r in config_results):
-        verdict = 'FAIL'
-    elif any(r.verdict == 'INCONCLUSIVE' for r in config_results):
-        verdict = 'INCONCLUSIVE'
-
-    return ValidationResult(verdict=verdict, config_results=config_results)
+def rollup_verdict(config_results: List[ConfigResult]) -> str:
+    """The BOM's verdict from its configs' own: FAIL if any failed, else
+    INCONCLUSIVE if any was (or there was no hardware config to judge),
+    else PASS."""
+    if not config_results:
+        return 'INCONCLUSIVE'
+    if any(r.verdict == 'FAIL' for r in config_results):
+        return 'FAIL'
+    if any(r.verdict == 'INCONCLUSIVE' for r in config_results):
+        return 'INCONCLUSIVE'
+    return 'PASS'

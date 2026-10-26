@@ -12,11 +12,13 @@ make sense inside a project (move, duplicate, role, notes, tags). Sizing
 save/load itself stays in auth.py's configs blueprint.
 """
 from flask import Blueprint, jsonify, request
+from request_utils import json_body
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import defer
 
-from auth import current_user, login_required
-from auth_models import Configuration, ScaleConfigLink, _utcnow
+from auth import _config_source_for, current_user, login_required
+from auth_models import Configuration, _utcnow
+from coerce import to_float, to_int
 from database import db
 import export_override
 from hcl_vendor import rec_display_model
@@ -26,6 +28,8 @@ from project_models import (
     ScaleProjectLink, SIZING_ROLES, dedupe_sizing_name, ensure_scratch_project,
     new_code, valid_salesforce_url,
 )
+from visibility import resolve_by_code, source_for
+from xlsx_utils import XLSX_MIME
 
 projects_bp = Blueprint("projects", __name__, url_prefix="/api/projects")
 
@@ -44,26 +48,9 @@ EDITABLE_FIELDS = {
 # ── visibility ───────────────────────────────────────────────────────────────
 
 def _project_source_for(user, project):
-    """Why (if at all) ``user`` can see ``project``. Mirrors auth._config_source_for."""
-    if project is None:
-        return None
-    if project.is_deleted and not user.is_super_admin:
-        return None
-    if user.is_super_admin:
-        return "owned" if project.owner_id == user.id else "tenant"
-    if project.owner_id == user.id:
-        return "owned"
-    if user.is_scale:
-        if project.tenant and project.tenant.is_scale:
-            return "scale"
-        link = ScaleProjectLink.query.filter_by(
-            user_id=user.id, project_id=project.id).first()
-        if link and not (project.tenant and project.tenant.is_blocked):
-            return "linked"
-        return None
-    if project.tenant_id == user.tenant_id:
-        return "tenant"
-    return None
+    """Why (if at all) ``user`` can see ``project``. Same rules as a sizing
+    (auth._config_source_for), through a project link."""
+    return source_for(user, project, ScaleProjectLink, "project_id")
 
 
 def _visible_project(project_id, user):
@@ -184,7 +171,7 @@ def create_project():
     is filled in later from project settings, so a partner is never required to
     hand over customer information to use the tool."""
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"error": "A project name is required"}), 400
@@ -283,7 +270,7 @@ def update_project(project_id):
     if err:
         return err
 
-    data = request.json or {}
+    data = json_body()
     if "name" in data:
         name = (data.get("name") or "").strip()
         if not name:
@@ -371,29 +358,11 @@ def get_project_by_code(code):
     (and super-admin) privilege, as it is for single sizings."""
     user = current_user()
     project = Project.query.filter_by(code=(code or "").strip()).first()
-    if project is None or (project.is_deleted and not user.is_super_admin):
+    source = resolve_by_code(user, project, ScaleProjectLink, "project_id")
+    if source is None:
         return jsonify({"error": "No project found for that code"}), 404
-
-    already = _project_source_for(user, project)
-    if already is not None:
-        return jsonify(project.to_summary(
-            user, already, sizing_count=_sizing_count(project.id)))
-
-    if user.is_super_admin:
-        return jsonify(project.to_summary(
-            user, "tenant", sizing_count=_sizing_count(project.id)))
-
-    if user.is_scale:
-        if project.tenant and project.tenant.is_blocked:
-            return jsonify({"error": "No project found for that code"}), 404
-        if not ScaleProjectLink.query.filter_by(
-                user_id=user.id, project_id=project.id).first():
-            db.session.add(ScaleProjectLink(user_id=user.id, project_id=project.id))
-            db.session.commit()
-        return jsonify(project.to_summary(
-            user, "linked", sizing_count=_sizing_count(project.id)))
-
-    return jsonify({"error": "No project found for that code"}), 404
+    return jsonify(project.to_summary(
+        user, source, sizing_count=_sizing_count(project.id)))
 
 
 @projects_bp.route("/<int:project_id>/source-check", methods=["POST"])
@@ -410,7 +379,7 @@ def check_source_duplicate(project_id):
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 
-    digest = ((request.json or {}).get("file_sha256") or "").strip()
+    digest = (json_body().get("file_sha256") or "").strip()
     if not digest:
         return jsonify({"duplicate": False})
 
@@ -446,17 +415,30 @@ def get_or_create_scratch():
 sizings_bp = Blueprint("sizings", __name__, url_prefix="/api/sizings")
 
 
-def _writable_sizing(config_id, user):
-    """(sizing, None) when the user may modify it, else (None, error response)."""
+def _writable_sizing(config_id, user, not_found="Sizing not found",
+                     not_owner="This sizing belongs to someone else. Duplicate "
+                               "it into your own project to make changes."):
+    """(sizing, None) when the user may modify it, else (None, error response).
+    The configs blueprint (auth.update_config) passes its own wording."""
     sizing = db.session.get(Configuration, config_id)
     if sizing is None or sizing.is_deleted:
-        return None, (jsonify({"error": "Sizing not found"}), 404)
+        return None, (jsonify({"error": not_found}), 404)
     if sizing.owner_id != user.id and not user.is_super_admin:
-        return None, (jsonify({
-            "error": "This sizing belongs to someone else. Duplicate it into "
-                     "your own project to make changes."
-        }), 403)
+        return None, (jsonify({"error": not_owner}), 403)
     return sizing, None
+
+
+def _readable_sizing(config_id, user):
+    """(sizing, source, None) when the user may see it, else (None, None,
+    error response). A deleted sizing is "not found" for everyone, super
+    admin included — the trash is reached through the configs blueprint."""
+    sizing = db.session.get(Configuration, config_id)
+    source = None
+    if sizing is not None and not sizing.is_deleted:
+        source = _config_source_for(user, sizing)
+    if source is None:
+        return None, None, (jsonify({"error": "Sizing not found"}), 404)
+    return sizing, source, None
 
 
 _SOURCE_META_KEYS = ("file_name", "file_type", "file_sha256", "imported_at",
@@ -474,7 +456,7 @@ def add_sizing_sources(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    files = (request.json or {}).get("files")
+    files = json_body().get("files")
     if not isinstance(files, list) or not files or len(files) > 50:
         return jsonify({"error": "files must be a list of 1 to 50 entries"}), 400
     clean = []
@@ -513,15 +495,11 @@ def duplicate_sizing(config_id):
     not (the copy is a new sizing).
     """
     user = current_user()
-    source = db.session.get(Configuration, config_id)
-    if source is None or source.is_deleted:
-        return jsonify({"error": "Sizing not found"}), 404
+    source, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
 
-    from auth import _config_source_for
-    if _config_source_for(user, source) is None:
-        return jsonify({"error": "Sizing not found"}), 404
-
-    data = request.json or {}
+    data = json_body()
     target_id = data.get("project_id")
     if target_id and source.owner_id == user.id:
         target, err = _owned_project_or_error(target_id, user)
@@ -577,16 +555,15 @@ def store_sizing_result(config_id):
     payload, name, tags or role — and the server derives the fingerprint
     itself rather than trusting one from the client.
     """
-    from auth import _config_source_for
     from fingerprint import (PARSER_VERSION, fingerprint_snapshot,
                              inbound_replication_digest)
 
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
 
-    data = request.json or {}
+    data = json_body()
     clusters = data.get("clusters")
     if not isinstance(clusters, list) or not clusters:
         return jsonify({"error": "A result must carry at least one cluster"}), 400
@@ -630,7 +607,7 @@ def move_sizing(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    target, err = _owned_project_or_error((request.json or {}).get("project_id"), user)
+    target, err = _owned_project_or_error(json_body().get("project_id"), user)
     if err:
         return err
 
@@ -882,7 +859,7 @@ def compare_sizings(project_id):
     project, source = _visible_project(project_id, user)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
-    payload, err = _compare_payload(project, request.json or {})
+    payload, err = _compare_payload(project, json_body())
     if err:
         return err
     return jsonify(payload)
@@ -919,7 +896,7 @@ def compare_sizings_xlsx(project_id):
     project, source = _visible_project(project_id, user)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
-    payload, err = _compare_payload(project, request.json or {})
+    payload, err = _compare_payload(project, json_body())
     if err:
         return err
     rows = payload["rows"]
@@ -976,8 +953,7 @@ def compare_sizings_xlsx(project_id):
     return send_file(
         buf, as_attachment=True,
         download_name=f"{project.name} - comparison.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument"
-                 ".spreadsheetml.sheet")
+        mimetype=XLSX_MIME)
 
 
 # ── replication partners (§8.5) ──────────────────────────────────────────────
@@ -986,11 +962,7 @@ REPLICATION_MODES = ("reserved", "failover")
 
 
 def _pct(value, default=100):
-    try:
-        number = int(value)
-    except (TypeError, ValueError):
-        return default
-    return max(0, min(100, number))
+    return to_int(value, default, lo=0, hi=100)
 
 
 @sizings_bp.route("/<int:config_id>/replication", methods=["POST"])
@@ -1009,7 +981,7 @@ def set_replication_link(config_id):
     if err:
         return err
 
-    data = request.json or {}
+    data = json_body()
     target_id = data.get("target_configuration_id")
     target = db.session.get(Configuration, target_id) if target_id else None
     if target is None or target.is_deleted:
@@ -1075,7 +1047,7 @@ def create_dr_target(project_id):
     if err:
         return err
 
-    name = ((request.json or {}).get("name") or "DR target").strip()[:200]
+    name = (json_body().get("name") or "DR target").strip()[:200]
     position = Configuration.query.filter_by(
         project_id=project.id, is_deleted=False).count()
 
@@ -1129,12 +1101,9 @@ def inbound_reserve(config_id):
     replication target's own recommendation accounts for — and displays — the
     inbound reserve, rather than only its own workload."""
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted:
-        return jsonify({"error": "Sizing not found"}), 404
-    from auth import _config_source_for
-    if _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
 
     reserve, sources, size_full_cluster = _dr_inbound_reserve(sizing)
     grown = reserve["grown"]
@@ -1397,25 +1366,18 @@ _NO_GROWTH = {"years": 1, "growth_pct": 0.0, "storage_growth_pct": 0.0,
               "snapshot_pct": 0.0}
 
 
-def _num_or(v, default):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return default
-
-
 def _growth_from_projection(projection):
     """A source's growth options as its stored result was sized with, or None."""
     p = projection or {}
     if p.get("years") is None or p.get("growth_pct") is None:
         return None
-    g = _num_or(p.get("growth_pct"), _DEFAULT_GROWTH["growth_pct"])
+    g = to_float(p.get("growth_pct"), _DEFAULT_GROWTH["growth_pct"])
     return {
-        "years": int(_num_or(p.get("years"), 5)),
+        "years": int(to_float(p.get("years"), 5)),
         "growth_pct": g,
         # Projections stored before separate storage growth carry one rate.
-        "storage_growth_pct": _num_or(p.get("storage_growth_pct"), g),
-        "snapshot_pct": _num_or(p.get("snapshot_pct"), _DEFAULT_GROWTH["snapshot_pct"]),
+        "storage_growth_pct": to_float(p.get("storage_growth_pct"), g),
+        "snapshot_pct": to_float(p.get("snapshot_pct"), _DEFAULT_GROWTH["snapshot_pct"]),
     }
 
 
@@ -1424,14 +1386,14 @@ def _growth_from_payload(payload):
     to the engine defaults (5 y / 10 % / storage = compute / 20 %)."""
     f = (payload or {}).get("fields") if isinstance(payload, dict) else None
     f = f if isinstance(f, dict) else {}
-    g = _num_or(f.get("growth-pct"), _DEFAULT_GROWTH["growth_pct"])
+    g = to_float(f.get("growth-pct"), _DEFAULT_GROWTH["growth_pct"])
     sep = f.get("separate-storage-growth")
     sep = sep is True or str(sep).lower() == "true"
     return {
-        "years": int(_num_or(f.get("growth-years"), _DEFAULT_GROWTH["years"])),
+        "years": int(to_float(f.get("growth-years"), _DEFAULT_GROWTH["years"])),
         "growth_pct": g,
-        "storage_growth_pct": (_num_or(f.get("storage-growth-pct"), g) if sep else g),
-        "snapshot_pct": _num_or(f.get("snapshot-pct"), _DEFAULT_GROWTH["snapshot_pct"]),
+        "storage_growth_pct": (to_float(f.get("storage-growth-pct"), g) if sep else g),
+        "snapshot_pct": to_float(f.get("snapshot-pct"), _DEFAULT_GROWTH["snapshot_pct"]),
     }
 
 
@@ -1604,13 +1566,13 @@ def dr_recommend(config_id):
     see the sizing (not only its owner) — the same rule as storing a result — so
     a shared project's DR target can still be sized and compared.
     """
-    from auth import _config_source_for
     from recommend import generate_recommendations
+    from storage_layout import StorageLayoutError
 
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
     if not sizing.is_dr_target:
         return jsonify({"error": "Not a DR target"}), 400
 
@@ -1618,15 +1580,11 @@ def dr_recommend(config_id):
     grown = reserve.pop("grown")
     summary = _dr_demand_summary(reserve)
 
-    data = request.json or {}
+    data = json_body()
 
     def _num(key, default):
-        try:
-            return float(data.get(key, default))
-        except (TypeError, ValueError):
-            return default
+        return to_float(data.get(key, default), default)
 
-    from i18n import SUPPORTED_LANGS  # noqa: F401 (kept parallel to other routes)
     sizing_mode = "validated" if data.get("sizing_mode") == "validated" else "certified"
     target_model = (data.get("target_model") or "").strip() or None
 
@@ -1644,20 +1602,24 @@ def dr_recommend(config_id):
     # Growth, storage growth, snapshot and horizon are NOT read from the
     # request any more: each inbound link is grown at its own source's options
     # (G2), and the projection runs to the longest source horizon (P1).
-    result = generate_recommendations(
-        summary,
-        vcpu_ratio=_num("vcpu_ratio", None) if data.get("vcpu_ratio") is not None else None,
-        years=grown["years"],
-        pregrown=grown,
-        storage_pref=data.get("storage_pref"),
-        size_full_cluster=size_full_cluster,
-        sizing_mode=sizing_mode,
-        allow_storage_only=bool(data.get("allow_storage_only")),
-        target_model=target_model,
-        include_eol_eos=bool(data.get("include_eol_eos")),
-        allow_single_node=bool(data.get("allow_single_node")),
-        vendor=data.get("vendor"),
-    )
+    try:
+        result = generate_recommendations(
+            summary,
+            vcpu_ratio=_num("vcpu_ratio", None) if data.get("vcpu_ratio") is not None else None,
+            years=grown["years"],
+            pregrown=grown,
+            storage_pref=data.get("storage_pref"),
+            size_full_cluster=size_full_cluster,
+            sizing_mode=sizing_mode,
+            allow_storage_only=bool(data.get("allow_storage_only")),
+            target_model=target_model,
+            include_eol_eos=bool(data.get("include_eol_eos")),
+            allow_single_node=bool(data.get("allow_single_node")),
+            vendor=data.get("vendor"),
+        )
+    except StorageLayoutError as exc:
+        # A catalog entry without its drive count: for the admin to fix.
+        return jsonify({"error": str(exc)}), 400
     # The growth each link followed travels with the stored projection, so
     # the exports can say what the DR target was grown at.
     result["projection"]["dr_sources"] = [
@@ -1692,7 +1654,7 @@ def set_sizing_role(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    role = (request.json or {}).get("role")
+    role = json_body().get("role")
     if role is not None and role not in SIZING_ROLES:
         return jsonify({"error": "Unknown role"}), 400
     sizing.role = role
@@ -1707,7 +1669,7 @@ def set_sizing_notes(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    notes = (request.json or {}).get("notes")
+    notes = json_body().get("notes")
     sizing.notes = ((notes or "").strip()[:4000]) or None
     db.session.commit()
     return jsonify(sizing.to_summary(user, "owned"))
@@ -1719,7 +1681,7 @@ def reorder_sizings():
     """Persist the project view's ordering — the exported bundle follows
     ``position``, so dragging Option 1 above Option 2 must survive (§7.1)."""
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     project, err = _owned_project_or_error(data.get("project_id"), user)
     if err:
         return err
@@ -1763,7 +1725,7 @@ def create_tag(project_id):
     project, err = _owned_project_or_error(project_id, user)
     if err:
         return err
-    data = request.json or {}
+    data = json_body()
     name = (data.get("name") or "").strip()[:60]
     if not name:
         return jsonify({"error": "A tag name is required"}), 400
@@ -1803,7 +1765,7 @@ def set_sizing_tags(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    tag_ids = (request.json or {}).get("tag_ids") or []
+    tag_ids = json_body().get("tag_ids") or []
     if not isinstance(tag_ids, list):
         return jsonify({"error": "tag_ids must be a list"}), 400
 
@@ -1862,12 +1824,10 @@ def _iso_or_none(value):
 def get_export_override(config_id):
     """Read-only: anyone who can see the sizing can see what it exports as —
     they can export it, so hiding the chassis from them would be odd."""
-    from auth import _config_source_for
-
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
     return jsonify(_export_override_state(sizing, user))
 
 
@@ -1883,7 +1843,7 @@ def set_export_override(config_id):
     sizing, err = _writable_sizing(config_id, user)
     if err:
         return err
-    setting = export_override.clean_setting(request.json or {})
+    setting = export_override.clean_setting(json_body())
     # Stored as NULL when it asks for nothing beyond the default, so "has an
     # override" stays a simple non-null test in queries and exports.
     sizing.export_override = None if export_override.is_default(setting) else setting
@@ -1905,14 +1865,13 @@ def preview_export_override(config_id):
     nothing is stored, and a caller can only ever get their own posted dict
     back transformed, so it is open to anyone who can see the sizing.
     """
-    from auth import _config_source_for
     from recommend import _rec_network_svg
 
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
-    rec = (request.json or {}).get("recommendation")
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
+    rec = json_body().get("recommendation")
     if not isinstance(rec, dict):
         return jsonify({"error": "A recommendation is required"}), 400
 
@@ -1937,14 +1896,13 @@ def chassis_options(config_id):
     generous — the partner may quote a box we cannot size on at all. The
     sizing's own vendor sorts first; free text covers anything not listed yet.
     """
-    from auth import _config_source_for
     import hcl_vendor
     from hcl_models import HclPlatform, STATUS_ACTIVE
 
     user = current_user()
-    sizing = db.session.get(Configuration, config_id)
-    if sizing is None or sizing.is_deleted or _config_source_for(user, sizing) is None:
-        return jsonify({"error": "Sizing not found"}), 404
+    sizing, _, err = _readable_sizing(config_id, user)
+    if err:
+        return err
 
     # The vendor this sizing was built on, read from the stored result rather
     # than the payload: the payload keeps raw form fields per mode, while the
@@ -2001,7 +1959,7 @@ def queue_export(project_id):
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 
-    data = request.json or {}
+    data = json_body()
     fmt = (data.get("format") or "pptx").lower()
     if fmt not in EXPORT_FORMATS:
         return jsonify({"error": "Unknown export format"}), 400

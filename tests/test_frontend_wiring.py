@@ -23,6 +23,24 @@ def _read(path):
         return handle.read()
 
 
+def _templates():
+    """The pages, plus the partials they include (templates/_partials/)."""
+    names = [n for n in sorted(os.listdir(TEMPLATES)) if n.endswith(".html")]
+    partials = os.path.join(TEMPLATES, "_partials")
+    names += ["_partials/" + n for n in sorted(os.listdir(partials)) if n.endswith(".html")]
+    return names
+
+
+def _template_text(name, expand=False):
+    """A template's source; with ``expand`` the partials it includes are
+    inlined, so a scan of what a PAGE loads sees the shared <head> too."""
+    text = _read(os.path.join(TEMPLATES, name))
+    if expand:
+        text = re.sub(r'{%\s*include\s+"(_partials/[^"]+)"\s*%}',
+                      lambda m: _read(os.path.join(TEMPLATES, m.group(1))), text)
+    return text
+
+
 def _js_sources():
     """Every page script, plus the dynamically rendered markup inside them."""
     out = {}
@@ -46,21 +64,25 @@ def _defined_handlers(sources):
 
 
 def _referenced_handlers(text):
-    """(handler, raw spec) for every delegated attribute in ``text``."""
+    """The raw spec of every delegated attribute in ``text`` — written out,
+    or produced by the close_button macro (_partials/macros.html), which
+    takes the handler name as its first argument."""
     found = []
     for event in DELEGATED:
         for raw in re.findall(r"data-%s='([^']*)'" % event, text):
+            if re.match(r'\s*\[\s*"\{\{', raw):   # the macro's own `handler` placeholder
+                continue
             found.append(raw)
+    for handler in re.findall(r"close_button\(\s*'(\w+)'", text):
+        found.append(json.dumps([handler]))
     return found
 
 
 def test_every_template_handler_exists():
     defined = _defined_handlers(_js_sources())
     missing = {}
-    for name in sorted(os.listdir(TEMPLATES)):
-        if not name.endswith(".html"):
-            continue
-        for raw in _referenced_handlers(_read(os.path.join(TEMPLATES, name))):
+    for name in _templates():
+        for raw in _referenced_handlers(_template_text(name)):
             spec = json.loads(raw)          # malformed JSON fails loudly here
             if spec[0] not in defined:
                 missing.setdefault(name, []).append(spec[0])
@@ -93,10 +115,8 @@ def test_every_rendered_handler_exists():
 def test_delegate_specs_are_valid_json():
     """The delegate JSON.parses each spec; a broken one disables that control."""
     bad = {}
-    for name in sorted(os.listdir(TEMPLATES)):
-        if not name.endswith(".html"):
-            continue
-        for raw in _referenced_handlers(_read(os.path.join(TEMPLATES, name))):
+    for name in _templates():
+        for raw in _referenced_handlers(_template_text(name)):
             try:
                 spec = json.loads(raw)
             except ValueError as exc:
@@ -120,9 +140,7 @@ def test_no_top_level_name_collisions_between_scripts():
     # Only scripts loaded by the SAME template share a scope: admin.js and
     # app.js never meet, so identical names there are harmless.
     for template in sorted(n for n in os.listdir(TEMPLATES) if n.endswith(".html")):
-        html = _read(os.path.join(TEMPLATES, template))
-        loaded = [os.path.basename(m) for m in
-                  re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
+        loaded = _loaded_scripts(template)
         declared = {}
         for name in loaded:
             text = sources.get(name)
@@ -182,3 +200,71 @@ def test_storage_growth_toggle_is_wired_and_saved():
     assert "toggleStorageGrowth" in _defined_handlers({"app.js": app_js})
     shared = re.search(r"const _SHARED_SIZING_FIELDS = \[(.*?)\];", app_js, re.S).group(1)
     assert "'separate-storage-growth'" in shared and "'storage-growth-pct'" in shared
+
+
+# ── common.js: the helpers every page script shares ──────────────────────────
+
+COMMON_HELPERS = ("esc", "fetchJson", "sendJson", "setStatus", "flashStatus",
+                  "withBusy", "openModal", "closeModal", "fmtDateTime",
+                  "saveErrorText")
+
+
+def _loaded_scripts(template):
+    """Every page script in load order, including those the shared <head>
+    partial brings in."""
+    html = _template_text(template, expand=True)
+    return [os.path.basename(m) for m in re.findall(r"asset\('(js/[a-z_]+\.js)'\)", html)]
+
+
+def test_common_js_loads_on_both_pages_before_the_page_scripts():
+    """common.js is a classic script the page scripts call as globals, so it
+    sits with the other shared helper (right after toast.js) and before any
+    page script that relies on it."""
+    for template, page_scripts in (("index.html", ["app.js", "wizard.js", "auth.js",
+                                                   "projects.js", "bom.js"]),
+                                   ("admin.html", ["admin.js"])):
+        loaded = _loaded_scripts(template)
+        assert "common.js" in loaded, f"{template} does not load common.js"
+        at = loaded.index("common.js")
+        assert loaded.index("toast.js") < at, f"{template}: common.js must follow toast.js"
+        for name in page_scripts:
+            assert name in loaded and loaded.index(name) > at, (
+                f"{template}: {name} must load after common.js")
+
+
+def test_common_js_exports_the_shared_helpers():
+    text = _read(os.path.join(JS_DIR, "common.js"))
+    exported = _defined_handlers({"common.js": text})
+    missing = [h for h in COMMON_HELPERS if h not in exported]
+    assert not missing, f"common.js no longer exposes {missing} on window"
+
+
+def test_page_scripts_do_not_shadow_the_shared_helpers():
+    """common.js assigns its helpers onto window from inside an IIFE, which the
+    collision test above cannot see — a page script declaring `function esc`
+    again would silently replace the shared one for every script after it."""
+    sources = _js_sources()
+    shadowed = {}
+    for name, text in sources.items():
+        if name == "common.js" or name.startswith("lang"):
+            continue
+        declared = set(re.findall(r"^(?:async\s+)?function\s+(\w+)", text, re.M))
+        declared |= set(re.findall(r"^(?:const|let|var)\s+(\w+)", text, re.M))
+        clash = sorted(declared & set(COMMON_HELPERS))
+        if clash:
+            shadowed[name] = clash
+    assert not shadowed, f"page scripts re-declare common.js helpers: {shadowed}"
+
+
+def test_no_native_alerts_in_page_scripts():
+    """Failures and validation messages go through toastError / the info modal
+    (owner decision, cleanup phase 3); window.alert blocks the page."""
+    offenders = {}
+    for name, text in _js_sources().items():
+        if name == "toast.js":   # its comment explains why alert() went away
+            continue
+        hits = [ln for ln, line in enumerate(text.splitlines(), 1)
+                if re.search(r"(?<![\w.])alert\(", line) and not line.lstrip().startswith("//")]
+        if hits:
+            offenders[name] = hits
+    assert not offenders, f"native alert() calls remain: {offenders}"

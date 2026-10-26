@@ -16,14 +16,13 @@ a surprising category should still get validated, not rejected at the door.
 
 Pure Python, no Flask, no DB: importable from tests and background jobs alike.
 """
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 VENDORS = ('Dell', 'Lenovo', 'Supermicro', 'HPE', 'Unknown')
 CATEGORIES = ('cpu', 'memory', 'storage', 'controller', 'nic', 'chassis', 'boss', 'gpu', 'other')
-SEVERITIES = ('error', 'warning', 'info')
-VERDICTS = ('PASS', 'FAIL', 'INCONCLUSIVE')
 
 # Vendor part numbers sometimes carry a "-P" suffix (Dell "405-AAXX-P" style
 # packaging variants) that the HCL lists without. Same regex as the source.
@@ -37,9 +36,6 @@ def normalize_part(part: str) -> str:
 
 # ─── lenient dict access ──────────────────────────────────────────────────────
 
-_MISSING = object()
-
-
 def _pick(d: Dict[str, Any], *keys: str, default: Any = None) -> Any:
     """First present key wins; lets callers hand us camelCase or snake_case."""
     for k in keys:
@@ -48,17 +44,30 @@ def _pick(d: Dict[str, Any], *keys: str, default: Any = None) -> Any:
     return default
 
 
+def to_int(v: Any, default: int = 1) -> int:
+    """Quantity coercion: 3, 3.0, '3', '3,0', ' 3 ', NBSP-padded -> 3;
+    None/''/inf/junk -> default. Booleans are never quantities. Shared by
+    the deterministic parsers (bom.parsers.common) and from_dict, so a
+    quantity the agent wrote as '3,0' counts the same as one from a sheet."""
+    if v is None or isinstance(v, bool):
+        return default
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v) if math.isfinite(v) else default
+    text = str(v).strip().replace('\xa0', '')
+    if not text:
+        return default
+    try:
+        return int(float(text.replace(',', '.')))
+    except ValueError:
+        return default
+
+
 def _as_int(value: Any, default: int = 1) -> int:
     """Quantities arrive as ints, floats (openpyxl), numeric strings or junk.
     Anything unusable becomes the default rather than aborting the import."""
-    if isinstance(value, bool):
-        return default
-    if isinstance(value, int):
-        return value
-    try:
-        return int(float(str(value).strip()))
-    except (TypeError, ValueError):
-        return default
+    return to_int(value, default)
 
 
 def _as_str(value: Any, default: str = '') -> str:

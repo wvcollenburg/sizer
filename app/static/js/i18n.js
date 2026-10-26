@@ -49,6 +49,15 @@
     }
     window.t = t;
 
+    // t() with an explicit fallback for a key that is in no dictionary: text
+    // the server already provides in English (tunable labels, finding codes)
+    // or keys built at runtime. A membership check, not a "did t() echo the
+    // key" guess, so a translation that happens to equal its key still wins.
+    function tOr(key, fallback) {
+        return (key in dict || key in base) ? t(key) : fallback;
+    }
+    window.tOr = tOr;
+
     // Apply translations to every data-i18n* element under `root` (default: whole
     // document). Safe to call repeatedly and on freshly-built subtrees.
     function translateDOM(root) {

@@ -23,6 +23,7 @@ from email.message import EmailMessage
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session, g, redirect, current_app
+from request_utils import json_body
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import or_, and_
 from sqlalchemy.exc import IntegrityError
@@ -35,6 +36,7 @@ from auth_models import (
     PiiErasure, ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN, _utcnow,
 )
 from email_domains import normalize_email, domain_of, is_public_domain
+from visibility import resolve_by_code, source_for
 
 # pbkdf2 is available everywhere; werkzeug's default (scrypt) needs OpenSSL
 # support that some Python builds lack.
@@ -104,11 +106,6 @@ STALE_DAYS = 365
 # audit log, and the placeholder it's replaced with.
 PII_RETENTION_DAYS = 365
 ANON_LABEL = "[anonymized]"
-
-# String settings keys (auth_models.AppSetting).
-SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_username", "smtp_password",
-             "smtp_from", "smtp_use_tls", "verify_email_enabled"]
-
 
 # ── app settings (string key/value) ──────────────────────────────────────────
 
@@ -392,52 +389,50 @@ def app_base_url():
     return request.url_root
 
 
-def send_verification_email(user, base_url):
-    """Issue a fresh token and email a verification link.
+def _send_token_email(user, base_url, token_attr, sent_attr, subject, body, kind, link_fmt):
+    """Issue a fresh one-time token, store its hash on ``user`` (``token_attr``
+    / ``sent_attr``) and e-mail the link ``link_fmt`` builds from it, with
+    ``body`` carrying a ``{link}`` placeholder.
 
     Returns ``(ok, cause)`` — cause is None on success, otherwise the slug from
     _email_failure_cause() saying whether the address or the mail server is at
-    fault, so the caller can tell the user something actionable.
+    fault, so the caller can tell the user something actionable; ``kind`` names
+    the mail in that failure record.
     """
     token = secrets.token_urlsafe(32)[:64]
-    user.verification_token = _hash_token(token)
-    user.verification_sent_at = _utcnow()
+    setattr(user, token_attr, _hash_token(token))
+    setattr(user, sent_attr, _utcnow())
     db.session.commit()
-    link = "{}api/auth/verify/{}".format(base_url, token)
+    link = link_fmt.format(base_url, token)
     try:
-        send_email(
-            user.email, "Verify your SC// Sizer account",
-            "Welcome to the SC// Infrastructure Sizer.\n\n"
-            "Please confirm your email address by opening this link:\n\n"
-            "{}\n\n"
-            "If you did not create this account, you can ignore this email.".format(link),
-        )
+        send_email(user.email, subject, body.format(link=link))
         return True, None
     except Exception as e:  # noqa: BLE001 — caller decides how to surface failures
-        return False, _record_email_failure("Verification", user.email, e, actor=user)
+        return False, _record_email_failure(kind, user.email, e, actor=user)
+
+
+def send_verification_email(user, base_url):
+    """Issue a fresh token and email a verification link; ``(ok, cause)``."""
+    return _send_token_email(
+        user, base_url, "verification_token", "verification_sent_at",
+        "Verify your SC// Sizer account",
+        "Welcome to the SC// Infrastructure Sizer.\n\n"
+        "Please confirm your email address by opening this link:\n\n"
+        "{link}\n\n"
+        "If you did not create this account, you can ignore this email.",
+        "Verification", "{}api/auth/verify/{}")
 
 
 def send_reset_email(user, base_url):
-    """Issue a fresh reset token and email a reset link.
-
-    Returns ``(ok, cause)``, as send_verification_email does.
-    """
-    token = secrets.token_urlsafe(32)[:64]
-    user.reset_token = _hash_token(token)
-    user.reset_sent_at = _utcnow()
-    db.session.commit()
-    link = "{}?reset={}".format(base_url, token)
-    try:
-        send_email(
-            user.email, "Reset your SC// Sizer password",
-            "A password reset was requested for your SC// Infrastructure Sizer "
-            "account.\n\nOpen this link to choose a new password (valid for {} "
-            "hours):\n\n{}\n\nIf you did not request this, you can ignore this "
-            "email — your password will not change.".format(RESET_TOKEN_TTL_HOURS, link),
-        )
-        return True, None
-    except Exception as e:  # noqa: BLE001
-        return False, _record_email_failure("Password reset", user.email, e, actor=user)
+    """Issue a fresh reset token and email a reset link; ``(ok, cause)``."""
+    return _send_token_email(
+        user, base_url, "reset_token", "reset_sent_at",
+        "Reset your SC// Sizer password",
+        "A password reset was requested for your SC// Infrastructure Sizer "
+        f"account.\n\nOpen this link to choose a new password (valid for "
+        f"{RESET_TOKEN_TTL_HOURS} hours):\n\n{{link}}\n\nIf you did not request "
+        "this, you can ignore this email — your password will not change.",
+        "Password reset", "{}?reset={}")
 
 
 # ── audit log ────────────────────────────────────────────────────────────────
@@ -867,7 +862,7 @@ def update_me():
     with the name derived from their email address on every new project.
     """
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     if "full_name" in data:
         user.full_name = (data.get("full_name") or "").strip()[:120] or None
     # Marketing-email consent is opt-in and withdrawable at any time (GDPR). Set
@@ -933,7 +928,7 @@ def delete_own_account():
 @auth_bp.route("/signup", methods=["POST"])
 @limiter.limit("15 per hour")
 def signup():
-    data = request.json or {}
+    data = json_body()
     email = normalize_email(data.get("email"))
     password = data.get("password") or ""
 
@@ -1037,7 +1032,7 @@ def signup():
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("10 per minute")
 def login():
-    data = request.json or {}
+    data = json_body()
     email = normalize_email(data.get("email"))
     password = data.get("password") or ""
 
@@ -1129,7 +1124,7 @@ def verify_email(token):
 @limiter.limit("10 per hour")
 def resend_verification():
     # Always returns a generic success so it can't be used to probe for accounts.
-    email = normalize_email((request.json or {}).get("email"))
+    email = normalize_email(json_body().get("email"))
     if email and verification_active():
         user = User.query.filter_by(email=email).first()
         if user and not user.is_verified and not user.is_disabled:
@@ -1143,7 +1138,7 @@ def resend_verification():
 def forgot_password():
     # Generic response regardless of outcome — never reveal whether an account
     # exists. Only does anything when SMTP is configured.
-    email = normalize_email((request.json or {}).get("email"))
+    email = normalize_email(json_body().get("email"))
     generic = jsonify({"message":
                        "If that account exists, a password reset email has been sent."})
     if not email or not smtp_configured():
@@ -1160,7 +1155,7 @@ def forgot_password():
 @auth_bp.route("/reset-password", methods=["POST"])
 @limiter.limit("15 per hour")
 def reset_password():
-    data = request.json or {}
+    data = json_body()
     token = (data.get("token") or "").strip()
     password = data.get("password") or ""
     pw_error = validate_password(password)
@@ -1234,23 +1229,7 @@ def _visible_configs(user):
 
 def _config_source_for(user, config):
     """Why (if at all) ``user`` can see ``config``. Returns a source tag or None."""
-    if config.is_deleted and not user.is_super_admin:
-        return None
-    if user.is_super_admin:
-        return "owned" if config.owner_id == user.id else "tenant"
-    if config.owner_id == user.id:
-        return "owned"
-    if user.is_scale:
-        if config.tenant and config.tenant.is_scale:
-            return "scale"
-        link = ScaleConfigLink.query.filter_by(
-            user_id=user.id, configuration_id=config.id).first()
-        if link and not (config.tenant and config.tenant.is_blocked):
-            return "linked"
-        return None
-    if config.tenant_id == user.tenant_id:
-        return "tenant"
-    return None
+    return source_for(user, config, ScaleConfigLink, "configuration_id")
 
 
 @configs_bp.route("/", methods=["GET"])
@@ -1435,7 +1414,7 @@ def _resolve_save_project(user, project_id):
 @login_required
 def create_config():
     user = current_user()
-    data = request.json or {}
+    data = json_body()
     name = (data.get("name") or "").strip()
     payload = data.get("payload")
 
@@ -1529,42 +1508,25 @@ def get_config(config_id):
 def get_config_by_code(code):
     user = current_user()
     config = Configuration.query.filter_by(code=(code or "").strip()).first()
-    if config is None or (config.is_deleted and not user.is_super_admin):
-        return jsonify({"error": "No configuration found for that code"}), 404
-
     # Cross-tenant retrieval by code is a scale-user (and super admin) privilege.
-    already = _config_source_for(user, config)
-    if already is not None:
-        return jsonify(config.to_dict(user, already))
-
-    if user.is_super_admin:
-        return jsonify(config.to_dict(user, "tenant"))
-
-    if user.is_scale:
-        if config.tenant and config.tenant.is_blocked:
-            return jsonify({"error": "No configuration found for that code"}), 404
-        if not ScaleConfigLink.query.filter_by(
-                user_id=user.id, configuration_id=config.id).first():
-            db.session.add(ScaleConfigLink(
-                user_id=user.id, configuration_id=config.id))
-            db.session.commit()
-        return jsonify(config.to_dict(user, "linked"))
-
-    # Non-scale users cannot pull foreign configs by code.
-    return jsonify({"error": "No configuration found for that code"}), 404
+    source = resolve_by_code(user, config, ScaleConfigLink, "configuration_id")
+    if source is None:
+        return jsonify({"error": "No configuration found for that code"}), 404
+    return jsonify(config.to_dict(user, source))
 
 
 @configs_bp.route("/<int:config_id>", methods=["PUT"])
 @login_required
 def update_config(config_id):
+    from projects import _writable_sizing
     user = current_user()
-    config = db.session.get(Configuration, config_id)
-    if config is None or config.is_deleted:
-        return jsonify({"error": "Configuration not found"}), 404
-    if config.owner_id != user.id and not user.is_super_admin:
-        return jsonify({"error": "Only the owner can edit this configuration"}), 403
+    config, err = _writable_sizing(
+        config_id, user, not_found="Configuration not found",
+        not_owner="Only the owner can edit this configuration")
+    if err:
+        return err
 
-    data = request.json or {}
+    data = json_body()
     if "name" in data:
         new_name = (data.get("name") or "").strip()
         if not new_name:
@@ -1725,7 +1687,7 @@ def _active_super_admin_count():
 @super_admin_required
 def change_user_role(user_id):
     target = db.get_or_404(User, user_id)
-    new_role = (request.json or {}).get("role")
+    new_role = json_body().get("role")
     if new_role not in (ROLE_USER, ROLE_TENANT_ADMIN, ROLE_SUPER_ADMIN):
         return jsonify({"error": "Invalid role"}), 400
     if target.is_disabled:
@@ -1746,7 +1708,7 @@ def change_user_role(user_id):
 @super_admin_required
 def super_reset_password(user_id):
     target = db.get_or_404(User, user_id)
-    password = (request.json or {}).get("password") or ""
+    password = json_body().get("password") or ""
 
     # With a password supplied, set it directly. Without one, email a reset link
     # (requires SMTP) so the user chooses their own.
@@ -1801,7 +1763,7 @@ def stale_users():
 def purge_users():
     """Bulk hard-delete users by id (used by the inactive-users tab). Skips super
     admins and the acting user. Cascades each user's configs/links."""
-    ids = (request.json or {}).get("ids") or []
+    ids = json_body().get("ids") or []
     actor = current_user()
     purged = skipped = 0
     for uid in ids:
@@ -1829,7 +1791,7 @@ def list_tenants():
 @super_admin_required
 def reassign_tenant_admin(tenant_id):
     tenant = db.get_or_404(Tenant, tenant_id)
-    data = request.json or {}
+    data = json_body()
     new_admin = db.get_or_404(User, data.get("user_id"))
     if new_admin.tenant_id != tenant.id:
         return jsonify({"error": "User is not in this tenant"}), 400
@@ -1850,7 +1812,7 @@ def reassign_tenant_admin(tenant_id):
 def block_tenant(tenant_id):
     tenant = db.get_or_404(Tenant, tenant_id)
     actor = current_user()
-    blocked = bool((request.json or {}).get("blocked", True))
+    blocked = bool(json_body().get("blocked", True))
     tenant.is_blocked = blocked
     tenant.blocked_at = _utcnow() if blocked else None
     tenant.blocked_by_user_id = actor.id if blocked else None
@@ -1922,7 +1884,7 @@ def get_email_settings():
 @super_bp.route("/email-settings", methods=["PUT"])
 @super_admin_required
 def update_email_settings():
-    data = request.json or {}
+    data = json_body()
     for key in ["smtp_host", "smtp_port", "smtp_username", "smtp_from"]:
         if key in data:
             set_setting(key, str(data[key]).strip())
@@ -1956,7 +1918,7 @@ def update_email_settings():
 @super_bp.route("/email-settings/test", methods=["POST"])
 @super_admin_required
 def test_email_settings():
-    to = normalize_email((request.json or {}).get("to")) or current_user().email
+    to = normalize_email(json_body().get("to")) or current_user().email
     if not smtp_configured():
         return jsonify({"error": "Set an SMTP host and from-address first."}), 400
     msg = _build_message(

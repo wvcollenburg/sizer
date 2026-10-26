@@ -252,6 +252,58 @@ BOSS_CHILDREN = [
 ]
 
 
+BREAKDOWN_CHILDREN = [
+    # (feature code, description, qty) — totals across the 3 machines; the
+    # ADN shape has no header, no prices and lots of label/filler lines.
+    ('C1XE', 'ThinkSystem 1U V4 10x2.5" Chassis', 3),
+    ('C3JB', 'ThinkSystem General Computing - Power Efficiency', 3),
+    ('C5R5', 'Intel Xeon 6724P 16C 210W 3.6GHz Processor', 3),
+    ('BPFK', 'ThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink', 3),
+    ('C0TQ', 'ThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM', 24),
+    ('5977', 'Select Storage devices - no configured RAID required', 3),
+    ('C0ZT', 'ThinkSystem 2.5" U.2 VA 7.68TB Read Intensive NVMe PCIe 5.0 x4 HS SSD', 12),
+    ('C2NN', 'ThinkSystem 1U V4 4x2.5" NVMe Gen5 Backplane', 6),
+    ('BCD4', 'ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port OCP Ethernet Adapter', 3),
+    ('BCD6', 'ThinkSystem Intel E810-DA2 10/25GbE SFP28 2-Port PCIe Ethernet Adapter', 3),
+    ('C0U4', 'ThinkSystem 1300W 230V/115V Titanium CRPS Premium Hot-Swap Power Supply', 6),
+    ('6400', '2.8m, 13A/100-250V, C13 to C14 Jumper Cord', 6),
+    ('C1YT', 'ThinkSystem 1U V4 Performance Fan Module', 9),
+    ('C2DH', 'ThinkSystem Toolless Slide Rail Kit V4', 3),
+    ('BPKR', 'TPM 2.0', 3),
+    ('B7XZ', 'Disable IPMI-over-LAN', 3),
+    ('C20D', 'ThinkSystem SR630 V4 model name Label', 3),              # dropped
+    ('AURS', 'Lenovo ThinkSystem Memory Dummy', 24),                     # dropped
+    ('AVEN', 'ThinkSystem 1x1 2.5" HDD Filler', 12),                     # dropped
+    ('C3K9', 'XClarity Platinum Upgrade v3', 3),
+]
+
+
+def _breakdown_sheet(ws, label, size_desc_qty):
+    """A1 title, then the machine row and its feature rows, a blank row, the
+    XClarity software block (folds into the machine as 'other')."""
+    put(ws, 1, {'A': label})
+    put(ws, 2, {'A': '7ZZ9CTO1WW', 'B': 'Server : ThinkSystem SR630 V4-3yr Base Warranty', 'C': 3})
+    row = 3
+    for fc, desc, q in size_desc_qty:
+        put(ws, row, {'A': fc, 'B': desc, 'C': q})
+        row += 1
+    row += 1
+    put(ws, row, {'A': '7S0XCTO6WW', 'B': 'XClarity One', 'C': 3})
+    put(ws, row + 1, {'A': 'SCJD', 'B': 'XClarity One - Standard, Per Endpoint w/3 Yr SW S&S', 'C': 3})
+
+
+def make_lenovo_breakdown():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = '7.68TB HW Breakdown'
+    _breakdown_sheet(ws, '7.68TB', BREAKDOWN_CHILDREN)
+    # A second option sheet: the same build on 3.84TB drives.
+    ws2 = wb.create_sheet('3.84TB HW Breakdown')
+    smaller = [(fc, desc.replace('7.68TB', '3.84TB'), q) for fc, desc, q in BREAKDOWN_CHILDREN]
+    _breakdown_sheet(ws2, '3.84TB', smaller)
+    save_wb(wb, 'synthetic_lenovo_breakdown.xlsx')
+
+
 def make_lenovo_dcsc_boss():
     wb = Workbook()
     ws = wb.active
@@ -914,6 +966,7 @@ FIXTURES = [
     ('synthetic_lenovo_dcsc.xlsx', make_lenovo_dcsc, 'lenovo_dcsc'),
     ('synthetic_lenovo_dcsc_ptbr.xlsx', make_lenovo_dcsc_ptbr, 'lenovo_dcsc'),
     ('synthetic_lenovo_dcsc_boss.xlsx', make_lenovo_dcsc_boss, 'lenovo_dcsc'),
+    ('synthetic_lenovo_breakdown.xlsx', make_lenovo_breakdown, 'lenovo_hw_breakdown'),
     ('synthetic_dell_servicetag.csv', make_dell_servicetag_csv, 'dell_service_tag'),
     ('synthetic_dell_servicetag.xlsx', make_dell_servicetag_xlsx, 'dell_service_tag'),
     ('synthetic_dell_quote.xlsx', make_dell_quote, 'dell_quote'),

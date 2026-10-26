@@ -54,60 +54,6 @@ header {
     border-left: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-/* i18n: hide the page until translateDOM() has swapped text, so non-English
-   users never see an English flash. Only set on <html> for non-English locales
-   (see the template) and cleared by i18n.js after the first pass. */
-[data-i18n-pending] body { visibility: hidden; }
-
-/* Compact globe language menu, pinned to the far right of the header (after the
-   account-bar, which already carries margin-left:auto). A button + absolutely
-   positioned dropdown so it never affects the header's flow/width. */
-.lang-menu { position: relative; display: flex; align-items: center; }
-.lang-btn {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    border-radius: 6px;
-    line-height: 0;
-}
-.lang-btn:hover { background: rgba(255, 255, 255, 0.14); color: var(--on-accent); }
-.lang-dropdown {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-    list-style: none;
-    margin: 0;
-    padding: 4px;
-    min-width: 150px;
-    max-height: min(70vh, 420px);
-    overflow-y: auto;
-    z-index: 1200;
-}
-.lang-dropdown[hidden] { display: none; }
-.lang-option {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 7px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: var(--text);
-}
-.lang-option:hover { background: var(--surface2); }
-.lang-option.active { font-weight: 700; color: var(--accent); }
-
 /* The <h1> is now the brand lockup; its type comes from .brand-name. */
 header h1 {
     font-size: inherit;
@@ -477,36 +423,6 @@ select:disabled, input:disabled {
     color: var(--text);
 }
 
-.disk-row {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-}
-
-.disk-num {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--accent);
-    color: var(--on-accent);
-    border-radius: 50%;
-    font-size: 0.75rem;
-    font-weight: 700;
-    flex-shrink: 0;
-}
-
-.disk-row select {
-    flex: 1;
-    min-width: 0;
-}
-
 .tier-mode-toggle { display: flex; gap: 1rem; }
 
 .radio-inline {
@@ -664,11 +580,6 @@ textarea:focus-visible {
     gap: 1rem;
 }
 
-.results-export {
-    margin-top: 1rem;
-    text-align: right;
-}
-
 .result-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -757,44 +668,6 @@ footer {
     padding: 2rem;
     color: var(--text-muted);
     font-size: 0.8rem;
-}
-
-/* Always-visible "work in progress" disclaimer pinned to the viewport bottom. */
-.dev-disclaimer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    padding: 0.55rem 1rem;
-    background: var(--orange-bg);
-    border-top: 1px solid var(--orange);
-    color: var(--orange);
-    font-size: 0.78rem;
-    line-height: 1.35;
-    text-align: center;
-}
-.dev-disclaimer-tag {
-    display: inline-block;
-    margin-right: 0.5rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 4px;
-    /* Fill is --orange, so the ink must be its partner token: --on-accent is
-       near-white and became unreadable once --orange inverted to light amber
-       in the dark theme. */
-    background: var(--orange);
-    color: var(--orange-bg);
-    font-weight: 700;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    vertical-align: 1px;
-}
-/* Keep page content clear of the fixed bar. */
-body { padding-bottom: 64px; }
-@media (max-width: 600px) {
-    .dev-disclaimer { font-size: 0.72rem; }
-    body { padding-bottom: 96px; }
 }
 
 /* ==================== IMPORT MODE ==================== */
@@ -1021,11 +894,8 @@ body { padding-bottom: 64px; }
 }
 /* In the 420px rail the label, slider and readout do not fit on one line, so
    the label takes its own — otherwise the trailing ":1" is clipped away. */
-.ratio-slider-row label { flex: 1 0 100%; }
-.ratio-slider-row input[type="range"] { min-width: 0; }
-.ratio-value { flex: 0 0 auto; }
-
 .ratio-slider-row label {
+    flex: 1 0 100%;
     font-size: var(--fs-sm);
     font-weight: 500;
     color: var(--text);
@@ -1034,6 +904,7 @@ body { padding-bottom: 64px; }
 
 .ratio-slider-row input[type="range"] {
     flex: 1;
+    min-width: 0;
     -webkit-appearance: none;
     appearance: none;
     height: 6px;
@@ -1066,6 +937,7 @@ body { padding-bottom: 64px; }
 }
 
 .ratio-value {
+    flex: 0 0 auto;
     font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--text);
@@ -1156,19 +1028,6 @@ body { padding-bottom: 64px; }
     color: var(--text);
     font-size: 0.85rem;
     margin-bottom: 0;
-}
-
-.sizing-toggles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem 1.6rem;
-    align-items: center;
-    margin-top: 1rem;
-}
-.sizing-toggles .toggle-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
 /* Growth Projection Controls */
@@ -1310,13 +1169,6 @@ body { padding-bottom: 64px; }
     background: var(--red-bg);
     color: var(--red);
     cursor: help;
-}
-
-.full-cluster-option {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.9rem;
 }
 
 .checkbox-inline {
@@ -1911,34 +1763,6 @@ body { padding-bottom: 64px; }
     font-size: 0.8rem;
 }
 
-.btn-export {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    height: 2rem;
-    background: var(--accent);
-    color: var(--on-accent);
-    border: 1px solid transparent;
-    padding: 0 0.75rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--fs-xs);
-    font-style: normal;
-    font-weight: 500;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-export:hover {
-    background: var(--accent-hover);
-}
-
-.btn-export:disabled {
-    opacity: 0.6;
-    cursor: wait;
-}
-
 .no-recs {
     background: var(--orange-bg);
     border: 1px solid var(--orange);
@@ -2053,41 +1877,9 @@ body { padding-bottom: 64px; }
 #vm-exclusion-modal { padding: 1rem; }
 #vm-exclusion-modal .modal-content { max-width: min(1600px, 97vw); }
 
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-}
-
 .modal-header h2 {
     font-size: var(--fs-base);
     font-weight: 600;
-}
-
-/* Their DialogClose: a ghost icon button that tints its background on hover
-   rather than only changing the glyph colour. */
-.modal-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    padding: 0;
-    width: 1.75rem;
-    height: 1.75rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    line-height: 0;
-    transition: background-color 0.12s ease, color 0.12s ease;
-}
-
-.modal-close:hover { background: var(--surface2); color: var(--text); }
-.modal-close:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--ring);
 }
 
 .modal-toolbar {
@@ -2381,6 +2173,20 @@ tr.so-divider td {
     .modal-overlay { padding: 0.5rem; }
     .modal-content { max-height: 95vh; }
     .section-header-row { flex-wrap: wrap; }
+    /* The header is one flex line on a desktop; on a narrow screen the brand,
+       the nav and the identity wrap onto their own lines instead of pushing
+       the page wider than the viewport. */
+    header { padding: 0.7rem 1rem; }
+    .header-content { flex-wrap: wrap; gap: 0.5rem 1rem; }
+    .brand-logo { width: 128px; }
+    .account-bar { margin-left: 0; flex-wrap: wrap; gap: 0.4rem 0.9rem; }
+    .account-actions, .account-identity { flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+    body.view-projects #project-screens,
+    body.view-project  #project-screens { padding: 1rem; }
+}
+@media (max-width: 640px) {
+    .version { display: none; }
+    .brand-name { display: none; }
 }
 
 /* ==================== ACCOUNT / AUTH ==================== */
@@ -2603,86 +2409,6 @@ body.auth-required footer { display: none; }
     gap: 1rem;
     flex-wrap: wrap;
 }
-.cluster-separate-toggle {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    align-items: center;
-    gap: 0.35rem;
-}
-.cluster-tabs {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin: 0.25rem 0 1rem;
-}
-/* Segmented control, from SC//Design's default TabsList: a muted track
-   (`bg-muted rounded-lg p-[3px]`) with the active tab raised onto the card
-   surface (`data-[state=active]:bg-background shadow-sm`). Replaces the old
-   solid-accent pill, which read far heavier than anything in their UI. */
-.cluster-tab-row {
-    display: inline-flex;
-    gap: 3px;
-    flex-wrap: wrap;
-    background: var(--surface2);
-    border-radius: var(--radius);
-    padding: 3px;
-}
-/* Shared by the wizard bar, classic bar, VM-modal bar and DR tabs. */
-.cluster-tab {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    padding: 0.3rem 0.7rem;
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
-}
-.cluster-tab:hover { color: var(--text); }
-.cluster-tab.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: var(--shadow-xs);
-}
-.cluster-tab-badge {
-    font-size: var(--fs-xs);
-    font-weight: 500;
-    color: var(--text-muted);
-    opacity: 0.85;
-}
-.cluster-tab.active .cluster-tab-badge { color: var(--accent); opacity: 1; }
-.cluster-apply-all { white-space: nowrap; }
-.cluster-tab-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-.cluster-export-all {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-.cluster-export-label {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-.cluster-tabs-modal {
-    padding: 0 1.5rem;
-    margin: 0 0 0.75rem;
-    /* Buttons are direct children of this bar (no .cluster-tab-row wrapper), so
-       override the space-between spread and keep them grouped on the left. */
-    justify-content: flex-start;
-    gap: 0.4rem;
-}
 /* Per-card "use in combined export" picker (separate-clusters mode only). */
 .rec-select {
     margin-left: auto;
@@ -2706,62 +2432,14 @@ body.auth-required footer { display: none; }
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--ring);
 }
-/* "Selected clusters" review tab. */
-.cluster-tab-review { font-weight: 700; }
-#cluster-review .review-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-.review-cluster-block { margin-top: 1.25rem; }
-.review-cluster-title {
-    margin: 0 0 0.4rem;
-    font-size: 1rem;
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-}
-.review-cluster-rank {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--accent);
-}
-.review-none { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
 .review-loading { color: var(--text-muted); padding: 1rem 0; }
 
-/* Per-cluster replication (DR) config in the sizing options. */
-.replication-options {
-    margin-top: 1rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--border);
-}
-.replication-options .rep-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.replication-options .rep-head h4 { margin: 0; font-size: 0.95rem; }
 .rep-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.75rem;
     margin-top: 0.6rem;
 }
-/* Inbound replication note — carries the same gold as the replication band in
-   the utilisation bars, so the two read as the same subject. */
-.rep-inbound {
-    margin-top: 0.6rem;
-    font-size: var(--fs-xs);
-    color: var(--text);
-    background: rgba(161, 98, 7, 0.08);
-    border-left: 3px solid #a16207;
-    padding: 0.4rem 0.6rem;
-    border-radius: var(--radius-sm);
-}
-.rep-inbound-none { color: var(--text-muted); background: none; border-left-color: var(--border); }
 
 /* "System reserved" sub-rows on the config result cards: the OS deduction that
    separates the physical configuration from the usable totals. */
@@ -2803,8 +2481,6 @@ body.auth-required footer { display: none; }
 .dr-mode-note { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.9em; }
 .dr-reserve-empty { margin: 0.4rem 0 0; color: var(--text-muted); }
 .dr-rec-list { margin-top: 0.75rem; }
-.dr-save-row { margin-top: 1rem; display: flex; justify-content: flex-end; }
-.cluster-tab-dedicated { font-style: italic; }
 .auth-error, .sizings-status {
     padding: 0.5rem 0.75rem;
     border-radius: 4px;
@@ -2862,14 +2538,6 @@ body.auth-required footer { display: none; }
 .legal-doc p { margin-bottom: 0.6rem; }
 .legal-meta { color: var(--text-muted); font-size: 0.85rem; }
 .legal-back { margin-top: 1.5rem; }
-.legal-template-note {
-    background: var(--orange-bg);
-    border: 1px solid #fde68a;
-    color: var(--orange);
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-}
 
 .auth-links { text-align: center; margin-top: 0.75rem; font-size: 0.82rem; }
 .auth-links a { color: var(--text-muted); text-decoration: none; }
@@ -2885,22 +2553,6 @@ body.auth-required footer { display: none; }
     font-size: 0.8rem;
     letter-spacing: 0.5px;
 }
-.muted { color: var(--text-muted); font-size: 0.82rem; }
-
-/* Source CPU benchmark field + advisory perf comparison (import/manual sizing). */
-.perf-input-row { display: flex; gap: 0.5rem; }
-.perf-input-row select { flex: 0 0 auto; }
-.perf-input-row input { flex: 1; min-width: 0; }
-.perf-comparison {
-    margin-top: 0.75rem;
-    padding: 0.6rem 0.85rem;
-    background: var(--accent-light, var(--sc-50));
-    border: 1px solid var(--border, var(--sc-300));
-    border-radius: 6px;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-.perf-comparison .perf-note { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
 
 /* Source CPU performance panel (inside the Source CPU modal). */
 .card-edit-link {
@@ -2986,27 +2638,13 @@ body.auth-required footer { display: none; }
 .wiz-pane-head h3 { margin: 0 0 0.25rem 0; }
 .wiz-intro { color: var(--text-muted); margin: 0 0 1.1rem 0; font-size: 0.92rem; }
 .wiz-chrome { margin-bottom: 1rem; }
-.wiz-chrome-after, .wiz-after-5 { margin-top: 1rem; }
+.wiz-chrome-after { margin-top: 1rem; }
 
 /* Navigation */
 .wizard-nav {
     display: flex; justify-content: space-between; gap: 1rem;
     margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--border);
 }
-
-/* Layout step */
-.wiz-layout-detected, .wiz-layout-single { color: var(--text); margin: 0 0 0.8rem 0; }
-.wiz-cluster-list { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.8rem 0; }
-.wiz-cluster-row {
-    display: flex; align-items: center; gap: 0.8rem;
-    padding: 0.55rem 0.8rem; background: var(--surface2);
-    border: 1px solid var(--border); border-radius: var(--radius);
-}
-.wiz-cluster-row.dedicated { border-style: dashed; }
-.wiz-cluster-name { font-weight: 600; }
-.wiz-cluster-meta { color: var(--text-muted); font-size: 0.85rem; }
-.wiz-cluster-tag { margin-left: auto; font-size: 0.78rem; color: var(--accent); }
-.wiz-layout-actions { margin-top: 0.6rem; }
 
 /* Environment caveats */
 .wiz-caveats {
@@ -3017,8 +2655,6 @@ body.auth-required footer { display: none; }
 .wiz-caveats ul { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: 0.88rem; }
 
 /* Options step */
-.wiz-clusterbar { margin-bottom: 1rem; }
-.wiz-opts-actions { margin: 0.4rem 0; }
 .wiz-adv-toggle { padding-left: 0; }
 .btn-link {
     background: none; border: none; color: var(--accent); cursor: pointer;
@@ -3044,7 +2680,6 @@ body.wiz-active #vm-triage-panel .vm-table-wrap {
 
 /* Export step */
 .wiz-export-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0; }
-.wiz-export-note { color: var(--text-muted); font-size: 0.85rem; }
 
 /* Classic view: link back to the guided wizard */
 .wiz-to-guided-bar { margin-bottom: 1rem; text-align: right; }
@@ -3072,17 +2707,18 @@ body.view-project  .account-bar .btn-account { display: none; }
 
 .project-screen { animation: fadeIn 0.15s ease-out; }
 
+/* Title block left, actions right, both on one line until the screen is small. */
 .project-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
     margin-bottom: 0.5rem;
 }
 .project-head h2 { margin: 0.25rem 0; }
-.project-head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.project-title-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+.project-head-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.project-title-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 .project-meta { color: var(--text-muted); font-size: 0.85rem; }
 .project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
 .project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
@@ -3159,11 +2795,10 @@ body.view-project  .account-bar .btn-account { display: none; }
    look like a row of warnings. */
 .icon-btn-danger:hover { background: var(--red-bg); color: var(--red); }
 
-.sizing-table .col-actions { white-space: nowrap; }
+.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-table .col-actions .icon-btn + .icon-btn { margin-left: 0.15rem; }
 
 .sizing-table .col-check { width: 2rem; }
-.sizing-table .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .sizing-name { font-weight: 500; }
 .sizing-source { color: var(--text-muted); font-size: 0.82rem; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-dot { color: var(--accent); font-size: 0.7rem; cursor: help; }
@@ -3185,7 +2820,7 @@ body.view-project  .account-bar .btn-account { display: none; }
 
 /* Tags: freeform, project-scoped, used both as filters and in the panel. */
 .project-tag-filter { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.75rem 0; }
-.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
 .tag-chip {
     font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 999px;
     border: 1px solid var(--border); background: var(--surface);
@@ -3194,12 +2829,13 @@ body.view-project  .account-bar .btn-account { display: none; }
 .tag-chip-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .tag-chip-sm { font-size: 0.7rem; cursor: default; }
 .tag-chip-clear { border-style: dashed; color: var(--text-muted); }
-.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
+.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 .tag-add-row .text-input { flex: 1; }
 
+/* Selection bar: count · compare | export group · clear. */
 .project-selection-bar {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem;
+    padding: 0.6rem 0.85rem; margin: 0.5rem 0;
     background: var(--surface); border: 1px solid var(--accent);
     border-radius: var(--radius); font-size: 0.85rem;
 }
@@ -3209,10 +2845,9 @@ body.view-project  .account-bar .btn-account { display: none; }
 .rep-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
 .rep-list li { padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .rep-terms { color: var(--text-muted); font-size: 0.78rem; margin-left: 0.4rem; }
-.rep-pct-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
 .rep-pct { width: 5.5rem; }
 .field-label-inline { font-size: 0.8rem; color: var(--text-muted); }
-.panel-rule { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
 
 /* Which project the open sizing belongs to. */
 .sizer-project-bar {
@@ -3235,6 +2870,10 @@ body.view-project  .account-bar .btn-account { display: none; }
 @media (max-width: 700px) {
     .sizing-table .sizing-source, .sizing-table th:nth-child(5) { display: none; }
     .project-head { flex-direction: column; }
+    /* The sizing table keeps its columns and scrolls sideways inside its own
+       box rather than widening the page. */
+    #project-sizings { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .sizing-table { min-width: 34rem; }
 }
 
 /* Refresh iframes: real, loaded, and invisible. display:none would stop some
@@ -3251,13 +2890,10 @@ body.refresh-mode { visibility: hidden; }
     font-size: 0.82rem; color: var(--orange);
 }
 
-.inline-select { width: auto; padding: 0.2rem 0.4rem; font-size: 0.8rem; }
-.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); }
+.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
+.notify-check { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }  /* nowrap: was wrapping onto three lines */
 
 /* Comparison table: options side by side, deltas against the first column. */
-.project-compare { margin: 1rem 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-.compare-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.compare-head h3 { margin: 0; font-size: 1rem; }
 .compare-scroll { overflow-x: auto; }
 .compare-table th:first-child, .compare-metric { text-align: left; white-space: nowrap; color: var(--text-muted); }
 .compare-note { font-size: 0.8rem; color: var(--text-muted); max-width: 26ch; }
@@ -3270,7 +2906,6 @@ body.refresh-mode { visibility: hidden; }
 
 /* Exports panel — a job runs whether or not anyone is watching, so there has
    to be a way back to a finished bundle. */
-.project-exports { margin-top: 1.5rem; }
 .export-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; font-size: 0.85rem; }
 .export-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .export-note { color: var(--text-muted); font-size: 0.8rem; }
@@ -3359,7 +2994,6 @@ textarea.text-input:focus {
     margin: 0 0 0.2rem;
 }
 
-.rep-pct-row { display: flex; align-items: flex-end; gap: 0.75rem; margin: 0.75rem 0; }
 .rep-pct-row .panel-field { margin-bottom: 0; flex: 1; }
 
 /* Tags: what's on this sizing, then what else the project offers. Assigned
@@ -3370,7 +3004,6 @@ textarea.text-input:focus {
     font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
     text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.35rem;
 }
-.tag-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0; align-items: center; }
 
 /* Assigned: solid, and carries the × that takes it off. */
 .tag-chip-assigned {
@@ -3391,7 +3024,6 @@ textarea.text-input:focus {
 .tag-chip-add:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
 
 .tag-empty { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
-.tag-add-row { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
 
 /* .modal-body is padding:0 app-wide because the big modals hold edge-to-edge
    tables. The project modals are forms, so they need real gutters — without
@@ -3450,11 +3082,6 @@ textarea.text-input:focus {
 .btn-ghost { background: none; color: var(--text-muted); }
 .btn-ghost:hover { background: var(--surface2); color: var(--text); }
 
-/* Title block left, actions right, both on one line until the screen is small. */
-.project-head { align-items: center; }
-.project-head-actions { align-items: center; }
-.project-title-block { gap: 0.35rem; }
-
 /* "← All projects" reads as the loudest control on the page as a filled
    button; theirs is a plain accent text link above the title. */
 .project-back {
@@ -3472,18 +3099,11 @@ textarea.text-input:focus {
 .project-back:hover { background: none; color: var(--accent-dark); text-decoration: underline; }
 .project-title-block h2 { line-height: 1.2; }
 
-/* Selection bar: count · compare | export group · clear. */
-.project-selection-bar { flex-wrap: wrap; gap: 0.6rem; padding: 0.6rem 0.85rem; }
 .selection-count { font-weight: 600; white-space: nowrap; }
-.selection-divider {
-    width: 1px; align-self: stretch; background: var(--border); margin: 0 0.15rem;
-}
 .export-controls {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     margin-left: auto;                 /* keep Clear at the far right */
 }
-.notify-check { white-space: nowrap; }  /* was wrapping onto three lines */
-.inline-select { width: auto; min-width: 9.5rem; padding: 0.4rem 0.5rem; font-size: 0.82rem; }
 
 /* Exports list: the download stays a button, not a full-width bar. */
 .export-list li .btn, .export-list li a.btn { flex: 0 0 auto; width: auto; margin: 0; }
@@ -3545,8 +3165,6 @@ textarea.text-input:focus {
     font-size: 0.8rem; font-weight: 500; word-break: break-all;
 }
 .bom-modal .upload-status { margin-top: 0.6rem; }
-.bom-modal .bom-field { margin-top: 0.9rem; }
-.bom-modal .bom-field .text-input { width: 100%; }
 
 .bom-modal #bom-step-upload > .import-info { margin: 0 0 0.8rem; }
 
@@ -4013,7 +3631,10 @@ textarea.text-input:focus {
    label before it sheds a figure. */
 @media (max-width: 900px) {
     .import-recommendations .rec-head { flex-wrap: wrap; }
-    .rec-toolbar { margin-left: 0; }
+    /* The toolbar may shrink to the column and wrap its own controls: on a
+       phone the Save button drops under the view switch instead of pushing
+       the page wider than the screen. */
+    .rec-toolbar { margin-left: 0; flex-shrink: 1; flex-wrap: wrap; min-width: 0; }
     .rec-split { flex-direction: column; }
     .rec-split-list { flex: 0 0 auto !important; max-height: 16rem; border-right: 0; border-bottom: 1px solid var(--border); }
 }

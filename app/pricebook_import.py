@@ -19,6 +19,8 @@ since it is neither a band nor a priced flat SKU.
 """
 import re
 
+from coerce import to_float
+from request_utils import sha256_file
 from xlsx_utils import sheet_rows as _sheet_rows
 
 import licensing
@@ -49,15 +51,6 @@ class PricebookFormatError(ValueError):
     """The sheet is not shaped like a price list. Blocks apply (§4.4)."""
 
 
-def _num(v):
-    if v is None or v == "":
-        return None
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-
 def parse_license_rows(rows):
     """Parse pre-read sheet rows into bands, flats and an unmatched report.
 
@@ -78,7 +71,7 @@ def parse_license_rows(rows):
     for r in license_rows:
         sku = str(r.get(COL_CODE) or "").strip()
         desc = str(r.get(COL_DESC) or "").strip()
-        price = _num(r.get(COL_PRICE))
+        price = to_float(r.get(COL_PRICE))
         cur = str(r.get(COL_CURRENCY) or "").strip().upper()
         if cur:
             currencies.add(cur)
@@ -299,15 +292,6 @@ SEEDED_RULES = {
 }
 
 
-def _sha256(path):
-    import hashlib
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def seed_feed_from_file(file_path, region=DEFAULT_REGION, label=None,
                         effective_date=None, uploaded_by=None, sheet=None,
                         source_filename=None):
@@ -327,7 +311,7 @@ def seed_feed_from_file(file_path, region=DEFAULT_REGION, label=None,
     from orm_models import (CatalogFeed, PriceLicenseBand, PriceLicenseFlat,
                             PriceLicenseRule)
 
-    digest = _sha256(file_path)
+    digest = sha256_file(file_path)
     existing = CatalogFeed.query.filter_by(region=region,
                                            source_sha256=digest).first()
     if existing is not None:

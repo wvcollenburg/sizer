@@ -35,16 +35,54 @@ Pure Python + openpyxl; no Flask, no DB.
 import math
 import re
 import warnings
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from xlsx_utils import MAX_SHEET_COLS, MAX_SHEET_ROWS, SheetTooLargeError
+from bom.normalize import BOMComponent
+# Quantity coercion lives with the normalized shape so the agent path and the
+# sheet parsers agree on '3,0'; re-exported here for the parsers.
+from bom.normalize import to_int  # noqa: F401
 
 # ─── identifiers ─────────────────────────────────────────────────────────────
+# One spelling per identifier, with the anchored / unanchored variants the
+# parsers need named side by side. Two patterns that look alike but are not
+# the same set are kept apart on purpose and say so.
 
-DELL_SKU = re.compile(r'^\d{3}-[A-Z0-9]{4}$')          # 405-AAZF, 892-9155
-LENOVO_FC = re.compile(r'^[0-9A-Z]{4}$')                # C3QL, BM50, 5977, 6400
-LENOVO_CTO = re.compile(r'^7[0-9A-Z]{3}CTO\d+WW$')      # 7DGDCTO1WW, 7D73CTO3WW
-DELL_PIECE = re.compile(r'^[0-9A-Z]{5}$')               # DMF5Y, 08123
+_DELL_SKU_CORE = r'\d{3}-[A-Z0-9]{4}'                   # 405-AAZF, 892-9155
+_LENOVO_CTO_CORE = r'7[0-9A-Z]{3}CTO\d+WW'              # 7DGDCTO1WW, 7D73CTO3WW
+_LENOVO_BLOCK_CORE = r'[0-9A-Z]{4}CT[OS0-9][0-9A-Z]WW'  # machine (CTO), software and service (CTS) CTOs
+_LENOVO_CM_CORE = r'\d{4}[A-Z]{2}\d'                    # 5374CM1 configuration instruction
+_LENOVO_FC_CORE = r'[A-Z0-9]{4}'                        # BLKJ, C5R6 feature codes
+_LENOVO_PART_CORE = r'[0-9][A-Z0-9]{9}'                 # 4X77A90963 part numbers
+
+DELL_SKU = re.compile(r'^%s$' % _DELL_SKU_CORE)
+# A SKU on a line of its own inside a text blob (detect_vendor).
+DELL_SKU_LINE = re.compile(r'^%s$' % _DELL_SKU_CORE, re.M)
+# Unanchored, plus the five-digit bundle form (486-85584). Wrapped SKU cells
+# run together ('405-AAXY750-ACFR'), so the four-character form must not
+# swallow the next SKU's first digit.
+DELL_SKU_ANY = re.compile(r'\d{3}-(?:\d{5}(?![0-9])|[A-Z0-9]{4})')
+# A SKU glued to the end of a word ('Server210-BDZY'): (text before, sku).
+DELL_SKU_AT_END = re.compile(r'(.*?)(%s)$' % _DELL_SKU_CORE)
+
+LENOVO_CTO = re.compile(r'^%s$' % _LENOVO_CTO_CORE)
+LENOVO_CTO_WORD = re.compile(r'\b%s\b' % _LENOVO_CTO_CORE)
+LENOVO_FC = re.compile(r'^%s$' % _LENOVO_FC_CORE)
+LENOVO_PART = re.compile(r'^%s$' % _LENOVO_PART_CORE)
+# Block starters of a DCSC list: machine / software / service CTOs.
+LENOVO_BLOCK = re.compile(r'^%s$' % _LENOVO_BLOCK_CORE)
+# The Arrow quote sheet also starts a block on a configuration instruction
+# (5374CM1), whose children must not land in the machine's parts.
+LENOVO_BLOCK_OR_CM = re.compile(r'^(?:%s|%s)$' % (_LENOVO_BLOCK_CORE, _LENOVO_CM_CORE))
+# Any code the numbered DCSC list may carry in its part column.
+LENOVO_LIST_CODE = re.compile(r'^(?:%s|%s|%s|%s)$' % (
+    _LENOVO_FC_CORE, _LENOVO_BLOCK_CORE, _LENOVO_CM_CORE, _LENOVO_PART_CORE))
+# The build order's feature-code column. NOT the same set as
+# LENOVO_LIST_CODE: its CTO form is wider ('CT' + any two characters) and it
+# has no ten-character part number — kept as written so the pattern-miss
+# bookkeeping of that parser does not move.
+LENOVO_BUILD_CODE = re.compile(r'^(?:%s|[0-9A-Z]{4}CT[A-Z0-9]{2}WW|%s)$' % (
+    _LENOVO_FC_CORE, _LENOVO_CM_CORE))
 
 # A leading "8x " / "4 X " multiplier on a hand-typed description.
 NX_PREFIX = re.compile(r'^(\d+)\s*[xX]\s+(.*)$')
@@ -65,24 +103,6 @@ def s(v: Any) -> str:
             return str(int(v))
         return str(v)
     return str(v).replace('\xa0', ' ').strip()
-
-
-def to_int(v: Any, default: int = 1) -> int:
-    """Quantity coercion: 3, 3.0, '3', '3,0', ' 3 ' -> 3; None/''/junk ->
-    default. Booleans are never quantities."""
-    if v is None or isinstance(v, bool):
-        return default
-    if isinstance(v, int):
-        return v
-    if isinstance(v, float):
-        return int(v) if math.isfinite(v) else default
-    text = str(v).strip().replace('\xa0', '')
-    if not text:
-        return default
-    try:
-        return int(float(text.replace(',', '.')))
-    except ValueError:
-        return default
 
 
 # ─── workbook access (bounded) ────────────────────────────────────────────────
@@ -226,6 +246,24 @@ def sheet_matrix(ws, max_rows: int = MAX_SHEET_ROWS) -> List[Tuple]:
     return rows
 
 
+def read_sheet(path: str, pick: Callable[[Any], Any],
+               not_found: Union[str, BaseException]) -> Tuple[List[Tuple], str]:
+    """Open the workbook, let ``pick(wb)`` choose the worksheet, materialise
+    it and close the workbook: ``(rows, sheet title)``. When ``pick`` returns
+    None the workbook is closed and ``not_found`` is raised — a string
+    becomes UnrecognizedFormat, an exception instance is raised as is (the
+    template reports its missing sheet as a TemplateError)."""
+    from bom.parsers import UnrecognizedFormat     # package imports us
+    wb = load_workbook_safe(path)
+    try:
+        ws = pick(wb)
+        if ws is None:
+            raise not_found if isinstance(not_found, BaseException) else UnrecognizedFormat(not_found)
+        return sheet_matrix(ws), ws.title
+    finally:
+        wb.close()
+
+
 def head_rows(ws, n: int = 16, cols: int = 24) -> List[Tuple]:
     """First n rows only — what detection needs, without reading the sheet."""
     out = []
@@ -251,12 +289,6 @@ def raw(rows: Sequence[Tuple], r: int, c: int) -> Any:
     if c < 1 or c > len(row):
         return None
     return row[c - 1]
-
-
-def row_is_blank(rows: Sequence[Tuple], r: int) -> bool:
-    if r < 1 or r > len(rows):
-        return True
-    return all(s(v) == '' for v in rows[r - 1])
 
 
 def raw_text_from_rows(rows: Sequence[Tuple], limit: int = 60000) -> str:
@@ -340,6 +372,21 @@ def server_model_from_text(text: Optional[str]) -> Optional[str]:
         if m:
             return fmt(m)
     return None
+
+
+_SERVER_SUFFIX = re.compile(r'\s+Server\s*$', re.I)
+
+
+def strip_server_suffix(text: str) -> Optional[str]:
+    """'PowerEdge R750 Server' -> 'PowerEdge R750' (the Dell 210- base line
+    as the exports write it); None when nothing is left."""
+    return _SERVER_SUFFIX.sub('', text or '').strip() or None
+
+
+def model_from_server_line(desc: str) -> Optional[str]:
+    """Server model from a Dell 210- base line: the recognised model when
+    there is one, else the line minus its ' Server' suffix."""
+    return server_model_from_text(desc) or strip_server_suffix(desc)
 
 
 # ─── junk / absence / category rules ─────────────────────────────────────────
@@ -441,6 +488,9 @@ _CAP = r'\d+(?:[.,]\d+)?\s*(?:TB|GB)\b'
 _DRV = (r'(?:SSD|HDD|NVMe|NVME|Hard Drive|Hard Disk|Solid State|Drive|Disk|'
         r'disco r[íi]gido|estado s[óo]lido)')
 
+# 'MB' is a motherboard ('SR630 V3 MB', 'MB w/IO') unless a bare number sits
+# before it ('60 MB Cache' on a CPU line): the lookbehinds let a model token's
+# digit through and block a size.
 RULES = [
     ('other', re.compile(
         r'\b(?:Label|Filler|Dummy|Blank|Sponge|Air Duct|Cable|CBL|Cabo|Cord|Clip|Clipe|Latch|Trava|'
@@ -448,7 +498,7 @@ RULES = [
         r'Power Supply|Fonte de alimenta[çc][ãa]o|PSU|Riser|Cage|Compartimento|TPM|'
         r'Trusted Platform|iDRAC|XClarity|XCC|Shipping|Marking|Warranty|Support|Services?|'
         r'License|Licen[çc]a|Subscription|Placement|Mechanical Parts|Bracket|Tray|Foam|'
-        r'Interposer|Duct|Duto|Placa do processador|Placa de E/S|MB|'
+        r'Interposer|Duct|Duto|Placa do processador|Placa de E/S|(?<![^A-Za-z]\d\s)(?<![^A-Za-z]\d)MB|'
         r'Board\b(?!.*\bLOM\b)|Motherboard(?!.*\bLOM\b))\b', re.I)),
     ('boss', re.compile(
         r'\b(?:BOSS(?:-[NS]\d)?|M\.2 RAID|B540p|M\.2 Mirroring|M\.2 .*Adapter|'
@@ -496,6 +546,69 @@ def is_m2_media(description: str) -> bool:
     """M.2 boot sticks are not data drives: SC//Design's validator ignored
     them (the Arrow expected findings carry no 2-drive/flash-ratio noise)."""
     return re.search(r'\bM\.2\b', description or '') is not None
+
+
+def demote_m2(category: str, description: str) -> str:
+    """'storage' that is M.2 media becomes 'other' — in every parser, whether
+    the category came from the description or from a module name."""
+    if category == 'storage' and is_m2_media(description):
+        return 'other'
+    return category
+
+
+def categorize_line(description: str) -> str:
+    """categorize() with the M.2 demotion applied: what a parser calls on a
+    line item. categorize() itself stays the raw nine-way rule."""
+    return demote_m2(categorize(description), description)
+
+
+# ─── component accumulator ───────────────────────────────────────────────────
+
+# How two rows of one config are recognised as the same part:
+#   'part_or_desc'  part number, else the description (SKU and feature-code
+#                   exports: the same SKU on two rows is one part, rows
+#                   without one compare by their text)
+#   'part+desc'     part number AND description together (hand-typed and
+#                   distributor lists, where one reseller number can carry
+#                   two different lines)
+_ACC_KEYS = ('part_or_desc', 'part+desc')
+
+
+class ComponentAcc:
+    """Per-config component accumulator: sums duplicate rows, keeps first-seen
+    order. ``multiplier`` turns per-node quantities into config totals (the
+    Dell solution export quotes 8 DIMMs *per server*)."""
+
+    def __init__(self, key: str = 'part_or_desc', multiplier: int = 1):
+        if key not in _ACC_KEYS:
+            raise ValueError('unknown accumulator key %r' % key)
+        self.key = key
+        self.multiplier = multiplier
+        self.order: List[str] = []
+        self.items: Dict[str, BOMComponent] = {}
+
+    def _key(self, part: Optional[str], desc: str) -> str:
+        if self.key == 'part_or_desc':
+            return part or ('desc:' + desc)
+        return (part or '') + '|' + desc
+
+    def add(self, part: Optional[str], desc: str, qty: int, category: str) -> BOMComponent:
+        key = self._key(part, desc)
+        total = qty * self.multiplier
+        comp = self.items.get(key)
+        if comp is not None:
+            comp.quantity += total
+        else:
+            comp = self.items[key] = BOMComponent(part_number=part or None, description=desc,
+                                                  quantity=total, category=category)
+            self.order.append(key)
+        return comp
+
+    def __bool__(self) -> bool:
+        return bool(self.order)
+
+    def components(self) -> List[BOMComponent]:
+        return [self.items[k] for k in self.order]
 
 
 def split_nx(description: str) -> Tuple[int, str]:

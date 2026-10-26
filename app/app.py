@@ -1,6 +1,5 @@
 import os
 import secrets
-import tempfile
 from urllib.parse import urlparse
 
 from flask import Flask, render_template, jsonify, request, send_file
@@ -25,14 +24,16 @@ from import_merge import merge as merge_datasets
 from parser_common import collection_date
 import hcl_vendor
 from recommend import generate_recommendations
+from sizing_service import input_quality_warnings
 from tunables import T, refresh_from_db
 # NOTE: exports are project-level only (export_worker + the project export
 # queue); the old synchronous in-sizer export routes were removed with the
 # per-cluster-sizing restructure.
 from admin_routes import admin_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
-from calc import (calculate_appliance, calculate_validated, MAX_STORAGE_ONLY_COUNT,
-                  SNS_NO_REDUNDANCY_MSG)
+from calc import calculate_appliance, calculate_validated
+from request_utils import json_body, sha256_file, spooled_xlsx, UploadError
+from storage_layout import StorageLayoutError
 from fingerprint import PARSER_VERSION
 
 # Upper bounds on client-supplied sizing counts. The recommendation engine is
@@ -338,7 +339,7 @@ def create_app():
     def calculate():
         # Load the current admin-tuned overheads/limits for this request.
         refresh_from_db()
-        data = request.json
+        data = json_body()
         mode = data.get("mode", "appliance")
         # Coerce + bound node_count: it drives per-node loops and SVG generation,
         # so a non-int or absurd value must be rejected before any work.
@@ -352,39 +353,34 @@ def create_app():
         if node_count > MAX_NODE_COUNT:
             return jsonify({"error": f"Node count must be {MAX_NODE_COUNT} or fewer"}), 400
 
-        if mode == "appliance":
-            return jsonify(calculate_appliance(data, node_count))
-        else:
+        try:
+            if mode == "appliance":
+                return jsonify(calculate_appliance(data, node_count))
             return jsonify(calculate_validated(data, node_count))
+        except StorageLayoutError as exc:
+            # The model's catalog entry lacks a drive count: a data error for
+            # the admin to fix, not a server fault.
+            app.logger.warning("Calculate refused: %s", exc)
+            return jsonify({"error": str(exc)}), 400
 
     @app.route("/api/import-liveoptics", methods=["POST"])
     def import_liveoptics():
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
-
-        f = request.files["file"]
-        if not f.filename or not f.filename.endswith(".xlsx"):
-            return jsonify({"error": "File must be an .xlsx Excel file"}), 400
-        # Content sniff: an .xlsx is a ZIP (starts with "PK\x03\x04"). Reject
-        # anything else up front rather than feeding arbitrary bytes to openpyxl.
-        head = f.stream.read(4)
-        f.stream.seek(0)
-        if head != b"PK\x03\x04":
-            return jsonify({"error": "File must be an .xlsx Excel file"}), 400
-
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
         try:
-            f.save(tmp.name)
-            tmp.close()
+            with spooled_xlsx(request, bad_type_msg="File must be an .xlsx Excel file") as path:
+                return _import_assessment(path, request.files["file"].filename)
+        except UploadError as exc:
+            return jsonify({"error": str(exc)}), exc.status
 
-            file_digest = _file_sha256(tmp.name)
-            file_type = _detect_file_type(tmp.name)
+    def _import_assessment(path, file_name):
+        try:
+            file_digest = sha256_file(path)
+            file_type = _detect_file_type(path)
             if file_type == "rvtools":
-                data = parse_rvtools(tmp.name)
+                data = parse_rvtools(path)
             elif file_type == "liveoptics":
-                data = parse_liveoptics(tmp.name)
+                data = parse_liveoptics(path)
             elif file_type == "nutanix":
-                data = parse_nutanix_collector(tmp.name)
+                data = parse_nutanix_collector(path)
             else:
                 return jsonify({"error": "Unrecognised file format. Please upload an environment assessment export (Live Optics, RVTools or Nutanix Collector)."}), 400
 
@@ -402,7 +398,7 @@ def create_app():
                 }), 422
 
             source_meta = {
-                "file_name": f.filename,
+                "file_name": file_name,
                 "file_type": file_type,
                 "file_sha256": file_digest,
                 "imported_at": _utcnow_iso(),
@@ -455,7 +451,8 @@ def create_app():
                 "clusters": data.get("clusters", []),
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
-                "warnings": result.get("warnings", []),
+                "warnings": (result.get("warnings", [])
+                             + input_quality_warnings(data["summary"])),
                 # Data-quality caveats about the import itself (no IOPS/perf,
                 # assumed ratio, unclustered hosts, ...). {code, params} objects
                 # translated client-side; shown on the wizard's Environment step.
@@ -471,8 +468,6 @@ def create_app():
         except Exception as e:
             app.logger.warning("Import parse failed: %s", e)
             return jsonify({"error": "Could not parse the file. Upload a valid environment assessment export (.xlsx)."}), 400
-        finally:
-            os.unlink(tmp.name)
 
     @app.route("/api/recommend", methods=["POST"])
     def recommend():
@@ -540,12 +535,17 @@ def create_app():
                                               storage_growth_pct=storage_growth_pct,
                                               guest_licensing=guest_licensing,
                                               vendor=vendor)
+        except StorageLayoutError as exc:
+            app.logger.warning("Recommend refused: %s", exc)
+            return jsonify({"error": str(exc)}), 400
         except (TypeError, ValueError, KeyError):
             # Malformed numeric fields in the client-supplied summary/params
             # (e.g. a non-numeric vCPU count). A bad request, not a server fault.
             app.logger.warning("Recommend rejected malformed input")
             return jsonify({"error": "The imported figures are incomplete or "
                                      "malformed. Re-import the environment."}), 400
+        result["warnings"] = (result.get("warnings", [])
+                              + input_quality_warnings(summary))
         return jsonify(result)
 
     @app.route("/api/import-merge", methods=["POST"])
@@ -613,18 +613,6 @@ def create_app():
         return jsonify({"found": False})
 
     return app
-
-
-def _file_sha256(file_path):
-    """Digest of the uploaded file, kept as provenance. Only the hash is stored
-    — never the file itself — so a re-import can be spotted without holding
-    customer data (§8)."""
-    import hashlib
-    digest = hashlib.sha256()
-    with open(file_path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _utcnow_iso():

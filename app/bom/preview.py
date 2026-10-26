@@ -24,7 +24,9 @@ from typing import Dict, List, Optional
 
 from auth_models import _iso, _utcnow
 from database import db
-from bom import hcl_sync
+from bom import enrich, hcl_sync
+from bom.enrich import CODE_DELISTED
+from bom.hcl_data import active_platforms
 from bom.hcl_scrape import component_attrs, synthetic_part_number
 from bom.normalize import NormalizedBOM
 from hcl_models import (
@@ -46,7 +48,6 @@ CODE_KINDS = {
     "gpu_not_in_hcl": "gpu",
     "cpu_unknown": "cpu",
 }
-CODE_DELISTED = "component_delisted"
 
 _PART_LIMIT = hcl_sync._COMPONENT_LIMITS["part_number"]
 _DESC_LIMIT = hcl_sync._COMPONENT_LIMITS["description"]
@@ -64,19 +65,6 @@ def _bom_component(config, description):
     for c in config.components:
         if c.description == description:
             return c
-    return None
-
-
-def _matching_delisted(bom_comp) -> Optional[HclComponent]:
-    """The delisted catalog component a component_delisted finding matched —
-    same matching rule enrich.delisted_findings used to raise it."""
-    from bom import enrich
-    kinds = enrich._CATEGORY_KINDS.get(bom_comp.category)
-    if not kinds:
-        return None
-    for comp in HclComponent.query.filter_by(status=STATUS_DELISTED).all():
-        if comp.kind in kinds and enrich._matches_component(bom_comp, comp):
-            return comp
     return None
 
 
@@ -112,7 +100,9 @@ def candidates_for(check) -> Dict:
                     continue
                 description = (bom_comp.description or "").strip()[:_DESC_LIMIT]
             elif code == CODE_DELISTED:
-                delisted = _matching_delisted(bom_comp)
+                # Same lookup the finding came from: a withdrawn PREVIEW part
+                # was never on the HCL, so it is not offered for relisting.
+                delisted = enrich.find_delisted(bom_comp)
                 if delisted is None:
                     continue
                 kind, part = delisted.kind, delisted.part_number
@@ -243,7 +233,7 @@ def near_matches(brand: Optional[str], name: Optional[str],
         return []
     brand = (brand or "").strip().lower() or None
     out = []
-    for p in HclPlatform.query.filter_by(status=STATUS_ACTIVE).all():
+    for p in active_platforms():
         hay = [(h, field) for h, field in
                ((_norm_name(p.sc_model), "name"), (_norm_name(p.server), "server")) if h]
         best, best_field = 0.0, None

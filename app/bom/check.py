@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from bom import rules
-from bom.normalize import ConfigResult, NormalizedBOM, ValidationResult
+from bom.normalize import ConfigResult, NormalizedBOM
 from bom import enrich, part_notes, platform_match
 
 
@@ -70,8 +70,8 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
     both come from the database."""
     hcl = hcl if hcl is not None else _load_hcl()
     if platforms is None:
-        from hcl_models import HclPlatform, STATUS_ACTIVE
-        platforms = HclPlatform.query.filter_by(status=STATUS_ACTIVE).all()
+        from bom.hcl_data import active_platforms
+        platforms = active_platforms()
     try:
         delisted = enrich.load_delisted()
     except Exception:
@@ -79,9 +79,9 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
     # Reviewers' standing notes on specific parts (bom/part_notes.py).
     notes = part_notes.load_notes()
 
-    config_results = []  # type: List[ConfigResult]
-    config_dicts = []    # type: List[Dict]
-    suggestions = []     # type: List[Dict]
+    config_results: List[ConfigResult] = []
+    config_dicts: List[Dict] = []
+    suggestions: List[Dict] = []
     for config in bom.configs:
         if not rules.is_hardware_config(config):
             continue
@@ -109,13 +109,7 @@ def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict
         d["node_count"] = config.node_count
         config_dicts.append(d)
 
-    verdict = "PASS"
-    if not config_results:
-        verdict = "INCONCLUSIVE"
-    elif any(r.verdict == "FAIL" for r in config_results):
-        verdict = "FAIL"
-    elif any(r.verdict == "INCONCLUSIVE" for r in config_results):
-        verdict = "INCONCLUSIVE"
+    verdict = rules.rollup_verdict(config_results)
 
     return {
         "technical": {"verdict": verdict, "config_results": config_dicts},

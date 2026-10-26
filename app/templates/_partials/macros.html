@@ -1,0 +1,11 @@
+{#- Markup shared by index.html and admin.html. Import with
+    {% import "_partials/macros.html" as ui %} -#}
+
+{#- A dialog's X button. `handler` is the page's close function, named in the
+    data-click spec; common.js reads that same spec back to dismiss the dialog
+    from Escape or a backdrop click, so the button must stay
+    `.modal-close[data-click]`. `label_key` adds a translated aria-label for
+    dialogs whose heading does not already name what is being closed. -#}
+{% macro close_button(handler, label_key=none) -%}
+<button class="modal-close" data-click='["{{ handler }}"]'{% if label_key %} data-i18n-aria="{{ label_key }}" aria-label="Close"{% endif %}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+{%- endmacro %}

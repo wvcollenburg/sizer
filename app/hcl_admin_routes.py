@@ -37,11 +37,12 @@ from auth import _aware, audit, current_user, get_setting, set_setting
 from auth_models import _utcnow
 from bom import hcl_data, hcl_scrape, hcl_sync
 from bom.preview import PREVIEW_FEED_TOKEN_SETTING
+from coerce import to_int
 from database import db
 from extensions import limiter
 from hcl_models import (
     HclComponent, HclDevice, HclPendingChange, HclPlatform, HclScrapeRun,
-    ORIGIN_PREVIEW, PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING,
+    PENDING, RUN_FAILED, RUN_QUEUED, RUN_RUNNING,
     STATUS_ACTIVE, STATUS_DELISTED,
 )
 
@@ -66,11 +67,7 @@ def _int_field(value, cap=100000):
     """Snapshot page counters are admin-supplied JSON: coerce, clamp into
     [0, cap], and return None (-> a JSON 400, not an HTML 500) for
     non-numeric junk."""
-    try:
-        n = int(value or 0)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return max(0, min(n, cap))
+    return to_int(value or 0, lo=0, hi=cap)
 
 
 # ── scrape run lifecycle ──────────────────────────────────────────────────────

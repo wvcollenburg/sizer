@@ -14,7 +14,7 @@ from orm_models import (
     ValidatedNic, Switch, DriveTypeIops, SizingSetting,
 )
 # Imported so db.create_all() discovers the auth/multitenancy tables.
-from auth_models import (
+from auth_models import (  # noqa: F401
     Tenant, User, Configuration, AppSetting, AdminAuditLog, PiiErasure,
     ROLE_SUPER_ADMIN,
 )
@@ -47,6 +47,7 @@ from models import (
 )
 
 from xlsx_utils import parse_quantity as _parse_quantity
+import storage_layout
 
 _cpu_cache = {}
 _nic_cache = {}
@@ -582,6 +583,9 @@ def seed_appliance_models():
             db.session.add(RamOption(model_id=model.id, size_gb=ram_gb))
 
         storage = data["storage"]
+        # A seed entry without the drive count its type needs is a catalog
+        # error: raise here rather than ship a model the engine can't size.
+        storage_layout.drive_slots(storage)
         sc = StorageConfig(
             model_id=model.id,
             storage_type=storage["type"],

@@ -173,10 +173,15 @@
         performance target.</li>
     <li><strong>Workload Requirements</strong>: the fields marked * are required: total vCPUs,
         provisioned RAM, and datastore used.</li>
+    <li><strong>Largest VM vCPUs</strong> and <strong>Largest VM RAM</strong> are optional but
+        important. With them, the sizer only recommends nodes the biggest VM can run on. Without
+        them that check is skipped, and the results show a warning saying so: verify by hand
+        that no VM is bigger than one node.</li>
     <li>{{ m.ui("+ Add / edit VMs") }} opens a VM list you can type into, with clone (copies
         with automatic numbering, for example DC01 → DC02, DC03…) and remove per row.
         {{ m.ui("Apply") }} raises the workload totals to at least the sum of the VMs, and the
-        totals cannot then be set lower than that sum.</li>
+        largest-VM fields to at least the biggest VM. These fields cannot then be set lower
+        than that.</li>
     <li>{{ m.ui("Get Recommendations") }} sizes it. The options and results are the same as
         for an import.</li>
 </ul>

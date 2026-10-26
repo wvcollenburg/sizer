@@ -20,7 +20,6 @@ test_bom_parsers.py / test_bom_eval.py). What is pinned here:
 Run: .venv/bin/python -m pytest tests/test_bom_pdf.py -q
 """
 import io
-import json
 import os
 import sys
 
@@ -37,7 +36,6 @@ from bom import agent_ingest, pdf_certainty, pdf_doc  # noqa: E402
 from bom.parsers import read_pdf  # noqa: E402
 from bom.parsers.pdf_common import NotAVendorBom, money  # noqa: E402
 from bom_models import BomAgentJob  # noqa: E402
-from database import db  # noqa: E402
 
 
 def _file(tmp_path, maker, name="quote.pdf"):

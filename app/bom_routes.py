@@ -17,13 +17,12 @@ worker is done, and the result is an ordinary check marked AGENT_FORMAT.
 Without an API key such files are refused with the blank template offered,
 as before.
 """
-import hashlib
 import io
 import os
 import tempfile
-from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
+from request_utils import json_body, sha256_file
 
 from admin_routes import require_super_admin
 from auth import audit, current_user, login_required
@@ -38,10 +37,12 @@ from bom_models import (AGENT_ALWAYS_REVIEW_SETTING, AGENT_FORMAT,
                         AGENT_GLOBAL_CAP_SETTING, AGENT_TENANT_CAP_SETTING,
                         BomAgentJob, BomCheck, BomRejectedFile, JOB_FAILED,
                         JOB_QUEUED, JOB_RUNNING, REVIEW_CONFIRMED,
-                        REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN)
+                        REVIEW_INCORRECT, REVIEW_NONE, REVIEW_OPEN,
+                        live_sizing, store_check)
 from database import db
 from extensions import limiter
 from projects import _owned_project_or_error, _visible_project
+from xlsx_utils import XLSX_MIME
 
 bom_bp = Blueprint("bom", __name__, url_prefix="/api/bom")
 bom_project_bp = Blueprint("bom_project", __name__, url_prefix="/api/projects")
@@ -64,7 +65,6 @@ MAX_BOM_BYTES = 10 * 1024 * 1024
 # Agent jobs per user per hour, on top of the route's request limit: each
 # one is a paid model call.
 AGENT_JOBS_PER_USER_HOUR = 20
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def register_bom(app):
@@ -79,14 +79,6 @@ def register_bom(app):
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-
-def _sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
 
 # PDFs have their own local parsers (bom/parsers/pdf_*.py), so they are
 # accepted with or without the agent.
@@ -135,8 +127,8 @@ def _sizing_for(project, sizing_id):
         sid = int(sizing_id)
     except (TypeError, ValueError):
         return None, (jsonify({"error": "Invalid sizing id"}), 400)
-    sizing = db.session.get(Configuration, sid)
-    if sizing is None or sizing.is_deleted or sizing.project_id != project.id:
+    sizing = live_sizing(db.session.get(Configuration, sid), project.id)
+    if sizing is None:
         return None, (jsonify({"error": "Sizing not found in this project"}), 400)
     return sizing, None
 
@@ -219,7 +211,8 @@ def list_checks(project_id):
 
 def _parse_upload(path, filename):
     """(bom, fmt, refusal, ingest_meta):
-      (bom, fmt, None, meta)   a local parser read it (meta: PDF certainty);
+      (bom, fmt, None, meta)   a local parser read it (meta: certainty of a
+                               PDF or best-effort spreadsheet read);
       (None, None, reply, _)   refuse outright;
       (None, None, None, meta) no parser could read it with confidence: a
                                case for the agent (meta: why, for PDFs)."""
@@ -244,6 +237,10 @@ def _parse_upload(path, filename):
         # Oversized sheet or a zip decompression bomb: a clear refusal.
         return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
     except UnrecognizedFormat:
+        if ext in (".xlsx", ".xls"):
+            # Nearly a layout we know: the column-shape read, trusted on the
+            # same certainty threshold as a PDF parse.
+            return _parse_sheet_guess(path, filename)
         return None, None, None, None
     except Exception as exc:                     # a parser crash: let the agent try
         from flask import current_app
@@ -267,6 +264,23 @@ def _parse_pdf(path):
     return None, None, None, meta
 
 
+def _parse_sheet_guess(path, filename):
+    """A spreadsheet through the best-effort reader and the certainty score
+    (bom/sheet_certainty): trusted at or above the admin threshold,
+    otherwise the agent's, with the reasons kept."""
+    from bom import sheet_certainty
+    from bom.parsers import read_sheet_guess
+    from xlsx_utils import SheetTooLargeError
+    try:
+        outcome = read_sheet_guess(path, filename)
+    except SheetTooLargeError as exc:
+        return None, None, (jsonify({"error": str(exc), "details": []}), 400), None
+    meta = {"pdf": dict(outcome.meta(), threshold=sheet_certainty.threshold())}
+    if outcome.bom is not None and sheet_certainty.passes(outcome.certainty):
+        return outcome.bom, outcome.fmt, None, meta
+    return None, None, None, meta
+
+
 def _refuse_unrecognised(local_meta=None):
     details = []
     pdf = (local_meta or {}).get("pdf") or {}
@@ -275,7 +289,7 @@ def _refuse_unrecognised(local_meta=None):
         details = [r.get("text", "") for r in (pdf.get("reasons") or [])][:5]
     return jsonify({"error": "This file is not a BOM format the checker recognises."
                              if not pdf.get("format") else
-                             "The checker could not read this PDF with enough certainty.",
+                             "The checker could not read this file with enough certainty.",
                     "hint": "Download the blank template, fill it in and upload that instead.",
                     "retainable": True, "details": details}), 400
 
@@ -383,7 +397,7 @@ def create_check(project_id):
         return jsonify({"error": str(exc)}), 400
     name = (request.form.get("name") or "").strip()[:200] or os.path.basename(f.filename or "BOM")[:200]
     try:
-        digest = _sha256(path)
+        digest = sha256_file(path)
         bom, fmt, refusal, local_meta = _parse_upload(path, f.filename)
         if refusal:
             return refusal
@@ -402,15 +416,9 @@ def create_check(project_id):
         except OSError:
             pass
 
-    check = BomCheck(
-        project_id=project.id, user_id=user.id, tenant_id=user.tenant_id,
-        name=name, filename=(f.filename or "")[:200], file_sha256=digest,
-        file_format=fmt, vendor=bom.vendor, normalized=bom.to_dict(), history=[],
-        ingest_meta=local_meta,
-    )
-    check.apply_result(result, sizing)
-    check.history = [check.history_entry()]
-    db.session.add(check)
+    check = store_check(
+        project_id=project.id, user=user, name=name, filename=f.filename, digest=digest,
+        file_format=fmt, bom=bom, meta=local_meta, sizing=sizing, result=result)
     db.session.commit()
     return jsonify(check.to_dict(full=True)), 201
 
@@ -463,7 +471,7 @@ def set_agent_job_notify(job_id):
     job, project = _visible_job(job_id, user)
     if job is None or job.user_id != user.id:
         return jsonify({"error": "Job not found"}), 404
-    job.notify_email = bool((request.get_json(silent=True) or {}).get("notify"))
+    job.notify_email = bool(json_body().get("notify"))
     db.session.commit()
     return jsonify(job.to_dict())
 
@@ -530,7 +538,7 @@ def recheck(check_id):
         return jsonify({"error": "BOM check not found"}), 404
     if not _can_write(check, project, user):
         return jsonify({"error": "You cannot re-check this BOM"}), 403
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     if "sizing_id" in data:
         sizing, err = _sizing_for(project, data.get("sizing_id"))
         if err:
@@ -540,9 +548,7 @@ def recheck(check_id):
         # project — sizings can be moved between projects (move_sizing), and
         # the explicit sizing_id path above enforces membership via
         # _sizing_for, so the implicit path must not bypass that rule.
-        sizing = check.configuration
-        if sizing is not None and (sizing.is_deleted or sizing.project_id != project.id):
-            sizing = None
+        sizing = live_sizing(check.configuration, project.id)
     bom = NormalizedBOM.from_dict(check.normalized or {})
     result = run_check(bom, sizing)
     check.apply_result(result, sizing)
@@ -579,6 +585,7 @@ def list_reviews():
 @bom_admin_bp.route("/agent-settings", methods=["GET"])
 def get_agent_settings():
     from auth import get_setting
+    from bom import pdf_certainty
     return jsonify({
         "available": agent_ingest.available(),
         "model": agent_ingest.model_name() if agent_ingest.available() else None,
@@ -586,20 +593,15 @@ def get_agent_settings():
         "tenant_daily_cap": _cap(AGENT_TENANT_CAP_SETTING),
         "global_daily_cap": _cap(AGENT_GLOBAL_CAP_SETTING),
         "user_hourly_limit": AGENT_JOBS_PER_USER_HOUR,
-        "pdf_threshold": _pdf_threshold(),
+        "pdf_threshold": pdf_certainty.threshold(),
     })
-
-
-def _pdf_threshold():
-    from bom import pdf_certainty
-    return pdf_certainty.threshold()
 
 
 @bom_admin_bp.route("/agent-settings", methods=["PUT"])
 def put_agent_settings():
     """Caps are agent jobs per UTC day; 0 = unlimited."""
     from auth import set_setting
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     changes = []
     for key, setting in (("tenant_daily_cap", AGENT_TENANT_CAP_SETTING),
                          ("global_daily_cap", AGENT_GLOBAL_CAP_SETTING)):
@@ -674,7 +676,7 @@ def annotate_review(check_id):
     check = db.session.get(BomCheck, check_id)
     if check is None or check.is_deleted:
         return jsonify({"error": "BOM check not found"}), 404
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     status = (data.get("status") or "").strip().lower()
     if status not in (REVIEW_OPEN, REVIEW_CONFIRMED, REVIEW_INCORRECT):
         return jsonify({"error": "status must be open, confirmed or incorrect"}), 400
@@ -706,7 +708,7 @@ def accept_parts(check_id):
     check = db.session.get(BomCheck, check_id)
     if check is None or check.is_deleted:
         return jsonify({"error": "BOM check not found"}), 404
-    data = request.get_json(silent=True) or {}
+    data = json_body()
     keys = data.get("keys")
     if not isinstance(keys, list) or not keys or not all(isinstance(k, str) for k in keys):
         return jsonify({"error": "keys must be a non-empty list of candidate keys"}), 400
@@ -778,7 +780,7 @@ def retain_rejected(project_id):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:
-        digest = _sha256(path)
+        digest = sha256_file(path)
         with open(path, "rb") as fh:
             content = fh.read()
     finally:
@@ -890,7 +892,7 @@ def list_part_notes():
 
 @bom_notes_admin_bp.route("", methods=["POST"])
 def create_part_note():
-    data = request.json or {}
+    data = json_body()
     note, err = _note_from_payload(data)
     if err:
         return jsonify({"error": err}), 400
@@ -913,7 +915,7 @@ def update_part_note(note_id):
     note = db.session.get(BomPartNote, note_id)
     if note is None:
         return jsonify({"error": "Note not found"}), 404
-    note, err = _note_from_payload(request.json or {}, note)
+    note, err = _note_from_payload(json_body(), note)
     if err:
         return jsonify({"error": err}), 400
     audit("bom_part_note", "updated note #%d (%s, %s, %s)"

@@ -33,7 +33,7 @@ resolution skips the catalog table) so tests and background jobs can run it
 without an app context. Python 3.9-compatible.
 """
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from tunables import T
 from recommend import (_cluster_layout, _cluster_usable_storage,
@@ -116,18 +116,22 @@ def _parse_dimm_gb(desc: str) -> Optional[int]:
     return int(round(value))
 
 
-def _parse_nic_speed(desc: str) -> Optional[float]:
-    """Max GbE figure on a NIC line; '10/25GbE' -> 25 (it is a 25G part)."""
-    best = None
+def nic_speeds(desc: str) -> set:
+    """Every GbE speed a NIC line's ports can run at: '10/25GbE' -> {10, 25},
+    '1GbE' -> {1}; empty when the line names none."""
+    out = set()
     for m in _NIC_SPEED_RE.finditer(desc or ""):
         for part in m.group(1).split("/"):
             try:
-                v = float(part.strip())
+                out.add(float(part.strip()))
             except ValueError:
                 continue
-            if best is None or v > best:
-                best = v
-    return best
+    return out
+
+
+def _parse_nic_speed(desc: str) -> Optional[float]:
+    """Max GbE figure on a NIC line; '10/25GbE' -> 25 (it is a 25G part)."""
+    return max(nic_speeds(desc), default=None)
 
 
 def _parse_nic_ports(desc: str) -> Optional[int]:

@@ -120,7 +120,6 @@ def test_unknown_edition_letter_is_data_not_an_error():
     out = pricebook_import.parse_license_rows(rows)
     assert out["counts"]["unmatched"] == 0
     assert out["bands"][0]["edition"] == "Z"
-    assert "Z" not in licensing.SELECTABLE_EDITIONS
 
 
 # ── Bands and the cap ────────────────────────────────────────────────────────
@@ -641,16 +640,6 @@ def test_guest_exposure_multipliers_are_ordered():
 
 
 # ── platform_tier basket and divergence (§8.2, §8.3) ─────────────────────────
-
-def test_basket_rate_matches_the_shipped_default():
-    """The default eur_per_tier_point must be the basket's median, or the dial
-    and the evidence have silently diverged."""
-    import platform_tier
-    from models import MODEL_COSTS
-    from tunables import DEFAULTS
-    rate = platform_tier.basket_rate(tiers=MODEL_COSTS)
-    assert round(rate) == DEFAULTS["eur_per_tier_point"]
-
 
 def test_ladder_agrees_with_the_basket_after_rebasing():
     """The ladder was re-based to the basket on 2026-09-02, so nothing should

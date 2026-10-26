@@ -11,6 +11,7 @@ state, so they can be called from a route, a worker, or a test.
 """
 from orm_models import Model
 from tunables import T
+import storage_layout
 from recommend import (_cluster_layout, _cluster_usable_storage,
                        _effective_cores, license_annotations_for)
 from cluster_diagram import network_svg_for
@@ -68,6 +69,75 @@ def _n_minus_1_block(node_count, num_clusters, cores, threads, ghz, ram, usable_
     }
 
 
+def _storage_only_count(data, hci_count):
+    """How many storage-only nodes the request adds: (count, error). (0, None)
+    when none were requested (or the count is junk); the error when the count
+    is over the cap or the cluster lacks the HCI nodes to carry them (>=2 full
+    HCI nodes, for HA and rolling updates). Shared by both calculators."""
+    so = data.get("storage_only") or {}
+    try:
+        count = int(so.get("count", 0) or 0)
+    except (TypeError, ValueError):
+        return 0, None
+    if count <= 0:
+        return 0, None
+    if count > MAX_STORAGE_ONLY_COUNT:
+        return 0, {"error": f"Storage-only node count must be {MAX_STORAGE_ONLY_COUNT} or fewer"}
+    if hci_count < T.min_hci_nodes_per_cluster:
+        return 0, {"error": (
+            f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
+            f"when adding storage-only nodes (for HA and rolling updates)."
+        )}
+    return count, None
+
+
+def _usable_storage(raw_per_node, biggest_disk, layout, total_nodes, disk_count):
+    """Usable TB across the cluster(s). Multi-node: RF2 with the largest disk
+    held back per cluster for a rebuild. Single Node System: RF2 still mirrors
+    across the node's own drives (raw/2) but reserves no rebuild disk — there
+    is no peer to rebuild onto; a single-disk SNS can't mirror at all, so its
+    raw capacity is fully usable."""
+    if total_nodes > 1:
+        return _cluster_usable_storage(raw_per_node, biggest_disk, layout)
+    return raw_per_node if disk_count <= 1 else raw_per_node / 2
+
+
+def _capacity_blocks(node_count, num_clusters, cores, threads, ghz, ram_gb,
+                     disk_count, total_raw, usable):
+    """The HyperCore OS deductions and the cluster-wide totals they feed.
+
+    Compute comes from the HCI nodes only; the OS reserves cores and a RAM
+    tier set by the node's drive-bay count. Returns (usable_cores, usable_ram,
+    cluster_total block, n_minus_1 block)."""
+    reserved_cores = T.os_core_overhead
+    reserved_ram = T.usable_ram_overhead_for(disk_count)
+    usable_cores = cores - reserved_cores
+    usable_ram = ram_gb - reserved_ram
+
+    total_cores = usable_cores * node_count
+    total_threads = threads * node_count
+    total_ghz = ghz * cores * node_count
+    total_ram = usable_ram * node_count
+
+    n_minus_1 = _n_minus_1_block(node_count, num_clusters, usable_cores,
+                                 threads, ghz * cores, usable_ram, usable,
+                                 reserved_cores_per_node=reserved_cores,
+                                 reserved_ram_per_node=reserved_ram)
+    cluster_total = {
+        "cores": total_cores,
+        "threads": total_threads,
+        "total_ghz": round(total_ghz, 2),
+        "ram_gb": total_ram,
+        "raw_storage_tb": round(total_raw, 2),
+        "usable_storage_tb": round(usable, 2),
+        # HyperCore OS reservations across the compute (HCI) nodes — what
+        # separates the physical configuration from the usable totals above.
+        "reserved_cores": reserved_cores * node_count,
+        "reserved_ram_gb": reserved_ram * node_count,
+    }
+    return usable_cores, usable_ram, cluster_total, n_minus_1
+
+
 def calculate_appliance(data, node_count):
     model_name = data.get("model")
     m = Model.query.filter_by(name=model_name).first()
@@ -112,9 +182,7 @@ def calculate_appliance(data, node_count):
         return hci_err
 
     total_raw = raw_per_node * total_nodes
-    if total_nodes > 1:
-        usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
-    else:
+    if total_nodes == 1:
         # Single Node System. Any disk layout the model is certified with runs
         # as SNS (owner, 2026-09-29: the old "2+ disks of every tier" rule is
         # resolved; hybrids only need 2 slow disks per fast one, which the
@@ -122,32 +190,12 @@ def calculate_appliance(data, node_count):
         sns_err = _sns_storage_error(storage, model_name)
         if sns_err:
             return sns_err
-        # RF2 still mirrors across the node's own drives (usable = raw/2), but
-        # reserves no rebuild disk — there's no peer node to rebuild onto, so the
-        # largest-disk reserve that multi-node clusters hold back doesn't apply. A
-        # single-disk SNS (e.g. HE153) can't mirror at all, so its raw capacity is
-        # fully usable.
-        usable = (raw_per_node if compute_drive_count_appliance(data, storage) <= 1
-                  else raw_per_node / 2)
+    drive_count = compute_drive_count_appliance(data, storage)
+    usable = _usable_storage(raw_per_node, biggest_disk, layout, total_nodes, drive_count)
 
-    # Apply HyperCore OS overhead. Compute capacity comes from the HCI nodes only.
-    # OS RAM overhead is tiered by this node's drive-bay count.
-    reserved_cores = T.os_core_overhead
-    reserved_ram = T.usable_ram_overhead_for(
-        compute_drive_count_appliance(data, storage))
-    usable_cores = cpu["cores"] - reserved_cores
-    usable_ram = ram_gb - reserved_ram
-
-    total_cores = usable_cores * node_count
-    total_threads = cpu["threads"] * node_count
-    total_ghz = cpu["ghz"] * cpu["cores"] * node_count
-    total_ram = usable_ram * node_count
-
-    n_minus_1 = _n_minus_1_block(node_count, num_clusters, usable_cores,
-                                 cpu["threads"], cpu["ghz"] * cpu["cores"],
-                                 usable_ram, usable,
-                                 reserved_cores_per_node=reserved_cores,
-                                 reserved_ram_per_node=reserved_ram)
+    usable_cores, usable_ram, cluster_total, n_minus_1 = _capacity_blocks(
+        node_count, num_clusters, cpu["cores"], cpu["threads"], cpu["ghz"], ram_gb,
+        drive_count, total_raw, usable)
 
     _nic_ports = max((o.get("ports", 2) for o in model.get("nic_options", [])), default=2)
     network_svg = network_svg_for(node_count, so_block["count"] if so_block else 0, _nic_ports)
@@ -204,18 +252,7 @@ def calculate_appliance(data, node_count):
             "physical_ram_gb": ram_gb,
             "raw_storage_tb": round(raw_per_node, 2),
         },
-        "cluster_total": {
-            "cores": total_cores,
-            "threads": total_threads,
-            "total_ghz": round(total_ghz, 2),
-            "ram_gb": total_ram,
-            "raw_storage_tb": round(total_raw, 2),
-            "usable_storage_tb": round(usable, 2),
-            # HyperCore OS reservations across the compute (HCI) nodes — what
-            # separates the physical configuration from the usable totals above.
-            "reserved_cores": reserved_cores * node_count,
-            "reserved_ram_gb": reserved_ram * node_count,
-        },
+        "cluster_total": cluster_total,
         "n_minus_1": n_minus_1,
         "single_node": total_nodes == 1,
         "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
@@ -230,20 +267,10 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     when none requested. Returns (block, error_dict). Storage-only nodes reuse
     the model's drives (so raw_per_node is shared), take a single lowest-tier CPU
     and a compliant RAM option, and require >=2 full HCI nodes in the cluster."""
+    count, err = _storage_only_count(data, hci_count)
+    if not count:
+        return None, err
     so = data.get("storage_only") or {}
-    try:
-        count = int(so.get("count", 0) or 0)
-    except (TypeError, ValueError):
-        return None, None
-    if count <= 0:
-        return None, None
-    if count > MAX_STORAGE_ONLY_COUNT:
-        return None, {"error": f"Storage-only node count must be {MAX_STORAGE_ONLY_COUNT} or fewer"}
-    if hci_count < T.min_hci_nodes_per_cluster:
-        return None, {"error": (
-            f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
-            f"when adding storage-only nodes (for HA and rolling updates)."
-        )}
 
     # Certified: real single-CPU SKUs only (sibling model) — falls back to the
     # model's own CPUs (dual when no single sibling exists). Never fabricated.
@@ -274,35 +301,15 @@ def _appliance_storage_only(model, data, raw_per_node, hci_count):
     }, None
 
 
+def _chosen_sizes(data, storage):
+    """Chosen drive size per kind: the request's <kind>_tb, else the model's
+    smallest certified size for that tier."""
+    return {kind: data.get(f"{kind}_tb", storage[f"{kind}_options_tb"][0])
+            for kind, _ in storage_layout.drive_slots(storage)}
+
+
 def compute_raw_per_node_appliance(data, storage):
-    stype = storage["type"]
-    if stype == "nvme_only":
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        count = storage.get("drives_per_node", 1)
-        return nvme_tb * count
-    elif stype == "ssd_only":
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        count = storage.get("drives_per_node", 4)
-        return ssd_tb * count
-    elif stype == "hdd_only":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        count = storage.get("drives_per_node", 4)
-        return hdd_tb * count
-    elif stype == "hybrid":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        return (hdd_tb * storage["hdd_count"]) + (ssd_tb * storage["ssd_count"])
-    elif stype == "hybrid_nvme":
-        hdd_tb = data.get("hdd_tb", storage["hdd_options_tb"][0])
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        return (hdd_tb * storage["hdd_count"]) + (nvme_tb * storage["nvme_count"])
-    elif stype == "nvme_and_ssd":
-        nvme_tb = data.get("nvme_tb", storage["nvme_options_tb"][0])
-        ssd_tb = data.get("ssd_tb", storage["ssd_options_tb"][0])
-        return nvme_tb + ssd_tb
-    elif stype == "cloud":
-        return 0
-    return 0
+    return storage_layout.raw_per_node(storage, _chosen_sizes(data, storage))
 
 
 def _sns_storage_error(storage, model_name):
@@ -323,36 +330,11 @@ def compute_drive_count_appliance(data, storage):
     """Number of physical drives in one node — used to decide whether a Single
     Node System can mirror (RF2). A single-disk node has no second drive to
     mirror to, so it runs unprotected (usable = raw)."""
-    stype = storage["type"]
-    if stype in ("nvme_only", "ssd_only", "hdd_only"):
-        return storage.get("drives_per_node", 1)
-    elif stype == "hybrid":
-        return storage["hdd_count"] + storage["ssd_count"]
-    elif stype == "hybrid_nvme":
-        return storage["hdd_count"] + storage["nvme_count"]
-    elif stype == "nvme_and_ssd":
-        return 2
-    return 0
+    return storage_layout.drive_count(storage)
 
 
 def compute_biggest_disk_appliance(data, storage):
-    stype = storage["type"]
-    if stype == "nvme_only":
-        return data.get("nvme_tb", storage["nvme_options_tb"][0])
-    elif stype == "ssd_only":
-        return data.get("ssd_tb", storage["ssd_options_tb"][0])
-    elif stype == "hdd_only":
-        return data.get("hdd_tb", storage["hdd_options_tb"][0])
-    elif stype == "hybrid":
-        return max(data.get("hdd_tb", storage["hdd_options_tb"][0]),
-                   data.get("ssd_tb", storage["ssd_options_tb"][0]))
-    elif stype == "hybrid_nvme":
-        return max(data.get("hdd_tb", storage["hdd_options_tb"][0]),
-                   data.get("nvme_tb", storage["nvme_options_tb"][0]))
-    elif stype == "nvme_and_ssd":
-        return max(data.get("nvme_tb", storage["nvme_options_tb"][0]),
-                   data.get("ssd_tb", storage["ssd_options_tb"][0]))
-    return 0
+    return storage_layout.biggest_disk_tb(storage, _chosen_sizes(data, storage))
 
 
 def calculate_validated(data, node_count):
@@ -369,10 +351,8 @@ def calculate_validated(data, node_count):
         return {"error": "At least 1 disk required per node"}
 
     disk_count = len(disks)
-    # 2 disks per node is supported in a multi-node cluster (Validated here is
-    # always 2+ nodes) but not on a Single Node System (owner, 2026-10-08). A
-    # 1-disk node still calculates, but the GUI warns that a
-    # disk failure then takes the whole node down (owner decision 2026-09-17).
+    # A 1-disk node still calculates, but the GUI warns that a disk failure
+    # then takes the whole node down (owner decision 2026-09-17).
 
     # Optional storage-only nodes: same disks, virtualization disabled. They add
     # capacity and disks to the cluster but no usable compute.
@@ -441,35 +421,18 @@ def calculate_validated(data, node_count):
                           f"{flash_n}× flash."),
             }
 
-    # Apply HyperCore OS overhead; OS RAM is tiered by the node's drive count.
-    reserved_cores = T.os_core_overhead
-    reserved_ram = T.usable_ram_overhead_for(disk_count)
-    usable_cores = cores - reserved_cores
-    usable_ram = ram_gb - reserved_ram
-
     raw_per_node = sum(d["size_tb"] for d in disks)
     biggest_disk = max(d["size_tb"] for d in disks)
     # Storage spans all nodes (HCI + storage-only), per cluster; compute spans
     # the HCI nodes only.
     total_raw = raw_per_node * total_nodes
-    if total_nodes > 1:
-        usable = _cluster_usable_storage(raw_per_node, biggest_disk, layout)
-    else:
-        # Single Node System: RF2 mirrors across the node's own drives (raw/2)
-        # but reserves no rebuild disk; a single-disk SNS can't mirror at all.
-        usable = raw_per_node if disk_count <= 1 else raw_per_node / 2
+    usable = _usable_storage(raw_per_node, biggest_disk, layout, total_nodes, disk_count)
     if so_block:
         so_block["raw_storage_tb"] = round(raw_per_node, 2)
 
-    total_cores = usable_cores * node_count
-    total_threads = threads * node_count
-    total_ghz = ghz * cores * node_count
-    total_ram = usable_ram * node_count
-
-    n_minus_1 = _n_minus_1_block(node_count, num_clusters, usable_cores,
-                                 threads, ghz * cores, usable_ram, usable,
-                                 reserved_cores_per_node=reserved_cores,
-                                 reserved_ram_per_node=reserved_ram)
+    usable_cores, usable_ram, cluster_total, n_minus_1 = _capacity_blocks(
+        node_count, num_clusters, cores, threads, ghz, ram_gb,
+        disk_count, total_raw, usable)
 
     storage_type = "All-Flash"
     if is_hybrid:
@@ -518,25 +481,10 @@ def calculate_validated(data, node_count):
             "raw_storage_tb": round(raw_per_node, 2),
             "disks": disks,
         },
-        "cluster_total": {
-            "cores": total_cores,
-            "threads": total_threads,
-            "total_ghz": round(total_ghz, 2),
-            "ram_gb": total_ram,
-            "raw_storage_tb": round(total_raw, 2),
-            "usable_storage_tb": round(usable, 2),
-            "reserved_cores": reserved_cores * node_count,
-            "reserved_ram_gb": reserved_ram * node_count,
-        },
+        "cluster_total": cluster_total,
         "n_minus_1": n_minus_1,
         "single_node": total_nodes == 1,
         "redundancy_note": SNS_NO_REDUNDANCY_MSG if total_nodes == 1 else None,
-        "validation": {
-            "disk_count_valid": disk_count >= 1,
-            "hybrid_ratio_valid": True,
-            "no_raid": True,
-            "internal_only": True,
-        },
     }
 
 
@@ -545,20 +493,10 @@ def _validated_storage_only(data, disk_count, hci_count):
     or (None, None) when none requested. Storage-only nodes carry the same disks
     as the HCI nodes; the caller fills in raw_storage_tb. A single low CPU and
     >=16 GB RAM are user-supplied; requires >=2 full HCI nodes."""
+    count, err = _storage_only_count(data, hci_count)
+    if not count:
+        return None, err
     so = data.get("storage_only") or {}
-    try:
-        count = int(so.get("count", 0) or 0)
-    except (TypeError, ValueError):
-        return None, None
-    if count <= 0:
-        return None, None
-    if count > MAX_STORAGE_ONLY_COUNT:
-        return None, {"error": f"Storage-only node count must be {MAX_STORAGE_ONLY_COUNT} or fewer"}
-    if hci_count < T.min_hci_nodes_per_cluster:
-        return None, {"error": (
-            f"At least {T.min_hci_nodes_per_cluster} full HCI nodes are required "
-            f"when adding storage-only nodes (for HA and rolling updates)."
-        )}
 
     cores = int(so.get("cores", 1) or 1)
     threads = int(so.get("threads", cores * 2) or cores * 2)

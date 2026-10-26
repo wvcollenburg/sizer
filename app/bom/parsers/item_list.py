@@ -26,18 +26,19 @@ vendor.
 import re
 from typing import Dict, List, Optional
 
-from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
+from bom.normalize import BOMConfig, NormalizedBOM
 from bom.parsers.common import (
-    categorize,
+    ComponentAcc,
+    categorize_line,
     cell,
     head_rows,
-    is_m2_media,
     raw_text_from_rows,
+    read_sheet,
     server_model_from_text,
-    sheet_matrix,
     should_drop,
     to_int,
 )
+from bom.text import squash_ws
 
 FORMAT = 'dist_item_list'
 
@@ -52,17 +53,13 @@ _ROLES = {
 }
 
 
-def _norm(value) -> str:
-    return ' '.join(str(value or '').strip().lower().split())
-
-
 def _header(rows) -> Optional[Dict[str, int]]:
     """{role: column} when row 1-5 carries item, vendor part, description
     and quantity headers."""
     for r in range(1, min(len(rows), 5) + 1):
         found: Dict[str, int] = {}
         for c in range(1, min(len(rows[r - 1]), 12) + 1):
-            label = _norm(cell(rows, r, c))
+            label = squash_ws(cell(rows, r, c))
             for role, labels in _ROLES.items():
                 if role not in found and label in labels:
                     found[role] = c
@@ -96,45 +93,27 @@ class _System:
         self.nodes = max(nodes, 1)
         self.label = label
         self.model = server_model_from_text(title)
-        self.order: List[str] = []
-        self.items: Dict[str, BOMComponent] = {}
+        self.acc = ComponentAcc('part+desc')
 
     def add(self, part: Optional[str], desc: str, qty: int):
         if should_drop(desc, part):
             return
-        cat = categorize(desc)
-        if cat == 'storage' and is_m2_media(desc):
-            cat = 'other'
+        cat = categorize_line(desc)
         if cat == 'chassis' and self.model is None:
             self.model = server_model_from_text(desc)
-        key = (part or '') + '|' + desc
-        if key in self.items:
-            self.items[key].quantity += qty
-        else:
-            self.items[key] = BOMComponent(part_number=part, description=desc,
-                                           quantity=qty, category=cat)
-            self.order.append(key)
+        self.acc.add(part, desc, qty, cat)
 
     def config(self) -> BOMConfig:
         name = ' '.join(self.title.split())[:120] or ('Config %s' % self.item)
         if self.label:
             name = ('%s: %s' % (self.label, name))[:120]
         return BOMConfig(name=name, server_model=self.model,
-                         components=[self.items[k] for k in self.order],
-                         node_count=self.nodes)
+                         components=self.acc.components(), node_count=self.nodes)
 
 
 def parse(path: str) -> NormalizedBOM:
     from bom.parsers import UnrecognizedFormat, detect_vendor
-    from bom.parsers.common import load_workbook_safe
-    wb = load_workbook_safe(path)
-    try:
-        ws = _sheet(wb)
-        if ws is None:
-            raise UnrecognizedFormat('Not a distributor item list.')
-        rows = sheet_matrix(ws)
-    finally:
-        wb.close()
+    rows, _title = read_sheet(path, _sheet, 'Not a distributor item list.')
     cols = _header(rows)
     systems: List[_System] = []
     label = ''
@@ -154,7 +133,7 @@ def parse(path: str) -> NormalizedBOM:
             continue
         if not item and desc and not part and not qty:
             label = desc.strip()                  # 'Propose Alternative Model'
-    systems = [s for s in systems if s.order]
+    systems = [s for s in systems if s.acc]
     if not systems:
         raise UnrecognizedFormat('The item list has no systems with parts.')
     bom = NormalizedBOM(vendor='Unknown', configs=[s.config() for s in systems],

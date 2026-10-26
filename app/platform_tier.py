@@ -140,18 +140,6 @@ def implied_rates(configs=None, tiers=None, normalise_epoch=False):
     return out
 
 
-def basket_rate(configs=None, tiers=None, normalise_epoch=False):
-    """The MEDIAN implied rate — a recommendation, not an automatic setting.
-
-    Median rather than mean on purpose: with five points and a known outlier or
-    two, one badly mis-tiered model must not drag the whole scale.
-    """
-    rows = implied_rates(configs, tiers, normalise_epoch)
-    if not rows:
-        return None
-    return statistics.median(r["eur_per_tier_point"] for r in rows)
-
-
 def divergence_report(configs=None, tiers=None, threshold=DEFAULT_THRESHOLD,
                       normalise_epoch=False):
     """Which models' tiers no longer match what the market charges for them.

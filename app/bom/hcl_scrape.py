@@ -52,7 +52,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 DEFAULT_BASE_URL = "https://hcl.scalecomputing.com"
 LISTING_PATH = "/hcready/filter"
@@ -94,13 +94,6 @@ def _to_int(text: Optional[str]) -> Optional[int]:
         return None
     m = re.search(r"\d+", text)
     return int(m.group(0)) if m else None
-
-
-def _to_float(text: Optional[str]) -> Optional[float]:
-    if not text:
-        return None
-    m = re.search(r"\d+(?:\.\d+)?", text)
-    return float(m.group(0)) if m else None
 
 
 def _unspecified(value: Optional[str]) -> Optional[str]:
@@ -731,38 +724,3 @@ def synthetic_part_number(kind: str, description: str, attrs: Optional[dict] = N
     if not slug:
         return None
     return ("no-part:" + slug)[:80]
-
-
-def snapshot_component_index(snapshot: dict) -> Dict[Tuple[str, str], dict]:
-    """Dedupe components across platforms, keyed by (kind, part_number).
-
-    The same CPU part is validated on many platforms; the catalog stores it
-    once and links platforms to it. ``tce`` on the indexed entry is True if
-    any platform flags it, while the per-platform flag is kept in
-    ``platforms`` so the sync layer can store the exact relation.
-    """
-    index = {}  # type: Dict[Tuple[str, str], dict]
-    for platform in snapshot.get("platforms") or []:
-        brand = platform.get("brand")
-        sc_model = platform.get("sc_model")
-        for comp in platform.get("components") or []:
-            part = comp.get("part_number") or synthetic_part_number(
-                comp.get("kind"), comp.get("description") or "", comp.get("attrs"))
-            if not part:
-                continue
-            key = (comp.get("kind"), part)
-            entry = index.get(key)
-            if entry is None:
-                entry = {
-                    "kind": comp.get("kind"),
-                    "part_number": part,
-                    "description": comp.get("description"),
-                    "tce": bool(comp.get("tce")),
-                    "attrs": dict(comp.get("attrs") or {}),
-                    "platforms": [],
-                }
-                index[key] = entry
-            elif comp.get("tce"):
-                entry["tce"] = True
-            entry["platforms"].append((brand, sc_model, bool(comp.get("tce"))))
-    return index

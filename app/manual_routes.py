@@ -35,7 +35,8 @@ NARROW_MAX_PX = 660
 
 
 @lru_cache(maxsize=256)
-def _png_width(path, mtime):
+def _png_width(path, _mtime_cache_key):
+    # _mtime_cache_key is only part of the lru_cache key: a rewritten PNG misses.
     with open(path, "rb") as fh:
         head = fh.read(24)
     return struct.unpack(">I", head[16:20])[0] if head[:8] == b"\x89PNG\r\n\x1a\n" else 0

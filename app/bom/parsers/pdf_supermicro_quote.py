@@ -26,9 +26,10 @@ read or silently ignored.
 import re
 from typing import List, Optional
 
-from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
-from bom.parsers.common import categorize, is_absence
-from bom.parsers.pdf_common import Evidence, doc_head, first_word_x, money, whole_number
+from bom.normalize import BOMComponent, BOMConfig
+from bom.parsers.common import categorize_line, demote_m2, is_absence
+from bom.parsers.pdf_common import (ARROW_STRAY_NUMBERED, Evidence, arrow_header, check_grand_total,
+                                    finish, money, qty_in_column, read_arrow_table)
 
 FORMAT = 'supermicro_quote_pdf'
 
@@ -49,13 +50,8 @@ _PREFIX_CATEGORY = [
 ]
 
 
-def _header(line) -> bool:
-    low = line.text.lower()
-    return low.startswith('product') and 'description' in low and 'qty' in low and 'total' in low
-
-
 def detect(doc) -> bool:
-    if not any(_header(l) for l in doc.lines[:40]):
+    if not any(arrow_header(l) for l in doc.lines[:40]):
         return False
     return bool(_ITEM.search(doc.text()))
 
@@ -63,39 +59,20 @@ def detect(doc) -> bool:
 def _category(part: str, desc: str) -> str:
     for rx, cat in _PREFIX_CATEGORY:
         if rx.search(part):
-            return cat
-    return categorize(desc)
+            return demote_m2(cat, desc)
+    return categorize_line(desc)
 
 
 def parse(doc):
     ev = Evidence()
-    header = next(l for l in doc.lines if _header(l))
-    desc_x = first_word_x(header, 'Part') or header.words[1].x0
-    qty_x = first_word_x(header, 'Qty')
+    _header, cols, body, subtotal = read_arrow_table(doc, ev, stray_re=ARROW_STRAY_NUMBERED,
+                                                     end_on_label_column=True)
     bundles = []
     cur = None
     item_lines = []
-    ended = False
-    subtotal = None
-    for line in doc.lines:
-        if line.page < header.page or (line.page == header.page and line.top <= header.top):
-            continue
-        low = line.text.lower()
-        if ended:
-            if 'sub-total' in low or 'subtotal' in low:
-                subtotal = money(line.text.split('Sub-Total', 1)[-1])
-            left = line.between(0, qty_x - 40).strip()
-            if re.match(r'^\d{1,3}\s+\S', left) and len(left) > 12:
-                ev.notes.append('stray: %s' % left[:80])
-            continue
-        if line.words[0].x0 < desc_x - 10:          # a label column row ends the table
-            ended = True
-            if 'sub-total' in low:
-                subtotal = money(line.text.split('Sub-Total', 1)[-1])
-            continue
-        qty = next((int(w.text) for w in line.words
-                    if abs(w.x0 - qty_x) < 25 and whole_number(w.text) is not None), None)
-        text = line.between(desc_x - 5, qty_x - 20).strip()
+    for line in body:
+        qty = qty_in_column(line, cols.qty)
+        text = line.between(cols.desc - 5, cols.qty - 20).strip()
         if qty is not None:
             prices = [money(w.text) for w in line.words if w.text.startswith(('$', '€', '£'))]
             cur = {'part': text.split()[0] if text else '', 'qty': qty, 'prices': prices, 'desc': []}
@@ -138,12 +115,10 @@ def parse(doc):
             ev.check(not off_multiple, 'bundle %d: every inline quantity is a multiple of %d systems%s'
                      % (bi, nodes, (' (not: %s)' % ', '.join(off_multiple)) if off_multiple else ''))
         if len(b['prices']) >= 2 and None not in b['prices']:
-            ev.check(abs(b['prices'][0] * nodes - b['prices'][-1]) <= 0.01 * max(b['prices'][-1], 1),
-                     'bundle %d: unit price x quantity = total' % bi)
+            ev.check_close(b['prices'][0] * nodes, b['prices'][-1],
+                           'bundle %d: unit price x quantity = total' % bi)
             grand += b['prices'][-1]
         configs.append(BOMConfig(name='Config %d' % bi if len(bundles) > 1 else 'Config 1',
                                  server_model=model, components=comps, node_count=nodes))
-    if subtotal is not None and grand:
-        ev.check(abs(subtotal - grand) <= 0.01 * max(subtotal, 1), 'bundle totals add up to the sub-total')
-    ev.region(item_lines)
-    return NormalizedBOM(vendor='Supermicro', configs=configs, raw_text=doc.text()[:20000]), ev
+    check_grand_total(ev, subtotal, grand, 'bundle totals add up to the sub-total')
+    return finish(doc, ev, 'Supermicro', configs, item_lines)

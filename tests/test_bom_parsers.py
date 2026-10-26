@@ -583,6 +583,19 @@ def test_m2_media_flag():
     assert not is_m2_media("ThinkSystem 2.5\" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD")
 
 
+@pytest.mark.parametrize("description", [
+    "ThinkSystem M.2 VA 480GB Read Intensive NVMe PCIe 4.0 x4 NHS SSD",      # Lenovo
+    "480GB SSD M.2 SATA 6Gbps Boot Drive",                                   # Dell quote wording
+])
+def test_categorize_line_demotes_m2_media_for_every_vendor(description):
+    """categorize() still says 'storage'; what the parsers emit is 'other'
+    (M.2 boot media is not a data drive, whoever quotes it)."""
+    from bom.parsers.common import categorize_line
+    assert categorize(description) == "storage"
+    assert categorize_line(description) == "other"
+    assert categorize_line("3.84TB NVMe SAS Read Intensive SSD") == "storage"
+
+
 def test_split_nx_and_server_model():
     assert split_nx("8x 16GB RDIMM, 4800MT/s, Dual Rank") == (8, "16GB RDIMM, 4800MT/s, Dual Rank")
     assert split_nx("4 X 3.84TB NVMe") == (4, "3.84TB NVMe")
@@ -665,6 +678,21 @@ def test_to_int_default_is_honoured():
     assert to_int(None, default=0) == 0
     assert to_int("n/a", default=7) == 7
     assert to_int(True, default=0) == 0
+
+
+def test_from_dict_coerces_quantities_like_the_parsers_do():
+    """The agent path (NormalizedBOM.from_dict) and the sheet parsers share
+    one quantity coercion: '3,0' is 3 on both, not the default."""
+    from bom import normalize
+    assert normalize.to_int is to_int
+    bom = NormalizedBOM.from_dict({"vendor": "Dell", "configs": [{
+        "name": "C", "nodeCount": 3, "components": [
+            {"description": "Xeon", "category": "cpu", "quantity": "3,0"},
+            {"description": "DIMM", "category": "memory", "quantity": "\xa012\xa0"},
+            {"description": "Blank", "category": "other", "quantity": float("inf")},
+        ]}]})
+    cfg = bom.configs[0]
+    assert [c.quantity for c in cfg.components] == [3, 12, 1]
 
 
 @pytest.mark.parametrize("value,expected", [
@@ -1055,3 +1083,24 @@ def test_distributor_item_list(tmp_path):
     assert "709-BBHI" not in first                    # service line dropped
     second = {c.part_number: c.category for c in bom.configs[1].components}
     assert second["405-ABDU"] == "controller"         # bare 'H965i Adapter' is a PERC
+
+
+def test_lenovo_breakdown_names_configs_after_the_option_and_keeps_totals():
+    """The header-less three-column retype of a DCSC configuration: one
+    config per option sheet, named by the A1 title, the CTO row's count as
+    node_count, feature quantities kept as totals across the machines, the
+    XClarity software block folded away and label/filler lines dropped."""
+    from bom.parsers import parse_file
+    path = os.path.join(FIXTURES, "synthetic_lenovo_breakdown.xlsx")
+    bom, fmt = parse_file(path, "synthetic_lenovo_breakdown.xlsx")
+    assert fmt == "lenovo_hw_breakdown" and bom.vendor == "Lenovo"
+    assert [c.name for c in bom.configs] == ["7.68TB", "3.84TB"]
+    big, small = bom.configs
+    assert big.node_count == 3 and big.server_model == "ThinkSystem SR630 V4"
+    by_part = {c.part_number: c for c in big.components}
+    assert by_part["C0TQ"].quantity == 24 and by_part["C0TQ"].category == "memory"
+    assert by_part["C0ZT"].quantity == 12 and by_part["C0ZT"].category == "storage"
+    assert {c.part_number for c in big.components if c.category == "nic"} == {"BCD4", "BCD6"}
+    assert "AURS" not in by_part and "AVEN" not in by_part and "C20D" not in by_part
+    assert "7.68TB" in by_part["C0ZT"].description
+    assert "3.84TB" in {c.part_number: c for c in small.components}["C0ZT"].description

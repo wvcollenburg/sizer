@@ -1,0 +1,27 @@
+{#- The <head> every page shares. Included inside <head> by index.html,
+    admin.html, manual/manual.html and privacy.html, which set two variables
+    first:
+      page_title  the <title> text
+      page_css    the stylesheets to link AFTER tokens.css, by basename
+                  (['style'], ['admin'], ['style', 'manual']) -#}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ asset('css/tokens.css') }}">
+{%- for css in page_css %}
+    <link rel="stylesheet" href="{{ asset('css/' ~ css ~ '.css') }}">
+{%- endfor %}
+    {#- Favicons. The SVG is what modern browsers use; the PNG and .ico cover
+        older ones and the browser's unprompted /favicon.ico request. Built by
+        tools/make_favicon.py — edit the geometry there, not these files. #}
+    <link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('img/favicon-32.png') }}" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
+    {#- Theme must be stamped on <html> before the first paint, or dark-mode
+        users get a flash of the light theme on every load (see theme.js). #}
+    <script src="{{ asset('js/theme.js') }}"></script>
+    {#- i18n: English base (fallback) + the active locale, then the engine.
+        Loaded in <head> so text is swapped before first paint. #}
+    <script src="{{ asset('js/lang/en.js') }}"></script>
+    {% if lang != 'en' %}<script src="{{ asset('js/lang/' ~ lang ~ '.js') }}"></script>{% endif %}
+    <script src="{{ asset('js/i18n.js') }}"></script>

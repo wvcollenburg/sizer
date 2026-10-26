@@ -35,25 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resetToken) openResetModal(resetToken);
 });
 
-// A save refused for size names the VM count, so the user knows what to cut
-// (a merged estate of many files is the case that reaches the cap).
-function _saveError(status, data) {
-    if (status === 413) {
-        const vms = window.currentVmCount ? window.currentVmCount() : 0;
-        return t('merge.too_large', { vms });
-    }
-    return (data && data.error) || t('auth.generic_error');
-}
-
-async function apiJson(url, opts) {
-    const resp = await fetch(url, opts);
-    let data = null;
-    try { data = await resp.json(); } catch (e) { data = null; }
-    return { ok: resp.ok, status: resp.status, data };
-}
-
 async function refreshAccount() {
-    const { data } = await apiJson('/api/auth/me');
+    const { data } = await fetchJson('/api/auth/me');
     currentAccount = (data && data.user) || null;
     renderAccountBar();
     updateGate();
@@ -234,13 +217,12 @@ function openAuthModal() {
     const mandatory = LOGIN_REQUIRED && !currentAccount;
     const x = document.querySelector('#auth-modal .modal-close');
     if (x) x.style.display = mandatory ? 'none' : '';
-    document.getElementById('auth-modal').style.display = 'flex';
-    document.getElementById('auth-email').focus();
+    openModal('auth-modal', { focus: 'auth-email' });
 }
 
 function closeAuthModal() {
     if (LOGIN_REQUIRED && !currentAccount) return;  // can't dismiss while locked
-    document.getElementById('auth-modal').style.display = 'none';
+    closeModal('auth-modal');
 }
 
 function setAuthTab(tab) {
@@ -270,12 +252,10 @@ function setAuthTab(tab) {
 }
 
 function showAuthError(msg) {
-    const el = document.getElementById('auth-error');
-    el.textContent = msg;
-    el.style.display = 'block';
+    setStatus('auth-error', msg, true, { okClass: '', errClass: '' });
 }
 function hideAuthError() {
-    document.getElementById('auth-error').style.display = 'none';
+    setStatus('auth-error', '');
     const resend = document.getElementById('auth-resend');
     if (resend) resend.style.display = 'none';
 }
@@ -320,18 +300,11 @@ async function submitAuth(event) {
     // an impatient user keeps clicking, firing duplicate requests.
     const submitBtn = document.getElementById('auth-submit');
     const submitLabel = submitBtn.textContent;
-    submitBtn.disabled = true;
     submitBtn.textContent = authTab === 'signup' ? t('auth.creating') : t('auth.signing_in');
-
     let ok, data;
     try {
-        ({ ok, data } = await apiJson(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        }));
+        ({ ok, data } = await withBusy(submitBtn, () => sendJson(url, 'POST', body)));
     } finally {
-        submitBtn.disabled = false;
         submitBtn.textContent = submitLabel;
     }
     if (!ok) {
@@ -392,11 +365,7 @@ async function forgotPassword(event) {
     if (event) event.preventDefault();
     const email = document.getElementById('auth-email').value.trim();
     if (!email) { showAuthError(t('auth.forgot_need_email')); return; }
-    await apiJson('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-    });
+    await sendJson('/api/auth/forgot-password', 'POST', { email });
     closeAuthModal();
     showInfoModal(t('auth.check_email_title'), t('auth.forgot_sent_body'));
 }
@@ -411,12 +380,11 @@ function openResetModal(token) {
     document.getElementById('reset-confirm').value = '';
     document.getElementById('reset-error').style.display = 'none';
     updatePwRules('reset-password', 'reset-confirm', 'reset-pw-rules');
-    document.getElementById('reset-modal').style.display = 'flex';
-    document.getElementById('reset-password').focus();
+    openModal('reset-modal', { focus: 'reset-password' });
 }
 
 function closeResetModal() {
-    document.getElementById('reset-modal').style.display = 'none';
+    closeModal('reset-modal');
     // Drop the token from the URL so a refresh doesn't reopen the modal.
     if (location.search.includes('reset=')) {
         history.replaceState(null, '', location.pathname);
@@ -438,11 +406,7 @@ async function submitReset(event) {
         err.style.display = 'block';
         return;
     }
-    const { ok, data } = await apiJson('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: _resetToken, password }),
-    });
+    const { ok, data } = await sendJson('/api/auth/reset-password', 'POST', { token: _resetToken, password });
     if (!ok) {
         err.textContent = (data && data.error) || t('auth.reset_failed');
         err.style.display = 'block';
@@ -457,11 +421,7 @@ async function resendVerification(event) {
     if (event) event.preventDefault();
     const email = document.getElementById('auth-email').value.trim();
     if (!email) { showAuthError(t('auth.resend_need_email')); return; }
-    await apiJson('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-    });
+    await sendJson('/api/auth/resend-verification', 'POST', { email });
     document.getElementById('auth-resend').style.display = 'none';
     closeAuthModal();
     showInfoModal(t('auth.resend_title'), t('auth.resend_body'));
@@ -475,11 +435,7 @@ async function editMyName() {
     const current = currentAccount.full_name || '';
     const next = window.prompt(t('auth.edit_name_prompt'), current);
     if (next === null) return;                      // cancelled
-    const { ok, data } = await apiJson('/api/auth/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: next.trim() }),
-    });
+    const { ok, data } = await sendJson('/api/auth/me', 'PUT', { full_name: next.trim() });
     if (!ok) {
         showInfoModal(t('auth.save_failed_title'), (data && data.error) || t('auth.generic_error'));
         return;
@@ -489,7 +445,7 @@ async function editMyName() {
 }
 
 async function doLogout() {
-    await apiJson('/api/auth/logout', { method: 'POST' });
+    await fetchJson('/api/auth/logout', { method: 'POST' });
     currentAccount = null;
     renderAccountBar();
     updateGate();  // re-lock the UI
@@ -501,29 +457,21 @@ function openPrivacyModal() {
     if (!currentAccount) { openAuthModal(); return; }
     document.getElementById('privacy-marketing').checked = !!currentAccount.marketing_opted_in;
     privacyStatus('');
-    document.getElementById('privacy-modal').style.display = 'flex';
+    openModal('privacy-modal');
 }
 
 function closePrivacyModal() {
-    document.getElementById('privacy-modal').style.display = 'none';
+    closeModal('privacy-modal');
 }
 
 function privacyStatus(msg, isError) {
-    const el = document.getElementById('privacy-status');
-    if (!msg) { el.style.display = 'none'; return; }
-    el.textContent = msg;
-    el.className = 'sizings-status ' + (isError ? 'upload-error' : 'upload-ok');
-    el.style.display = 'block';
+    setStatus('privacy-status', msg, isError);
 }
 
 // Opt in / out of product-update emails. The presence of a consent timestamp on
 // the server is the record; this just flips it.
 async function toggleMarketing(checked) {
-    const { ok, data } = await apiJson('/api/auth/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marketing_consent: !!checked }),
-    });
+    const { ok, data } = await sendJson('/api/auth/me', 'PUT', { marketing_consent: !!checked });
     if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
     currentAccount = data.user;
     privacyStatus(t('auth.privacy.saved'), false);
@@ -552,7 +500,7 @@ async function downloadMyData() {
 // retention window, then permanently purged) and re-lock the UI.
 async function deleteMyAccount() {
     if (!confirm(t('auth.privacy.delete_confirm'))) return;
-    const { ok, data } = await apiJson('/api/auth/me', { method: 'DELETE' });
+    const { ok, data } = await fetchJson('/api/auth/me', { method: 'DELETE' });
     if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
     closePrivacyModal();
     currentAccount = null;
@@ -582,7 +530,7 @@ function openSizingsModal() {
         currentAccount.is_scale ? 'flex' : 'none';
     document.getElementById('sizings-search').value = '';
     setSizingsTab('mine');
-    document.getElementById('sizings-modal').style.display = 'flex';
+    openModal('sizings-modal');
     loadSizingsList();
 }
 
@@ -596,19 +544,15 @@ function setSizingsTab(tab) {
 function filterSizings() { renderSizings(); }
 
 function closeSizingsModal() {
-    document.getElementById('sizings-modal').style.display = 'none';
+    closeModal('sizings-modal');
 }
 
 function sizingsStatus(msg, isError) {
-    const el = document.getElementById('sizings-status');
-    if (!msg) { el.style.display = 'none'; return; }
-    el.textContent = msg;
-    el.className = 'sizings-status ' + (isError ? 'upload-error' : 'upload-ok');
-    el.style.display = 'block';
+    setStatus('sizings-status', msg, isError);
 }
 
 async function loadSizingsList() {
-    const { ok, data } = await apiJson('/api/configs/');
+    const { ok, data } = await fetchJson('/api/configs/');
     if (!ok) {
         sizingsCache = [];
         document.getElementById('sizings-table-body').innerHTML = '';
@@ -656,23 +600,17 @@ function renderSizings() {
     };
     body.innerHTML = rows.map(c => {
         const del = c.can_delete
-            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id},"${esc(c.source)}"]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
+            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id}]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
             : '';
         return `<tr>
             <td>${esc(c.name)}</td>
             <td>${esc(c.owner_email || '')}</td>
             <td><code class="sizing-code" title="${esc(t('auth.share_code_title'))}">${esc(c.code)}</code></td>
             <td>${esc(sourceLabel[c.source] || c.source)}</td>
-            <td>${fmtDate(c.updated_at)}</td>
+            <td>${fmtDateTime(c.updated_at)}</td>
             <td><button class="btn btn-sm btn-primary" data-click='["loadSizing",${c.id}]'>${esc(t('auth.load'))}</button> ${del}</td>
         </tr>`;
     }).join('');
-}
-
-function fmtDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return isNaN(d) ? '' : d.toLocaleString();
 }
 
 // Invoked from the header button or the My Sizings modal. All feedback goes
@@ -715,13 +653,9 @@ async function saveCurrentSizing() {
     }
 
     if (action === 'update') {
-        const { ok, status, data } = await apiJson('/api/configs/' + loadedConfig.id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payload: snap }),
-        });
+        const { ok, status, data } = await sendJson('/api/configs/' + loadedConfig.id, 'PUT', { payload: snap });
         if (!ok) {
-            showInfoModal(t('auth.save_failed_title'), _saveError(status, data));
+            showInfoModal(t('auth.save_failed_title'), saveErrorText(status, data));
             return false;
         }
         loadedConfig = { id: data.id, name: data.name, canUpdate: true };
@@ -729,10 +663,7 @@ async function saveCurrentSizing() {
         // Files appended since the last save join the sizing's provenance.
         const appended = window.takePendingSourceFiles ? window.takePendingSourceFiles() : [];
         if (appended.length) {
-            await apiJson(`/api/sizings/${data.id}/sources`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files: appended }),
-            });
+            await sendJson(`/api/sizings/${data.id}/sources`, 'POST', { files: appended });
         }
         await storeResultSnapshot(data.id);
         if (window.markSizingClean) window.markSizingClean();
@@ -748,18 +679,14 @@ async function saveCurrentSizing() {
     // path), the server resolves it to the user's scratch project rather than
     // leaving it unfiled — no sizing exists outside a project.
     const projectId = window.activeProjectId ? window.activeProjectId() : null;
-    const { ok, status, data } = await apiJson('/api/configs/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const { ok, status, data } = await sendJson('/api/configs/', 'POST', {
             name, payload: snap,
             project_id: projectId || undefined,
             // Provenance from the import that produced this sizing, if any.
             source_meta: (window.currentSourceMeta && window.currentSourceMeta()) || undefined,
-        }),
-    });
+        });
     if (!ok) {
-        showInfoModal(t('auth.save_failed_title'), _saveError(status, data));
+        showInfoModal(t('auth.save_failed_title'), saveErrorText(status, data));
         return false;
     }
     if (window.takePendingSourceFiles) window.takePendingSourceFiles();   // in source_meta already
@@ -784,11 +711,7 @@ async function storeResultSnapshot(configId) {
     try {
         const snapshot = await window.buildResultSnapshot();
         if (!snapshot) return;
-        await apiJson('/api/sizings/' + configId + '/result', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(snapshot),
-        });
+        await sendJson('/api/sizings/' + configId + '/result', 'PUT', snapshot);
     } catch (err) {
         console.warn('could not store the result snapshot', err);
     }
@@ -803,12 +726,12 @@ function askSaveChoice(name) {
         _saveChoiceResolver = resolve;
         document.getElementById('save-choice-msg').textContent =
             t('auth.save_choice_msg', { name });
-        document.getElementById('save-choice-modal').style.display = 'flex';
+        openModal('save-choice-modal');
     });
 }
 
 function _resolveSaveChoice(value) {
-    document.getElementById('save-choice-modal').style.display = 'none';
+    closeModal('save-choice-modal');
     const r = _saveChoiceResolver;
     _saveChoiceResolver = null;
     if (r) r(value);
@@ -827,7 +750,7 @@ window.setLoadedConfig = function (data) {
 window.loadedSourceMeta = function () { return loadedConfig ? loadedConfig.sourceMeta : null; };
 
 async function loadSizing(id) {
-    const { ok, data } = await apiJson('/api/configs/' + id);
+    const { ok, data } = await fetchJson('/api/configs/' + id);
     if (!ok) { sizingsStatus((data && data.error) || t('auth.load_failed'), true); return; }
     closeSizingsModal();
     // The modal can be opened from a project screen, where the sizer is hidden;
@@ -841,7 +764,7 @@ async function loadSizing(id) {
 async function retrieveByCode() {
     const code = document.getElementById('sizings-code-input').value.trim();
     if (!code) return;
-    const { ok, data } = await apiJson('/api/configs/code/' + encodeURIComponent(code));
+    const { ok, data } = await fetchJson('/api/configs/code/' + encodeURIComponent(code));
     if (!ok) { sizingsStatus((data && data.error) || t('auth.code_not_found'), true); return; }
     document.getElementById('sizings-code-input').value = '';
     sizingsStatus(t('auth.code_loaded', { name: data.name }), false);
@@ -855,10 +778,12 @@ async function retrieveByCode() {
     if (window.markSizingClean) window.markSizingClean();
 }
 
-async function deleteSizing(id, source) {
+async function deleteSizing(id) {
+    const row = sizingsCache.find(c => c.id === id);
+    const source = row ? row.source : '';
     const msg = source === 'linked' ? t('auth.confirm_remove') : t('auth.confirm_delete');
     if (!confirm(msg)) return;
-    const { ok, data } = await apiJson('/api/configs/' + id, { method: 'DELETE' });
+    const { ok, data } = await fetchJson('/api/configs/' + id, { method: 'DELETE' });
     if (!ok) { sizingsStatus((data && data.error) || t('auth.delete_failed'), true); return; }
     sizingsStatus(data.message || t('auth.done'), false);
     loadSizingsList();
@@ -874,13 +799,12 @@ function promptSizingName() {
         _nameResolver = resolve;
         const input = document.getElementById('name-sizing-input');
         input.value = '';
-        document.getElementById('name-sizing-modal').style.display = 'flex';
-        input.focus();
+        openModal('name-sizing-modal', { focus: input });
     });
 }
 
 function _resolveName(value) {
-    document.getElementById('name-sizing-modal').style.display = 'none';
+    closeModal('name-sizing-modal');
     const r = _nameResolver;
     _nameResolver = null;
     if (r) r(value);
@@ -909,11 +833,11 @@ function showInfoModal(title, message, code) {
     } else {
         row.style.display = 'none';
     }
-    document.getElementById('info-modal').style.display = 'flex';
+    openModal('info-modal');
 }
 
 function closeInfoModal() {
-    document.getElementById('info-modal').style.display = 'none';
+    closeModal('info-modal');
 }
 
 function copyInfoCode() {
@@ -936,23 +860,19 @@ function copyInfoCode() {
 // ── Organization (tenant admin) ──────────────────────────────────────────────
 
 function openOrgModal() {
-    document.getElementById('org-modal').style.display = 'flex';
+    openModal('org-modal');
     document.getElementById('org-desc').textContent = t('auth.org_desc');
     loadOrgUsers();
 }
 function closeOrgModal() {
-    document.getElementById('org-modal').style.display = 'none';
+    closeModal('org-modal');
 }
 function orgStatus(msg, isError) {
-    const el = document.getElementById('org-status');
-    if (!msg) { el.style.display = 'none'; return; }
-    el.textContent = msg;
-    el.className = 'sizings-status ' + (isError ? 'upload-error' : 'upload-ok');
-    el.style.display = 'block';
+    setStatus('org-status', msg, isError);
 }
 
 async function loadOrgUsers() {
-    const { ok, data } = await apiJson('/api/admin/users/');
+    const { ok, data } = await fetchJson('/api/admin/users/');
     const body = document.getElementById('org-table-body');
     if (!ok) { body.innerHTML = ''; orgStatus(t('auth.org_load_error'), true); return; }
     body.innerHTML = data.map(u => {
@@ -964,7 +884,7 @@ async function loadOrgUsers() {
         return `<tr>
             <td>${esc(u.email)}</td>
             <td>${esc(u.role)}</td>
-            <td>${fmtDate(u.last_login_at)}</td>
+            <td>${fmtDateTime(u.last_login_at)}</td>
             <td>${action}</td>
         </tr>`;
     }).join('');
@@ -972,7 +892,7 @@ async function loadOrgUsers() {
 
 async function disableOrgUser(id) {
     if (!confirm(t('auth.confirm_disable'))) return;
-    const { ok, data } = await apiJson('/api/admin/users/' + id + '/disable', { method: 'POST' });
+    const { ok, data } = await fetchJson('/api/admin/users/' + id + '/disable', { method: 'POST' });
     if (!ok) { orgStatus((data && data.error) || t('auth.disable_failed'), true); return; }
     orgStatus(t('auth.member_disabled'), false);
     loadOrgUsers();

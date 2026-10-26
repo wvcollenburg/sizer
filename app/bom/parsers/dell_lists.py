@@ -27,11 +27,13 @@ of each); configs are numbered across the workbook and suffixed with the
 sheet title when there is more than one sheet ('Config 2 - R750XS').
 """
 import re
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from bom.normalize import BOMComponent, BOMConfig, NormalizedBOM
+from bom.normalize import BOMConfig, NormalizedBOM
 from bom.parsers.common import (
+    ComponentAcc,
     categorize,
+    categorize_line,
     cell,
     head_rows,
     raw_text_from_rows,
@@ -74,22 +76,9 @@ def detect(wb) -> Optional[str]:
     return None
 
 
-class _Acc:
-    def __init__(self):
-        self.order: List[str] = []
-        self.items: Dict[str, BOMComponent] = {}
-
-    def add(self, pn: Optional[str], desc: str, qty: int, category: str):
-        key = (pn or '') + '|' + desc
-        if key in self.items:
-            self.items[key].quantity += qty
-        else:
-            self.items[key] = BOMComponent(part_number=pn, description=desc,
-                                           quantity=qty, category=category)
-            self.order.append(key)
-
-    def components(self) -> List[BOMComponent]:
-        return [self.items[k] for k in self.order]
+def _acc() -> ComponentAcc:
+    # Reseller/OEM numbers are not unique per line: dedup on number AND text.
+    return ComponentAcc('part+desc')
 
 
 def _first_pn(cell_text: str) -> Optional[str]:
@@ -101,7 +90,7 @@ def _first_pn(cell_text: str) -> Optional[str]:
 def _parse_sku_sheet(rows, index: int, suffix: str) -> BOMConfig:
     node_count = int(_QTY_N.match(cell(rows, 1, 1)).group(1))
     name = cell(rows, 1, 2) or 'Config %d' % index
-    acc = _Acc()
+    acc = _acc()
     model = None
     for r in range(2, len(rows) + 1):
         desc = cell(rows, r, 2)
@@ -113,13 +102,13 @@ def _parse_sku_sheet(rows, index: int, suffix: str) -> BOMConfig:
             model = server_model_from_text(desc)
         if should_drop(desc, pn):
             continue
-        acc.add(pn, desc, n * node_count, categorize(desc))
+        acc.add(pn, desc, n * node_count, categorize_line(desc))
     return BOMConfig(name=name + suffix, server_model=model, components=acc.components(),
                      node_count=node_count)
 
 
 def _parse_qty_desc_pn_sheet(rows, index: int, suffix: str) -> BOMConfig:
-    acc = _Acc()
+    acc = _acc()
     model = None
     for r in range(2, len(rows) + 1):
         desc = cell(rows, r, 3)
@@ -134,7 +123,7 @@ def _parse_qty_desc_pn_sheet(rows, index: int, suffix: str) -> BOMConfig:
             model = server_model_from_text(desc)
         if should_drop(desc, pn):
             continue
-        acc.add(pn, desc, qty, categorize(desc))
+        acc.add(pn, desc, qty, categorize_line(desc))
     return BOMConfig(name='Config %d' % index + suffix, server_model=model,
                      components=acc.components(), node_count=1)
 
@@ -145,7 +134,7 @@ def _parse_columns_sheet(rows, index: int) -> List[BOMConfig]:
         label = cell(rows, 1, c)
         if not _CONFIG_LABEL.match(label):
             continue
-        acc = _Acc()
+        acc = _acc()
         node_count = 1
         model = None
         for r in range(2, len(rows) + 1):
@@ -161,7 +150,7 @@ def _parse_columns_sheet(rows, index: int) -> List[BOMConfig]:
                 continue
             if should_drop(desc):
                 continue
-            acc.add(None, desc, n, categorize(desc))
+            acc.add(None, desc, n, categorize_line(desc))
         # Per-machine counts become totals once the node count is known.
         for comp in acc.components():
             if comp.category != 'chassis' or comp.description != (model or ''):
@@ -176,7 +165,7 @@ def parse(path: str) -> NormalizedBOM:
     from bom.parsers import UnrecognizedFormat
     from bom.parsers.common import load_workbook_safe
     wb = load_workbook_safe(path)
-    try:
+    try:                                     # every sheet: a workbook may mix layouts
         sheets = [(ws.title, sheet_matrix(ws)) for ws in wb.worksheets]
     finally:
         wb.close()

@@ -21,8 +21,8 @@ from datetime import timedelta
 
 from auth_models import Configuration, _utcnow
 from bom import agent_ingest
-from bom_models import (AGENT_FORMAT, BomAgentJob, BomCheck, JOB_DONE,
-                        JOB_FAILED)
+from bom_models import (AGENT_FORMAT, BomAgentJob, JOB_DONE, JOB_FAILED,
+                        live_sizing, store_check)
 from database import db
 
 POLL_SECONDS = int(os.environ.get("BOM_AGENT_WORKER_POLL", "3"))
@@ -39,27 +39,17 @@ def _live_sizing(job):
     of the project (it may have been deleted or moved meanwhile)."""
     if not job.configuration_id:
         return None
-    sizing = db.session.get(Configuration, job.configuration_id)
-    if sizing is None or sizing.is_deleted or sizing.project_id != job.project_id:
-        return None
-    return sizing
+    return live_sizing(db.session.get(Configuration, job.configuration_id), job.project_id)
 
 
 def store_agent_check(*, project_id, user, name, filename, digest, bom, meta, sizing):
     """Create the BomCheck for an agent-read BOM (worker and the route's
     same-file cache both land here). Caller commits."""
     from bom.check import run_check
-    check = BomCheck(
-        project_id=project_id, user_id=user.id, tenant_id=user.tenant_id,
-        name=name, filename=(filename or "")[:200], file_sha256=digest,
-        file_format=AGENT_FORMAT, vendor=bom.vendor, normalized=bom.to_dict(),
-        ingest_meta=meta, history=[],
-    )
-    check.apply_result(run_check(bom, sizing), sizing)
-    check.history = [check.history_entry()]
-    db.session.add(check)
-    db.session.flush()
-    return check
+    return store_check(
+        project_id=project_id, user=user, name=name, filename=filename, digest=digest,
+        file_format=AGENT_FORMAT, bom=bom, meta=meta, sizing=sizing,
+        result=run_check(bom, sizing))
 
 
 def _merged(job, meta):
