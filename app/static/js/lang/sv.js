@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Fyll i de obligatoriska fälten: Totalt antal vCPU:er, Tilldelat RAM och Datastore använt.",
   "manual.get_recommendations": "Hämta rekommendationer",
   "manual.hosts": "Värdar",
+  "manual.largest_vm_ram": "Största VM:ens RAM (GB)",
+  "manual.largest_vm_vcpus": "Största VM:ens vCPU:er",
   "manual.nic_speed": "NIC-hastighet",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = okänt",

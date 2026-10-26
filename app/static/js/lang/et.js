@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Palun täitke kohustuslikud väljad: vCPU-d kokku, eraldatud RAM ja andmehoidla kasutatud.",
   "manual.get_recommendations": "Hangi soovitused",
   "manual.hosts": "Hostid",
+  "manual.largest_vm_ram": "Suurima VM-i RAM (GB)",
+  "manual.largest_vm_vcpus": "Suurima VM-i vCPU-d",
   "manual.nic_speed": "NIC-i kiirus",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = teadmata",

@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Vul de vereiste velden in: Totaal vCPU's, Toegewezen RAM en Datastore gebruikt.",
   "manual.get_recommendations": "Aanbevelingen ophalen",
   "manual.hosts": "Hosts",
+  "manual.largest_vm_ram": "RAM grootste VM (GB)",
+  "manual.largest_vm_vcpus": "vCPU's grootste VM",
   "manual.nic_speed": "NIC-snelheid",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = onbekend",

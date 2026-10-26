@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "必須フィールドを入力してください: 合計vCPU、プロビジョニング済みRAM、データストア使用済み。",
   "manual.get_recommendations": "推奨を取得",
   "manual.hosts": "ホスト",
+  "manual.largest_vm_ram": "最大VMのRAM (GB)",
+  "manual.largest_vm_vcpus": "最大VMのvCPU数",
   "manual.nic_speed": "NIC速度",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = 不明",

@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Compili i campi obbligatori: vCPU totali, RAM provisioned e Datastore utilizzato.",
   "manual.get_recommendations": "Ottieni raccomandazioni",
   "manual.hosts": "Host",
+  "manual.largest_vm_ram": "RAM della VM più grande (GB)",
+  "manual.largest_vm_vcpus": "vCPU della VM più grande",
   "manual.nic_speed": "Velocità NIC",
   "manual.p95_iops": "IOPS P95",
   "manual.p95_iops_ph": "0 = sconosciuto",

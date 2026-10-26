@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Udfyld venligst de påkrævede felter: Total vCPUs, Provisioneret RAM og Datastore anvendt.",
   "manual.get_recommendations": "Hent anbefalinger",
   "manual.hosts": "Værter",
+  "manual.largest_vm_ram": "RAM i største VM (GB)",
+  "manual.largest_vm_vcpus": "vCPU'er i største VM",
   "manual.nic_speed": "NIC-hastighed",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = ukendt",

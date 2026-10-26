@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Lūdzu, aizpildiet obligātos laukus: Kopējie vCPU, Piešķirtā RAM un Izmantotā datu krātuve.",
   "manual.get_recommendations": "Saņemt ieteikumus",
   "manual.hosts": "Resursdatori",
+  "manual.largest_vm_ram": "Lielākās VM RAM (GB)",
+  "manual.largest_vm_vcpus": "Lielākās VM vCPU",
   "manual.nic_speed": "NIC ātrums",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = nezināms",

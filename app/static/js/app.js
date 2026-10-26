@@ -3587,7 +3587,7 @@ let manualSummary = null;
 // Workload Requirements fields and act as a floor (those fields can be raised but
 // not set below the entered VMs).
 let manualVms = [];
-let manualVmFloors = {};   // { vcpus, prov_ram, prov_storage_tb, ds_used_tb, total_vms, active_vms }
+let manualVmFloors = {};   // { vcpus, prov_ram, prov_storage_tb, ds_used_tb, total_vms, active_vms, largest_vcpus, largest_ram_gb }
 let manualVmSort = { field: 'name', asc: true };   // default: VM name A→9
 
 function openManualVmModal() {
@@ -3775,15 +3775,19 @@ function renderManualVmTable() {
 }
 
 function manualVmTotals() {
-    let vcpus = 0, ram = 0, storage = 0, active = 0;
+    let vcpus = 0, ram = 0, storage = 0, active = 0, maxVcpus = 0, maxRam = 0;
     manualVms.forEach(vm => {
         vcpus += vm.vcpus || 0;
         ram += vm.ram_gb || 0;
         storage += vm.storage_gb || 0;
         if (vm.powered_on) active++;
+        if ((vm.vcpus || 0) > maxVcpus) maxVcpus = vm.vcpus;
+        if ((vm.ram_gb || 0) > maxRam) maxRam = vm.ram_gb;
     });
     return {
         count: manualVms.length, active, vcpus,
+        largest_vcpus: maxVcpus,
+        largest_ram_gb: maxRam,
         ram_gb: Math.round(ram * 10) / 10,
         storage_gb: Math.round(storage * 10) / 10,
         storage_tb: Math.round(storage / 1024 * 100) / 100,
@@ -3803,6 +3807,7 @@ function applyManualVms() {
     manualVmFloors = {
         total_vms: t.count, active_vms: t.active, vcpus: t.vcpus,
         prov_ram: t.ram_gb, prov_storage_tb: t.storage_tb, ds_used_tb: t.storage_tb,
+        largest_vcpus: t.largest_vcpus, largest_ram_gb: t.largest_ram_gb,
     };
     const raiseTo = (id, floor, dec) => {
         const el = document.getElementById(id);
@@ -3816,6 +3821,8 @@ function applyManualVms() {
     raiseTo('man-prov-ram', t.ram_gb);
     raiseTo('man-prov-storage', t.storage_tb, true);
     raiseTo('man-ds-used', t.storage_tb, true);
+    raiseTo('man-largest-vcpus', t.largest_vcpus);
+    raiseTo('man-largest-ram', t.largest_ram_gb);
 
     const badge = document.getElementById('manual-vm-count');
     const note = document.getElementById('manual-vm-note');
@@ -3883,6 +3890,10 @@ function calculateManual() {
         total_avg_iops: parseInt(document.getElementById('man-avg-iops').value) || 0,
         p95_iops: parseInt(document.getElementById('man-p95-iops').value) || 0,
         nic_speed_mbps: parseInt(document.getElementById('man-nic-speed').value) || 10000,
+        // 0 = unknown: the engine then skips the largest-VM fit check and the
+        // server says so in the warnings (sizing_service.input_quality_warnings).
+        max_vm_cores: parseInt(document.getElementById('man-largest-vcpus').value) || 0,
+        max_vm_ram_gb: parseFloat(document.getElementById('man-largest-ram').value) || 0,
         vcpu_per_core_ratio: Math.round(currentRatio * 100) / 100,
     };
 
@@ -4415,7 +4426,8 @@ const SNAP_FIELDS = {
         'man-ghz', 'man-host-ram', 'man-peak-cpu', 'man-avg-cpu', 'man-peak-mem',
         'man-avg-mem', 'man-avg-iops', 'man-peak-iops', 'man-p95-iops', 'man-nic-speed',
         'man-total-vms', 'man-active-vms', 'man-vcpus', 'man-prov-ram', 'man-used-ram',
-        'man-prov-storage', 'man-ds-used', 'man-ds-total', ..._SHARED_SIZING_FIELDS],
+        'man-prov-storage', 'man-ds-used', 'man-ds-total', 'man-largest-vcpus',
+        'man-largest-ram', ..._SHARED_SIZING_FIELDS],
 };
 
 function _snapById(id) { return document.getElementById(id); }

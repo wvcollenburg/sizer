@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Užpildykite privalomus laukus: Iš viso vCPU, Suteikta RAM ir Panaudota duomenų saugykla.",
   "manual.get_recommendations": "Gauti rekomendacijas",
   "manual.hosts": "Prieglobos serveriai",
+  "manual.largest_vm_ram": "Didžiausios VM RAM (GB)",
+  "manual.largest_vm_vcpus": "Didžiausios VM vCPU",
   "manual.nic_speed": "NIC sparta",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = nežinoma",

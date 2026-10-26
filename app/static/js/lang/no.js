@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Vennligst fyll inn de påkrevde feltene: Totalt vCPUs, Tildelt RAM og Datalager brukt.",
   "manual.get_recommendations": "Få anbefalinger",
   "manual.hosts": "Verter",
+  "manual.largest_vm_ram": "RAM i største VM (GB)",
+  "manual.largest_vm_vcpus": "vCPU-er i største VM",
   "manual.nic_speed": "NIC-hastighet",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = ukjent",

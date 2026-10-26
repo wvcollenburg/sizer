@@ -594,6 +594,8 @@
   "manual.fill_required_fields": "Täytä pakolliset kentät: vCPU:t yhteensä, Varattu RAM ja Tietovaraston käytetty.",
   "manual.get_recommendations": "Hae suositukset",
   "manual.hosts": "Isännät",
+  "manual.largest_vm_ram": "Suurimman VM:n RAM (GB)",
+  "manual.largest_vm_vcpus": "Suurimman VM:n vCPU:t",
   "manual.nic_speed": "NIC-nopeus",
   "manual.p95_iops": "P95 IOPS",
   "manual.p95_iops_ph": "0 = tuntematon",

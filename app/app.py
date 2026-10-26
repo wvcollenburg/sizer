@@ -24,6 +24,7 @@ from import_merge import merge as merge_datasets
 from parser_common import collection_date
 import hcl_vendor
 from recommend import generate_recommendations
+from sizing_service import input_quality_warnings
 from tunables import T, refresh_from_db
 # NOTE: exports are project-level only (export_worker + the project export
 # queue); the old synchronous in-sizer export routes were removed with the
@@ -450,7 +451,8 @@ def create_app():
                 "clusters": data.get("clusters", []),
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
-                "warnings": result.get("warnings", []),
+                "warnings": (result.get("warnings", [])
+                             + input_quality_warnings(data["summary"])),
                 # Data-quality caveats about the import itself (no IOPS/perf,
                 # assumed ratio, unclustered hosts, ...). {code, params} objects
                 # translated client-side; shown on the wizard's Environment step.
@@ -542,6 +544,8 @@ def create_app():
             app.logger.warning("Recommend rejected malformed input")
             return jsonify({"error": "The imported figures are incomplete or "
                                      "malformed. Re-import the environment."}), 400
+        result["warnings"] = (result.get("warnings", [])
+                              + input_quality_warnings(summary))
         return jsonify(result)
 
     @app.route("/api/import-merge", methods=["POST"])
