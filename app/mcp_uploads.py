@@ -435,6 +435,23 @@ def _largest_vms(vms, n=5):
     return rows
 
 
+# Import warnings read as the wizard shows them, except where the wizard's
+# wording would mislead a caller that reasons from it: no_iops speaks of
+# "default per-drive IOPS", which is the capability side of each option, not
+# a demand figure; the engine skips the IOPS comparison when demand is unknown.
+_WARNING_TEXT_OVERRIDES = {
+    "no_iops": "No IOPS data was found in this import: the IOPS check cannot run (demand unknown); "
+               "options still report their per-drive IOPS capability.",
+}
+
+
+def _warning_text(warning, lang):
+    code = (warning or {}).get("code")
+    if code in _WARNING_TEXT_OVERRIDES:
+        return _WARNING_TEXT_OVERRIDES[code]
+    return mcp_payload.import_warning_text(warning, lang)
+
+
 def _assessment_body(row, lang):
     data = row.data or {}
     inputs, missing = _summary_inputs(data["summary"], data)
@@ -448,7 +465,7 @@ def _assessment_body(row, lang):
         "source": {k: meta.get(k) for k in ("file_name", "file_type", "collected_at",
                                              "host_count", "vm_count", "parser_version")},
         "inputs": inputs, "missing_for_sizing": missing,
-        "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
+        "import_warnings": [dict(w, text=_warning_text(w, lang))
                             for w in data.get("import_warnings") or []],
         "largest_vms": _largest_vms(data.get("vms") or []),
         "clusters": clusters,
@@ -463,12 +480,12 @@ def _merged_body(row, lang):
         targets.append({"name": t["name"], "sources": t.get("sources"),
                         "host_count": len(t.get("hosts") or []), "vm_count": len(t.get("vms") or []),
                         "inputs": ti, "missing_for_sizing": tm,
-                        "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
+                        "import_warnings": [dict(w, text=_warning_text(w, lang))
                                             for w in t.get("import_warnings") or []]})
     return {"source": {"file_type": "merged", "files": len(data.get("sources") or [])},
             "inputs": targets[0]["inputs"] if len(targets) == 1 else None,
             "missing_for_sizing": targets[0]["missing_for_sizing"] if len(targets) == 1 else [],
-            "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
+            "import_warnings": [dict(w, text=_warning_text(w, lang))
                                 for w in data.get("import_warnings") or []],
             "largest_vms": _largest_vms(targets and (data["targets"][0].get("vms") or []) or []),
             "clusters": targets}
@@ -702,10 +719,10 @@ def merge_uploads(caller, args):
                         "hosts": len(t.get("hosts") or []), "vms": len(t.get("vms") or []),
                         "inputs": _summary_inputs(t["summary"], t)[0],
                         "missing_for_sizing": _summary_inputs(t["summary"], t)[1],
-                        "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
+                        "import_warnings": [dict(w, text=_warning_text(w, lang))
                                             for w in t.get("import_warnings") or []]}
                        for t in targets],
-           "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
+           "import_warnings": [dict(w, text=_warning_text(w, lang))
                                for w in merged["import_warnings"]]}
     text = ("Merged %d file%s into %d target cluster%s (%s); %d overlap%s to review. Result "
             "upload_id %s." % (len(rows), "" if len(rows) == 1 else "s", len(targets),
