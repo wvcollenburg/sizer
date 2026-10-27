@@ -289,7 +289,11 @@ def checks_for(rec, result, summary, params, option):
             "%s IOPS required; the cluster provides %s net IOPS (%s at N-1)."
             % (_fmt(demand), _fmt(total), _fmt((rec.get("iops") or {}).get("n_minus_1"))))
     else:
-        add("iops", "not_applicable", "No IOPS figure in the inputs: not checked.")
+        counts = (rec.get("storage_config") or {}).get("drive_counts") or {}
+        all_hdd = bool(counts.get("HDD")) and not any(counts.get(k) for k in ("NVMe", "SSD"))
+        add("iops", "not_applicable", "No IOPS figure in the inputs: not checked."
+            + (" This option's drives are all HDD: confirm the workload's IOPS before "
+               "proposing it." if all_hdd else ""))
 
     # VM density: the engine warns for the top option only; the same
     # threshold is applied to every option here.

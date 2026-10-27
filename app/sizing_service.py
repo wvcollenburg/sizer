@@ -405,6 +405,12 @@ def _plausibility(w):
     if ds_total is not None and _as_number(w["used_storage_tb"]) > _as_number(ds_total):
         flag("used_storage_tb", "storage_gt_datastore",
              "Used storage is above the datastore capacity; the two may be swapped.")
+    prov_storage = w.get("provisioned_storage_tb")
+    if prov_storage is not None and _as_number(w["used_storage_tb"]) > _as_number(prov_storage):
+        flag("used_storage_tb", "used_gt_provisioned_storage",
+             "Used storage is above the VMs' provisioned storage: snapshots, powered-off VMs "
+             "or non-VM files on the datastores usually explain it. The sizing uses the used "
+             "figure.")
     active = w.get("active_vms")
     if active is not None and vcpus < _as_number(active):
         flag("total_vcpus", "vcpus_lt_vms",

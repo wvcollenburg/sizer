@@ -218,6 +218,12 @@ def test_create_sizing_from_upload_with_exclusions(world):
     assert used["from_upload"]["exclusions"]["vcpus_removed"] == 1
     assert "nic_speed_gbe" not in used["defaults_applied"]       # the file had NICs
     assert "_upload_ctx" not in used
+    # RVTools measures no IOPS or used RAM: unknown, not zero.
+    for field in ("p95_iops", "avg_iops", "peak_iops", "used_ram_gb"):
+        assert used["workload"][field] is None, field
+    assert any("no measurement for p95_iops" in w for w in s["warnings"])
+    assert all(c["status"] == "not_applicable" for o in s["options"]
+               for c in o["checks"] if c["id"] == "iops")
     # Same numbers as the exclusion maths applied by hand.
     data = import_service.parse_assessment(files["a"], "a.xlsx")
     expect = import_service.adjust_summary(data["summary"], data["vms"], [3], [3, 2])

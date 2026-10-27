@@ -301,8 +301,16 @@ def _load_js_strings(lang):
     except OSError:
         return {}
     # One "key": "value" entry per line is how the files are assembled.
-    return {k.encode().decode("unicode_escape"): v.encode().decode("unicode_escape")
-            for k, v in _JS_ENTRY_RE.findall(text)}
+    return {_js_unescape(k): _js_unescape(v) for k, v in _JS_ENTRY_RE.findall(text)}
+
+
+def _js_unescape(s):
+    """JS string escapes (\\n, \\", \\uXXXX) resolved. unicode_escape reads
+    bytes as Latin-1, so non-Latin-1 text (an em dash) is escaped first
+    rather than UTF-8-encoded, which would come out as mojibake."""
+    if "\\" not in s:
+        return s
+    return s.encode("latin-1", "backslashreplace").decode("unicode_escape")
 
 
 def cluster_label(lang="en"):

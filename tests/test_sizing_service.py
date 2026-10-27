@@ -296,10 +296,10 @@ def test_validate_workload_plausibility_is_advisory():
         "missing": [], "invalid": [], "plausibility": []}
     out = svc.validate_workload(dict(
         WORKLOAD, provisioned_ram_gb=148 * 40, largest_vm_ram_gb=148 * 41,
-        used_ram_gb=148 * 50, datastore_total_tb=5, active_vms=200,
+        used_ram_gb=148 * 50, datastore_total_tb=5, provisioned_storage_tb=6, active_vms=200,
         host_count=4, total_host_ghz=2.4))
     codes = {f["code"] for f in out["plausibility"]}
     assert codes == {"ram_per_vcpu_high", "largest_vm_exceeds_total",
                      "used_gt_provisioned_ram", "storage_gt_datastore",
-                     "vcpus_lt_vms", "ghz_looks_per_cpu"}
+                     "used_gt_provisioned_storage", "vcpus_lt_vms", "ghz_looks_per_cpu"}
     assert out["missing"] == [] and out["invalid"] == []

@@ -300,7 +300,10 @@ def lookup_cpu_benchmark(caller, args):
         text = "%s: %s %s per socket (%s)." % (hit["model"], hit["perf_index"],
                                                hit["perf_type"], hit["source"])
     else:
-        text = "No benchmark found for %r." % args["query"]
+        text = ("No benchmark found for %r in the appliance catalog or the SPEC CPU 2017 table. "
+                "Try the bare model (e.g. 'E5-2667 v4'); if still unknown, look up the PassMark "
+                "CPU Mark and pass it as source_cpus[].perf_index with perf_type 'passmark'."
+                % args["query"])
     return out, text
 
 
@@ -416,11 +419,15 @@ def _prepare(caller, args):
         summary, workload_defaults = dict(upload_ctx["summary"]), []
         mapped, _ = svc.workload_to_summary(workload)
         summary.update(mapped)
+        # From the stored record: a cluster slice (cluster_dataset) carries
+        # the records only, not the file type or the import warnings.
+        unmeasured = _unmeasured_fields(upload_ctx["row"].data or upload_ctx["dataset"])
         if not summary.get("nic_speed_mbps"):
             summary["nic_speed_mbps"] = svc.DEFAULT_NIC_SPEED_GBE * 1000
             workload_defaults.append("nic_speed_gbe")
     else:
         summary, workload_defaults = svc.workload_to_summary(workload)
+        unmeasured = []
     if not summary.get("guest_licensing"):
         # The engine assumes standard Windows/Linux guests; say so rather
         # than let the licensing block look like a user choice.
@@ -444,6 +451,16 @@ def _prepare(caller, args):
     workload_used = svc.summary_to_workload(summary)
     if "guest_licensing" in workload_defaults:
         workload_used["guest_licensing"] = svc.DEFAULT_GUEST_LICENSING
+    if unmeasured:
+        # The parser writes 0 where the export has no measurement; to the
+        # caller that is "unknown", and the engine treats it that way too
+        # (the IOPS check does not run on 0).
+        for field in unmeasured:
+            workload_used[field] = None
+        warnings.append("The export carries no measurement for %s: reported as null, not zero. "
+                        "Without IOPS the IOPS check cannot run and storage is sized on capacity "
+                        "alone; pass the fields in workload if they are known from elsewhere."
+                        % ", ".join(unmeasured))
     inputs_used = {
         "workload": workload_used,
         "params": resolved,
@@ -464,6 +481,23 @@ def _prepare(caller, args):
                                upload_ctx["summary"]["guest_licensing_detail"]))
         inputs_used["_upload_ctx"] = upload_ctx     # for save_sizing; stripped below
     return summary, kwargs, inputs_used, warnings
+
+
+_UNMEASURED_IOPS = ("p95_iops", "avg_iops", "peak_iops")
+
+
+def _unmeasured_fields(dataset):
+    """Workload fields the export cannot have measured, where the parser's 0
+    means "no data": IOPS when the import flagged none (RVTools always),
+    and used RAM for RVTools, which has no consumed-memory column."""
+    codes = {(w or {}).get("code") for w in dataset.get("import_warnings") or []}
+    fields = []
+    rvtools = dataset.get("file_type") == "rvtools"
+    if "no_iops" in codes or rvtools:
+        fields.extend(_UNMEASURED_IOPS)
+    if rvtools:
+        fields.append("used_ram_gb")
+    return fields
 
 
 def public_inputs(inputs_used):
