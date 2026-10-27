@@ -82,8 +82,8 @@ PARAMS_SCHEMA = {
         "storage_growth_pct": _num("Separate yearly storage growth, in %. Omit to grow storage at growth_pct.", 0, maximum=100),
         "snapshot_pct": _num("Snapshot reserve as % of used storage. Default 20.", 0, maximum=100),
         "years": _int("Planning horizon in years, 1-5. Default 5.", 1, maximum=5),
-        "max_day_one_storage_pct": _num("Cap on today's storage consumption as % of usable capacity, 1-100. Default from the tool (50).", 1, maximum=100),
-        "max_day_one_ram_pct": _num("Cap on today's RAM consumption as % of N-1 RAM, 1-100. Default from the tool (50).", 1, maximum=100),
+        "max_day_one_storage_pct": _num("Cap on today's storage consumption as % of usable capacity, 1-100. Default: the tool's setting, reported in inputs_used.params (see get_constants).", 1, maximum=100),
+        "max_day_one_ram_pct": _num("Cap on today's RAM consumption as % of N-1 RAM, 1-100. Default: the tool's setting, reported in inputs_used.params (see get_constants).", 1, maximum=100),
         "target_nodes": _int("Exact node count wanted. Larger counts are shown only if this one is infeasible.", 1, maximum=64),
         "storage_preference": {"type": "string", "enum": ["auto", "flash", "hybrid", "spinning"], "description": "Restrict node storage media. Default auto."},
         "size_cpu_for_full_cluster": {"type": "boolean", "description": "Size CPU against all nodes instead of N-1 (degraded on a node failure). Default false."},
@@ -421,6 +421,10 @@ def _prepare(caller, args):
             workload_defaults.append("nic_speed_gbe")
     else:
         summary, workload_defaults = svc.workload_to_summary(workload)
+    if not summary.get("guest_licensing"):
+        # The engine assumes standard Windows/Linux guests; say so rather
+        # than let the licensing block look like a user choice.
+        workload_defaults.append("guest_licensing")
     warnings = list(notes)
     if "nic_speed_gbe" in workload_defaults:
         warnings.append("NIC speed not given: assumed %s GbE, the same default the web tool "
@@ -437,8 +441,11 @@ def _prepare(caller, args):
     for flag in check["plausibility"]:
         warnings.append("Check %s: %s" % (flag["field"], flag["detail"]))
 
+    workload_used = svc.summary_to_workload(summary)
+    if "guest_licensing" in workload_defaults:
+        workload_used["guest_licensing"] = svc.DEFAULT_GUEST_LICENSING
     inputs_used = {
-        "workload": svc.summary_to_workload(summary),
+        "workload": workload_used,
         "params": resolved,
         "defaults_applied": workload_defaults + param_defaults,
         "vendor_used": kwargs["vendor"] if kwargs["sizing_mode"] == "validated" else None,

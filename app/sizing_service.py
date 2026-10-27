@@ -253,6 +253,7 @@ _PCT_FIELDS = {"peak_cpu_pct", "avg_cpu_pct", "peak_mem_pct", "avg_mem_pct"}
 _TEXT_FIELDS = {"current_platform", "cluster_name"}
 _POSITIVE_FIELDS = set(REQUIRED_WORKLOAD) | {"nic_speed_gbe"}
 GUEST_LICENSING_VALUES = ("none", "windows", "windows_db")
+DEFAULT_GUEST_LICENSING = "windows"     # what the engine assumes when unset (recommend._license_context)
 
 
 def workload_to_summary(workload):

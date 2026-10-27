@@ -374,13 +374,15 @@ def summary_text(presented, inputs_used=None):
         for c in flagged:
             lines.append("%s (%s): %s" % (c["id"], c["status"], c["detail"]))
         total = presented.get("options_total") or len(options)
-        if total > 1:
+        if len(options) > 1:
             others = ", ".join("%s × %s" % (_fmt(o.get("node_count")),
                                             o.get("display_model") or o.get("model"))
                                for o in options[1:])
-            lines.append("%s other option%s%s." % (
-                _fmt(total - 1), "" if total == 2 else "s",
-                (": " + others) if others else ""))
+            lines.append("Also returned: %s." % others)
+        if total > len(options):
+            lines.append("%s more option%s found; raise max_options to see %s." % (
+                _fmt(total - len(options)), "" if total - len(options) == 1 else "s",
+                "it" if total - len(options) == 1 else "them"))
     for w in presented.get("warnings") or []:
         lines.append("Warning: " + w)
     if inputs_used and inputs_used.get("defaults_applied"):
