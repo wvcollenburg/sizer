@@ -27,6 +27,7 @@ import os
 import secrets
 import sys
 from datetime import datetime, timedelta, timezone
+from html import escape, unescape
 from urllib.parse import parse_qs, quote, urlparse
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
@@ -101,10 +102,21 @@ def _consent(c, client_id, challenge, redirect_uri=CALLBACK, state="xyz", **extr
     nonce = html.split('name="nonce" value="')[1].split('"')[0]
     form = dict(args, nonce=nonce, decision="allow")
     r = c.post("/oauth/authorize", data=form)
-    assert r.status_code == 302, r.data[:300]
-    loc = r.headers["Location"]
+    loc = _leave_target(r)
     assert loc.startswith(redirect_uri.split("?")[0])
     return {k: v[0] for k, v in parse_qs(urlparse(loc).query).items()}
+
+
+def _leave_target(r):
+    """The decision answers with a page that navigates to the callback (a
+    302 after a form POST would be blocked by the proxy's CSP form-action in
+    Chrome): the URL is in the meta refresh and the fallback link."""
+    assert r.status_code == 200, r.data[:300]
+    assert r.headers["Cache-Control"] == "no-store"
+    html = r.get_data(as_text=True)
+    href = unescape(html.split('id="continue" href="')[1].split('"')[0])
+    assert ('content="0;url=%s"' % escape(href, quote=True)) in html
+    return href
 
 
 def _exchange(c, client_id, code, verifier, **extra):
@@ -244,7 +256,7 @@ def test_authorize_flow(world):
     r = c.get("/oauth/authorize", query_string=args)
     nonce = r.get_data(as_text=True).split('name="nonce" value="')[1].split('"')[0]
     r = c.post("/oauth/authorize", data=dict(args, nonce=nonce, decision="deny"))
-    assert r.status_code == 302 and "error=access_denied" in r.headers["Location"]
+    assert "error=access_denied" in _leave_target(r)
     # A stale nonce (the form replayed) is refused without a redirect.
     r = c.post("/oauth/authorize", data=dict(args, nonce=nonce, decision="allow"))
     assert r.status_code == 400

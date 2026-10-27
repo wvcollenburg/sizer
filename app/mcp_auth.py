@@ -38,8 +38,8 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from urllib.parse import parse_qs, quote, urlencode, urlparse, urlunparse
 
-from flask import (Blueprint, Response, abort, current_app, g, jsonify, redirect,
-                   render_template, request, session)
+from flask import (Blueprint, Response, abort, current_app, g, jsonify, make_response,
+                   redirect, render_template, request, session)
 
 from auth import audit, current_user
 from auth_models import JSON_TYPE, User
@@ -369,12 +369,27 @@ def register_client():
 
 # ── authorization endpoint ───────────────────────────────────────────────────
 
-def _redirect_with(uri, params):
+def _with_query(uri, params):
     p = urlparse(uri)
     query = dict(parse_qs(p.query, keep_blank_values=True))
     query = {k: v[0] for k, v in query.items()}
     query.update({k: v for k, v in params.items() if v is not None})
-    return redirect(urlunparse(p._replace(query=urlencode(query))), code=302)
+    return urlunparse(p._replace(query=urlencode(query)))
+
+
+def _redirect_with(uri, params):
+    return redirect(_with_query(uri, params), code=302)
+
+
+def _leave_to(uri, params, allowed):
+    """The consent decision's way back to the client: a page that navigates
+    to the callback, not a 302. Chrome applies the proxy's CSP
+    ``form-action 'self'`` to a redirect that follows a form POST and would
+    block the hop to claude.ai or a loopback port."""
+    url = _with_query(uri, params)
+    resp = make_response(render_template("oauth_redirect.html", url=url, allowed=allowed,
+                                         host=urlparse(url).hostname or url))
+    return _no_store(resp)
 
 
 def _authorize_request(args):
@@ -481,9 +496,9 @@ def authorize_decide():
     if form.get("decision") != "allow":
         audit("mcp.consent_denied", "client %s" % client.id[:200], actor=user)
         db.session.commit()
-        return _redirect_with(redirect_uri, {"error": "access_denied",
-                                             "error_description": "The user declined",
-                                             "state": params["state"], "iss": issuer()})
+        return _leave_to(redirect_uri, {"error": "access_denied",
+                                        "error_description": "The user declined",
+                                        "state": params["state"], "iss": issuer()}, False)
     code = secrets.token_urlsafe(32)
     db.session.add(OAuthCode(
         code_hash=_hash(code), client_id=client.id, user_id=user.id,
@@ -492,7 +507,7 @@ def authorize_decide():
     client.last_used_at = _utcnow()
     audit("mcp.consent", "client %s (%s)" % (client.id[:200], client.name or "unnamed"), actor=user)
     db.session.commit()
-    return _redirect_with(redirect_uri, {"code": code, "state": params["state"], "iss": issuer()})
+    return _leave_to(redirect_uri, {"code": code, "state": params["state"], "iss": issuer()}, True)
 
 
 # ── token endpoint ───────────────────────────────────────────────────────────
