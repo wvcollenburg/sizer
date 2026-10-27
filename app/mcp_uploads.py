@@ -16,9 +16,11 @@ parsers, the agent path and its budgets apply unchanged; the row then holds
 the check or job id. A merge (``merge_uploads``) is stored as another row of
 kind ``merged`` whose targets are sized like any upload.
 """
+import math
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
 
@@ -166,10 +168,18 @@ def upload_file(token):
         current_app.logger.warning("MCP upload parse failed: %s", type(exc).__name__)
         _fail(row, "parse_failed", import_service.PARSE_FAILED_MESSAGE)
         return jsonify({"error": import_service.PARSE_FAILED_MESSAGE}), 400
-    row.data = _dataset_record(data)
-    row.status = STATUS_READY
-    row.consumed_at = _utcnow()
-    db.session.commit()
+    try:
+        row.data = _dataset_record(data)
+        row.status = STATUS_READY
+        row.consumed_at = _utcnow()
+        db.session.commit()
+    except Exception as exc:    # noqa: BLE001 — the file parsed; storing it is our fault
+        db.session.rollback()
+        ref = "%x" % int(_utcnow().timestamp() * 1000)
+        current_app.logger.exception("MCP upload store failed (ref %s): %s", ref, type(exc).__name__)
+        _fail(row, "store_failed", "The file was read but its result could not be stored "
+              "(reference %s). Start a new upload; if it happens again, report the reference." % ref)
+        return jsonify({"error": row.error}), 500
     return jsonify({"ok": True, "file_type": data["file_type"],
                     "vm_count": len(data.get("vms") or [])})
 
@@ -210,11 +220,31 @@ def _fail(row, code, message, params=None):
     db.session.commit()
 
 
+def _json_safe(node):
+    """The parsed dataset as plain JSON values. The parsers pass workbook
+    cells through as they are (RVTools' vMetaData "xlsx creation datetime"
+    is a datetime), which jsonify tolerates on the web route but the JSON
+    column does not; Postgres also refuses NaN and infinity."""
+    if isinstance(node, dict):
+        return {str(k): _json_safe(v) for k, v in node.items()}
+    if isinstance(node, (list, tuple)):
+        return [_json_safe(v) for v in node]
+    if isinstance(node, bool) or node is None or isinstance(node, (str, int)):
+        return node
+    if isinstance(node, float):
+        return node if math.isfinite(node) else None
+    if isinstance(node, (datetime, date)):
+        return node.isoformat()
+    if isinstance(node, Decimal):
+        return float(node) if node.is_finite() else None
+    return str(node)
+
+
 def _dataset_record(data):
     """What is kept of a parsed assessment: the dataset shape the merge and
     the raw import route use, plus the id the merge keys sources by."""
     meta = data["source_meta"]
-    return {
+    return _json_safe({
         "id": "f" + (meta.get("file_sha256") or secrets.token_hex(5))[:10],
         "file_type": data["file_type"], "scan_type": data.get("scan_type"),
         "source_meta": meta, "project": data.get("project"),
@@ -223,7 +253,7 @@ def _dataset_record(data):
         "host_nics": data.get("host_nics") or [], "datastores": data.get("datastores") or [],
         "vms": data.get("vms") or [], "clusters": data.get("clusters") or [],
         "import_warnings": data.get("import_warnings") or [],
-    }
+    })
 
 
 def purge_expired():

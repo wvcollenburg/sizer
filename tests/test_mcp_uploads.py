@@ -357,3 +357,23 @@ def test_bom_upload_records_the_project_check(world):
     appmod.app.config["MCP_TEST_USER_ID"] = ids["alice"]
     assert _err(call(c, "start_upload", {"kind": "bom", "project_id": pid, "sizing_id": 4242}))["code"] == "not_found"
     assert _err(call(c, "start_upload", {"kind": "assessment", "project_id": pid}))["code"] == "invalid_input"
+
+
+def test_real_export_metadata_is_stored_as_json(world, tmp_path):
+    """RVTools writes vMetaData "xlsx creation datetime" as a datetime cell,
+    which the parser passes through; the stored record must still be plain
+    JSON (the acceptance server answered 500 on the first real export)."""
+    from datetime import datetime as _dt
+    from mcp_uploads import McpUpload
+    c, ids, files = world
+    path = rvtools(str(tmp_path / "real.xlsx"), HOSTS, VMS, DATASTORES,
+                   date=_dt(2026, 9, 7, 8, 6, 28))
+    uid, token = _start(c)
+    r = _post_file(c, token, path)
+    assert r.status_code == 200, r.get_json()
+    with appmod.app.app_context():
+        row = McpUpload.query.filter_by(token=token).one()
+        assert json.dumps(row.data, allow_nan=False)
+        assert row.data["project"]["xlsx creation datetime"] == "2026-09-07T08:06:28"
+    s = call(c, "get_upload", {"upload_id": uid})["structuredContent"]
+    assert s["status"] == "ready" and s["assessment"]["source"]["vm_count"] == 4

@@ -40,7 +40,8 @@ def _project_row(project, source, user, sizing_count=None):
 @tool("list_projects", "List projects",
       "Lists the user's projects (customer engagements), newest first, for choosing where to save "
       "a sizing or which sizings to look at. scope='mine' (default) shows projects the user "
-      "created or contributed to; scope='organization' adds every project in their organization.",
+      "created or contributed to; scope='organization' adds every project in their organization. "
+      "updated_at is when the project record itself last changed; sizings carry their own.",
       {"type": "object", "additionalProperties": False, "properties": dict(PAGE, **{
           "scope": {"type": "string", "enum": ["mine", "organization"], "default": "mine"},
           "query": {"type": "string", "maxLength": 100,
@@ -200,6 +201,9 @@ def present_saved(config, source, user, warnings=None):
                 "totals": cfg.get("totals") or cfg.get("cluster_total")}
         clusters.append(entry)
 
+    if any(e["selected_option"] and e["selected_option"].get("licensing") is None for e in clusters):
+        warnings.append("No licensing estimate was stored with this result (it was saved before "
+                        "the engine produced one); create_sizing with rerun_inputs returns it.")
     if not canonical and rerun["workload"] is not None:
         warnings.append("This sizing was saved from the web tool: the workload comes from its "
                         "stored result and only the planning parameters it recorded are known. "

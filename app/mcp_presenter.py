@@ -95,7 +95,9 @@ def present_option(rec, result, summary, params, rank):
         "category": rec.get("category"),
         "form_factor": rec.get("form_factor"),
         "chassis": rec.get("chassis"),
-        "validated": bool(rec.get("validated")),
+        # The mode the sizing ran in, not a property of the model: the engine
+        # stamps every option of a validated-mode run as validated.
+        "sizing_mode": "validated" if rec.get("validated") else "certified",
         "vendor_chassis": rec.get("vendor_chassis"),
         "node_count": rec.get("node_count"),
         "hci_node_count": rec.get("hci_node_count"),
