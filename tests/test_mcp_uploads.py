@@ -181,6 +181,9 @@ def test_get_upload_and_list_vms(world):
     a = s["assessment"]
     assert a["source"]["file_type"] == "rvtools" and a["source"]["vm_count"] == 4
     assert a["inputs"]["workload"]["total_vcpus"] == 13 and a["missing_for_sizing"] == []
+    # What RVTools did not measure is null here too, not 0 (same rule as create_sizing).
+    assert a["inputs"]["workload"]["p95_iops"] is None
+    assert a["inputs"]["workload"]["used_ram_gb"] is None
     assert a["largest_vms"][0]["name"] == "db01" and a["clusters"] == []
     assert all(isinstance(w["text"], str) for w in a["import_warnings"])
     assert _offending_keys(s) == []

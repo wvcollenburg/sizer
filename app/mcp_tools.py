@@ -443,8 +443,11 @@ def _prepare(caller, args):
             kwargs["source_perf_index"] = source_perf["total_specrate"]
             kwargs["source_perf_type"] = "specrate"
         for name in source_perf["unresolved"]:
-            warnings.append("No benchmark found for source CPU %r; it is left out of the "
-                            "throughput comparison. Pass perf_index to include it." % name)
+            warnings.append("No benchmark found for source CPU %r in the appliance catalog or "
+                            "the SPEC CPU 2017 table; it is left out of the throughput "
+                            "comparison. Try lookup_cpu_benchmark with the bare model (e.g. "
+                            "'E5-2667 v4'); if still unknown, pass its PassMark CPU Mark as "
+                            "source_cpus[].perf_index with perf_type 'passmark'." % name)
     for flag in check["plausibility"]:
         warnings.append("Check %s: %s" % (flag["field"], flag["detail"]))
 
@@ -458,8 +461,9 @@ def _prepare(caller, args):
         for field in unmeasured:
             workload_used[field] = None
         warnings.append("The export carries no measurement for %s: reported as null, not zero. "
-                        "Without IOPS the IOPS check cannot run and storage is sized on capacity "
-                        "alone; pass the fields in workload if they are known from elsewhere."
+                        "Without IOPS the demand side of the IOPS check is unknown, so it does "
+                        "not run; each option's IOPS capability (from per-drive figures) is still "
+                        "reported. Pass the fields in workload if they are known from elsewhere."
                         % ", ".join(unmeasured))
     inputs_used = {
         "workload": workload_used,
@@ -483,21 +487,10 @@ def _prepare(caller, args):
     return summary, kwargs, inputs_used, warnings
 
 
-_UNMEASURED_IOPS = ("p95_iops", "avg_iops", "peak_iops")
-
-
 def _unmeasured_fields(dataset):
-    """Workload fields the export cannot have measured, where the parser's 0
-    means "no data": IOPS when the import flagged none (RVTools always),
-    and used RAM for RVTools, which has no consumed-memory column."""
-    codes = {(w or {}).get("code") for w in dataset.get("import_warnings") or []}
-    fields = []
-    rvtools = dataset.get("file_type") == "rvtools"
-    if "no_iops" in codes or rvtools:
-        fields.extend(_UNMEASURED_IOPS)
-    if rvtools:
-        fields.append("used_ram_gb")
-    return fields
+    """get_upload and create_sizing agree on what an export did not measure."""
+    import mcp_uploads
+    return mcp_uploads.unmeasured_fields(dataset)
 
 
 def public_inputs(inputs_used):

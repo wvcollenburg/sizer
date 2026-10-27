@@ -397,9 +397,32 @@ def start_upload(caller, args):
     return out, text
 
 
-def _summary_inputs(summary):
-    check = svc.validate_workload(svc.summary_to_workload(summary))
-    return {"workload": svc.summary_to_workload(summary)}, check["missing"]
+_UNMEASURED_IOPS = ("p95_iops", "avg_iops", "peak_iops")
+
+
+def unmeasured_fields(dataset):
+    """Workload fields the export cannot have measured, where the parser's 0
+    means "no data": IOPS when the import flagged none (RVTools always),
+    and used RAM for RVTools, which has no consumed-memory column."""
+    dataset = dataset or {}
+    codes = {(w or {}).get("code") for w in dataset.get("import_warnings") or []}
+    fields = []
+    rvtools = dataset.get("file_type") == "rvtools"
+    if "no_iops" in codes or rvtools:
+        fields.extend(_UNMEASURED_IOPS)
+    if rvtools:
+        fields.append("used_ram_gb")
+    return fields
+
+
+def _summary_inputs(summary, dataset=None):
+    """The summary as a workload, unmeasured fields as null, plus what a
+    sizing would still need."""
+    workload = svc.summary_to_workload(summary)
+    check = svc.validate_workload(workload)
+    for field in unmeasured_fields(dataset):
+        workload[field] = None
+    return {"workload": workload}, check["missing"]
 
 
 def _largest_vms(vms, n=5):
@@ -414,10 +437,10 @@ def _largest_vms(vms, n=5):
 
 def _assessment_body(row, lang):
     data = row.data or {}
-    inputs, missing = _summary_inputs(data["summary"])
+    inputs, missing = _summary_inputs(data["summary"], data)
     clusters = []
     for c in data.get("clusters") or []:
-        ci, cm = _summary_inputs(c["summary"])
+        ci, cm = _summary_inputs(c["summary"], data)
         clusters.append({"name": c["name"], "host_count": c.get("host_count"),
                          "vm_count": c.get("vm_count"), "inputs": ci, "missing_for_sizing": cm})
     meta = data.get("source_meta") or {}
@@ -436,7 +459,7 @@ def _merged_body(row, lang):
     data = row.data or {}
     targets = []
     for t in data.get("targets") or []:
-        ti, tm = _summary_inputs(t["summary"])
+        ti, tm = _summary_inputs(t["summary"], t)
         targets.append({"name": t["name"], "sources": t.get("sources"),
                         "host_count": len(t.get("hosts") or []), "vm_count": len(t.get("vms") or []),
                         "inputs": ti, "missing_for_sizing": tm,
@@ -677,8 +700,8 @@ def merge_uploads(caller, args):
            "overlaps": overlaps, "groups": groups,
            "targets": [{"name": t["name"], "sources": t["sources"],
                         "hosts": len(t.get("hosts") or []), "vms": len(t.get("vms") or []),
-                        "inputs": _summary_inputs(t["summary"])[0],
-                        "missing_for_sizing": _summary_inputs(t["summary"])[1],
+                        "inputs": _summary_inputs(t["summary"], t)[0],
+                        "missing_for_sizing": _summary_inputs(t["summary"], t)[1],
                         "import_warnings": [dict(w, text=mcp_payload.import_warning_text(w, lang))
                                             for w in t.get("import_warnings") or []]}
                        for t in targets],
