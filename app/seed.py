@@ -27,6 +27,10 @@ from project_models import (  # noqa: F401
 # create_all() is the whole migration.
 import hcl_models  # noqa: F401,E402
 import bom_models  # noqa: F401,E402
+# MCP upload links (docs/mcp/01-tool-design.md §3.10) and the OAuth tables
+# (docs/mcp/03-auth.md): new tables only.
+import mcp_uploads  # noqa: F401,E402
+import mcp_auth  # noqa: F401,E402
 
 # Product-supplied per-drive-type IOPS defaults (admin-editable thereafter).
 DRIVE_TYPE_IOPS_DEFAULTS = {"HDD": 150, "SSD": 20000, "NVMe": 75000}

@@ -4411,7 +4411,11 @@ const SNAPSHOT_VERSION = 4;
 const _SHARED_SIZING_FIELDS = ['ratio-slider', 'growth-years', 'growth-pct',
     'separate-storage-growth', 'storage-growth-pct', 'snapshot-pct', 'max-day-one-storage', 'max-day-one-ram', 'target-nodes',
     'storage-pref', 'sizing-mode', 'sizing-vendor', 'size-full-cluster',
-    'allow-storage-only', 'sizing-model-select', 'sizing-include-eol'];
+    'allow-storage-only', 'sizing-model-select', 'sizing-include-eol',
+    // Licence term and guest licensing are inputs to the result (the licence
+    // shape and the per-core burden in the score), so a sizing reopened
+    // without them could recalculate differently from what was saved.
+    'license-term-years', 'guest-licensing'];
 
 const SNAP_FIELDS = {
     appliance: ['status-filter', 'model-select', 'node-count', 'cpu-select',
@@ -4455,6 +4459,24 @@ function _writeField(id, v) {
     if (!el || v === undefined) return;
     if (el.type === 'checkbox') el.checked = v;
     else el.value = v;
+}
+
+// A saved guest-licensing choice is the SA's and must survive the detection
+// that every import re-render applies (applyDetectedGuestLicensing respects
+// the user-set mark). A payload saved before the two licence controls were
+// captured opens as before: term 5, guest licensing detected from the import
+// (or the default) — reset explicitly so the previous sizing on this page
+// does not leak into it.
+function _restoreLicensing(f, summary) {
+    const guest = _snapById('guest-licensing');
+    if (f['guest-licensing'] !== undefined) {
+        markGuestLicensingUserSet();
+    } else if (guest) {
+        delete guest.dataset.userSet;
+        guest.value = 'windows';
+        if (summary) applyDetectedGuestLicensing(summary);
+    }
+    if (f['license-term-years'] === undefined) _writeField('license-term-years', '5');
 }
 
 function _captureFields(mode) {
@@ -4587,6 +4609,7 @@ async function restoreSizingState(snap) {
                                import_warnings: lastImportWarnings });
         (SNAP_FIELDS.import).forEach(id => _writeField(id, f[id]));
         _restoreStorageGrowth(f);
+        _restoreLicensing(f, importSummary);
         updateRatioDisplay();
         _restoreModelPicker(f).then(recalcRecommendations);
         // Resume the guided wizard on the step the user saved from (default 2
@@ -4613,6 +4636,7 @@ async function restoreSizingState(snap) {
         // Re-apply saved sizing controls (calculateManual reset the ratio to derived).
         _SHARED_SIZING_FIELDS.forEach(id => _writeField(id, f[id]));
         _restoreStorageGrowth(f);
+        _restoreLicensing(f, null);
         updateRatioDisplay();
         _restoreModelPicker(f).then(recalcRecommendations);
         return;

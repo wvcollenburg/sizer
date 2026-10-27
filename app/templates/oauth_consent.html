@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    {% set page_title = 'Connect an assistant — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
+    <style>
+        .consent { max-width: 34rem; margin: 2rem auto; padding: 0 1rem; }
+        .consent .client { font-size: 1.1rem; }
+        .consent ul { margin: 1rem 0 1rem 1.2rem; }
+        .consent .meta { color: var(--muted, #666); font-size: .9rem; }
+        .consent .warn { border-left: 3px solid var(--warning, #b7791f); padding: .5rem .8rem; margin: 1rem 0; }
+        .consent .actions { display: flex; gap: .8rem; margin-top: 1.5rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">Connect</span>
+            {% include "_partials/header_controls.html" %}
+        </div>
+    </header>
+    <main>
+        <article class="consent">
+            <h1>Allow this assistant to use the Sizer?</h1>
+            <p class="client"><strong>{{ client.name or 'An assistant' }}</strong>
+               wants to connect to the Sizer as <strong>{{ user_email }}</strong>.</p>
+            <p>After you allow it, it will be able to:</p>
+            <ul>{% for line in scope_lines %}<li>{{ line }}</li>{% endfor %}</ul>
+            <p class="meta">You will be sent back to <strong>{{ redirect_host }}</strong>.
+               Client id: <code>{{ client.id[:80] }}{% if client.id|length > 80 %}…{% endif %}</code>.
+               You can disconnect it at any time from your account settings.</p>
+            {% if loopback_only %}
+            <p class="warn">This client runs on your own computer and receives the connection
+               on a local address. Only allow it if you started the connection yourself,
+               from a program you trust: any program on your computer could ask the same way.</p>
+            {% endif %}
+            <form method="post" action="/oauth/authorize">
+                {% for key, value in params.items() %}{% if value is not none %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+                <input type="hidden" name="response_type" value="code">
+                <input type="hidden" name="code_challenge_method" value="S256">
+                <input type="hidden" name="nonce" value="{{ nonce }}">
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit" name="decision" value="allow">Allow</button>
+                    <button class="btn" type="submit" name="decision" value="deny">Deny</button>
+                </div>
+            </form>
+        </article>
+    </main>
+</body>
+</html>

@@ -53,6 +53,15 @@ function updateGate() {
         }
     } else {
         document.body.classList.remove('auth-required');
+        // An assistant connecting over MCP sent the user here to sign in
+        // (mcp_auth.authorize); go back to its consent page. Same-origin
+        // paths under /oauth/ only, so the parameter cannot send anyone
+        // elsewhere.
+        const next = new URLSearchParams(location.search).get('next');
+        if (next && /^\/oauth\/authorize\?/.test(next)) {
+            location.assign(next);
+            return;
+        }
         // Sizing always happens inside a project, so signing in lands on the
         // project home rather than straight in the sizer. Only on the first
         // reveal — later calls (e.g. a refreshed account) must not yank the

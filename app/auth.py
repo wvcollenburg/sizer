@@ -491,6 +491,15 @@ def require_login():
         return None
     if request.blueprint == "auth":
         return None
+    if request.blueprint == "mcp":
+        # The MCP endpoint carries its own bearer-token gate (mcp_server);
+        # a session cookie is never its credential.
+        return None
+    if request.blueprint == "oauth" or request.path.startswith("/.well-known/"):
+        # OAuth discovery and the token/registration endpoints are public by
+        # definition; the authorize page sends an anonymous visitor to the
+        # login itself, with a return path (mcp_auth.authorize).
+        return None
     if request.path in ("/", "/privacy"):
         return None
     if request.path == "/api/hcl/preview-feed":
@@ -811,6 +820,21 @@ def run_daily_maintenance(app):
                 db.session.commit()
 
 
+def _purge_mcp_uploads(app):
+    """Parsed MCP uploads past their retention (hours, not days: they hold
+    customer VM lists for a conversation, not for a project). Every tick,
+    not once a day."""
+    with app.app_context():
+        from mcp_auth import purge_expired as purge_oauth
+        from mcp_uploads import purge_expired
+        n = purge_expired()
+        if n:
+            app.logger.info("Purged %d expired MCP uploads.", n)
+        counts = purge_oauth()
+        if any(counts.values()):
+            app.logger.info("Purged OAuth leftovers: %s", counts)
+
+
 def start_scheduler(app):
     """Start the once-per-day maintenance loop in a daemon thread. Ticks
     frequently but the day-stamp gate means real work happens once per calendar
@@ -829,6 +853,7 @@ def start_scheduler(app):
         while True:
             try:
                 run_daily_maintenance(app)
+                _purge_mcp_uploads(app)
             except Exception as e:  # noqa: BLE001 — never let the loop die
                 try:
                     db.session.rollback()
