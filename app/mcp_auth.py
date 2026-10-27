@@ -92,7 +92,23 @@ def _no_store(resp):
 
 
 def _oauth_error(error, description, status=400):
+    # Logged (no secrets: the client id prefix and grant only) so a client
+    # that fails to connect can be diagnosed from the app log.
+    p = _params()
+    current_app.logger.warning("oauth %s refused: %s (%s) client=%s grant=%s", request.path,
+                               error, description, (p.get("client_id") or
+                                                    (request.authorization or {}).get("username")
+                                                    or "?")[:24], p.get("grant_type"))
     return _no_store(jsonify({"error": error, "error_description": description})), status
+
+
+def _params():
+    """The parameters of a token or revoke request: form-encoded per RFC
+    6749, with a JSON body tolerated because some clients send one."""
+    if request.form:
+        return request.form
+    body = request.get_json(silent=True)
+    return body if isinstance(body, dict) else {}
 
 
 # ── models ───────────────────────────────────────────────────────────────────
@@ -351,6 +367,8 @@ def register_client():
                                                    "software_id", "software_version")})
     db.session.add(row)
     db.session.commit()
+    current_app.logger.info("oauth client registered: %s name=%r auth=%s redirects=%s", client_id,
+                            row.name, method, ",".join(sorted({urlparse(u).hostname or u for u in uris})))
     body = {
         "client_id": client_id,
         "client_id_issued_at": int(_utcnow().timestamp()),
@@ -516,7 +534,7 @@ def _client_from_token_request():
     """(client, error) with the client authenticated as its registration
     requires: a public client by id, a confidential one by secret (Basic or
     form)."""
-    client_id, secret = request.form.get("client_id"), request.form.get("client_secret")
+    client_id, secret = _params().get("client_id"), _params().get("client_secret")
     auth = request.authorization
     if auth and auth.type == "basic":
         client_id, secret = auth.username or client_id, auth.password
@@ -560,18 +578,18 @@ def _revoke_family(family, when=None):
 @oauth_bp.route("/oauth/token", methods=["POST"])
 @limiter.limit("120 per minute")
 def token():
-    if not request.form:
+    if not _params():
         return _oauth_error("invalid_request", "A form-encoded body is required")
-    grant = request.form.get("grant_type")
+    grant = _params().get("grant_type")
     client, err = _client_from_token_request()
     if err:
         return err
-    resource = request.form.get("resource")
+    resource = _params().get("resource")
     if resource and resource.rstrip("/") != resource_url():
         return _oauth_error("invalid_target", "resource must be %s" % resource_url())
 
     if grant == "authorization_code":
-        row = OAuthCode.query.filter_by(code_hash=_hash(request.form.get("code") or "")).first()
+        row = OAuthCode.query.filter_by(code_hash=_hash(_params().get("code") or "")).first()
         if row is None or row.client_id != client.id:
             return _oauth_error("invalid_grant", "Unknown authorization code")
         if row.used_at is not None:
@@ -581,9 +599,9 @@ def token():
             return _oauth_error("invalid_grant", "Authorization code already used")
         if _aware(row.expires_at) < _utcnow():
             return _oauth_error("invalid_grant", "Authorization code expired")
-        if request.form.get("redirect_uri") and request.form.get("redirect_uri") != row.redirect_uri:
+        if _params().get("redirect_uri") and _params().get("redirect_uri") != row.redirect_uri:
             return _oauth_error("invalid_grant", "redirect_uri does not match")
-        if not _pkce_ok(request.form.get("code_verifier"), row.code_challenge):
+        if not _pkce_ok(_params().get("code_verifier"), row.code_challenge):
             return _oauth_error("invalid_grant", "PKCE verification failed")
         row.used_at = _utcnow()
         db.session.commit()
@@ -591,7 +609,7 @@ def token():
                       family="code%d" % row.id)
 
     if grant == "refresh_token":
-        row = OAuthToken.query.filter_by(refresh_hash=_hash(request.form.get("refresh_token") or "")).first()
+        row = OAuthToken.query.filter_by(refresh_hash=_hash(_params().get("refresh_token") or "")).first()
         if row is None or row.client_id != client.id:
             return _oauth_error("invalid_grant", "Unknown refresh token")
         if row.rotated_at is not None:
@@ -607,7 +625,7 @@ def token():
             _revoke_family(row.family)
             db.session.commit()
             return _oauth_error("invalid_grant", "The account is no longer active")
-        scope = request.form.get("scope") or row.scope
+        scope = _params().get("scope") or row.scope
         if not set(scope.split()) <= set(row.scope.split()):
             return _oauth_error("invalid_scope", "Scope cannot be widened on refresh")
         row.rotated_at = row.revoked_at = _utcnow()
@@ -623,7 +641,7 @@ def revoke():
     client, err = _client_from_token_request()
     if err:
         return err
-    value = _hash(request.form.get("token") or "")
+    value = _hash(_params().get("token") or "")
     row = (OAuthToken.query.filter_by(access_hash=value).first()
            or OAuthToken.query.filter_by(refresh_hash=value).first())
     if row is not None and row.client_id == client.id:

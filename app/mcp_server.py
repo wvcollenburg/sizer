@@ -215,6 +215,14 @@ def mcp_endpoint():
     lang = (request.headers.get("Accept-Language") or "en")[:2].lower()
     caller = mcp_registry.Caller(user, lang=lang if lang.isalpha() else "en")
 
+    if method in ("initialize", "server/discover"):
+        # Which client speaks to us, for support: name/version and protocol.
+        info = (meta.get("io.modelcontextprotocol/clientInfo") if modern
+                else params.get("clientInfo")) or {}
+        current_app.logger.info("mcp %s client=%s/%s protocol=%s user=%s", method,
+                                str(info.get("name") or "?")[:60], str(info.get("version") or "?")[:30],
+                                meta_version or header_version or params.get("protocolVersion"),
+                                user.id)
     if method == "ping":
         return _ok(rid, _result({}, modern))
     if method == "server/discover" and modern:

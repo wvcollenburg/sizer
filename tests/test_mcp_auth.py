@@ -300,7 +300,11 @@ def test_token_exchange_pkce_and_replay(world):
     assert r.get_json()["error"] == "unsupported_grant_type"
     r = c.post("/oauth/token", data={"grant_type": "client_credentials", "client_id": client_id})
     assert r.get_json()["error"] == "unsupported_grant_type"
-    assert c.post("/oauth/token", json={"grant_type": "authorization_code"}).status_code == 400
+    # A JSON body is tolerated (some clients send one) and read like the form:
+    # here it names no client, so it fails on that, not on the encoding.
+    r = c.post("/oauth/token", json={"grant_type": "authorization_code"})
+    assert r.status_code == 401 and r.get_json()["error"] == "invalid_client"
+    assert c.post("/oauth/token", data=b"", content_type="text/plain").status_code == 400
 
 
 def test_confidential_client_authenticates(world):
