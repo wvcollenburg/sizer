@@ -6,8 +6,10 @@ Visibility is the API's own: ``visibility.source_for``, ``resolve_by_code``,
 role-capped caller and nothing added. A sizing the caller may not see is
 "not found", never "forbidden", exactly as the routes answer (no leak).
 """
+import os
+
 from database import db
-from mcp_registry import SCHEMA_VERSION, ToolError, audit_event, tool
+from mcp_registry import SCHEMA_VERSION, ToolError, audit_event, invalid_input, tool
 import mcp_presenter as presenter
 import sizing_service as svc
 from tunables import T, refresh_from_db
@@ -37,11 +39,65 @@ def _project_row(project, source, user, sizing_count=None):
                                   "sizing_count", "updated_at")}
 
 
+def new_project(user, name, customer_name=None, opportunity_ref=None):
+    """A project owned by ``user``, as the web tool's create route makes one
+    (decision 24: a name is all that is required). Shared by create_project
+    and save_sizing's new_project_name."""
+    from project_models import Project, new_code
+    from sqlalchemy.exc import IntegrityError
+    for _ in range(6):
+        project = Project(code=new_code(), name=name[:200], owner_id=user.id,
+                          tenant_id=user.tenant_id, prepared_by=user.display_name[:200],
+                          customer_name=(customer_name or "").strip()[:200] or None,
+                          opportunity_ref=(opportunity_ref or "").strip()[:120] or None)
+        db.session.add(project)
+        try:
+            db.session.commit()
+            return project
+        except IntegrityError:
+            db.session.rollback()
+    raise ToolError("internal_error", "Could not allocate a unique project code. Try again.",
+                    retryable=True)
+
+
+@tool("create_project", "Create a project",
+      "Creates an empty project (a customer engagement) owned by the user, the same as the New "
+      "project button in the Scale Computing sizing tool. Call it when the user asks for a new "
+      "project, or needs one before a BOM upload or BOM check for a customer that has no project "
+      "yet. A sizing can also create its project on the way: save_sizing with new_project_name. "
+      "Only a name is required; customer name and opportunity reference can be added here or later "
+      "in the tool. Returns the project id to pass to save_sizing, save_bom_check or start_upload.",
+      {"type": "object", "additionalProperties": False,
+       "required": ["name"],
+       "properties": {
+           "name": {"type": "string", "minLength": 1, "maxLength": 200,
+                    "description": "Project name as the user wants it listed, e.g. 'ACME datacenter refresh'."},
+           "customer_name": {"type": "string", "maxLength": 200},
+           "opportunity_ref": {"type": "string", "maxLength": 120,
+                               "description": "The partner's own opportunity or quote reference."}}},
+      read_only=False, destructive=False, idempotent=False)
+def create_project(caller, args):
+    name = (args.get("name") or "").strip()
+    if not name:
+        raise invalid_input([{"field": "name", "problem": "is required"}])
+    project = new_project(caller.user, name, args.get("customer_name"), args.get("opportunity_ref"))
+    audit_event(caller, "create_project", "project %d %r" % (project.id, project.name))
+    base = (os.environ.get("APP_BASE_URL") or "").rstrip("/")
+    out = {"schema_version": SCHEMA_VERSION,
+           "project": _project_row(project, "owned", caller.user, sizing_count=0),
+           "open_url": "%s/?project=%d" % (base, project.id)}
+    text = ("Created project %d %r (code %s), empty. Save a sizing into it with save_sizing "
+            "project_id=%d, or start a BOM upload for it." % (project.id, project.name,
+                                                               project.code, project.id))
+    return out, text
+
+
 @tool("list_projects", "List projects",
       "Lists the user's projects (customer engagements), newest first, for choosing where to save "
       "a sizing or which sizings to look at. scope='mine' (default) shows projects the user "
       "created or contributed to; scope='organization' adds every project in their organization. "
-      "updated_at is when the project record itself last changed; sizings carry their own.",
+      "updated_at is when the project record itself last changed; sizings carry their own. "
+      "A project the user does not have yet: create_project.",
       {"type": "object", "additionalProperties": False, "properties": dict(PAGE, **{
           "scope": {"type": "string", "enum": ["mine", "organization"], "default": "mine"},
           "query": {"type": "string", "maxLength": 100,

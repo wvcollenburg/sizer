@@ -43,7 +43,8 @@ INSTRUCTIONS = (
     "Scale Computing infrastructure sizing. Sizings run on MEASURED figures from the customer's "
     "environment: upload a Live Optics, RVTools or Nutanix export with start_upload, or pass the "
     "figures the user gives you. Never guess a measured value; if the largest VM is unknown, ask. "
-    "create_sizing stores nothing; save_sizing only when the user asks. Prices are never available."
+    "create_sizing stores nothing; save_sizing only when the user asks. A new customer gets a "
+    "project with create_project (or save_sizing with new_project_name). Prices are never available."
 )
 MODERN_VERSIONS = ("2026-07-28",)
 LEGACY_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")

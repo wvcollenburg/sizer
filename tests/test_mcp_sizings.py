@@ -379,3 +379,41 @@ def test_payload_writer_shapes():
     assert exp["cpus"][1] == {"model": "B", "sockets": 1, "type": "passmark", "score": 20000.0,
                               "specrate": 77.2, "total": 77.2}
     assert mcp_payload.source_perf_export({"total_specrate": None, "cpus": []}) is None
+
+
+# ── create_project ───────────────────────────────────────────────────────────
+
+def test_create_project_is_the_new_project_button(world):
+    """A colleague's first trial: "create a project for customer X" had no tool
+    to call, and a BOM check for a new customer needs a project first."""
+    c, ids, sz = world
+    _as(ids["alice"])
+    s = call(c, "create_project", {"name": "  Initech refresh ", "customer_name": "Initech",
+                                   "opportunity_ref": "OPP-42"})["structuredContent"]
+    p = s["project"]
+    assert p["name"] == "Initech refresh" and p["customer_name"] == "Initech"
+    assert p["opportunity_ref"] == "OPP-42" and p["can_edit"] is True
+    assert p["sizing_count"] == 0 and p["is_scratch"] is False and p["source"] == "owned"
+    assert s["open_url"].endswith("/?project=%d" % p["id"])
+    assert _offending_keys(s) == []
+    # It lists, empty, and takes a sizing by id.
+    names = [q["name"] for q in call(c, "list_projects", {})["structuredContent"]["projects"]]
+    assert names[0] == "Initech refresh"
+    saved = call(c, "save_sizing", {"name": "Site A", "workload": WORKLOAD,
+                                    "project_id": p["id"]})["structuredContent"]
+    assert saved["sizing"]["project"]["id"] == p["id"] and saved["sizing"]["project"]["created"] is False
+    # Only a name is required, and a blank one is refused.
+    r = call(c, "create_project", {"name": "   "})
+    assert _err(r)["code"] == "invalid_input"
+    # Invisible to another tenant; visible to a colleague as not editable.
+    _as(ids["carol"])
+    assert "Initech refresh" not in [q["name"] for q in call(
+        c, "list_projects", {"scope": "organization"})["structuredContent"]["projects"]]
+    _as(ids["bob"])
+    rows = call(c, "list_projects", {"scope": "organization"})["structuredContent"]["projects"]
+    assert [q["can_edit"] for q in rows if q["name"] == "Initech refresh"] == [False]
+    # Audited by id and name, never with figures.
+    from auth_models import AdminAuditLog
+    with appmod.app.app_context():
+        row = AdminAuditLog.query.filter_by(action="mcp.create_project").one()
+        assert "Initech refresh" in row.detail and str(p["id"]) in row.detail

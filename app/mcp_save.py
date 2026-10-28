@@ -49,7 +49,7 @@ def _open_url(project, config):
 
 
 def _resolve_project(user, args):
-    from project_models import Project, ensure_scratch_project, new_code
+    from project_models import ensure_scratch_project
     pid, new_name = args.get("project_id"), (args.get("new_project_name") or "").strip()
     if pid and new_name:
         raise invalid_input([{"field": "new_project_name",
@@ -67,17 +67,8 @@ def _resolve_project(user, args):
                             "can_edit)." % project.name)
         return project, False
     if new_name:
-        for _ in range(6):
-            project = Project(code=new_code(), name=new_name[:200], owner_id=user.id,
-                              tenant_id=user.tenant_id, prepared_by=user.display_name[:200])
-            db.session.add(project)
-            try:
-                db.session.commit()
-                return project, True
-            except IntegrityError:
-                db.session.rollback()
-        raise ToolError("internal_error", "Could not allocate a unique project code. Try again.",
-                        retryable=True)
+        from mcp_sizings import new_project
+        return new_project(user, new_name), True
     return ensure_scratch_project(user.id, user.tenant_id), False
 
 
