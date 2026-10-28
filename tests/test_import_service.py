@@ -41,7 +41,7 @@ HOSTS = [host("esx1", "Prod"), host("esx2", "Prod")]            # 32 cores
 VMS = [vm("web01", "esx1", "Prod", vcpus=4, ram_gb=16, used_gb=100),
        vm("db01", "esx2", "Prod", vcpus=8, ram_gb=32, used_gb=200),
        vm("old01", "esx2", "Prod", vcpus=2, ram_gb=8, used_gb=50, on=False)]
-DATASTORES = [("ds1", 2048, 1024)]                               # 1.0 TB used
+DATASTORES = [("ds1", 2048, 1024)]                               # 1 TiB = 1.1 TB used
 
 
 @pytest.fixture()
@@ -155,7 +155,7 @@ def test_no_exclusions_reproduces_the_import(parsed):
     base, vms = parsed["summary"], parsed["vms"]
     assert svc.adjust_summary(base, vms) == base
     assert base["total_vcpus"] == 12 and base["active_vms"] == 2
-    assert base["datastore_used_tb"] == 1.0
+    assert base["datastore_used_tb"] == 1.1                 # 1024 GiB in decimal TB
 
 
 def test_compute_exclusion_rebuilds_totals_and_largest_vm(parsed):
@@ -176,15 +176,15 @@ def test_storage_exclusion_subtracts_measured_disk(parsed):
     assert base["total_vm_provisioned_storage_gb"] == 600   # active: 200 + 400
     assert base["total_vm_used_storage_gb"] == 300
     out = svc.adjust_summary(base, parsed["vms"], exclude_storage=[1])
-    assert out["datastore_used_tb"] == 0.8                  # 1.0 - 200/1024
+    assert out["datastore_used_tb"] == 0.89                 # 1.1 - 200 GiB (0.21 TB)
     assert out["total_vm_provisioned_storage_gb"] == 200
-    assert out["total_vm_provisioned_storage_tb"] == 0.2
+    assert out["total_vm_provisioned_storage_tb"] == 0.21
     assert out["total_vm_used_storage_gb"] == 100
-    assert out["total_vm_used_storage_tb"] == 0.1
+    assert out["total_vm_used_storage_tb"] == 0.11
     # A powered-off VM's disk still comes off the datastore total, but not
     # off the active-VM provisioned/used figures.
     out = svc.adjust_summary(base, parsed["vms"], exclude_storage=[2])
-    assert out["datastore_used_tb"] == 0.95
+    assert out["datastore_used_tb"] == 1.05
     assert out["total_vm_provisioned_storage_gb"] == 600
 
 
@@ -196,13 +196,13 @@ def test_edits_added_and_removed_vms(parsed):
                consumed_memory_gb=0, vdisk_used_gb=50, vdisk_size_gb=50)
     out = svc.adjust_summary(base, vms + [new], added=[3])
     assert out["total_vcpus"] == 14
-    assert out["datastore_used_tb"] == 1.05                 # 1.0 + 50/1024
+    assert out["datastore_used_tb"] == 1.15                 # 1.1 + 50 GiB (0.05 TB)
     assert out["total_vm_provisioned_storage_gb"] == 650
     assert out["total_vm_used_storage_gb"] == 350
     # Removed again: the UI excludes it from compute and marks it removed.
     out = svc.adjust_summary(base, vms + [new], added=[3], removed=[3],
                              exclude_compute=[3], exclude_storage=[3])
-    assert out["total_vcpus"] == 12 and out["datastore_used_tb"] == 1.0
+    assert out["total_vcpus"] == 12 and out["datastore_used_tb"] == 1.1
 
 
 def test_local_storage_and_floor():

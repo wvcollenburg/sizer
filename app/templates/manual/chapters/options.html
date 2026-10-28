@@ -98,10 +98,28 @@
    known (step 2, <a href="#wizard-environment">Source CPU</a>), each recommendation shows how
    the new CPUs compare with the current ones, and the {{ m.ui("Explanation") }} button shows
    the calculation. Depending on how the administrators have configured the sizer, the score
-   can also lower the amount of compute needed. The card then shows a <em>compute floor</em>
-   line and can say <em>Determined by Compute</em>.</p>
+   can also add a <em>compute floor</em>: the new cluster must deliver at least the compute
+   the current one actually uses, grown over the projection. The floor sits next to the
+   vCPU:core ratio and can only add nodes, never remove them. The card then shows a
+   <em>compute floor</em> line and can say <em>Determined by Compute</em>.</p>
 {% call m.tip() %}Always check the source CPU score on step 2. A missing or wrong score
    makes the performance comparison meaningless.{% endcall %}
+
+<h4 id="opt-passmark">Scores marked as a PassMark estimate</h4>
+<p>The sizer compares CPUs on SPECrate2017 (integer rate), the benchmark published for
+   server CPUs. Desktop, laptop and embedded CPUs, such as the Core Ultra chips in the
+   small-form-factor nodes, have no published SPECrate result. For those, the sizer takes the
+   CPU's PassMark score and translates it onto the SPECrate scale with one fixed factor.</p>
+<p>That factor is a rough estimate of how the two benchmarks relate, not a measurement. The
+   two benchmarks also test different things: PassMark is a short burst on a desktop, and
+   SPECrate is sustained work on every core. A score translated this way can be about 20% off
+   in either direction. Wherever a translated score is used, the sizer marks it: the
+   {{ m.ui("Explanation") }} under the performance comparison says so, and other outputs mark
+   the score as a <em>PassMark estimate</em>.</p>
+<p>The mark is not an error to fix. It tells you how far to trust the comparison. The
+   vCPU:core ratio, RAM and storage sizing do not use benchmark scores, so they are not
+   affected. Treat the performance comparison and any compute floor on such a node as a guide,
+   and leave enough headroom when the sizing depends on them.</p>
 
 <h3 id="opt-redundancy">Redundancy is built in</h3>
 <p>There is no switch for redundancy: every recommendation keeps the workload running with

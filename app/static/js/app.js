@@ -2,6 +2,9 @@
 // other page-wide helpers come from common.js (loaded before this script).
 
 let currentMode = 'appliance';
+// Imports carry per-VM storage in GiB; summary TB is decimal, matching drive
+// capacities (parser_common.GIB_PER_TB).
+const GIB_PER_TB = 1e12 / 2 ** 30;
 // Which workload flow currently owns the shared sizing block: 'import' or
 // 'manual'. recalcRecommendations() reads the matching summary and keys results
 // (lastRecommendations/lastProjection/lastSummary) by it.
@@ -2229,10 +2232,10 @@ function renderProjectionTo(p, targetId) {
             </div>
             <div class="proj-card">
                 <div class="proj-label">${window.t('results.proj.current_storage')}</div>
-                <div class="proj-base">${p.base_storage_tb} TiB</div>
+                <div class="proj-base">${p.base_storage_tb} TB</div>
                 <div class="proj-arrow">&#8594;</div>
                 <div class="proj-label">${window.t('results.proj.year_snapshots', {years: p.years})}</div>
-                <div class="proj-projected">${p.projected_storage_tb} TiB</div>
+                <div class="proj-projected">${p.projected_storage_tb} TB</div>
             </div>
         </div>
         <div class="proj-note">
@@ -2381,15 +2384,15 @@ function renderEnvWorkloadCards(s) {
         </div>
         <div class="summary-card">
             <div class="summary-label">${window.t('import.provisioned_storage')}</div>
-            <div class="summary-value">${s.total_vm_provisioned_storage_tb} TiB</div>
+            <div class="summary-value">${s.total_vm_provisioned_storage_tb} TB</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">${window.t('import.datastore_used')}</div>
-            <div class="summary-value accent">${s.datastore_used_tb} TiB</div>
+            <div class="summary-value accent">${s.datastore_used_tb} TB</div>
         </div>
         <div class="summary-card">
             <div class="summary-label">${window.t('import.datastore_total')}</div>
-            <div class="summary-value">${s.datastore_total_tb} TiB</div>
+            <div class="summary-value">${s.datastore_total_tb} TB</div>
         </div>
     `;
 
@@ -4247,7 +4250,7 @@ function updateVmExclusionSummary() {
         parts.push(label);
     }
     if (vmExclusions.storage.size > 0) {
-        parts.push(window.t('import.excl_storage', {count: vmExclusions.storage.size, tb: (storGb / 1024).toFixed(2)}));
+        parts.push(window.t('import.excl_storage', {count: vmExclusions.storage.size, tb: (storGb / GIB_PER_TB).toFixed(2)}));
     }
     if (editedCount > 0) {
         parts.push(window.t('import.excl_edited', {count: editedCount}));
@@ -4333,11 +4336,11 @@ function computeAdjustedImportSummary() {
         }
     });
 
-    adjusted.datastore_used_tb = Math.round((base.datastore_used_tb - exclStorGbAll / 1024 + addStorGbAll / 1024) * 100) / 100;
+    adjusted.datastore_used_tb = Math.round((base.datastore_used_tb - exclStorGbAll / GIB_PER_TB + addStorGbAll / GIB_PER_TB) * 100) / 100;
     adjusted.total_vm_provisioned_storage_gb = Math.round((base.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
-    adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / 1024 * 100) / 100;
+    adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / GIB_PER_TB * 100) / 100;
     adjusted.total_vm_used_storage_gb = Math.round(((base.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
-    adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / 1024 * 100) / 100;
+    adjusted.total_vm_used_storage_tb = Math.round(adjusted.total_vm_used_storage_gb / GIB_PER_TB * 100) / 100;
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
 

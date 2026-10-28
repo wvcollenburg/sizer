@@ -152,8 +152,8 @@ def test_hosts_perf_and_storage(xlsx_path):
     assert s["p95_iops"] == 120
     # Shared datastore is cluster storage, single-host one is local, the
     # inaccessible one is dropped.
-    assert s["datastore_total_tb"] == 1.0
-    assert s["local_total_tb"] == 0.1
+    assert s["datastore_total_tb"] == 1.1          # 1 TiB in decimal TB
+    assert s["local_total_tb"] == 0.11
     assert s["nic_speed_mbps"] == 10000
 
 

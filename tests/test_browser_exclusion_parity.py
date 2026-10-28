@@ -78,7 +78,7 @@ def _with_added_vm(data, case):
                                 "consumed_memory_gb": 0, "vdisk_used_gb": 250,
                                 "vdisk_size_gb": 250, "powered_on": True, "is_template": False}]
     idx = len(vms) - 1
-    return vms, dict(case, added=[idx], config=dict(case["config"], **{idx: {"vdisk_used_gb": 250}}))
+    return vms, dict(case, added=[idx], config={**case["config"], idx: {"vdisk_used_gb": 250}})
 
 
 JS = """([summary, vms, c]) => {

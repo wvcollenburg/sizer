@@ -54,7 +54,7 @@ WORKLOAD_SCHEMA = {
         "total_host_threads": _int("Logical processors across all source hosts."),
         "total_host_ghz": _num("Sum over hosts of (cores × GHz), NOT the GHz of one CPU. Feeds the compute floor."),
         "total_host_ram_gb": _num("Physical RAM across all source hosts, in GB."),
-        "peak_cpu_ghz": _num("Measured peak GHz consumed across hosts (from an assessment). Preferred over peak_cpu_pct."),
+        "peak_cpu_ghz": _num("Measured peak GHz consumed across hosts (from an assessment). Preferred over peak_cpu_pct. Only counts together with total_host_ghz (utilisation = peak / total)."),
         "peak_cpu_pct": _num("Measured peak host CPU %, 0-100.", 0, maximum=100),
         "avg_cpu_pct": _num("Average host CPU %, 0-100.", 0, maximum=100),
         "peak_mem_pct": _num("Peak host memory %, 0-100.", 0, maximum=100),

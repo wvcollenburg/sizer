@@ -74,7 +74,7 @@ def test_parse_rvtools_reads_vms_hosts_and_identity(tmp_path):
     assert s["source"] == "rvtools"
     assert s["host_count"] == 1 and s["total_vms"] == 2 and s["active_vms"] == 1
     assert s["total_vcpus"] == 4
-    assert s["datastore_used_tb"] == round(400 / 1024, 2)
+    assert s["datastore_used_tb"] == round(400 * 2 ** 30 / 1e12, 2)   # GiB -> decimal TB
     # vHost CPU usage % is a one-off snapshot: counted as measured CPU.
     assert s["peak_cpu_ghz"] == 16.0
     assert s["p95_iops"] == 0

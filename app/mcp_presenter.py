@@ -53,8 +53,26 @@ def present_projection(p):
                        "ghz": p.get("projected_ghz"),
                        "snapshot_pct": p.get("snapshot_pct_at_target")},
         "iops_demand": p.get("iops_demand") or {},
-        "compute_floor": p.get("compute_floor"),
+        "compute_floor": _present_compute_floor(p.get("compute_floor")),
     }
+
+
+def _present_compute_floor(cf):
+    """The engine reports the floor's switch (`active`) even when there is
+    nothing to size against, with utilisation defaulting to 100%. Say whether
+    it was applied, and drop the defaulted utilisation, so a caller does not
+    read "active, 100%" next to checks that say "not checked"."""
+    if not cf:
+        return cf
+    out = dict(cf)
+    applied = bool(cf.get("active")) and bool(cf.get("required_ghz") or cf.get("required_perf_index"))
+    out["applied"] = applied
+    if not applied:
+        out["source_cpu_util_pct"] = None
+        out["reason"] = ("switched off (perf_scaling = 0)" if not cf.get("active") else
+                         "no source compute demand: needs total_host_ghz (with peak_cpu_ghz or "
+                         "peak_cpu_pct for utilisation) or source_cpus")
+    return out
 
 
 def present_perf_comparison(pc):

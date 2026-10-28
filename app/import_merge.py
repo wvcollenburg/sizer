@@ -36,7 +36,7 @@ import re
 from collections import Counter
 
 from cluster_split import UNCLUSTERED, _attribute_datastores
-from parser_common import build_summary
+from parser_common import GIB_PER_TB, build_summary
 from import_checks import build_import_warnings
 
 STANDALONE = "__standalone__"
@@ -469,7 +469,7 @@ def merge(datasets, resolutions=None, mapping=None):
                 g["active_vms"] += 1
                 g["vcpus"] += v.get("vcpus") or 0
                 g["ram_gb"] += v.get("provisioned_memory_gb") or 0
-                g["used_tb"] += (v.get("vdisk_used_gb") or 0) / 1024
+                g["used_tb"] += (v.get("vdisk_used_gb") or 0) / GIB_PER_TB
 
     # Likely duplicates: same cluster name in two files with shared hosts
     # (before the overlap choice removed them from one side).

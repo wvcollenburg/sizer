@@ -31,7 +31,7 @@ from fingerprint import PARSER_VERSION
 from import_checks import build_import_warnings, import_rejection
 from liveoptics import parse_liveoptics
 from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
-from parser_common import collection_date
+from parser_common import GIB_PER_TB, collection_date
 from request_utils import sha256_file
 from rvtools import parse_rvtools
 
@@ -252,15 +252,15 @@ def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
             add_prov_active += used
 
     adjusted["datastore_used_tb"] = _js_round(
-        _num(base.get("datastore_used_tb")) - excl_all / 1024 + add_all / 1024, 2)
+        _num(base.get("datastore_used_tb")) - excl_all / GIB_PER_TB + add_all / GIB_PER_TB, 2)
     prov_gb = _js_round(
         _num(base.get("total_vm_provisioned_storage_gb")) - excl_prov_active + add_prov_active, 1)
     adjusted["total_vm_provisioned_storage_gb"] = prov_gb
-    adjusted["total_vm_provisioned_storage_tb"] = _js_round(prov_gb / 1024, 2)
+    adjusted["total_vm_provisioned_storage_tb"] = _js_round(prov_gb / GIB_PER_TB, 2)
     used_gb = _js_round(
         _num(base.get("total_vm_used_storage_gb")) - excl_active + add_active, 1)
     adjusted["total_vm_used_storage_gb"] = used_gb
-    adjusted["total_vm_used_storage_tb"] = _js_round(used_gb / 1024, 2)
+    adjusted["total_vm_used_storage_tb"] = _js_round(used_gb / GIB_PER_TB, 2)
 
     if adjusted["datastore_used_tb"] < 0:
         adjusted["datastore_used_tb"] = 0

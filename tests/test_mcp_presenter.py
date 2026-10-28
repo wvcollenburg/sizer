@@ -139,3 +139,22 @@ def test_catalog_service_matches_the_models_route(client):
         models = catalog_service.appliance_models(for_sizing=True)
     assert res.get_json() == models
     assert "TEST-HCI" in models and "cost_tier" not in models["TEST-HCI"]
+
+
+def test_compute_floor_says_whether_it_was_applied():
+    from mcp_presenter import present_projection
+    # Switch on but nothing to size against (peak GHz without total GHz): the
+    # engine's defaulted 100% utilisation is dropped and a reason is given.
+    cf = present_projection({"compute_floor": {
+        "active": True, "balance": 0.5, "source_cpu_util_pct": 100.0,
+        "required_ghz": 0.0, "required_perf_index": None}})["compute_floor"]
+    assert cf["applied"] is False and cf["source_cpu_util_pct"] is None
+    assert "total_host_ghz" in cf["reason"]
+    cf = present_projection({"compute_floor": {
+        "active": True, "balance": 0.5, "source_cpu_util_pct": 40.0,
+        "required_ghz": 51.3, "required_perf_index": None}})["compute_floor"]
+    assert cf["applied"] is True and cf["source_cpu_util_pct"] == 40.0
+    assert "reason" not in cf
+    cf = present_projection({"compute_floor": {
+        "active": False, "source_cpu_util_pct": 100.0, "required_ghz": 51.3}})["compute_floor"]
+    assert cf["applied"] is False and "perf_scaling" in cf["reason"]
