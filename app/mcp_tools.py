@@ -16,7 +16,11 @@ from tunables import T, TUNABLE_DEFS, refresh_from_db
 # ── shared schemas (§2.1, §2.2); inlined into each tool's inputSchema ────────
 
 def _num(desc, minimum=0, **kw):
-    out = {"type": "number", "minimum": minimum, "description": desc}
+    # Exclusive bounds are numbers (draft 2020-12): {"exclusiveMinimum": 0},
+    # never draft 4's boolean flag, which the Claude API rejects outright.
+    out = {"type": "number", "description": desc}
+    if minimum is not None:
+        out["minimum"] = minimum
     out.update(kw)
     return out
 
@@ -32,7 +36,7 @@ WORKLOAD_SCHEMA = {
     "description": "The measured source environment. Required fields must be measured, never guessed; ask the user for a missing one.",
     "properties": {
         "total_vcpus": _int("Sum of vCPUs of all powered-on VMs.", 1),
-        "provisioned_ram_gb": _num("Sum of the CONFIGURED (provisioned) RAM of all powered-on VMs, in GB. Not host RAM, not consumed RAM.", 0, exclusiveMinimum=True),
+        "provisioned_ram_gb": _num("Sum of the CONFIGURED (provisioned) RAM of all powered-on VMs, in GB. Not host RAM, not consumed RAM.", None, exclusiveMinimum=0),
         "used_storage_tb": _num("Used capacity on the shared datastores, in TB.", 0),
         "largest_vm_vcpus": _int("vCPUs of the single largest VM. It must fit on one node.", 1),
         "largest_vm_ram_gb": _num("Configured RAM of the single largest VM, in GB. It must fit on one node.", 0),

@@ -218,6 +218,11 @@ def test_tools_list_publishes_titles_annotations_and_flat_schemas(client):
         text = json.dumps(t["inputSchema"])
         for banned in ('"$ref"', '"oneOf"', '"anyOf"', '"allOf"', '"$schema"'):
             assert banned not in text, (t["name"], banned)
+        # Draft 2020-12: bounds are numbers. A draft-4 boolean exclusiveMinimum
+        # makes the Claude API drop the whole tool (seen 2026-10-28).
+        for path, key, value in _bounds(t["inputSchema"]):
+            assert isinstance(value, (int, float)) and not isinstance(value, bool), \
+                (t["name"], path, key, value)
     legacy_tools = legacy(client, "tools/list").get_json()["result"]
     assert "resultType" not in legacy_tools and legacy_tools["tools"] == r["tools"]
 
@@ -228,6 +233,22 @@ def test_unknown_tool_is_a_protocol_error(client):
 
 
 # ── registry and schema ──────────────────────────────────────────────────────
+
+BOUND_KEYS = ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+              "minLength", "maxLength", "minItems", "maxItems")
+
+
+def _bounds(node, path="$"):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in BOUND_KEYS:
+                yield path, k, v
+            elif k != "default":
+                yield from _bounds(v, "%s.%s" % (path, k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _bounds(v, "%s[%d]" % (path, i))
+
 
 def test_schema_validator():
     schema = mcp_tools.WORKLOAD_SCHEMA
@@ -241,6 +262,10 @@ def test_schema_validator():
     assert fields["extra"] == "is not a known field"
     assert fields["source_cpus[0].model"] == "is required"
     assert fields["guest_licensing"].startswith("must be one of")
+    probs = mcp_schema.validate(schema, dict(WORKLOAD, provisioned_ram_gb=0))
+    assert probs == [{"field": "provisioned_ram_gb", "problem": "must be more than 0"}]
+    assert mcp_schema.validate({"type": "number", "exclusiveMaximum": 5}, 5) == [
+        {"field": "(arguments)", "problem": "must be less than 5"}]
     req = mcp_tools._with_required(schema, mcp_tools.WORKLOAD_REQUIRED)
     probs = mcp_schema.validate(req, {"total_vcpus": 4})
     assert {p["field"] for p in probs} == {"provisioned_ram_gb", "used_storage_tb",

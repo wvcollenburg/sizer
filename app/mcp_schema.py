@@ -26,7 +26,8 @@ TYPES = {
 def validate(schema, value, path=""):
     """Every violation of ``schema`` by ``value`` as ``{field, problem}``
     rows; an empty list means valid. Checks: type (a list of types is a
-    union), enum, minimum/maximum, minLength/maxLength, pattern-free string
+    union), enum, minimum/maximum, exclusiveMinimum/exclusiveMaximum
+    (numeric, draft 2020-12), minLength/maxLength, pattern-free string
     bounds, minItems/maxItems, required, properties, additionalProperties,
     items. Unknown keywords are ignored."""
     problems = []
@@ -48,6 +49,11 @@ def validate(schema, value, path=""):
             problems.append({"field": label, "problem": "must be at least %s" % lo})
         if hi is not None and value > hi:
             problems.append({"field": label, "problem": "must be at most %s" % hi})
+        lo, hi = schema.get("exclusiveMinimum"), schema.get("exclusiveMaximum")
+        if lo is not None and value <= lo:
+            problems.append({"field": label, "problem": "must be more than %s" % lo})
+        if hi is not None and value >= hi:
+            problems.append({"field": label, "problem": "must be less than %s" % hi})
     if isinstance(value, str):
         lo, hi = schema.get("minLength"), schema.get("maxLength")
         if lo is not None and len(value) < lo:
