@@ -165,6 +165,32 @@ def test_role_cap_keeps_admins_in_their_tenant(world):
     assert _err(r)["code"] == "not_owner"
 
 
+@pytest.mark.parametrize("role", ["tenant_admin", "super_admin"])
+def test_admins_see_what_a_user_sees(world, role):
+    """Over MCP an admin is capped to an ordinary user: every listing and
+    read answers exactly as it does for the same account with role user."""
+    c, ids, sz = world
+    _as(ids["bob"])
+
+    def views():
+        return [call(c, "list_sizings", {"scope": "all_visible"})["structuredContent"],
+                call(c, "list_sizings", {})["structuredContent"],
+                call(c, "list_projects", {"scope": "organization"})["structuredContent"],
+                call(c, "get_sizing", {"sizing_id": sz["alice"]["id"]})["structuredContent"],
+                _err(call(c, "get_sizing", {"sizing_id": sz["carol"]["id"]}))["code"]]
+
+    as_user = views()
+    with appmod.app.app_context():
+        db.session.get(User, ids["bob"]).role = role
+        db.session.commit()
+    assert views() == as_user
+    # A tenant admin may edit a colleague's sizing in the web UI, never over MCP.
+    assert as_user[3]["sizing"]["can_edit"] is False
+    r = call(c, "save_sizing", {"name": "x", "workload": WORKLOAD,
+                                "project_id": sz["alice"]["project_id"]})
+    assert _err(r)["code"] == "not_owner"
+
+
 # ── get / open ───────────────────────────────────────────────────────────────
 
 def test_get_sizing_presents_a_ui_saved_result(world):

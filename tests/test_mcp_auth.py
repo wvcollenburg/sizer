@@ -46,7 +46,7 @@ from auth_models import User  # noqa: E402
 from database import db  # noqa: E402
 from extensions import limiter  # noqa: E402
 from test_mcp_server import META, MODERN  # noqa: E402
-from test_mcp_uploads import _login, _signup  # noqa: E402
+from test_mcp_uploads import PW, _login, _signup  # noqa: E402
 from test_sizing_service import _seed_catalog  # noqa: E402
 
 CALLBACK = "https://claude.ai/api/mcp/auth_callback"
@@ -377,6 +377,27 @@ def test_bearer_reaches_the_tools_and_is_checked_every_call(world):
     assert r.get_json()["error"] == "invalid_grant"
     with appmod.app.app_context():
         db.session.get(User, ids["alice"]).is_disabled = False
+        db.session.commit()
+
+
+def test_blocked_tenant_is_refused(world):
+    c, ids = world
+    client_id, access, refresh = _connect(c, ids)
+    assert _mcp(c, access).status_code == 200
+    with appmod.app.app_context():
+        db.session.get(User, ids["alice"]).tenant.is_blocked = True
+        db.session.commit()
+    # The live token stops at the next call and cannot be refreshed.
+    assert _mcp(c, access).status_code == 401
+    r = c.post("/oauth/token", data={"grant_type": "refresh_token", "refresh_token": refresh,
+                                     "client_id": client_id})
+    assert r.get_json()["error"] == "invalid_grant"
+    # Nor can a new connection be made: consent needs a login, which is refused.
+    c.post("/api/auth/logout")
+    r = c.post("/api/auth/login", json={"email": "alice@partnerco.example", "password": PW})
+    assert r.status_code == 403
+    with appmod.app.app_context():
+        db.session.get(User, ids["alice"]).tenant.is_blocked = False
         db.session.commit()
 
 

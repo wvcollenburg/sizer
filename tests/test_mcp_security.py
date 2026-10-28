@@ -163,3 +163,59 @@ def test_names_come_back_as_data_only(world):
     r = call(c, "list_projects", {})
     rows = {p["id"]: p for p in r["structuredContent"]["projects"]}
     assert rows[pid]["name"] == INJECTION
+
+
+# ── no pricing anywhere (Phase 5.5) ──────────────────────────────────────────
+
+def test_no_tool_output_has_price_shaped_keys(world, tmp_path):
+    """Every registered tool, called once with valid arguments: no key in its
+    structured output looks commercial. A new tool fails here until it is
+    given arguments below, so none slips past the sweep."""
+    import io
+    import mcp_registry
+    from merge_fixtures import host, rvtools, vm
+    from test_mcp_bom import _rows
+    from test_security import _offending_keys
+    c, ids, sz = world
+    _as(ids["alice"])
+    _login(c, "alice@partnerco.example")        # the upload page is the user's own
+    path = rvtools(str(tmp_path / "rv.xlsx"), [host("esx1", "Prod")],
+                   [vm("web01", "esx1", "Prod"), vm("db01", "esx1", "Prod", vcpus=8)],
+                   [("ds1", 2048, 512)])
+
+    def upload():
+        s = call(c, "start_upload", {"kind": "assessment"})["structuredContent"]
+        with open(path, "rb") as fh:
+            r = c.post("/mcp/upload/" + s["upload_url"].split("/mcp/upload/", 1)[1],
+                       data={"file": (io.BytesIO(fh.read()), "rv.xlsx")},
+                       content_type="multipart/form-data")
+        assert r.status_code == 200, r.get_json()
+        return s["upload_id"]
+
+    u1, u2 = upload(), upload()
+    pid = sz["alice"]["project_id"]
+    args = {
+        "get_constants": {},
+        "list_node_models": {},
+        "lookup_cpu_benchmark": {"query": "Intel Xeon Silver 4110"},
+        "validate_inputs": {"workload": WORKLOAD},
+        "create_sizing": {"workload": WORKLOAD, "max_options": 8},
+        "create_project": {"name": "Sweep project"},
+        "list_projects": {},
+        "list_sizings": {"scope": "all_visible"},
+        "get_sizing": {"sizing_id": sz["alice"]["id"]},
+        "open_shared_sizing": {"share_code": sz["alice"]["code"]},
+        "save_sizing": {"name": "Sweep", "workload": WORKLOAD, "project_id": pid},
+        "start_upload": {"kind": "assessment"},
+        "get_upload": {"upload_id": u1},
+        "list_upload_vms": {"upload_id": u1},
+        "merge_uploads": {"upload_ids": [u1, u2]},
+        "check_bom_rows": _rows(),
+        "save_bom_check": dict(_rows(), project_id=pid),
+    }
+    assert set(args) == set(mcp_registry.TOOLS)
+    for name, a in args.items():
+        r = call(c, name, a)
+        body = r.get("structuredContent") or json.loads(r["content"][0]["text"])
+        assert _offending_keys(body) == [], name
+        assert not r["isError"] or name == "open_shared_sizing", (name, r["content"][0]["text"])
