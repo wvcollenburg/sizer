@@ -361,7 +361,7 @@ def _finalize(summary, parts):
     if platforms:
         summary["current_platform"] = platforms.most_common(1)[0][0]
     types = {p["file_type"] for p in parts}
-    if len(types) == 1 and next(iter(types)) in ("rvtools", "nutanix"):
+    if len(types) == 1 and next(iter(types)) in ("rvtools", "nutanix", "azure"):
         summary["source"] = next(iter(types))
 
 

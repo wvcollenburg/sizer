@@ -30,13 +30,15 @@ from cluster_split import split_by_cluster
 from fingerprint import PARSER_VERSION
 from import_checks import build_import_warnings, import_rejection
 from liveoptics import parse_liveoptics
+from lo_azure_collector import is_lo_azure, parse_lo_azure
 from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
 from parser_common import GIB_PER_TB, collection_date
 from request_utils import sha256_file
 from rvtools import parse_rvtools
 
 UNRECOGNISED_MESSAGE = ("Unrecognised file format. Please upload an environment "
-                        "assessment export (Live Optics, RVTools or Nutanix Collector).")
+                        "assessment export (Live Optics, Live Optics Azure, RVTools or "
+                        "Nutanix Collector).")
 PARSE_FAILED_MESSAGE = ("Could not parse the file. Upload a valid environment "
                         "assessment export (.xlsx).")
 
@@ -54,7 +56,8 @@ class AssessmentError(Exception):
 
 
 def detect_file_type(path):
-    """``rvtools``, ``liveoptics``, ``nutanix`` or None, from the sheet names."""
+    """``rvtools``, ``liveoptics``, ``azure``, ``nutanix`` or None, from the
+    sheet names."""
     from openpyxl import load_workbook
     wb = load_workbook(path, read_only=True)
     sheets = set(wb.sheetnames)
@@ -64,6 +67,9 @@ def detect_file_type(path):
         return "nutanix"
     if "vInfo" in sheets or "vMetaData" in sheets:
         return "rvtools"
+    # Live Optics Azure carries the Live Optics "Details" sheet — check it first.
+    if is_lo_azure(sheets):
+        return "azure"
     if "ESX Hosts" in sheets or "Details" in sheets:
         return "liveoptics"
     return None
@@ -73,6 +79,7 @@ PARSERS = {
     "rvtools": parse_rvtools,
     "liveoptics": parse_liveoptics,
     "nutanix": parse_nutanix_collector,
+    "azure": parse_lo_azure,
 }
 
 

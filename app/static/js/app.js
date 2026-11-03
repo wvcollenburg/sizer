@@ -1171,6 +1171,7 @@ async function uploadFile(file) {
 function importSourceLabel(source) {
     if (source === 'rvtools') return 'RVTools';
     if (source === 'nutanix') return 'Nutanix Collector';
+    if (source === 'azure') return 'Live Optics Azure';
     return 'Live Optics';
 }
 
