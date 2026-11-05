@@ -42,6 +42,9 @@ class UnrecognizedFormat(ValueError):
 
 FORMAT_LABELS = {
     'template': 'Scale Computing BOM template',
+    # Rows handed over by the calling model through the MCP server
+    # (mcp_bom): checked like a template, never grounded in a document.
+    'mcp_caller': 'Extracted by an assistant (not grounded)',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
     'lenovo_hw_breakdown': 'Lenovo hardware breakdown (feature code / description / qty)',
     'sheet_guess': 'Spreadsheet read by column shape (best effort)',

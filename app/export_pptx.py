@@ -18,7 +18,7 @@ from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
 
-from export_format import fmt_ram, fmt_num, svg_to_png
+from export_format import fmt_ram, fmt_num, spare_vcpus, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -692,9 +692,9 @@ def _slide_workload(prs, s, t, lang="en"):
 
     y2 = 3.65
     storage = [
-        (t("export.pptx.provisioned_storage"), f"{s.get('total_vm_provisioned_storage_tb', 0)} TiB", False),
-        (t("export.pptx.datastore_used"), f"{s.get('datastore_used_tb', 0)} TiB", True),
-        (t("export.pptx.datastore_total"), f"{s.get('datastore_total_tb', 0)} TiB", False),
+        (t("export.pptx.provisioned_storage"), f"{s.get('total_vm_provisioned_storage_tb', 0)} TB", False),
+        (t("export.pptx.datastore_used"), f"{s.get('datastore_used_tb', 0)} TB", True),
+        (t("export.pptx.datastore_total"), f"{s.get('datastore_total_tb', 0)} TB", False),
     ]
     for i, (label, val, accent) in enumerate(storage):
         _add_card(slide, 0.6 + i * 4.0, y2, 3.7, 1.0, label, val, accent, lang=lang)
@@ -982,7 +982,9 @@ def _slide_projection(prs, s, r, p, t, lang="en"):
     # vCPU is sized against the full cluster when that mode is on; RAM, GHz and
     # storage remain N-1, so only this row's basis changes.
     cpu_basis_cores = r["totals"]["cores"] if full_cluster else n1["cores"]
-    vcpu_headroom = cpu_basis_cores * r["vcpu_ratio"] - p["projected_vcpus"]
+    vcpu_headroom = spare_vcpus(r, p["projected_vcpus"])
+    if vcpu_headroom is None:
+        vcpu_headroom = cpu_basis_cores * r["vcpu_ratio"] - p["projected_vcpus"]
     ram_headroom = n1["ram_gb"] - p["projected_ram_gb"]
     stor_headroom = n1["usable_storage_tb"] - p["projected_storage_tb"]
     ghz_headroom = n1["total_ghz"] - p.get("projected_ghz", 0)

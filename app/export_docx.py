@@ -25,7 +25,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from export_format import fmt_ram, fmt_num, svg_to_png
+from export_format import fmt_ram, fmt_num, spare_vcpus, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -872,7 +872,7 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     _para(doc, t9n("export.docx.product_intro"), lang=lang)
     _spacer(doc, 4)
     fits = (p["projected_storage_tb"] <= n1["usable_storage_tb"]
-            and p["projected_vcpus"] <= n1["cores"] * r["vcpu_ratio"])
+            and (spare_vcpus(r, p["projected_vcpus"]) or 0) >= 0)
     proj_fits = (t9n("export.docx.proj_fits_within") if fits
                  else t9n("export.docx.proj_fits_approaching"))
     _spec_table(doc, [

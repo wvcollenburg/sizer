@@ -102,19 +102,10 @@ def _list_counts(project_ids):
 
 # ── project CRUD ─────────────────────────────────────────────────────────────
 
-@projects_bp.route("/", methods=["GET"])
-@login_required
-def list_projects():
-    """Projects the user can see.
-
-    Defaults to **their own work**: projects they created, plus any project
-    holding a sizing they made — a colleague can own the project while your
-    sizing lives in it. ``?scope=tenant`` widens it to everything in the
-    organization, which is the opt-in behind the checkbox rather than the
-    default; a shared tenant would otherwise bury your own engagements.
-    """
-    user = current_user()
-    scope = (request.args.get("scope") or "mine").lower()
+def visible_projects(user, scope="mine"):
+    """``[(project, source)]`` the user may list, newest first. Shared by the
+    projects route and the MCP ``list_projects`` tool, so both show the same
+    list for the same person. ``scope`` is ``mine`` or ``tenant``."""
     seen, rows = set(), []
 
     def add(project, source):
@@ -156,6 +147,23 @@ def list_projects():
                 add(project, _project_source_for(user, project) or "linked")
 
     rows.sort(key=lambda pair: pair[0].updated_at or pair[0].created_at, reverse=True)
+    return rows
+
+
+@projects_bp.route("/", methods=["GET"])
+@login_required
+def list_projects():
+    """Projects the user can see.
+
+    Defaults to **their own work**: projects they created, plus any project
+    holding a sizing they made — a colleague can own the project while your
+    sizing lives in it. ``?scope=tenant`` widens it to everything in the
+    organization, which is the opt-in behind the checkbox rather than the
+    default; a shared tenant would otherwise bury your own engagements.
+    """
+    user = current_user()
+    scope = (request.args.get("scope") or "mine").lower()
+    rows = visible_projects(user, scope)
     sizing_counts, bom_counts = _list_counts([p.id for p, _ in rows])
     return jsonify([
         p.to_summary(user, source, sizing_count=sizing_counts.get(p.id, 0),

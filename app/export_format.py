@@ -18,6 +18,22 @@ def fmt_num(n):
     return f"{n:,}"
 
 
+def spare_vcpus(r, projected_vcpus):
+    """vCPUs the proposed cluster can still take at the TARGET ratio, beyond
+    the projected demand: spare cores (CPU basis minus required cores) times
+    the target ratio. r["vcpu_ratio"] is the ratio the cluster ACHIEVES, so
+    basis_cores x vcpu_ratio is the projected demand itself and their
+    difference was always 0. Required cores (ceil(vcpus / target), plus any
+    replication reserve) ride on utilization.cpu.abs; the target ratio is
+    recovered from them. Returns None when a stored result predates them."""
+    full = r.get("sized_full_cluster", False)
+    basis = r["totals"]["cores"] if full else r["n_minus_1"]["cores"]
+    required = (((r.get("utilization") or {}).get("cpu") or {}).get("abs") or {}).get("total")
+    if not required:
+        return None
+    return int((basis - required) * projected_vcpus / required)
+
+
 def svg_to_png(svg, width=2000):
     """Rasterise an SVG string to PNG bytes. Production uses cairosvg; on the dev
     mac (no cairo) it falls back to qlmanage so the export can be tested locally.

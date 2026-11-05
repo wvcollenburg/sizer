@@ -16,20 +16,19 @@ from orm_models import (
     DriveCatalog, RamOption,
 )
 from models import RAM_SIZES_GB
-from liveoptics import parse_liveoptics
-from rvtools import parse_rvtools
-from nutanix_collector import is_nutanix_collector, parse_nutanix_collector
-from import_checks import build_import_warnings, import_rejection
 from import_merge import merge as merge_datasets
-from parser_common import collection_date
+import catalog_service
 import hcl_vendor
-from recommend import generate_recommendations
-from sizing_service import input_quality_warnings
+import import_service
+from import_service import AssessmentError, detect_file_type as _detect_file_type
+import sizing_service
+from sizing_service import SizingRequestError
 from tunables import T, refresh_from_db
 # NOTE: exports are project-level only (export_worker + the project export
 # queue); the old synchronous in-sizer export routes were removed with the
 # per-cluster-sizing restructure.
 from admin_routes import admin_bp
+from mcp_server import mcp_bp
 from i18n import SUPPORTED_LANGS, LANG_NAMES
 from calc import calculate_appliance, calculate_validated
 from request_utils import json_body, sha256_file, spooled_xlsx, UploadError
@@ -159,6 +158,15 @@ def create_app():
     def _csrf_origin_guard():
         if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
             return
+        if request.blueprint == "mcp":
+            # Not a cookie-authenticated request: the MCP endpoint takes a
+            # bearer token and validates Origin per the MCP transport spec.
+            return
+        if request.blueprint == "oauth":
+            # Token, registration and revocation are machine calls from the
+            # client's servers (or a browser-based client with a foreign
+            # Origin); the consent POST is protected by its session nonce.
+            return
         src = request.headers.get("Origin") or request.headers.get("Referer")
         if not src:
             return
@@ -178,6 +186,15 @@ def create_app():
     register_bom(app)
     from manual_routes import manual_bp  # the online user manual, two editions
     app.register_blueprint(manual_bp)
+    # The MCP endpoint (docs/mcp/01-tool-design.md): bearer-authenticated,
+    # exempt from the session login gate and from the Origin guard above,
+    # both of which it enforces itself.
+    app.register_blueprint(mcp_bp)
+    from mcp_uploads import upload_bp  # the upload page behind start_upload (session login)
+    app.register_blueprint(upload_bp)
+    from mcp_auth import connections_bp, oauth_bp  # OAuth AS + discovery (docs/mcp/03-auth.md)
+    app.register_blueprint(oauth_bp)
+    app.register_blueprint(connections_bp)
 
     # Daily retention/GDPR-anonymization scheduler. Disabled (ENABLE_SCHEDULER=0)
     # for one-off processes like seeding/CLI; on by default for the web server.
@@ -264,67 +281,15 @@ def create_app():
         status_filter = request.args.get("status", "active")
 
         if mode == "appliance":
-            # The "Size For Model" picker must list exactly the models the
-            # recommendation engine will consider for the chosen sizing mode
-            # (see recommend.generate_recommendations): validated mode includes
-            # validated-only platforms but drops NVMe+SSD (1+1) models, while
-            # certified mode is the inverse.
-            validated = request.args.get("sizing") == "validated"
-            query = Model.query.options(
-                joinedload(Model.cpu_links).joinedload(ModelCpuOption.cpu),
-                joinedload(Model.nic_links).joinedload(ModelNicOption.nic),
-                joinedload(Model.ram_options),
-                joinedload(Model.storage_config)
-                    .joinedload(StorageConfig.drive_links)
-                    .joinedload(StorageConfigDrive.drive),
-            )
-            if status_filter == "active":
-                query = query.filter(Model.status == "Active")
-            elif status_filter == "all_current":
-                query = query.filter(Model.status.in_(["Active", "EOL"]))
-            if not validated:
-                # Validated-only platforms have no certified equivalent, so they
-                # don't belong in the certified appliance picker.
-                query = query.filter(Model.validated_only == False)  # noqa: E712
-            if "sizing" in request.args:
-                # The "Size For Model" pickers always pass `sizing`; they list
-                # what the recommendation engine may offer, so admin-excluded
-                # models drop out. The Appliance calculator (no `sizing`) still
-                # lists them — building one by hand is not a recommendation.
-                query = query.filter(Model.exclude_from_recommendations == False)  # noqa: E712
-
-            # Validated mode sizes against one vendor's HCL platforms and
-            # speaks in chassis only: the picker lists each chassis that vendor
-            # builds ONCE, keyed by chassis — never the SC models behind it.
-            vendor_chassis = None
-            if validated:
-                vendor_chassis = hcl_vendor.VendorChassis(
-                    hcl_vendor.resolve_vendor(request.args.get("vendor")))
-
-            models = {}
-            for m in query.order_by(Model.category, Model.name).all():
-                # Validated mode can't use NVMe+SSD models (inherently 2-disk),
-                # so exclude them to match what the engine will actually size.
-                if validated and m.storage_config \
-                        and m.storage_config.storage_type == "nvme_and_ssd":
-                    continue
-                if validated:
-                    chassis = vendor_chassis.for_model(m.name)
-                    if chassis is None:
-                        continue
-                    entry = models.setdefault(chassis["key"], {
-                        "category": m.form_factor or "",
-                        "status": m.status,
-                        "vendor_chassis": chassis["label"],
-                        # An admin-defined box, not an HCL-listed SC model.
-                        "validated_only": chassis["platform"] is None,
-                    })
-                    # A chassis is current while any configuration on it is.
-                    if m.status == "Active":
-                        entry["status"] = "Active"
-                    continue
-                models[m.name] = m.to_dict()
-            return jsonify(models)
+            # The picker list lives in catalog_service so the MCP server
+            # lists exactly what the engine will consider. The "Size For
+            # Model" pickers always pass `sizing`; the Appliance calculator
+            # (no `sizing`) still lists admin-excluded models.
+            return jsonify(catalog_service.appliance_models(
+                status_filter=status_filter,
+                validated=request.args.get("sizing") == "validated",
+                for_sizing="sizing" in request.args,
+                vendor=request.args.get("vendor")))
         else:
             nics = [n.to_dict() for n in ValidatedNic.query.all()]
             platforms = [p.to_dict() for p in ValidatedPlatform.query.filter_by(status="Active").all()]
@@ -372,43 +337,19 @@ def create_app():
             return jsonify({"error": str(exc)}), exc.status
 
     def _import_assessment(path, file_name):
+        # Detection, parsing, rejection, provenance and the import warnings
+        # live in import_service, shared with the MCP upload page.
         try:
-            file_digest = sha256_file(path)
-            file_type = _detect_file_type(path)
-            if file_type == "rvtools":
-                data = parse_rvtools(path)
-            elif file_type == "liveoptics":
-                data = parse_liveoptics(path)
-            elif file_type == "nutanix":
-                data = parse_nutanix_collector(path)
-            else:
-                return jsonify({"error": "Unrecognised file format. Please upload an environment assessment export (Live Optics, RVTools or Nutanix Collector)."}), 400
-
-            # Too incomplete to size at all (e.g. an aborted Live Optics run).
-            # error_code lets the client show a translated message.
-            rejection = import_rejection(data, file_type)
-            if rejection:
-                return jsonify({
-                    "error": ("This Live Optics export is incomplete: its datastores account for only "
-                              f"{rejection['params']['covered']} of {rejection['params']['vms']} VMs. "
-                              "The collection was probably stopped before its first complete snapshot. "
-                              "Re-run Live Optics and let it complete before exporting."),
-                    "error_code": rejection["code"],
-                    "error_params": rejection["params"],
-                }), 422
-
-            source_meta = {
-                "file_name": file_name,
-                "file_type": file_type,
-                "file_sha256": file_digest,
-                "imported_at": _utcnow_iso(),
-                # When the assessment was collected, from the file itself;
-                # a multi-file import keeps the newest copy of an overlap.
-                "collected_at": collection_date(data.get("project")),
-                "host_count": len(data.get("hosts") or []),
-                "vm_count": len(data.get("vms") or []),
-                "parser_version": PARSER_VERSION,
-            }
+            try:
+                data = import_service.parse_assessment(path, file_name)
+            except AssessmentError as exc:
+                body = {"error": str(exc)}
+                if exc.code:
+                    body["error_code"] = exc.code
+                    body["error_params"] = exc.params
+                return jsonify(body), exc.status
+            file_type = data["file_type"]
+            source_meta = data["source_meta"]
             if request.args.get("raw"):
                 # One file of a multi-file import: the parsed records only,
                 # for /api/import-merge. No sizing here; that runs on the
@@ -424,13 +365,14 @@ def create_app():
                     "clusters": data.get("clusters", []),
                     "scan_type": data.get("scan_type"),
                     "file_type": file_type,
-                    "import_warnings": build_import_warnings(data, file_type),
+                    "import_warnings": data["import_warnings"],
                     "source": file_type,
                     "source_meta": source_meta,
                 })
 
             vcpu_ratio = request.form.get("vcpu_ratio", type=float)
-            result = generate_recommendations(data["summary"], vcpu_ratio)
+            result = sizing_service.run_recommendation(data["summary"],
+                                                       vcpu_ratio=vcpu_ratio)
             return jsonify({
                 "summary": data["summary"],
                 "project": data["project"],
@@ -451,12 +393,12 @@ def create_app():
                 "clusters": data.get("clusters", []),
                 "recommendations": result["recommendations"],
                 "projection": result["projection"],
-                "warnings": (result.get("warnings", [])
-                             + input_quality_warnings(data["summary"])),
+                # Engine warnings plus the input caveats (sizing_service).
+                "warnings": result["warnings"],
                 # Data-quality caveats about the import itself (no IOPS/perf,
                 # assumed ratio, unclustered hosts, ...). {code, params} objects
                 # translated client-side; shown on the wizard's Environment step.
-                "import_warnings": build_import_warnings(data, file_type),
+                "import_warnings": data["import_warnings"],
                 "source": file_type,
                 # Provenance for the project view and the export appendix
                 # (docs/projects-plan.md §8). Combining several customer files
@@ -467,86 +409,20 @@ def create_app():
             })
         except Exception as e:
             app.logger.warning("Import parse failed: %s", e)
-            return jsonify({"error": "Could not parse the file. Upload a valid environment assessment export (.xlsx)."}), 400
+            return jsonify({"error": import_service.PARSE_FAILED_MESSAGE}), 400
 
     @app.route("/api/recommend", methods=["POST"])
     def recommend():
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "Invalid request body"}), 400
-        summary = data.get("summary")
-        # The summary is a bag of measured numbers the engine does arithmetic on;
-        # a non-dict (or non-numeric field inside it) would otherwise surface as a
-        # 500 deep in the math. Require a dict here and coerce failures to 400.
-        if not isinstance(summary, dict) or not summary:
-            return jsonify({"error": "No summary provided"}), 400
-        vcpu_ratio = data.get("vcpu_ratio")
-        growth_pct = data.get("growth_pct", 10)
-        # Optional separate storage (and snapshot) growth rate; absent = storage
-        # grows at growth_pct, the single-rate behaviour.
-        storage_growth_pct = data.get("storage_growth_pct")
-        snapshot_pct = data.get("snapshot_pct", 20)
-        years = data.get("years", 5)
-        target_nodes = data.get("target_nodes")
-        storage_pref = data.get("storage_pref")
-        size_full_cluster = data.get("size_full_cluster", False)
-        sizing_mode = data.get("sizing_mode", "certified")
-        allow_storage_only = data.get("allow_storage_only", False)
-        target_model = data.get("target_model")
-        include_eol_eos = data.get("include_eol_eos", False)
-        max_day_one_storage_pct = data.get("max_day_one_storage_pct")
-        max_day_one_ram_pct = data.get("max_day_one_ram_pct")
-        # Optional source-environment CPU benchmark for the perf comparison
-        # (SPECrate2017 or PassMark, per the detected source CPU class).
-        source_perf_index = data.get("source_perf_index")
-        source_perf_type = data.get("source_perf_type")
-        # Multi-site DR: inbound replication reserve this cluster must host, and
-        # whether the compute reserve is held steady-state or only on failover.
-        replication_reserve = data.get("replication_reserve")
-        replication_compute_mode = data.get("replication_compute_mode", "reserved")
-        allow_single_node = data.get("allow_single_node", False)
-        # Licence term is its OWN input, not the growth horizon — customers buy
-        # 3 years of licence while sizing 5 years of growth (§5.3). Guest
-        # licensing exposure defaults to what the import detected and is
-        # overridable here, because a core-billed database is invisible in the
-        # guest OS string and can only be declared (§5.6).
-        license_term_years = data.get("license_term_years")
-        guest_licensing = data.get("guest_licensing")
-        # Validated sizing only: which vendor's HCL platforms to size against.
-        vendor = data.get("vendor")
+        # Parsing, defaults, error mapping and the input caveats live in
+        # sizing_service so the MCP server sizes exactly as this route does.
         try:
-            result = generate_recommendations(summary, vcpu_ratio,
-                                              growth_pct, snapshot_pct, years,
-                                              target_nodes=target_nodes,
-                                              storage_pref=storage_pref,
-                                              size_full_cluster=size_full_cluster,
-                                              sizing_mode=sizing_mode,
-                                              allow_storage_only=allow_storage_only,
-                                              target_model=target_model,
-                                              include_eol_eos=include_eol_eos,
-                                              max_day_one_storage_pct=max_day_one_storage_pct,
-                                              max_day_one_ram_pct=max_day_one_ram_pct,
-                                              source_perf_index=source_perf_index,
-                                              source_perf_type=source_perf_type,
-                                              replication_reserve=replication_reserve,
-                                              replication_compute_mode=replication_compute_mode,
-                                              allow_single_node=allow_single_node,
-                                              license_term_years=license_term_years,
-                                              storage_growth_pct=storage_growth_pct,
-                                              guest_licensing=guest_licensing,
-                                              vendor=vendor)
-        except StorageLayoutError as exc:
-            app.logger.warning("Recommend refused: %s", exc)
-            return jsonify({"error": str(exc)}), 400
-        except (TypeError, ValueError, KeyError):
-            # Malformed numeric fields in the client-supplied summary/params
-            # (e.g. a non-numeric vCPU count). A bad request, not a server fault.
-            app.logger.warning("Recommend rejected malformed input")
-            return jsonify({"error": "The imported figures are incomplete or "
-                                     "malformed. Re-import the environment."}), 400
-        result["warnings"] = (result.get("warnings", [])
-                              + input_quality_warnings(summary))
-        return jsonify(result)
+            return jsonify(sizing_service.recommend(request.get_json(silent=True)))
+        except SizingRequestError as exc:
+            if exc.code == "catalog_error":
+                app.logger.warning("Recommend refused: %s", exc)
+            elif exc.code == "invalid_input":
+                app.logger.warning("Recommend rejected malformed input")
+            return jsonify({"error": str(exc)}), exc.status
 
     @app.route("/api/import-merge", methods=["POST"])
     def import_merge_route():
@@ -577,62 +453,11 @@ def create_app():
     def cpu_perf():
         """Look up a CPU's benchmark score by (fuzzy) description, to auto-fill
         the source-benchmark field on import/manual. Per-CPU/socket value — the
-        caller scales by the source socket count. Tries our curated appliance
-        catalog first (precise), then the broad SPECrate2017 lookup (~625 CPUs
-        averaged from all published SPEC CPU 2017 int-rate results) so arbitrary
-        SOURCE CPUs resolve too. found=false only when neither knows it."""
-        import cpu_benchmarks
-        from cpu_specs import CPU_SPECS, cpu_model_key, perf_index as _perf_index
-        q = request.args.get("q", "")
-        spec = CPU_SPECS.get(cpu_model_key(q) or "")
-        if spec:
-            ptype = "specrate" if spec.get("specrate_int") is not None else "passmark"
-            return jsonify({
-                "found": True,
-                "model": spec["model"],
-                "perf_type": ptype,
-                "perf_index": _perf_index(spec),
-                "specrate_int": spec.get("specrate_int"),
-                "passmark_cpu_mark": spec.get("passmark_cpu_mark"),
-                "passmark_single": spec.get("passmark_single"),
-                "source": "catalog",
-            })
-        hit = cpu_benchmarks.lookup(q)
-        if hit:
-            return jsonify({
-                "found": True,
-                "model": hit["model"],
-                "perf_type": "specrate",
-                "perf_index": hit["specrate_int"],
-                "specrate_int": hit["specrate_int"],
-                "passmark_cpu_mark": None,
-                "passmark_single": None,
-                "source": "spec-cpu2017",
-                "samples": hit["samples"],
-            })
-        return jsonify({"found": False})
+        caller scales by the source socket count. The lookup order lives in
+        sizing_service.lookup_cpu_perf, shared with the MCP server."""
+        return jsonify(sizing_service.lookup_cpu_perf(request.args.get("q", "")))
 
     return app
-
-
-def _utcnow_iso():
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _detect_file_type(file_path):
-    from openpyxl import load_workbook
-    wb = load_workbook(file_path, read_only=True)
-    sheets = set(wb.sheetnames)
-    wb.close()
-    # Nutanix Collector reuses RVTools sheet names (vInfo, ...) — check it first.
-    if is_nutanix_collector(sheets):
-        return "nutanix"
-    if "vInfo" in sheets or "vMetaData" in sheets:
-        return "rvtools"
-    if "ESX Hosts" in sheets or "Details" in sheets:
-        return "liveoptics"
-    return None
 
 
 app = create_app()

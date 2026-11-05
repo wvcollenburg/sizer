@@ -48,12 +48,14 @@ def _free_port():
 def server(tmp_path_factory):
     db = str(tmp_path_factory.mktemp("browser") / "sizer.db")
     port = _free_port()
-    env = dict(os.environ, MANUAL_PW=PW)
+    base = "http://127.0.0.1:%d" % port
+    # The server's own URL, so an APP_BASE_URL set by another test module
+    # (or the developer's shell) cannot leak into OAuth issuer checks.
+    env = dict(os.environ, MANUAL_PW=PW, APP_BASE_URL=base)
     proc = subprocess.Popen(
         [sys.executable, os.path.join(ROOT, "tools", "manual_devserver.py"), db,
          "--port", str(port)],
         cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    base = "http://127.0.0.1:%d" % port
     for _ in range(240):
         try:
             urllib.request.urlopen(base + "/", timeout=1)

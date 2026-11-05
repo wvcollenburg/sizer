@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    {% set page_title = 'Upload for your assistant — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
+    <style>
+        .mcp-upload { max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
+        .mcp-upload .drop { border: 2px dashed var(--border, #999); border-radius: 8px;
+                            padding: 2rem; text-align: center; margin: 1rem 0; }
+        .mcp-upload .meta { color: var(--muted, #666); font-size: .9rem; }
+        .mcp-upload .status { margin-top: 1rem; min-height: 1.5rem; }
+        .mcp-upload .status.ok { color: var(--success, #1a7f37); }
+        .mcp-upload .status.err { color: var(--danger, #b42318); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">Upload</span>
+            <div class="account-bar">
+                <a class="btn btn-sm" href="/">Back to Sizer</a>
+            </div>
+            {% include "_partials/header_controls.html" %}
+        </div>
+    </header>
+
+    <main>
+        <article class="mcp-upload" data-token="{{ token }}" data-kind="{{ kind }}"
+                 data-project-id="{{ project_id or '' }}" data-sizing-id="{{ sizing_id or '' }}"
+                 data-expires="{{ expires_at }}">
+            {% if kind == 'bom' %}
+            <h1>Upload a hardware BOM or quote</h1>
+            <p>Your assistant asked for a bill of materials to check against the Scale Computing
+               HCL. Choose the vendor's quote, configurator export or the filled-in template.
+               It is checked in the project <strong>{{ project_name }}</strong>.</p>
+            {% else %}
+            <h1>Upload an environment assessment</h1>
+            <p>Your assistant asked for a Live Optics, RVTools or Nutanix Collector export
+               (<code>.xlsx</code>) to size from. The file is parsed and discarded; only the
+               figures are kept, for your assistant and for 72 hours.</p>
+            {% endif %}
+            <p class="meta">This link works once, for your account only, and expires at
+               <span id="expires"></span>. Signed in as <strong>{{ user_email }}</strong>.</p>
+
+            <form id="upload-form">
+                <div class="drop">
+                    <input type="file" id="file" name="file" accept="{{ accept }}" required>
+                </div>
+                <button class="btn btn-primary" type="submit" id="submit">Upload</button>
+            </form>
+            <div id="status" class="status" role="status"></div>
+            <p class="meta" id="done-hint" hidden>Done. Go back to your assistant and tell it
+               the file is uploaded; it can read the result now.</p>
+        </article>
+    </main>
+
+    <script src="{{ asset('js/mcp_upload.js') }}"></script>
+</body>
+</html>

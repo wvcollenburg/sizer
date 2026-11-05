@@ -18,6 +18,13 @@ either parser would.
 """
 from xlsx_utils import source_cpus as _source_cpus
 
+# The assessment tools report storage in binary units (GiB, MiB) while drive
+# capacities in the catalog are decimal (a 1.92 TB drive is 1.92e12 bytes).
+# Summary storage is decimal TB so demand and supply share one unit; dividing
+# GiB by 1024 gave TiB under a TB label and understated demand by ~10%. RAM
+# stays binary on both sides (DIMMs are sized in GiB).
+GIB_PER_TB = 1e12 / 2 ** 30
+
 # ── Guest licensing exposure (docs/pricebook-plan.md §5.6) ───────────────────
 # Windows, SQL Server and Oracle bill per PHYSICAL core with no cap, and on a
 # database estate that line routinely exceeds hardware and the HyperCore licence
@@ -181,13 +188,13 @@ def build_summary(data, source=None):
         "total_vm_used_memory_gb": round(total_vm_used_mem_gb, 1),
         "total_vm_provisioned_storage_gb": round(total_vm_disk_prov_gb, 1),
         "total_vm_used_storage_gb": round(total_vm_disk_used_gb, 1),
-        "total_vm_provisioned_storage_tb": round(total_vm_disk_prov_gb / 1024, 2),
-        "total_vm_used_storage_tb": round(total_vm_disk_used_gb / 1024, 2),
+        "total_vm_provisioned_storage_tb": round(total_vm_disk_prov_gb / GIB_PER_TB, 2),
+        "total_vm_used_storage_tb": round(total_vm_disk_used_gb / GIB_PER_TB, 2),
 
-        "datastore_total_tb": round(cluster_total_gib / 1024, 2),
-        "datastore_used_tb": round(cluster_used_gib / 1024, 2),
-        "local_total_tb": round(local_total_gib / 1024, 2),
-        "local_used_tb": round(local_used_gib / 1024, 2),
+        "datastore_total_tb": round(cluster_total_gib / GIB_PER_TB, 2),
+        "datastore_used_tb": round(cluster_used_gib / GIB_PER_TB, 2),
+        "local_total_tb": round(local_total_gib / GIB_PER_TB, 2),
+        "local_used_tb": round(local_used_gib / GIB_PER_TB, 2),
         "local_used_gb": round(local_used_gib),
 
         "peak_cpu_pct": round(peak_cpu_pct, 1),

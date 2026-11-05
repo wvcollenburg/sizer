@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    {% set page_title = 'Returning to the assistant — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
+    {# A page, not a 302: Chrome applies the proxy's CSP form-action 'self' to
+       a redirect that follows a form POST, which would block the hop to the
+       client's callback. A meta refresh is a plain navigation. #}
+    <meta http-equiv="refresh" content="0;url={{ url }}">
+    <style>
+        .leave { max-width: 34rem; margin: 2rem auto; padding: 0 1rem; }
+        .leave .meta { color: var(--muted, #666); font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">Connect</span>
+        </div>
+    </header>
+    <main>
+        <article class="leave">
+            <h1>{% if allowed %}Connected{% else %}Not connected{% endif %}</h1>
+            <p>Returning you to <strong>{{ host }}</strong>…</p>
+            <p class="meta">If nothing happens, <a id="continue" href="{{ url }}">continue</a>.</p>
+        </article>
+    </main>
+</body>
+</html>

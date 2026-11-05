@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    {% set page_title = 'Connection failed — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">Connect</span>
+            {% include "_partials/header_controls.html" %}
+        </div>
+    </header>
+    <main>
+        <article class="legal-doc">
+            <h1>This connection request cannot be completed</h1>
+            <p>{{ description }}</p>
+            <p><code>{{ error }}</code>. Nothing was connected. Go back to the assistant and
+               start the connection again; if it keeps failing, the assistant's
+               configuration is wrong.</p>
+        </article>
+    </main>
+</body>
+</html>

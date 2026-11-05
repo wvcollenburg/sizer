@@ -24,8 +24,9 @@ APP = os.path.join(os.path.dirname(__file__), "..", "app")
 # Scaler are not the company. No \b on purpose: Japanese attaches particles
 # directly ("Scaleが") and Finnish suffixes ("Scalelle") must still be caught.
 BARE = re.compile(r"Scale(?!d\b|s\b|rs?\b)(?! Computing)(?!-Computing)")
-# Not the company: code identifiers and file names that happen to contain it.
-ALLOWED = re.compile(r"Scale_O\d|ScaleConfigLink|ScaleProjectLink|ScaleCare")
+# Not the company: code identifiers and file names that happen to contain it,
+# and Azure's "Scale Set" sheet/column names read by lo_azure_collector.py.
+ALLOWED = re.compile(r"Scale_O\d|ScaleConfigLink|ScaleProjectLink|ScaleCare|Scale Set")
 
 
 def _bare(text):

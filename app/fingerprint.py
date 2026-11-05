@@ -53,7 +53,8 @@ ENGINE_MODULES = (
 # cluster_split.py is already an engine module (a split re-sizes), and a
 # module may sit in only one of the two lists.
 PARSER_MODULES = ("liveoptics.py", "rvtools.py", "parser_common.py",
-                  "nutanix_collector.py", "import_merge.py")
+                  "nutanix_collector.py", "lo_azure_collector.py",
+                  "import_merge.py")
 
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 

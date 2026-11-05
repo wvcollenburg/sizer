@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-langs="{{ supported_langs|join(' ') }}"{% if lang != 'en' %} data-i18n-pending{% endif %}>
+<head>
+    {% set page_title = 'Upload link closed — SC// Infrastructure Sizer' %}
+    {% set page_css = ['style'] %}
+    {% include "_partials/head_assets.html" %}
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>SC// Infrastructure Sizer</h1>
+            <span class="version">Upload</span>
+            <div class="account-bar">
+                <a class="btn btn-sm" href="/">Back to Sizer</a>
+            </div>
+            {% include "_partials/header_controls.html" %}
+        </div>
+    </header>
+    <main>
+        <article class="legal-doc">
+            <h1>This upload link is closed</h1>
+            {% if status == 'ready' %}
+            <p>The file was already uploaded. Go back to your assistant; it can read the result.</p>
+            {% elif status == 'failed' %}
+            <p>The file could not be used. Ask your assistant for a new link and try another export.</p>
+            {% else %}
+            <p>The link expired (they last 15 minutes). Ask your assistant for a new one.</p>
+            {% endif %}
+        </article>
+    </main>
+</body>
+</html>
