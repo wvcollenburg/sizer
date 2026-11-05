@@ -2759,7 +2759,8 @@ body.view-project  .account-bar .btn-account { display: none; }
 .project-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
 .project-table th, .project-table td { white-space: nowrap; }
 /* The name is what you scan for: it gets the room, the owner gives way. */
-.project-table td.sizing-name { white-space: normal; min-width: 16rem; }
+.project-table td.sizing-name { white-space: normal; min-width: 11rem; }
+.project-table td.project-customer { white-space: normal; min-width: 7rem; }
 .project-table tr.is-archived .sizing-open { color: var(--text-muted); }
 .project-sort-btn {
     display: inline-flex; align-items: center; gap: 0.25rem;
@@ -2771,7 +2772,7 @@ body.view-project  .account-bar .btn-account { display: none; }
 .project-sort-arrow { font-size: 0.65rem; min-width: 0.65rem; }
 .project-row-sub { display: block; color: var(--text-muted); font-size: 0.78rem; }
 .project-row-blank { color: var(--text-muted); }
-.project-owner { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
+.project-owner { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; }
 
 /* Narrow screens: the folders become a row of tabs above the table. */
 @media (max-width: 760px) {

@@ -350,7 +350,7 @@ function projectRow(p, company) {
 
     return `<tr class="${p.archived_at ? 'is-archived' : ''}">
         <td class="sizing-name"><button class="sizing-open" data-click='["openProject",${p.id}]'>${esc(p.name)}</button>${badge}${shared}${boms}</td>
-        <td>${p.customer_name ? esc(p.customer_name) : '<span class="project-row-blank">—</span>'}</td>
+        <td class="project-customer">${p.customer_name ? esc(p.customer_name) : '<span class="project-row-blank">—</span>'}</td>
         ${owner}
         <td class="col-num">${p.sizing_count || 0}</td>
         <td>${esc(fmtDateTime(p.updated_at, { dateOnly: true }))}</td>
