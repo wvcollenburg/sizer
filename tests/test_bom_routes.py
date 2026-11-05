@@ -86,7 +86,7 @@ def promote(app, email):
 
 
 def make_project(c, name="Acme"):
-    r = c.post("/api/projects/", json={"name": name})
+    r = c.post("/api/projects/", json={"name": name, "customer_name": "Acme Corp"})
     assert r.status_code == 201, r.get_data(as_text=True)
     return r.get_json()
 

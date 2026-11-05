@@ -40,7 +40,7 @@ def client():
 
 
 def _project(c):
-    return c.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    return c.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
 
 
 def _source(c, pid, name, projection=None, fields=None, vcpus=100, ram_gb=400,

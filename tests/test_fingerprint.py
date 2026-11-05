@@ -215,7 +215,7 @@ def _save(c, name="Option 1", project_id=None):
 
 def test_storing_a_result_marks_the_sizing_fresh(app):
     c = _client(app, OWNER)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _save(c, project_id=project["id"])
 
     resp = c.put(f"/api/sizings/{sizing['id']}/result",
@@ -229,7 +229,7 @@ def test_storing_a_result_marks_the_sizing_fresh(app):
 
 def test_a_catalog_edit_shows_up_as_stale_in_the_project(app):
     c = _client(app, OWNER)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _save(c, project_id=project["id"])
     c.put(f"/api/sizings/{sizing['id']}/result", json=_snapshot())
 
@@ -255,7 +255,7 @@ def test_read_only_viewer_may_still_refresh_a_result(app):
     """Refresh is the only route to current numbers; blocking it would leave a
     shared project permanently uncomparable (§4)."""
     owner = _client(app, OWNER)
-    project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = owner.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _save(owner, project_id=project["id"])
 
     viewer = _client(app, COLLEAGUE)          # same tenant, read-only
@@ -268,7 +268,7 @@ def test_read_only_viewer_may_still_refresh_a_result(app):
 def test_refresh_cannot_smuggle_an_edit(app):
     """The result route accepts a result and nothing else."""
     owner = _client(app, OWNER)
-    project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = owner.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _save(owner, "Option 1", project_id=project["id"])
 
     viewer = _client(app, COLLEAGUE)

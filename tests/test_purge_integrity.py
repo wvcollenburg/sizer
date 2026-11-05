@@ -78,7 +78,7 @@ def client_for(app, email):
 
 def _populated_project(c, name="Acme"):
     """A project with two sizings, a tag on one, and a replication link."""
-    project = c.post("/api/projects/", json={"name": name}).get_json()
+    project = c.post("/api/projects/", json={"name": name, "customer_name": "Acme Corp"}).get_json()
     first = c.post("/api/configs/", json={
         "name": "Site A", "payload": {"mode": "import"},
         "project_id": project["id"]}).get_json()
@@ -163,7 +163,7 @@ def test_purge_clears_failed_export_jobs(app):
     """A failed job never gets expires_at, so filtering on it alone would leave
     those rows in the table forever."""
     c = client_for(app, OWNER)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
 
     with app.app_context():
         from auth import _purge_expired_exports

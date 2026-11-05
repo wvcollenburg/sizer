@@ -22,7 +22,7 @@ def _visible(s):
 
 
 def _make_dr(s, payload=None):
-    pid = s.api("POST", "/api/projects/", {"name": "Notice"})["data"]["id"]
+    pid = s.api("POST", "/api/projects/", {"name": "Notice", "customer_name": "Acme Corp"})["data"]["id"]
     dr = s.api("POST", "/api/projects/%d/dr-target" % pid, {"name": "DR"})["data"]
     if payload is not None:
         assert s.api("PUT", "/api/configs/%d" % dr["id"], {"payload": payload})["ok"]

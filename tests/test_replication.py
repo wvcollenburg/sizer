@@ -58,7 +58,7 @@ def c(app):
 
 
 def _project(c, name="Acme"):
-    return c.post("/api/projects/", json={"name": name}).get_json()
+    return c.post("/api/projects/", json={"name": name, "customer_name": "Acme Corp"}).get_json()
 
 
 def _sizing(c, name, project_id, payload=None):

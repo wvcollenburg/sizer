@@ -128,7 +128,7 @@ def test_a_real_bundle_builds_and_downloads(app, engine_output, fmt):
     recs = engine_output["recommendations"]
     projection = engine_output["projection"]
     c = _client(app)
-    project = c.post("/api/projects/", json={"name": "Acme HQ"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme HQ", "customer_name": "Acme Corp"}).get_json()
 
     first = _store(c, project["id"], "Site A", recs[0], projection)
     second = _store(c, project["id"], "Site B", recs[min(1, len(recs) - 1)], projection)
@@ -159,7 +159,7 @@ def test_comparison_reads_real_engine_totals(app, engine_output):
     recs = engine_output["recommendations"]
     projection = engine_output["projection"]
     c = _client(app)
-    project = c.post("/api/projects/", json={"name": "Acme HQ"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme HQ", "customer_name": "Acme Corp"}).get_json()
     row = _store(c, project["id"], "Site A", recs[0], projection)
     c.post(f"/api/sizings/{row['id']}/role", json={"role": "additive"})
 

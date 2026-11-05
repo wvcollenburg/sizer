@@ -209,6 +209,7 @@ class Shooter:
         self.shot("projects-empty")
         self.click("openNewProject")
         p.fill("#new-project-name", "Demo Company — HQ refresh")
+        p.fill("#new-project-customer", "Demo Company Ltd")
         self.shot("new-project", self.modal("new-project-modal"))
         p.keyboard.press("Escape")
         # the demo projects everything else is photographed in
@@ -515,7 +516,7 @@ class Shooter:
                                              "customer_name": "Contoso"})
         self.goto("/", settle=1500)
         self.shot("header-tenant-admin", "header", pad=0)
-        p.check("#project-scope-all")
+        self.page.evaluate("selectProjectFolder('company')")
         self.page.wait_for_timeout(1200)
         self.shot("projects-colleagues")
         self.click("openOrgModal", wait=1200)

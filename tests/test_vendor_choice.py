@@ -284,7 +284,7 @@ def test_exports_and_comparison_name_the_vendor_chassis(app, fmt):
 
     # Editable PPTX/DOCX are Scale-only, so export as a Scale user.
     c = _signed_in(app, "sa@scalecomputing.com")
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     row = c.post("/api/configs/", json={"name": "Site A", "payload": {"mode": "import"},
                                         "project_id": project["id"]}).get_json()
     assert c.put(f"/api/sizings/{row['id']}/result", json={"clusters": [{

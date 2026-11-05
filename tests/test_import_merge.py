@@ -473,7 +473,7 @@ def test_vms_and_overlap_copies_carry_refs(tmp_path):
 
 
 def test_sources_route_appends_file_meta(client):
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     first = {"file_name": "a.xlsx", "file_sha256": "a" * 64, "file_type": "rvtools"}
     row = client.post("/api/configs/", json={
         "name": "S", "project_id": pid, "payload": {"mode": "import"},

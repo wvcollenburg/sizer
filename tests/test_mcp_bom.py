@@ -61,7 +61,7 @@ def world():
            "bob": _signup(c, "bob@partnerco.example")}
     _login(c, "alice@partnerco.example")
     app.config["MCP_TEST_USER_ID"] = ids["alice"]
-    pid = c.post("/api/projects/", json={"name": "ACME"}).get_json()["id"]
+    pid = c.post("/api/projects/", json={"name": "ACME", "customer_name": "Acme Corp"}).get_json()["id"]
     yield c, ids, pid
     app.config.pop("MCP_TEST_USER_ID", None)
 

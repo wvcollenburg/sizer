@@ -25,7 +25,7 @@ MANUAL = {"man-platform": "VMware", "man-cluster": "Prod", "man-hosts": "3",
 
 
 def _sizing(s, fields):
-    pid = s.api("POST", "/api/projects/", {"name": "Growth"})["data"]["id"]
+    pid = s.api("POST", "/api/projects/", {"name": "Growth", "customer_name": "Acme Corp"})["data"]["id"]
     row = s.api("POST", "/api/configs/", {
         "name": "Manual", "project_id": pid,
         "payload": {"version": 3, "mode": "manual", "fields": fields,

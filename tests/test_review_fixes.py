@@ -181,7 +181,7 @@ def _make_source_with_demand(client, project_id, name="Site A", cluster="Prod",
 
 def test_dr_target_opens_without_error(client):
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
     # The row is flagged so the client routes it to the DR view (not the sizer).
     row = client.get(f"/api/configs/{dr['id']}").get_json()
@@ -191,7 +191,7 @@ def test_dr_target_opens_without_error(client):
 
 def test_dr_recommend_computes_inbound_reserve(client):
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     # DR follows production: the growth comes from the source's own sizing,
     # not from the DR request (which no longer carries growth fields).
     src = _make_source_with_demand(client, pid, projection={
@@ -215,7 +215,7 @@ def test_dr_recommend_computes_inbound_reserve(client):
 
 def test_dr_recommend_empty_when_no_inbound(client):
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
     out = client.post(f"/api/sizings/{dr['id']}/dr-recommend", json={}).get_json()
     assert out["reserve"] == {"vcpus": 0, "ram_gb": 0, "storage_tb": 0}
@@ -225,7 +225,7 @@ def test_dr_recommend_empty_when_no_inbound(client):
 
 def test_dr_recommend_rejects_non_dr_sizing(client):
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     src = _make_source_with_demand(client, pid)
     r = client.post(f"/api/sizings/{src['id']}/dr-recommend", json={})
     assert r.status_code == 400
@@ -233,7 +233,7 @@ def test_dr_recommend_rejects_non_dr_sizing(client):
 
 def test_dr_recommend_failover_uses_full_cluster(client):
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     src = _make_source_with_demand(client, pid)
     dr = client.post(f"/api/projects/{pid}/dr-target", json={"name": "DR"}).get_json()
     client.post(f"/api/sizings/{src['id']}/replication", json={
@@ -248,7 +248,7 @@ def test_dr_reserve_from_appliance_source(client):
     """An appliance source has no workload summary — the reserve comes from its
     config's usable capacity (cluster_total), not zero."""
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     src = client.post("/api/configs/", json={
         "name": "option 1 site 1", "payload": {"mode": "appliance"},
         "project_id": pid}).get_json()
@@ -270,7 +270,7 @@ def test_dr_reserve_from_unsized_import_payload(client):
     """A source linked before it was sized still contributes — the demand is
     read from its saved import payload as a fallback."""
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     src = client.post("/api/configs/", json={
         "name": "Site A", "project_id": pid,
         "payload": {"mode": "import", "import": {"importSummary": {
@@ -290,7 +290,7 @@ def test_dr_message_distinguishes_no_demand_from_no_links(client):
     """Links present but zero demand reports dr_sources_no_demand, not the
     misleading 'no sizings replicate' message."""
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
     # A source with a payload that carries no workload at all.
     src = client.post("/api/configs/", json={
         "name": "Empty", "payload": {"mode": "appliance"},
@@ -316,7 +316,7 @@ def test_bundle_sections_include_config_sizings(client):
     from export_worker import sections_for
 
     _signup(client)
-    pid = client.post("/api/projects/", json={"name": "P"}).get_json()["id"]
+    pid = client.post("/api/projects/", json={"name": "P", "customer_name": "Acme Corp"}).get_json()["id"]
 
     prop = client.post("/api/configs/", json={
         "name": "Import site", "payload": {"mode": "import"}, "project_id": pid}).get_json()

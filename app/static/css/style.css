@@ -238,7 +238,7 @@ body.sizer-wide main { max-width: min(2400px, 96vw); }
    text-base shadow-xs`, focusing to a border-colour change plus a 3px ring.
    White fill rather than our old page-grey, matching their `bg-transparent`
    over a card. */
-select, input[type="number"], input[type="text"],
+select, input[type="number"], input[type="text"], input[type="search"],
 input[type="email"], input[type="password"], input[type="date"] {
     width: 100%;
     height: 2.25rem;
@@ -2723,18 +2723,70 @@ body.view-project  .account-bar .btn-account { display: none; }
 .project-hint { color: var(--text-muted); margin: 0 0 1.25rem; max-width: 60ch; }
 .project-empty { color: var(--text-muted); padding: 2rem 0; text-align: center; }
 
-/* Home: one card per project, newest first. */
-.project-list { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-.project-card {
-    display: flex; flex-direction: column; gap: 0.3rem;
-    text-align: left; padding: 0.9rem 1rem;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); cursor: pointer;
-    transition: border-color 0.12s, transform 0.12s;
+/* Home: the project browser — folders beside a sortable table. */
+.project-browser {
+    display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.25rem;
+    align-items: start;
 }
-.project-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-.project-card-name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
-.project-card-sub { color: var(--text-muted); font-size: 0.82rem; }
+.project-folders {
+    display: flex; flex-direction: column; gap: 0.2rem;
+    position: sticky; top: 1rem;
+}
+.project-folder {
+    display: flex; align-items: center; gap: 0.55rem;
+    width: 100%; padding: 0.5rem 0.65rem; text-align: left;
+    background: none; border: 1px solid transparent; border-radius: var(--radius);
+    color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.project-folder:hover { background: var(--surface2); }
+.project-folder:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.project-folder.is-active {
+    background: var(--accent-light); color: var(--accent-dark); font-weight: 600;
+}
+.project-folder-icon { flex: none; color: var(--text-muted); }
+.project-folder.is-active .project-folder-icon { color: var(--accent); }
+.project-folder-name { flex: 1; min-width: 0; }
+.project-folder-count {
+    font-size: var(--fs-sm); color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+.project-browser-main { min-width: 0; }
+.project-browser-tools { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+.project-search { max-width: 22rem; }
+/* The customer field lists known customers; a little air above its label,
+   which otherwise sits tight under the name input. */
+#new-project-modal label[for="new-project-customer"] { margin-top: 0.75rem; }
+.project-list { overflow-x: auto; }
+.project-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+.project-table td { white-space: nowrap; }
+.project-table td.sizing-name { white-space: normal; }
+.project-table tr.is-archived .sizing-open { color: var(--text-muted); }
+.project-sort-btn {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    background: none; border: none; padding: 0; cursor: pointer;
+    font: inherit; color: inherit;
+}
+.project-sort-btn:hover, .project-sort-btn.is-sorted { color: var(--text); }
+.project-sort-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.project-sort-arrow { font-size: 0.65rem; min-width: 0.65rem; }
+.project-row-sub { display: block; color: var(--text-muted); font-size: 0.78rem; }
+.project-row-blank { color: var(--text-muted); }
+.project-owner { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+
+/* Narrow screens: the folders become a row of tabs above the table. */
+@media (max-width: 760px) {
+    .project-browser { grid-template-columns: 1fr; gap: 0.75rem; }
+    .project-folders { flex-direction: row; overflow-x: auto; position: static; }
+    .project-folder { width: auto; flex: none; }
+    .project-search { max-width: none; }
+}
+
+/* Project view: shown while the project is closed (archived). */
+.project-archived-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    flex-wrap: wrap; padding: 0.45rem 0.75rem; margin: 0.5rem 0;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 0.85rem; color: var(--text-muted);
+}
 
 .project-badge {
     background: var(--surface2); color: var(--text-muted);
@@ -2932,12 +2984,6 @@ body.app-booting main,
 body.app-booting #project-screens,
 body.app-booting footer { visibility: hidden; }
 
-/* Scope toggle on the project home: your own work by default, the whole
-   organization on request. */
-.project-scope-toggle {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    margin: 0 0 1.25rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
-}
 
 /* ── Sizing options panel ───────────────────────────────────────────────────
    .field-label / .text-input were used by the project modals before they were

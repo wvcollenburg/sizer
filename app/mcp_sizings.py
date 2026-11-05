@@ -36,13 +36,13 @@ def _project_row(project, source, user, sizing_count=None):
     d = project.to_summary(user, source, sizing_count=sizing_count)
     return {k: d.get(k) for k in ("id", "code", "name", "customer_name", "opportunity_ref",
                                   "owner_email", "source", "can_edit", "is_scratch",
-                                  "sizing_count", "updated_at")}
+                                  "archived_at", "sizing_count", "updated_at")}
 
 
-def new_project(user, name, customer_name=None, opportunity_ref=None):
-    """A project owned by ``user``, as the web tool's create route makes one
-    (decision 24: a name is all that is required). Shared by create_project
-    and save_sizing's new_project_name."""
+def new_project(user, name, customer_name, opportunity_ref=None):
+    """A project owned by ``user``, as the web tool's create route makes one:
+    a name and a customer are required. Shared by create_project and
+    save_sizing's new_project_name. Callers validate both are non-blank."""
     from project_models import Project, new_code
     from sqlalchemy.exc import IntegrityError
     for _ in range(6):
@@ -65,21 +65,25 @@ def new_project(user, name, customer_name=None, opportunity_ref=None):
       "project button in the Scale Computing sizing tool. Call it when the user asks for a new "
       "project, or needs one before a BOM upload or BOM check for a customer that has no project "
       "yet. A sizing can also create its project on the way: save_sizing with new_project_name. "
-      "Only a name is required; customer name and opportunity reference can be added here or later "
-      "in the tool. Returns the project id to pass to save_sizing, save_bom_check or start_upload.",
+      "A name and the customer name are required (ask the user for the customer if unknown); the "
+      "opportunity reference is optional. Returns the project id to pass to save_sizing, save_bom_check or start_upload.",
       {"type": "object", "additionalProperties": False,
-       "required": ["name"],
+       "required": ["name", "customer_name"],
        "properties": {
            "name": {"type": "string", "minLength": 1, "maxLength": 200,
                     "description": "Project name as the user wants it listed, e.g. 'ACME datacenter refresh'."},
-           "customer_name": {"type": "string", "maxLength": 200},
+           "customer_name": {"type": "string", "minLength": 1, "maxLength": 200,
+                             "description": "The end customer the project is for, e.g. 'ACME Corp'."},
            "opportunity_ref": {"type": "string", "maxLength": 120,
                                "description": "The partner's own opportunity or quote reference."}}},
       read_only=False, destructive=False, idempotent=False)
 def create_project(caller, args):
     name = (args.get("name") or "").strip()
-    if not name:
-        raise invalid_input([{"field": "name", "problem": "is required"}])
+    customer = (args.get("customer_name") or "").strip()
+    problems = ([{"field": "name", "problem": "is required"}] if not name else []) + \
+        ([{"field": "customer_name", "problem": "is required"}] if not customer else [])
+    if problems:
+        raise invalid_input(problems)
     project = new_project(caller.user, name, args.get("customer_name"), args.get("opportunity_ref"))
     audit_event(caller, "create_project", "project %d %r" % (project.id, project.name))
     base = (os.environ.get("APP_BASE_URL") or "").rstrip("/")
@@ -97,9 +101,12 @@ def create_project(caller, args):
       "a sizing or which sizings to look at. scope='mine' (default) shows projects the user "
       "created or contributed to; scope='organization' adds every project in their organization. "
       "updated_at is when the project record itself last changed; sizings carry their own. "
+      "Projects the user closed (archived_at set) are left out unless include_archived is true. "
       "A project the user does not have yet: create_project.",
       {"type": "object", "additionalProperties": False, "properties": dict(PAGE, **{
           "scope": {"type": "string", "enum": ["mine", "organization"], "default": "mine"},
+          "include_archived": {"type": "boolean", "default": False,
+                               "description": "Also list closed (archived) projects."},
           "query": {"type": "string", "maxLength": 100,
                     "description": "Matched against project name, customer name and opportunity reference."},
       })}, read_only=True)
@@ -108,7 +115,8 @@ def list_projects(caller, args):
     user = caller.user
     rows = visible_projects(user, "tenant" if args["scope"] == "organization" else "mine")
     rows = [(p, s) for p, s in rows
-            if _matches(args.get("query"), p.name, p.customer_name, p.opportunity_ref)]
+            if (args.get("include_archived") or not p.archived_at)
+            and _matches(args.get("query"), p.name, p.customer_name, p.opportunity_ref)]
     chunk, total, nxt = _page(rows, args)
     counts, _ = _list_counts([p.id for p, _ in chunk])
     projects = [_project_row(p, s, user, counts.get(p.id, 0)) for p, s in chunk]

@@ -249,7 +249,8 @@ def test_save_sizing_from_upload_writes_the_import_payload(world):
     r = call(c, "save_sizing", {"name": "From LO", "from_upload": {"upload_id": uid,
                                                                      "exclude_compute": [3],
                                                                      "exclude_storage": [3]},
-                                "new_project_name": "ACME"})
+                                "new_project_name": "ACME",
+                                "new_project_customer": "ACME Corp"})
     assert r["isError"] is False, r["content"][0]["text"]
     s = r["structuredContent"]
     assert _offending_keys(s) == []
@@ -340,7 +341,7 @@ def test_merge_uploads(world):
 def test_bom_upload_records_the_project_check(world):
     c, ids, files = world
     assert _err(call(c, "start_upload", {"kind": "bom"}))["invalid"][0]["field"] == "project_id"
-    pid = c.post("/api/projects/", json={"name": "ACME"}).get_json()["id"]
+    pid = c.post("/api/projects/", json={"name": "ACME", "customer_name": "Acme Corp"}).get_json()["id"]
     uid, token = _start(c, kind="bom", project_id=pid)
     r = c.get("/mcp/upload/" + token)
     assert r.status_code == 200 and b"hardware BOM" in r.data and b"ACME" in r.data

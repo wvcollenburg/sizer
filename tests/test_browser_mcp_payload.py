@@ -33,7 +33,7 @@ PARAMS = {"vcpu_ratio": 3.5, "growth_pct": 12, "storage_growth_pct": 25, "snapsh
 
 
 def _store(s, name, payload, source_meta=None):
-    pid = s.api("POST", "/api/projects/", {"name": "MCP payloads"})["data"]["id"]
+    pid = s.api("POST", "/api/projects/", {"name": "MCP payloads", "customer_name": "Acme Corp"})["data"]["id"]
     body = {"name": name, "project_id": pid, "payload": payload}
     if source_meta:
         body["source_meta"] = source_meta
