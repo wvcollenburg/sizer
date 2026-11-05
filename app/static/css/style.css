@@ -2757,7 +2757,7 @@ body.view-project  .account-bar .btn-account { display: none; }
 #new-project-modal label[for="new-project-customer"] { margin-top: 0.75rem; }
 .project-list { overflow-x: auto; }
 .project-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
-.project-table th, .project-table td { white-space: nowrap; }
+.project-table th, .project-table td { white-space: nowrap; padding-left: 0.4rem; padding-right: 0.4rem; }
 /* The name is what you scan for: it gets the room, the owner gives way. */
 .project-table td.sizing-name { white-space: normal; min-width: 11rem; }
 .project-table td.project-customer { white-space: normal; min-width: 7rem; }
