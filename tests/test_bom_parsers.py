@@ -1104,3 +1104,14 @@ def test_lenovo_breakdown_names_configs_after_the_option_and_keeps_totals():
     assert "AURS" not in by_part and "AVEN" not in by_part and "C20D" not in by_part
     assert "7.68TB" in by_part["C0ZT"].description
     assert "3.84TB" in {c.part_number: c for c in small.components}["C0ZT"].description
+
+
+@pytest.mark.parametrize("module,expected", [
+    ("OCP 3.0 Accessories", "other"),       # '1 OCP - No Cable' is not a NIC
+    ("OCP 3.0 Zubehör", "other"),
+    ("OCP 3.0 Network Adapters", "nic"),
+    ("Cables", "other"),
+])
+def test_dell_solution_ocp_accessories_are_not_nics(module, expected):
+    from bom.parsers.dell_solution import module_category
+    assert module_category(module) == expected

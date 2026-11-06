@@ -102,8 +102,9 @@ _MODULE_RULES: List[Tuple[str, object]] = [
     (r'service|bereitstellung|deployment|diebstahlschutz|bestandskennzeichnung', _DROP),
     (r'anti theft|asset tag|systems? management|systemverwaltung', _DROP),
     (r'smart selection|additional processor features', _DROP),
-    # ── cabling and optics: hardware, but never a NIC ───────────────────────
-    (r'kabel|cable|optic', _OTHER),
+    # ── cabling, optics and accessories: hardware, but never a NIC ──────────
+    # ('OCP 3.0 Accessories' / '1 OCP - No Cable' would otherwise hit 'ocp'.)
+    (r'kabel|cable|optic|accessor|zubehor|zubehör', _OTHER),
     # ── hardware ────────────────────────────────────────────────────────────
     # The base module is 'Base' / 'Basis', or — in the English solution export
     # — simply the server's name ('PowerEdge R6615').
