@@ -1728,6 +1728,30 @@
         </div>
     </div>
 
+    <!-- Open by code: one box for both a project code and a sizing code. -->
+    <div class="modal-overlay" id="open-code-modal" style="display:none">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2 data-i18n="project.home.open_code">Open by code</h2>
+                {{ ui.close_button('closeOpenByCode') }}
+            </div>
+            <div class="modal-body">
+                <label class="field-label" for="open-code-input"
+                       data-i18n="project.home.code_prompt">Enter the share code of a project or a sizing</label>
+                <input type="text" id="open-code-input" class="text-input"
+                       data-keydown='["onOpenByCodeKey","$event"]' autocomplete="off"
+                       spellcheck="false">
+                <div class="modal-error" id="open-code-error" hidden></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-muted" data-click='["closeOpenByCode"]'
+                        data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-primary" data-click='["submitOpenByCode"]'
+                        data-i18n="project.action.open">Open</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Project details: the optional metadata that fills an export cover. -->
     <div class="modal-overlay" id="project-settings-modal" style="display:none">
         <div class="modal-content modal-sm">

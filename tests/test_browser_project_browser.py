@@ -154,9 +154,18 @@ def test_open_by_code_opens_a_sizing_inside_its_project(server, browser):
     # My Sizings is gone from the header.
     assert s.page.locator("[data-click='[\"openSizingsModal\"]']").count() == 0
 
-    s.page.once("dialog", lambda d: d.accept(sizing["code"]))
     s.page.click("button[data-click='[\"openProjectByCodePrompt\"]']")
+    assert s.page.is_visible("#open-code-modal")
+    # An unknown code keeps the modal open with the error inside it.
+    s.page.fill("#open-code-input", "000000000000")
+    s.page.press("#open-code-input", "Enter")
+    s.page.wait_for_timeout(800)
+    assert s.page.is_visible("#open-code-modal")
+    assert "Nothing found" in s.page.inner_text("#open-code-error")
+    s.page.fill("#open-code-input", sizing["code"])
+    s.page.click("#open-code-modal button[data-click='[\"submitOpenByCode\"]']")
     s.page.wait_for_timeout(2000)
+    assert not s.page.is_visible("#open-code-modal")
     assert s.page.evaluate("document.body.classList.contains('view-sizer')")
     assert s.page.is_visible("#sizer-project-bar")
     assert s.page.inner_text("#sizer-project-name") == "Code project"
@@ -164,8 +173,9 @@ def test_open_by_code_opens_a_sizing_inside_its_project(server, browser):
     # A project code still opens the project.
     code = s.api("GET", "/api/projects/%d" % pid)["data"]["code"]
     s.goto("/", settle=1000)
-    s.page.once("dialog", lambda d: d.accept(code))
     s.page.click("button[data-click='[\"openProjectByCodePrompt\"]']")
+    s.page.fill("#open-code-input", code)
+    s.page.press("#open-code-input", "Enter")
     s.page.wait_for_timeout(1500)
     assert s.page.is_visible("#project-view")
     assert s.errors == []

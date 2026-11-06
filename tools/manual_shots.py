@@ -525,10 +525,11 @@ class Shooter:
         self.goto("/", settle=1500)
         self.shot("header-staff", "header", edition="scale")
         # a partner's project, opened by its share code
-        self.answer = self.state.get("project_code") or self.api(
+        code = self.state.get("project_code") or self.api(
             "GET", "/api/projects/%s" % self.project)["code"]
-        self.click("openProjectByCodePrompt", wait=2500)
-        self.answer = None
+        self.click("openProjectByCodePrompt", wait=500)
+        p.fill("#open-code-input", code)
+        self.click("submitOpenByCode", wait=2500)
         self.shot("staff-shared-project", edition="scale")
         # own project: the Salesforce link in Details
         own = self.api("POST", "/api/projects/", {"name": "Fabrikam — edge rollout",

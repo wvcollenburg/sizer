@@ -438,15 +438,34 @@ async function submitNewProject() {
 // One box for both kinds of share code. A project code opens the project; a
 // sizing code opens the sizing — inside its project when you may see that
 // project, otherwise on its own (the server decides, see open_by_code).
-async function openProjectByCodePrompt() {
-    const code = window.prompt(tt('project.home.code_prompt'));
-    if (!code || !code.trim()) return;
-    const { ok, data } = await fetchJson('/api/projects/open-code/' + encodeURIComponent(code.trim()));
+function openProjectByCodePrompt() {
+    const input = document.getElementById('open-code-input');
+    hideError('open-code-error');
+    if (input) input.value = '';
+    openModal('open-code-modal');
+    if (input) setTimeout(() => input.focus(), 30);
+}
+
+function closeOpenByCode() {
+    closeModal('open-code-modal');
+}
+
+function onOpenByCodeKey(e) {
+    if (e && e.key === 'Enter') { e.preventDefault(); submitOpenByCode(); }
+}
+
+async function submitOpenByCode() {
+    const input = document.getElementById('open-code-input');
+    const code = (input && input.value || '').trim();
+    if (!code) { if (input) input.focus(); return; }
+    const { ok, status, data } = await fetchJson('/api/projects/open-code/' + encodeURIComponent(code));
+    // Errors stay in the box, so a typo can be fixed in place.
     if (!ok) {
-        return window.showInfoModal
-            ? window.showInfoModal(tt('project.home.not_found_title'), (data && data.error) || '')
-            : null;
+        return showError('open-code-error', status === 404
+            ? tt('project.home.not_found_title')
+            : (data && data.error) || tt('auth.generic_error'));
     }
+    closeOpenByCode();
     if (data.kind === 'project') return openProject(data.project_id);
 
     // A sizing. Its project, when visible, becomes the open project so the
@@ -1956,7 +1975,7 @@ function info(title, msg) {
 Object.assign(window, {
     openProjectsHome, backToProjects, backToProject, openProject,
     openNewProject, closeNewProject, submitNewProject, onNewProjectKey,
-    openProjectByCodePrompt, startQuickSizing,
+    openProjectByCodePrompt, closeOpenByCode, onOpenByCodeKey, submitOpenByCode, startQuickSizing,
     addSizingToProject, addDrTarget, openSizing, duplicateSizing, deleteProjectSizing,
     openSizingPanel, closeSizingPanel, submitSizingPanel, togglePanelTag,
     onNewTagKey, addTagFromInput,
