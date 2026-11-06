@@ -1379,8 +1379,8 @@ function addSizingToProject() {
 
 async function addDrTarget() {
     if (!currentProject) return;
-    const name = window.prompt(tt('project.view.dr_prompt'), tt('project.view.dr_default'));
-    if (!name) return;
+    const name = await askText(tt('project.view.dr_prompt'), { title: tt('project.view.new_dr'), value: tt('project.view.dr_default'), okLabel: tt('common.add') });
+    if (!name || !name.trim()) return;
     const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/dr-target`, 'POST', { name: name });
     if (!ok) return info(tt('project.view.dr_failed'), (data && data.error) || '');
     openProject(currentProject.id);
@@ -1425,7 +1425,7 @@ async function duplicateSizing(id) {
 }
 
 async function deleteProjectSizing(id) {
-    if (!window.confirm(tt('project.action.delete_confirm'))) return;
+    if (!(await askConfirm(tt('project.action.delete_confirm'), { danger: true, okLabel: tt('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/configs/' + id, { method: 'DELETE' });
     if (!ok) {
         // 409: something replicates into this sizing and would lose its
@@ -1697,7 +1697,7 @@ async function unarchiveCurrentProject() {
 
 async function deleteCurrentProject() {
     if (!currentProject) return;
-    if (!window.confirm(tt('project.settings.delete_confirm', { name: currentProject.name }))) return;
+    if (!(await askConfirm(tt('project.settings.delete_confirm', { name: currentProject.name }), { danger: true, okLabel: tt('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/projects/' + currentProject.id, { method: 'DELETE' });
     if (!ok) return showError('project-settings-error', (data && data.error) || '');
     closeProjectSettings();

@@ -3788,3 +3788,12 @@ textarea.text-input:focus {
 .rec-select.rec-exported { cursor: default; }
 .quoted-note { margin: 0 0 0.6rem; }
 .rec-item-tagline { display: block; line-height: 1; margin-bottom: 0.2rem; }
+
+/* askConfirm / askText (common.js): the in-page confirm and prompt. Above
+   every other overlay, since it is usually asked from inside one. */
+.ask-overlay { z-index: 2000; }
+.ask-dialog { max-width: 440px; }
+.ask-dialog .modal-body { padding: 1.25rem 1.5rem; }
+.ask-dialog .ask-msg { display: block; margin: 0 0 0.75rem; line-height: 1.45; white-space: pre-line; }
+.ask-dialog .ask-msg:empty { display: none; }
+.ask-dialog .text-input[hidden] { display: none; }

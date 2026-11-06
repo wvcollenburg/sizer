@@ -74,10 +74,9 @@ class Shooter:
                 "localStorage.setItem(%s,%s);" % (json.dumps(k), json.dumps(v))
                 for k, v in prefs.items()))
         self.page = self.ctx.new_page()
-        # browser prompt()/confirm(): answer with self.answer, else accept
-        self.answer = None
-        self.page.on("dialog", lambda d: d.accept(self.answer) if self.answer is not None
-                     else d.accept())
+        # The app asks through its own dialogs (askConfirm / askText) now; a
+        # native one would be a regression, so accept it rather than hang.
+        self.page.on("dialog", lambda d: d.accept())
         if email:
             r = self.page.request.post(self.base + "/api/auth/login",
                                        data={"email": email, "password": PW})
@@ -322,9 +321,9 @@ class Shooter:
         # an alternative for Remote-Office: all-flash
         self.api("POST", "/api/sizings/%s/duplicate" % self.sizing_id("Remote-Office"), {})
         self.goto("/?project=%s" % pid)
-        self.answer = "DR site"
-        self.click("addDrTarget", wait=1500)
-        self.answer = None
+        self.click("addDrTarget", wait=400)
+        self.page.fill("#ask-dialog-input", "DR site")
+        self.click("submitAskDialog", wait=1500)
 
     def stage_alternative(self):
         """Save-as-new of Remote-Office on all-flash: the naming dialogs."""

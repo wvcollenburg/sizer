@@ -441,7 +441,7 @@ async function resendVerification(event) {
 async function editMyName() {
     if (!currentAccount) return;
     const current = currentAccount.full_name || '';
-    const next = window.prompt(t('auth.edit_name_prompt'), current);
+    const next = await askText(t('auth.edit_name_prompt'), { title: t('auth.edit_name_heading'), value: current, allowEmpty: true, okLabel: t('common.save') });
     if (next === null) return;                      // cancelled
     const { ok, data } = await sendJson('/api/auth/me', 'PUT', { full_name: next.trim() });
     if (!ok) {
@@ -507,7 +507,7 @@ async function downloadMyData() {
 // Right to erasure: close the account (soft-delete; admin-recoverable during the
 // retention window, then permanently purged) and re-lock the UI.
 async function deleteMyAccount() {
-    if (!confirm(t('auth.privacy.delete_confirm'))) return;
+    if (!(await askConfirm(t('auth.privacy.delete_confirm'), { title: t('auth.privacy.delete'), danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/auth/me', { method: 'DELETE' });
     if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
     closePrivacyModal();
@@ -751,7 +751,7 @@ async function loadOrgUsers() {
 }
 
 async function disableOrgUser(id) {
-    if (!confirm(t('auth.confirm_disable'))) return;
+    if (!(await askConfirm(t('auth.confirm_disable'), { danger: true, okLabel: t('auth.disable') }))) return;
     const { ok, data } = await fetchJson('/api/admin/users/' + id + '/disable', { method: 'POST' });
     if (!ok) { orgStatus((data && data.error) || t('auth.disable_failed'), true); return; }
     orgStatus(t('auth.member_disabled'), false);

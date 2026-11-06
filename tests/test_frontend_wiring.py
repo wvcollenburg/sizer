@@ -206,7 +206,7 @@ def test_storage_growth_toggle_is_wired_and_saved():
 
 COMMON_HELPERS = ("esc", "fetchJson", "sendJson", "setStatus", "flashStatus",
                   "withBusy", "openModal", "closeModal", "fmtDateTime",
-                  "saveErrorText")
+                  "saveErrorText", "askConfirm", "askText")
 
 
 def _loaded_scripts(template):
@@ -256,15 +256,18 @@ def test_page_scripts_do_not_shadow_the_shared_helpers():
     assert not shadowed, f"page scripts re-declare common.js helpers: {shadowed}"
 
 
-def test_no_native_alerts_in_page_scripts():
+def test_no_native_dialogs_in_page_scripts():
     """Failures and validation messages go through toastError / the info modal
-    (owner decision, cleanup phase 3); window.alert blocks the page."""
+    (owner decision, cleanup phase 3); questions go through askConfirm /
+    askText in common.js. window.alert/confirm/prompt block the page and look
+    like a browser warning instead of part of the app."""
     offenders = {}
     for name, text in _js_sources().items():
         if name == "toast.js":   # its comment explains why alert() went away
             continue
         hits = [ln for ln, line in enumerate(text.splitlines(), 1)
-                if re.search(r"(?<![\w.])alert\(", line) and not line.lstrip().startswith("//")]
+                if re.search(r"(?<![\w.])(alert|confirm|prompt)\(|window\.(alert|confirm|prompt)\(", line)
+                and not line.lstrip().startswith(("//", "*"))]
         if hits:
             offenders[name] = hits
-    assert not offenders, f"native alert() calls remain: {offenders}"
+    assert not offenders, f"native alert/confirm/prompt calls remain: {offenders}"
