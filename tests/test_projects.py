@@ -58,6 +58,7 @@ def client_for(app, email):
 
 
 def make_project(c, name="Acme HQ", **extra):
+    extra.setdefault("customer_name", "Acme Corp")
     resp = c.post("/api/projects/", json=dict(name=name, **extra))
     assert resp.status_code == 201, resp.get_data(as_text=True)
     return resp.get_json()
@@ -153,7 +154,7 @@ def test_export_language_defaults_to_the_creation_language_and_is_editable(app):
     what its exports use — so it has to be changeable when the deck is for a
     customer who reads something else."""
     c = client_for(app, PARTNER_EMAIL)
-    project = c.post("/api/projects/", json={"name": "Acme", "lang": "nl"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp", "lang": "nl"}).get_json()
     assert project["lang"] == "nl"
 
     updated = c.put(f"/api/projects/{project['id']}", json={"lang": "de"}).get_json()
@@ -165,23 +166,95 @@ def test_export_language_must_be_one_we_ship(app):
     silently produce an English document instead of an error."""
     c = client_for(app, PARTNER_EMAIL)
     assert c.post("/api/projects/",
-                  json={"name": "Acme", "lang": "xx"}).status_code == 400
+                  json={"name": "Acme", "customer_name": "Acme Corp",
+                        "lang": "xx"}).status_code == 400
     project = make_project(c, "Globex")
     assert c.put(f"/api/projects/{project['id']}",
                  json={"lang": "klingon"}).status_code == 400
 
 
-def test_project_creation_requires_only_a_name(app):
+def test_project_creation_requires_a_name_and_a_customer(app):
     c = client_for(app, PARTNER_EMAIL)
-    project = make_project(c, name="Just a name")
-    assert project["customer_name"] is None
+    project = make_project(c, name="Just a name", customer_name="  Initech  ")
+    assert project["customer_name"] == "Initech"
     assert project["opportunity_ref"] is None
     assert project["description"] is None
+    assert project["archived_at"] is None
+
+
+@pytest.mark.parametrize("customer", [None, "", "   "])
+def test_project_creation_rejects_a_missing_customer(app, customer):
+    c = client_for(app, PARTNER_EMAIL)
+    body = {"name": "No customer"}
+    if customer is not None:
+        body["customer_name"] = customer
+    resp = c.post("/api/projects/", json=body)
+    assert resp.status_code == 400
+    assert "customer" in resp.get_json()["error"].lower()
+
+
+def test_customer_cannot_be_blanked_but_scratch_needs_none(app):
+    c = client_for(app, PARTNER_EMAIL)
+    project = make_project(c)
+    assert c.put(f"/api/projects/{project['id']}",
+                 json={"customer_name": " "}).status_code == 400
+    # Other fields still save when the customer isn't part of the request.
+    assert c.put(f"/api/projects/{project['id']}",
+                 json={"description": "n"}).status_code == 200
+    scratch = c.post("/api/projects/scratch").get_json()
+    assert c.put(f"/api/projects/{scratch['id']}",
+                 json={"customer_name": ""}).status_code == 200
+
+
+# ── closing (archiving) ──────────────────────────────────────────────────────
+
+def test_close_and_reopen_a_project(app):
+    c = client_for(app, PARTNER_EMAIL)
+    project = make_project(c)
+    save_sizing(c, "Opt", project_id=project["id"])
+
+    closed = c.post(f"/api/projects/{project['id']}/archive")
+    assert closed.status_code == 200
+    stamp = closed.get_json()["archived_at"]
+    assert stamp
+    # Idempotent: closing again keeps the original date.
+    again = c.post(f"/api/projects/{project['id']}/archive").get_json()
+    assert again["archived_at"] == stamp
+
+    # Still listed (the browser files it under Archived) and still usable.
+    row = next(p for p in c.get("/api/projects/").get_json() if p["id"] == project["id"])
+    assert row["archived_at"] == stamp
+    assert row["sizing_count"] == 1
+    assert c.get(f"/api/projects/{project['id']}").get_json()["archived_at"] == stamp
+    save_sizing(c, "Opt 2", project_id=project["id"])
+
+    reopened = c.post(f"/api/projects/{project['id']}/unarchive").get_json()
+    assert reopened["archived_at"] is None
+
+
+def test_only_the_owner_can_close_a_project(app):
+    owner = client_for(app, PARTNER_EMAIL)
+    colleague = client_for(app, COLLEAGUE_EMAIL)
+    project = make_project(owner)
+    assert colleague.post(f"/api/projects/{project['id']}/archive").status_code == 403
+    assert colleague.post(f"/api/projects/{project['id']}/unarchive").status_code == 403
+    # My Company lists it, with its closed state, for the colleague too.
+    owner.post(f"/api/projects/{project['id']}/archive")
+    rows = colleague.get("/api/projects/?scope=tenant").get_json()
+    row = next(p for p in rows if p["id"] == project["id"])
+    assert row["archived_at"] and row["can_edit"] is False
+    assert row["owner_name"]
+
+
+def test_the_personal_project_cannot_be_closed(app):
+    c = client_for(app, PARTNER_EMAIL)
+    scratch = c.post("/api/projects/scratch").get_json()
+    assert c.post(f"/api/projects/{scratch['id']}/archive").status_code == 400
 
 
 def test_project_creation_rejects_empty_name(app):
     c = client_for(app, PARTNER_EMAIL)
-    assert c.post("/api/projects/", json={"name": "   "}).status_code == 400
+    assert c.post("/api/projects/", json={"name": "   ", "customer_name": "Acme Corp"}).status_code == 400
 
 
 # ── read-only sharing (decision 22) ──────────────────────────────────────────
@@ -898,3 +971,53 @@ def test_compare_xlsx_export_matches_both_modes(app):
     assert rows[0][1] == "set-a (1 sizings)"
     by_label = {r[0]: r for r in rows[1:]}
     assert by_label["Sizings in this set"][1] == "PROD"
+
+
+# ── one "Open by code" box for projects and sizings ──────────────────────────
+
+OTHER_TENANT_EMAIL = "pm@otherco.example"
+
+
+def test_open_by_code_takes_a_project_code(app):
+    c = client_for(app, PARTNER_EMAIL)
+    project = make_project(c)
+    r = c.get(f"/api/projects/open-code/{project['code']}")
+    assert r.status_code == 200
+    assert r.get_json() == {"kind": "project", "project_id": project["id"]}
+
+
+def test_open_by_code_takes_a_sizing_code_and_names_its_project(app):
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    # A colleague in the same organisation sees the project too.
+    colleague = client_for(app, COLLEAGUE_EMAIL)
+    body = colleague.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body == {"kind": "sizing", "sizing_id": sizing["id"],
+                    "project_id": project["id"]}
+
+
+def test_a_sizing_code_never_hands_a_scale_user_the_whole_project(app):
+    """A sizing code shares one sizing: the scale user gets that sizing (and a
+    link to it), not its partner's project."""
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    scale = client_for(app, SCALE_EMAIL)
+    body = scale.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body == {"kind": "sizing", "sizing_id": sizing["id"], "project_id": None}
+    assert scale.get(f"/api/configs/{sizing['id']}").status_code == 200
+    assert scale.get(f"/api/projects/{project['id']}").status_code == 404
+    # Once they open the project by its own code, a sizing code finds it too.
+    scale.get(f"/api/projects/open-code/{project['code']}")
+    body = scale.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body["project_id"] == project["id"]
+
+
+def test_open_by_code_unknown_or_other_tenant_is_not_found(app):
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    stranger = client_for(app, OTHER_TENANT_EMAIL)
+    for code in (project["code"], sizing["code"], "000000000000"):
+        assert stranger.get(f"/api/projects/open-code/{code}").status_code == 404

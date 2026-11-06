@@ -1,6 +1,6 @@
 // Account / auth UI. Login is optional — anonymous users keep full sizer access;
 // signing in unlocks saving and sharing sizings. Drives the header account bar
-// and the auth / My Sizings / Organization modals. Talks to the /api/auth,
+// and the auth / Organization modals. Talks to the /api/auth,
 // /api/configs and /api/admin/users endpoints.
 
 let currentAccount = null;   // the logged-in user object, or null when anonymous
@@ -116,7 +116,6 @@ function renderAccountBar() {
     // Left group: actions. Right group: identity (email · badge · sign out).
     const actions = [
         `<button class="btn btn-sm btn-account" data-click='["saveCurrentSizing"]'>${esc(t('auth.btn.save_sizing'))}</button>`,
-        `<button class="btn btn-sm" data-click='["openSizingsModal"]'>${esc(t('auth.btn.my_sizings'))}</button>`,
         `<button class="btn btn-sm" data-click='["openPrivacyModal"]'>${esc(t('auth.privacy.btn'))}</button>`,
     ];
     if (u.role === 'tenant_admin') {
@@ -442,7 +441,7 @@ async function resendVerification(event) {
 async function editMyName() {
     if (!currentAccount) return;
     const current = currentAccount.full_name || '';
-    const next = window.prompt(t('auth.edit_name_prompt'), current);
+    const next = await askText(t('auth.edit_name_prompt'), { title: t('auth.edit_name_heading'), value: current, allowEmpty: true, okLabel: t('common.save') });
     if (next === null) return;                      // cancelled
     const { ok, data } = await sendJson('/api/auth/me', 'PUT', { full_name: next.trim() });
     if (!ok) {
@@ -508,7 +507,7 @@ async function downloadMyData() {
 // Right to erasure: close the account (soft-delete; admin-recoverable during the
 // retention window, then permanently purged) and re-lock the UI.
 async function deleteMyAccount() {
-    if (!confirm(t('auth.privacy.delete_confirm'))) return;
+    if (!(await askConfirm(t('auth.privacy.delete_confirm'), { title: t('auth.privacy.delete'), danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/auth/me', { method: 'DELETE' });
     if (!ok) { privacyStatus((data && data.error) || t('auth.generic_error'), true); return; }
     closePrivacyModal();
@@ -518,112 +517,8 @@ async function deleteMyAccount() {
     showInfoModal(t('auth.privacy.deleted_title'), t('auth.privacy.deleted'));
 }
 
-// ── My Sizings ───────────────────────────────────────────────────────────────
-
-let sizingsCache = [];
-let sizingsTab = 'mine';
-
-// Which sources belong to each tab. "Mine" = configs I own plus any I pulled in
-// by code; "Organization" = configs shared within my tenant (or, for scale
-// users, other scale users' configs).
-const SIZINGS_TAB_SOURCES = {
-    mine: ['owned', 'linked'],
-    org: ['tenant', 'scale'],
-};
-
-function openSizingsModal() {
-    if (!currentAccount) { openAuthModal(); return; }
-    // The code box is only useful to scale users (cross-tenant retrieval). The
-    // search box is always shown.
-    document.getElementById('sizings-code-box').style.display =
-        currentAccount.is_scale ? 'flex' : 'none';
-    document.getElementById('sizings-search').value = '';
-    setSizingsTab('mine');
-    openModal('sizings-modal');
-    loadSizingsList();
-}
-
-function setSizingsTab(tab) {
-    sizingsTab = tab;
-    document.getElementById('sizings-tab-mine').classList.toggle('active', tab === 'mine');
-    document.getElementById('sizings-tab-org').classList.toggle('active', tab === 'org');
-    renderSizings();
-}
-
-function filterSizings() { renderSizings(); }
-
-function closeSizingsModal() {
-    closeModal('sizings-modal');
-}
-
-function sizingsStatus(msg, isError) {
-    setStatus('sizings-status', msg, isError);
-}
-
-async function loadSizingsList() {
-    const { ok, data } = await fetchJson('/api/configs/');
-    if (!ok) {
-        sizingsCache = [];
-        document.getElementById('sizings-table-body').innerHTML = '';
-        sizingsStatus(t('auth.sizings_load_error'), true);
-        return;
-    }
-    sizingsCache = data;
-    renderSizings();
-}
-
-// Render the active tab, filtered by the name/code search. The search only ever
-// sees the loaded list (which is already scoped to what the user may view), so
-// it can't surface names or codes outside the user's organisation.
-function renderSizings() {
-    const body = document.getElementById('sizings-table-body');
-    const sources = SIZINGS_TAB_SOURCES[sizingsTab] || [];
-    const term = (document.getElementById('sizings-search').value || '').trim().toLowerCase();
-
-    // Tab counts (independent of the search filter).
-    const mineCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.mine.includes(c.source)).length;
-    const orgCount = sizingsCache.filter(c => SIZINGS_TAB_SOURCES.org.includes(c.source)).length;
-    document.getElementById('sizings-tab-mine').textContent = t('auth.sizings_tab_mine', { count: mineCount });
-    document.getElementById('sizings-tab-org').textContent = t('auth.sizings_tab_org', { count: orgCount });
-
-    let rows = sizingsCache.filter(c => sources.includes(c.source));
-    if (term) {
-        rows = rows.filter(c =>
-            (c.name || '').toLowerCase().includes(term) ||
-            (c.code || '').toLowerCase().includes(term));
-    }
-
-    if (!rows.length) {
-        const msg = term ? t('auth.sizings_none_search')
-            : (sizingsTab === 'mine' ? t('auth.sizings_none_mine')
-                                     : t('auth.sizings_none_org'));
-        body.innerHTML = `<tr><td colspan="6" class="no-recs">${esc(msg)}</td></tr>`;
-        return;
-    }
-
-    const sourceLabel = {
-        owned: t('auth.source.owned'),
-        tenant: t('auth.source.tenant'),
-        scale: t('auth.source.scale'),
-        linked: t('auth.source.linked'),
-    };
-    body.innerHTML = rows.map(c => {
-        const del = c.can_delete
-            ? `<button class="btn btn-sm btn-muted" data-click='["deleteSizing",${c.id}]'>${esc(c.source === 'linked' ? t('common.remove') : t('common.delete'))}</button>`
-            : '';
-        return `<tr>
-            <td>${esc(c.name)}</td>
-            <td>${esc(c.owner_email || '')}</td>
-            <td><code class="sizing-code" title="${esc(t('auth.share_code_title'))}">${esc(c.code)}</code></td>
-            <td>${esc(sourceLabel[c.source] || c.source)}</td>
-            <td>${fmtDateTime(c.updated_at)}</td>
-            <td><button class="btn btn-sm btn-primary" data-click='["loadSizing",${c.id}]'>${esc(t('auth.load'))}</button> ${del}</td>
-        </tr>`;
-    }).join('');
-}
-
-// Invoked from the header button or the My Sizings modal. All feedback goes
-// through the in-app info modal (no native alerts).
+// Invoked from the header button. All feedback goes through the in-app
+// info modal (no native alerts).
 // Returns true only when a sizing was actually persisted (so callers can chain
 // a "save then continue" flow); false if it was cancelled or failed.
 // Split-migration needs the open sizing's id (app.js has no view of loadedConfig).
@@ -643,8 +538,6 @@ async function saveCurrentSizing() {
     if (window.isDrTarget && window.isDrTarget()) {
         return window.saveDrTarget ? await window.saveDrTarget() : false;
     }
-    const modalOpen = document.getElementById('sizings-modal').style.display === 'flex';
-
     if (!window.hasSizingToSave || !window.hasSizingToSave()) {
         showInfoModal(t('auth.nothing_to_save_title'), t('auth.nothing_to_save_body'));
         return false;
@@ -677,7 +570,6 @@ async function saveCurrentSizing() {
         await storeResultSnapshot(data.id);
         if (window.markSizingClean) window.markSizingClean();
         showInfoModal(t('auth.sizing_updated_title'), t('auth.sizing_updated_body', { name: data.name }), data.code);
-        if (modalOpen) loadSizingsList();
         return true;
     }
 
@@ -704,7 +596,6 @@ async function saveCurrentSizing() {
     await storeResultSnapshot(data.id);
     if (window.markSizingClean) window.markSizingClean();
     showInfoModal(t('auth.sizing_saved_title'), t('auth.sizing_saved_body', { name: data.name }), data.code);
-    if (modalOpen) loadSizingsList();
     return true;
 }
 
@@ -757,46 +648,6 @@ window.setLoadedConfig = function (data) {
 };
 // The opened sizing's stored provenance (an append adds its files to it).
 window.loadedSourceMeta = function () { return loadedConfig ? loadedConfig.sourceMeta : null; };
-
-async function loadSizing(id) {
-    const { ok, data } = await fetchJson('/api/configs/' + id);
-    if (!ok) { sizingsStatus((data && data.error) || t('auth.load_failed'), true); return; }
-    closeSizingsModal();
-    // The modal can be opened from a project screen, where the sizer is hidden;
-    // reveal it before restoring or the sizing loads into an invisible page.
-    if (window.enterSizer) window.enterSizer(data.name);
-    await window.restoreSizingState(data.payload);
-    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
-    if (window.markSizingClean) window.markSizingClean();
-}
-
-async function retrieveByCode() {
-    const code = document.getElementById('sizings-code-input').value.trim();
-    if (!code) return;
-    const { ok, data } = await fetchJson('/api/configs/code/' + encodeURIComponent(code));
-    if (!ok) { sizingsStatus((data && data.error) || t('auth.code_not_found'), true); return; }
-    document.getElementById('sizings-code-input').value = '';
-    sizingsStatus(t('auth.code_loaded', { name: data.name }), false);
-    loadSizingsList();
-    closeSizingsModal();
-    // The modal can be opened from a project screen, where the sizer is hidden;
-    // reveal it before restoring or the sizing loads into an invisible page.
-    if (window.enterSizer) window.enterSizer(data.name);
-    await window.restoreSizingState(data.payload);
-    loadedConfig = { id: data.id, name: data.name, canUpdate: data.source === 'owned' };
-    if (window.markSizingClean) window.markSizingClean();
-}
-
-async function deleteSizing(id) {
-    const row = sizingsCache.find(c => c.id === id);
-    const source = row ? row.source : '';
-    const msg = source === 'linked' ? t('auth.confirm_remove') : t('auth.confirm_delete');
-    if (!confirm(msg)) return;
-    const { ok, data } = await fetchJson('/api/configs/' + id, { method: 'DELETE' });
-    if (!ok) { sizingsStatus((data && data.error) || t('auth.delete_failed'), true); return; }
-    sizingsStatus(data.message || t('auth.done'), false);
-    loadSizingsList();
-}
 
 // ── Name-sizing modal (replaces the native prompt) ───────────────────────────
 
@@ -900,7 +751,7 @@ async function loadOrgUsers() {
 }
 
 async function disableOrgUser(id) {
-    if (!confirm(t('auth.confirm_disable'))) return;
+    if (!(await askConfirm(t('auth.confirm_disable'), { danger: true, okLabel: t('auth.disable') }))) return;
     const { ok, data } = await fetchJson('/api/admin/users/' + id + '/disable', { method: 'POST' });
     if (!ok) { orgStatus((data && data.error) || t('auth.disable_failed'), true); return; }
     orgStatus(t('auth.member_disabled'), false);

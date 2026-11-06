@@ -7,29 +7,50 @@
 <h3 id="projects-home">The Projects screen</h3>
 <table class="manual-table">
     <tr><th>Control</th><th>What it does</th></tr>
-    <tr><td>{{ m.ui("New project") }}</td><td>Asks for a project name and opens the new,
-        empty project.</td></tr>
-    <tr><td>{{ m.ui("Open by code") }}</td><td>Opens a project from its 12-digit share code.
-        You can open projects of your own organisation this way{% if scale %}; Scale Computing
-        accounts can open any organisation's project (see
-        <a href="#staff-by-code">Opening a partner's work by code</a>){% endif %}.</td></tr>
+    <tr><td>{{ m.ui("New project") }}</td><td>Asks for a project name and the customer name,
+        then opens the new, empty project.</td></tr>
+    <tr><td>{{ m.ui("Open by code") }}</td><td>Opens a project or a sizing from its 12-digit
+        share code. A sizing opens in the sizer, inside its project. You can open the work of
+        your own organisation this way{% if scale %}; Scale Computing accounts can open any
+        organisation's (see <a href="#staff-by-code">Opening a partner's work by
+        code</a>){% endif %}.</td></tr>
     <tr><td>{{ m.ui("Quick sizing") }}</td><td>Starts a blank sizing without choosing a
         project. It is filed in your personal scratch project, marked
         <em>Personal</em>.</td></tr>
-    <tr><td>{{ m.ui("Also show my colleagues' projects") }}</td><td>Off by default: you see
-        your own projects. Tick it to also see the projects of everyone in your organisation.
-        The setting is remembered in your browser.</td></tr>
 </table>
-<p>Each card shows the project name, the customer, the number of sizings, the number of BOM
-   checks and the date of the last change. Projects are sorted by most recently changed. A
-   <em>Shared</em> badge means the project belongs to someone else. You can look at it, but
-   not change it.</p>
-{{ m.shot("projects-colleagues", "With colleagues' projects shown. Theirs carry a Shared badge") }}
+
+<h4 id="project-folders">Folders</h4>
+<p>The projects are filed in three folders on the left. The number next to each folder is how
+   many projects it holds.</p>
+<table class="manual-table">
+    <tr><th>Folder</th><th>What it holds</th></tr>
+    <tr><td>{{ m.ui("Active projects") }}</td><td>Your own work that is still open: projects
+        you created, and projects of a colleague that hold a sizing of yours.</td></tr>
+    <tr><td>{{ m.ui("Archived") }}</td><td>Your own projects that were closed. See
+        <a href="#close-project">Closing a project</a>.</td></tr>
+    <tr><td>{{ m.ui("My Company") }}</td><td>Every project in your organisation, open and
+        closed, with an extra <em>Owner</em> column. A colleague's project is read-only for
+        you.</td></tr>
+</table>
+<p>The folder you last used is remembered in your browser.</p>
+
+<h4 id="project-table">The project table</h4>
+<p>Each row shows the project name, the customer, the number of sizings, the date of the
+   last change and, for a closed project, the date it was closed. Click a column heading to
+   sort by it; click it again to reverse the order. Every folder remembers its own sort. The
+   search box above the table filters on project name, customer, opportunity reference,
+   share code and owner. A <em>Shared</em> badge means the project belongs to someone else.
+   You can look at it, but not change it.</p>
+<p>The archive icon at the end of a row closes the project, and in Archived it reopens it.
+   It shows only on projects you own.</p>
+{{ m.shot("projects-colleagues", "The My Company folder: everyone's projects, with their owner") }}
 
 <h3 id="new-project">Creating a project</h3>
-{{ m.shot("new-project", "Only a name is needed to start") }}
-<p>Type a name and choose {{ m.ui("Create") }}. Customer, opportunity reference, notes and
-   the export language can be added later under {{ m.ui("Details") }}. The project remembers
+{{ m.shot("new-project", "A name and the customer are needed to start") }}
+<p>Type a name and the customer name, and choose {{ m.ui("Create") }}. Both are required. As
+   you type the customer, the customers you already have are suggested, so the same customer
+   is spelled the same way and sorts together. The opportunity reference, notes and the
+   export language can be added later under {{ m.ui("Details") }}. The project remembers
    the language the sizer was in when you created it and uses it for exports, until you
    change it.</p>
 
@@ -122,7 +143,8 @@
 <table class="manual-table">
     <tr><th>Field</th><th>Meaning</th></tr>
     <tr><td>Name</td><td>The project name, shown everywhere and on the exports.</td></tr>
-    <tr><td>Customer</td><td>The end customer; printed on the exports.</td></tr>
+    <tr><td>Customer</td><td>The end customer; printed on the exports. Required: it can be
+        changed but not left empty.</td></tr>
     <tr><td>Opportunity reference</td><td>Your own reference, for example a quote or deal
         number.</td></tr>
     <tr><td>Prepared by</td><td>The name on the proposal. It starts as your name.
@@ -135,3 +157,12 @@
 </table>
 <p>{{ m.ui("Delete project") }} deletes the project and all its sizings, after a
    confirmation.</p>
+
+<h3 id="close-project">Closing a project</h3>
+<p>When the work for a customer is done, choose {{ m.ui("Close project") }} under
+   {{ m.ui("Details") }}, or the archive icon on its row on the Projects screen. The project
+   moves from Active projects to Archived. Nothing is deleted and nothing is locked. A closed
+   project still opens, sizes and exports as before; a banner at the top says it is closed.
+   {{ m.ui("Reopen project") }} (in that banner, in Details, or on its row in Archived) moves
+   it back to Active projects. Only the owner can close or reopen a project. Your personal
+   scratch project cannot be closed.</p>

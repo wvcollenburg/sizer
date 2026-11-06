@@ -197,6 +197,12 @@ def _migrate_schema():
         # BOM checks read by the Claude agent (rework/bomchecker-polish-up):
         # how the file was read, kept apart from the re-checkable result.
         "ALTER TABLE bom_checks ADD COLUMN IF NOT EXISTS ingest_meta JSONB",
+        # Closing a project files it under Archived in the project browser
+        # (feature/project-browser). NULL = active; nothing else changes.
+        "ALTER TABLE projects ADD COLUMN IF NOT EXISTS "
+        "archived_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE projects ADD COLUMN IF NOT EXISTS "
+        "archived_by_user_id INTEGER REFERENCES users(id)",
     ]
     for sql in stmts:
         db.session.execute(text(sql))

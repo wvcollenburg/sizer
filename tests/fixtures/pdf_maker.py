@@ -327,6 +327,82 @@ def lenovo_arrow(nodes=3, total=None):
     return pdf
 
 
+LENOVO_BID_ROWS = [
+    # (code, description, per-server qty); the first row is the machine line.
+    ("7DG9U9ER00", "ThinkSystem SR630 V4-3yr Base Warranty", None),
+    ("C1XE", 'ThinkSystem 1U V4 10x2.5" Chassis', 1),
+    ("C5QV", "Intel Xeon 6517P 16C 190W 3.2GHz Processor", 1),
+    ("BPFK", "ThinkSystem SR850 V3/SR630 V3/SR630 V4 Standard Heatsink", 1),
+    ("C0TQ", "ThinkSystem 64GB TruDDR5 6400MHz (2Rx4) RDIMM", 4),
+    ("C0ZU", 'ThinkSystem 2.5" U.2 VA 3.84TB Read Intensive NVMe PCIe 5.0 x4 HS SSD', 4),
+    ("C2NN", 'ThinkSystem 1U V4 4x2.5" NVMe Gen5 Backplane', 1),
+    ("BNWM", "ThinkSystem Broadcom 57504 10/25GbE SFP28 4-port PCIe Ethernet Adapter", 1),
+    ("C0U5", "ThinkSystem 1300W 230V/115V Platinum CRPS Hot-Swap Power Supply v2.4", 2),
+    ("AURS", "Lenovo ThinkSystem Memory Dummy", 12),
+    ("7S0XCTO8WW", "XClarity Controller Prem-FOD", None),
+    ("SCY0", "Lenovo XClarity XCC3 premier - FOD", 1),
+]
+
+
+def lenovo_bid(nodes=3, product_nodes=None, ruled=True, page_break_after=7):
+    """The Lenovo bid quote printed from Word: customer table, PRODUCT AND
+    SERVICE DETAILS, CONFIGURATION DETAILS with per-server quantities, the
+    distributor table. The configuration table breaks over two pages with
+    its header repeated; one description wraps onto a second line."""
+    pdf = PdfMaker()
+    rule = (lambda top: pdf.hline(50, 560, top)) if ruled else (lambda top: None)
+    pdf.row(50, [(54, "Customer Name:"), (160, "Acme Parks")], size=8)
+    pdf.row(62, [(54, "Bid Request No."), (160, "BRDND000000001"), (330, "Sales Representative:"),
+                 (450, "A. Seller")], size=8)
+    pdf.row(74, [(54, "Created On:"), (160, "29-Oct-2026")], size=8)
+    pdf.row(100, [(54, "PRODUCT AND SERVICE DETAILS")], size=9)
+    top = 116
+    rule(top - 2)
+    pdf.row(top, [(54, "Part Number"), (140, "Description"), (380, "F/B"), (410, "Qty"),
+                  (440, "Start Date"), (500, "End Date")], size=8)
+    top += 12
+    rule(top - 2)
+    for part, desc in (("7DG9U9ER00", "ThinkSystem SR630 V4-3yr Base Warranty"),
+                       ("5WS7C20030", "3Yr Premier NBD Resp SR630 V4")):
+        pdf.row(top, [(54, part), (140, desc), (380, "F"),
+                      (410, product_nodes if product_nodes is not None else nodes),
+                      (440, "29-Oct-2026"), (500, "28-Nov-2026")], size=8)
+        top += 12
+        rule(top - 2)
+    pdf.row(top + 10, [(54, "Did you know that Lenovo can help wrap all of your hardware into one payment?")],
+            size=8)
+    pdf.row(top + 34, [(54, "CONFIGURATION DETAILS")], size=9)
+    top += 50
+
+    def header(top):
+        rule(top - 2)
+        pdf.row(top, [(54, "Components"), (140, "Description"), (500, "Qty")], size=8)
+        rule(top + 10)
+        return top + 12
+
+    top = header(top)
+    for i, (code, desc, per) in enumerate(LENOVO_BID_ROWS):
+        qty = nodes if per is None else per
+        if len(desc) > 60:
+            cut = desc.rfind(" ", 0, 60)
+            pdf.row(top, [(54, code), (140, desc[:cut]), (500, qty)], size=8)
+            pdf.row(top + 9, [(140, desc[cut + 1:])], size=8)
+            top += 21
+        else:
+            pdf.row(top, [(54, code), (140, desc), (500, qty)], size=8)
+            top += 12
+        rule(top - 2)
+        if i + 1 == page_break_after:
+            pdf.row(760, [(280, "Page 1 of 2")], size=7)
+            pdf.page()
+            top = header(50)
+    pdf.row(top + 14, [(54, "Distributor"), (200, "Partner Number"), (330, "Partner Address")], size=8)
+    pdf.row(top + 26, [(54, "TD Example"), (200, "1213385517"), (330, "1 Example Dr")], size=8)
+    pdf.row(top + 50, [(54, "TERMS AND CONDITIONS")], size=9)
+    pdf.row(760, [(280, "Page 2 of 2")], size=7)
+    return pdf
+
+
 def scale_quotation():
     pdf = PdfMaker()
     pdf.row(40, [(400, "Quotation")])

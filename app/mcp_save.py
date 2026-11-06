@@ -36,7 +36,9 @@ SAVE_SCHEMA = {
         "project_id": {"type": "integer", "minimum": 1,
                        "description": "An existing project the user owns (list_projects). Omit both project fields to save into the user's personal 'Unfiled' project."},
         "new_project_name": {"type": "string", "minLength": 1, "maxLength": 200,
-                             "description": "Create a new project with this name and save into it. Not together with project_id."},
+                             "description": "Create a new project with this name and save into it. Not together with project_id. Requires new_project_customer."},
+        "new_project_customer": {"type": "string", "minLength": 1, "maxLength": 200,
+                                 "description": "The customer of the new project (required with new_project_name; ask the user if unknown)."},
         "notes": {"type": "string", "maxLength": 2000,
                   "description": "Why this option: shown on the sizing and in the proposal export."},
     },
@@ -68,7 +70,11 @@ def _resolve_project(user, args):
         return project, False
     if new_name:
         from mcp_sizings import new_project
-        return new_project(user, new_name), True
+        customer = (args.get("new_project_customer") or "").strip()
+        if not customer:
+            raise invalid_input([{"field": "new_project_customer",
+                                  "problem": "is required with new_project_name"}])
+        return new_project(user, new_name, customer), True
     return ensure_scratch_project(user.id, user.tenant_id), False
 
 

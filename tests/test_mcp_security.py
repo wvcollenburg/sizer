@@ -200,7 +200,7 @@ def test_no_tool_output_has_price_shaped_keys(world, tmp_path):
         "lookup_cpu_benchmark": {"query": "Intel Xeon Silver 4110"},
         "validate_inputs": {"workload": WORKLOAD},
         "create_sizing": {"workload": WORKLOAD, "max_options": 8},
-        "create_project": {"name": "Sweep project"},
+        "create_project": {"name": "Sweep project", "customer_name": "Sweep Co"},
         "list_projects": {},
         "list_sizings": {"scope": "all_visible"},
         "get_sizing": {"sizing_id": sz["alice"]["id"]},

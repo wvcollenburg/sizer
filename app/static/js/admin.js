@@ -256,7 +256,7 @@ function closeTunableInfo() {
 }
 
 async function resetTunables() {
-    if (!confirm(t('admin.tunable.reset_confirm'))) return;
+    if (!(await askConfirm(t('admin.tunable.reset_confirm')))) return;
     const status = document.getElementById('tunables-status');
     const { ok, data } = await fetchJson('/admin/api/tunables/reset', {method: 'POST'});
     if (!ok) { flashStatus(status, errorText(data), false); return; }
@@ -574,7 +574,7 @@ function catalogItemLabel(type, id) {
 }
 
 async function deleteCatalogItem(type, id) {
-    if (!confirm(t('admin.confirm.delete_item', {label: catalogItemLabel(type, id)}))) return;
+    if (!(await askConfirm(t('admin.confirm.delete_item', {label: catalogItemLabel(type, id)}), { danger: true, okLabel: t('common.delete') }))) return;
     const base = `/admin/api/${type === 'cpu' ? 'cpus' : type === 'nic' ? 'nics' : 'drives'}`;
     const { ok, data } = await fetchJson(`${base}/${id}`, { method: 'DELETE' });
     if (data && data.error) { toastError(data.error); return; }
@@ -602,7 +602,7 @@ async function deleteModel(id) {
     // The delegate spec carries only the id; the name comes from the list
     // state so no user-supplied text is ever baked into the JSON attribute.
     const m = allModels.find(x => x.id === id);
-    if (!confirm(t('admin.confirm.delete_model', {name: m ? m.name : id}))) return;
+    if (!(await askConfirm(t('admin.confirm.delete_model', {name: m ? m.name : id}), { danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson(`/admin/api/models/${id}`, { method: 'DELETE' });
     if (!ok) { toastError(t('admin.msg.delete_failed', {error: errorText(data)})); return; }
     loadModels();
@@ -1345,7 +1345,7 @@ async function loadAdminTenants() {
 }
 
 async function toggleBlockTenant(id, block) {
-    if (block && !confirm(t('admin.tenants.block_confirm'))) return;
+    if (block && !(await askConfirm(t('admin.tenants.block_confirm'), { danger: true, okLabel: t('admin.tenants.block') }))) return;
     const { ok, data } = await sendJson(`/api/admin/super/tenants/${id}/block`, 'POST', { blocked: block });
     if (!ok) { adminStatus('tenants-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     adminStatus('tenants-status', data.message, false);
@@ -1406,7 +1406,7 @@ async function changeUserRole(id, role) {
     const u = userCache.find(x => x.id === id);
     if (u && role === u.role) return;
     const label = { user: t('admin.role.user'), tenant_admin: t('admin.role.tenant_admin'), super_admin: t('admin.role.super_admin') }[role] || role;
-    if (!confirm(t('admin.users.role_confirm', {role: label}))) { loadAdminUsers(); return; }
+    if (!(await askConfirm(t('admin.users.role_confirm', {role: label})))) { loadAdminUsers(); return; }
     const { ok, data } = await sendJson(`/api/admin/super/users/${id}/role`, 'POST', { role });
     if (!ok) { adminStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); loadAdminUsers(); return; }
     adminStatus('admin-status', t('admin.users.role_updated'), false);
@@ -1415,16 +1415,16 @@ async function changeUserRole(id, role) {
 
 async function resetUserPassword(id) {
     const u = userCache.find(x => x.id === id);
-    const pw = prompt(t('admin.users.reset_prompt', {email: u ? u.email : id}));
+    const pw = await askText(t('admin.users.reset_prompt', {email: u ? u.email : id}), { title: t('admin.users.reset_password'), password: true, allowEmpty: true });
     if (pw === null) return;  // cancelled
     const body = pw.trim() ? { password: pw.trim() } : {};
-    if (!pw.trim() && !confirm(t('admin.users.reset_email_confirm'))) return;
+    if (!pw.trim() && !(await askConfirm(t('admin.users.reset_email_confirm'), { title: t('admin.users.reset_password') }))) return;
     const { ok, data } = await sendJson(`/api/admin/super/users/${id}/reset-password`, 'POST', body);
     adminStatus('admin-status', (data && (data.message || data.error)) || (ok ? t('admin.msg.done') : t('admin.msg.failed')), !ok);
 }
 
 async function disableAdminUser(id) {
-    if (!confirm(t('admin.users.disable_confirm'))) return;
+    if (!(await askConfirm(t('admin.users.disable_confirm'), { danger: true, okLabel: t('admin.users.disable') }))) return;
     const { ok, data } = await fetchJson(`/api/admin/users/${id}/disable`, { method: 'POST' });
     if (!ok) { adminStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     adminStatus('admin-status', t('admin.users.disabled_ok'), false);
@@ -1439,7 +1439,7 @@ async function restoreUser(id) {
 }
 
 async function deleteUser(id) {
-    if (!confirm(t('admin.users.delete_confirm'))) return;
+    if (!(await askConfirm(t('admin.users.delete_confirm'), { danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson(`/api/admin/super/users/${id}`, { method: 'DELETE' });
     if (!ok) { adminStatus('admin-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     adminStatus('admin-status', t('admin.users.deleted_ok'), false);
@@ -1470,7 +1470,7 @@ async function loadAdminSizings() {
 }
 
 async function purgeSizing(id) {
-    if (!confirm(t('admin.sizings.purge_confirm'))) return;
+    if (!(await askConfirm(t('admin.sizings.purge_confirm'), { danger: true, okLabel: t('admin.sizings.purge') }))) return;
     const { ok, data } = await fetchJson(`/api/admin/super/configs/${id}/purge`, { method: 'DELETE' });
     if (!ok) { adminStatus('sizings-status-admin', (data && data.error) || t('admin.msg.failed'), true); return; }
     adminStatus('sizings-status-admin', t('admin.sizings.purged_ok'), false);
@@ -1478,7 +1478,7 @@ async function purgeSizing(id) {
 }
 
 async function runPurge() {
-    if (!confirm(t('admin.sizings.run_purge_confirm'))) return;
+    if (!(await askConfirm(t('admin.sizings.run_purge_confirm'), { title: t('admin.sizings.run_purge'), danger: true, okLabel: t('admin.sizings.purge') }))) return;
     const { ok, data } = await fetchJson('/api/admin/super/purge-run', { method: 'POST' });
     if (!ok) { adminStatus('sizings-status-admin', t('admin.sizings.purge_failed'), true); return; }
     adminStatus('sizings-status-admin',
@@ -1528,8 +1528,8 @@ async function saveEmailSettings() {
 }
 
 async function sendTestEmail() {
-    const to = prompt(t('admin.email.test_prompt'));
-    if (!to) return;
+    const to = await askText(t('admin.email.test_prompt'), { title: t('admin.email.send_test'), okLabel: t('admin.email.send_test') });
+    if (!to || !to.trim()) return;
     adminStatus('email-status', t('admin.email.sending'), false);
     const { ok, data } = await sendJson('/api/admin/super/email-settings/test', 'POST', { to });
     adminStatus('email-status', (data && (data.message || data.error)) || (ok ? t('admin.email.sent') : t('admin.msg.failed')), !ok);
@@ -1638,7 +1638,7 @@ function selectStaleByDomain() {
 async function purgeSelectedStale() {
     const ids = staleChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
     if (!ids.length) { adminStatus('stale-status', t('admin.stale.select_first'), true); return; }
-    if (!confirm(t('admin.stale.purge_confirm', {n: ids.length}))) return;
+    if (!(await askConfirm(t('admin.stale.purge_confirm', {n: ids.length}), { danger: true, okLabel: t('admin.sizings.purge') }))) return;
     const { ok, data } = await sendJson('/api/admin/super/users/purge', 'POST', { ids });
     if (!ok) { adminStatus('stale-status', (data && data.error) || t('admin.sizings.purge_failed'), true); return; }
     adminStatus('stale-status', data.skipped
@@ -1824,7 +1824,7 @@ async function hclWithdrawPreview(entityType, id) {
     const list = entityType === 'platform' ? hclPreviewCache.platforms : hclPreviewCache.components;
     const row = (list || []).find(x => x.id === id);
     const label = row ? (entityType === 'platform' ? row.key : row.part_number) : String(id);
-    if (!confirm(t('admin.bomprev.withdraw_confirm', { name: label }))) return;
+    if (!(await askConfirm(t('admin.bomprev.withdraw_confirm', { name: label }), { okLabel: t('admin.bomprev.withdraw') }))) return;
     const { ok, data } = await sendJson(
         '/admin/api/hcl/preview/' + encodeURIComponent(entityType) + '/' + id + '/withdraw', 'POST', {});
     if (!ok) { adminStatus('hcl-status', errorText(data), true); return; }
@@ -1940,7 +1940,7 @@ function hclRenderLastRun(last, running) {
 }
 
 async function hclStartScrape() {
-    if (!confirm(t('admin.hcl.scrape_confirm'))) return;
+    if (!(await askConfirm(t('admin.hcl.scrape_confirm')))) return;
     const btn = document.getElementById('hcl-scrape-btn');
     const { ok, data } = await withBusy(btn, () => fetchJson('/admin/api/hcl/scrape', { method: 'POST' }));
     if (!ok) { adminStatus('hcl-status', errorText(data), true); return; }
@@ -2043,7 +2043,8 @@ async function hclPendingAction(id, action) {
 async function hclBulkPending(action) {
     const ids = hclPendingChecks().filter(c => c.checked).map(c => parseInt(c.value, 10));
     if (!ids.length) { adminStatus('hcl-status', t('admin.hcl.select_first'), true); return; }
-    if (!confirm(t(action === 'approve' ? 'admin.hcl.bulk_confirm_approve' : 'admin.hcl.bulk_confirm_reject', { n: ids.length }))) return;
+    if (!(await askConfirm(t(action === 'approve' ? 'admin.hcl.bulk_confirm_approve' : 'admin.hcl.bulk_confirm_reject', { n: ids.length }),
+        action === 'approve' ? {} : { danger: true, okLabel: t('admin.hcl.reject') }))) return;
     const { ok, data } = await sendJson('/admin/api/hcl/pending/bulk', 'POST', { ids: ids, action: action });
     if (!ok) { adminStatus('hcl-status', errorText(data), true); return; }
     adminStatus('hcl-status', t('admin.hcl.bulk_done', {
@@ -2065,7 +2066,7 @@ async function hclApproveAllPending() {
         if (stats.ok && stats.data && stats.data.pending != null) n = stats.data.pending;
     }
     if (!n) { adminStatus('hcl-status', t('admin.hcl.pending_none'), true); return; }
-    if (!confirm(t('admin.hcl.approve_all_confirm', { n: n }))) return;
+    if (!(await askConfirm(t('admin.hcl.approve_all_confirm', { n: n })))) return;
     const { ok, data } = await sendJson('/admin/api/hcl/pending/bulk', 'POST', { all: true, filter: filter, action: 'approve' });
     if (!ok) { adminStatus('hcl-status', errorText(data), true); return; }
     adminStatus('hcl-status', t('admin.hcl.bulk_done', {
@@ -2838,7 +2839,7 @@ async function bomNoteToggle(id, checked) {
 }
 
 async function bomNoteDelete(id) {
-    if (!confirm(t('admin.bomnote.delete_confirm'))) return;
+    if (!(await askConfirm(t('admin.bomnote.delete_confirm'), { danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson(`/admin/api/bom-part-notes/${id}`, { method: 'DELETE' });
     if (!ok) { adminStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     loadBomNotes();
@@ -2929,7 +2930,7 @@ async function loadBomRejects() {
 }
 
 async function deleteBomReject(id) {
-    if (!confirm(t('admin.bomrej.delete_confirm'))) return;
+    if (!(await askConfirm(t('admin.bomrej.delete_confirm'), { danger: true, okLabel: t('common.delete') }))) return;
     const { ok, data } = await fetchJson(`/admin/api/bom-rejects/${id}`, { method: 'DELETE' });
     if (!ok) { adminStatus('bom-review-status', (data && data.error) || t('admin.msg.failed'), true); return; }
     loadBomRejects();

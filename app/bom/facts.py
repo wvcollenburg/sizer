@@ -21,7 +21,7 @@ from bom import fit
 from bom.parsers import UnrecognizedFormat, parse_file
 from bom.rules import is_hardware_config
 
-ARCHIVE_EXTENSIONS = (".xlsx", ".xls", ".csv", ".pdf")
+ARCHIVE_EXTENSIONS = (".xlsx", ".xls", ".csv", ".docx", ".pdf")
 
 
 def config_facts(config) -> Dict[str, Any]:

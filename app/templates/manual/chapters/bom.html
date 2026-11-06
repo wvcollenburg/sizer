@@ -6,8 +6,8 @@
 <h3 id="bom-run">Running a check</h3>
 <ol>
     <li>On the project page choose {{ m.ui("Check a BOM") }}.</li>
-    <li>Drop the file on the upload area, or click it to browse. Excel, CSV and PDF are
-        accepted, up to 10 MB. When the AI reader is available, pictures (PNG, JPEG, WebP)
+    <li>Drop the file on the upload area, or click it to browse. Excel, CSV, Word (.docx) and PDF
+        are accepted, up to 10 MB. When the AI reader is available, pictures (PNG, JPEG, WebP)
         are accepted too.</li>
     <li>Under {{ m.ui("Check against a sizing") }}, choose the sizing the quote is for, or
         <em>Compatibility check only (no sizing)</em>.</li>
@@ -16,8 +16,8 @@
 </ol>
 {{ m.shot("bom-upload", "Check a BOM: the upload step") }}
 <p>The formats the checker reads directly are listed under
-   <em>Recognised layouts and the blank template</em>: the Lenovo DCSC export, the Dell
-   service-tag export, Dell quotes, and the SC// BOM template. For any other layout,
+   <em>Recognised layouts and the blank template</em>: the Lenovo DCSC export, the Lenovo bid
+   quote (Word or PDF), the Dell service-tag export, Dell quotes, and the SC// BOM template. For any other layout,
    {{ m.ui("Download the blank template") }} gives you a spreadsheet to fill in.</p>
 
 <h3 id="bom-agent">Files in another layout</h3>

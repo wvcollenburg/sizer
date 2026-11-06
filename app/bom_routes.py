@@ -88,7 +88,7 @@ LOCAL_EXTENSIONS = PARSER_EXTENSIONS + (".pdf",)
 # Files worth keeping to teach the checker a layout: anything with text a
 # parser can be written for. Pictures are not (owner, 2026-09-30: a lost
 # cause — the agent reads them, nobody will write a parser for a photo).
-SHAREABLE_EXTENSIONS = LOCAL_EXTENSIONS + (".docx", ".txt")
+SHAREABLE_EXTENSIONS = tuple(dict.fromkeys(LOCAL_EXTENSIONS + (".docx", ".txt")))
 
 
 def accepted_extensions():
@@ -339,11 +339,16 @@ def _agent_path(project, user, sizing, name, filename, path, digest, local_meta=
 
     # The same file already read by the agent for this organisation: reuse
     # that reading, no second paid call (retries, another sizing, another
-    # project of the same customer).
-    earlier = (BomCheck.query.filter_by(file_sha256=digest, file_format=AGENT_FORMAT,
-                                        tenant_id=user.tenant_id)
-               .filter(BomCheck.ingest_meta.isnot(None))
-               .order_by(BomCheck.created_at.desc()).first())
+    # project of the same customer) - but only a reading made by the current
+    # extraction (agent_ingest.EXTRACTION_VERSION): one from before a fix
+    # would bring the old mistake back with it.
+    candidates = (BomCheck.query.filter_by(file_sha256=digest, file_format=AGENT_FORMAT,
+                                           tenant_id=user.tenant_id)
+                  .filter(BomCheck.ingest_meta.isnot(None))
+                  .order_by(BomCheck.created_at.desc()).limit(20).all())
+    earlier = next((c for c in candidates
+                    if (c.ingest_meta or {}).get("extraction_version")
+                    == agent_ingest.EXTRACTION_VERSION), None)
     if earlier is not None:
         meta = dict(earlier.ingest_meta or {})
         meta.update({"reused_from_check": earlier.id, "input_tokens": 0, "output_tokens": 0})

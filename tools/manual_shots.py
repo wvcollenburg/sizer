@@ -74,10 +74,9 @@ class Shooter:
                 "localStorage.setItem(%s,%s);" % (json.dumps(k), json.dumps(v))
                 for k, v in prefs.items()))
         self.page = self.ctx.new_page()
-        # browser prompt()/confirm(): answer with self.answer, else accept
-        self.answer = None
-        self.page.on("dialog", lambda d: d.accept(self.answer) if self.answer is not None
-                     else d.accept())
+        # The app asks through its own dialogs (askConfirm / askText) now; a
+        # native one would be a regression, so accept it rather than hang.
+        self.page.on("dialog", lambda d: d.accept())
         if email:
             r = self.page.request.post(self.base + "/api/auth/login",
                                        data={"email": email, "password": PW})
@@ -209,6 +208,7 @@ class Shooter:
         self.shot("projects-empty")
         self.click("openNewProject")
         p.fill("#new-project-name", "Demo Company — HQ refresh")
+        p.fill("#new-project-customer", "Demo Company Ltd")
         self.shot("new-project", self.modal("new-project-modal"))
         p.keyboard.press("Escape")
         # the demo projects everything else is photographed in
@@ -321,9 +321,9 @@ class Shooter:
         # an alternative for Remote-Office: all-flash
         self.api("POST", "/api/sizings/%s/duplicate" % self.sizing_id("Remote-Office"), {})
         self.goto("/?project=%s" % pid)
-        self.answer = "DR site"
-        self.click("addDrTarget", wait=1500)
-        self.answer = None
+        self.click("addDrTarget", wait=400)
+        self.page.fill("#ask-dialog-input", "DR site")
+        self.click("submitAskDialog", wait=1500)
 
     def stage_alternative(self):
         """Save-as-new of Remote-Office on all-flash: the naming dialogs."""
@@ -500,9 +500,6 @@ class Shooter:
         self.login(USER)
         self.goto("/", settle=1500)
         self.shot("header", "header", pad=0)
-        self.click("openSizingsModal", wait=1200)
-        self.shot("my-sizings", self.modal("sizings-modal"))
-        self.page.evaluate("closeSizingsModal()")
         self.click("openPrivacyModal", wait=900)
         self.shot("privacy-data", self.modal("privacy-modal"))
         self.page.evaluate("document.getElementById('privacy-modal').style.display='none'")
@@ -515,7 +512,7 @@ class Shooter:
                                              "customer_name": "Contoso"})
         self.goto("/", settle=1500)
         self.shot("header-tenant-admin", "header", pad=0)
-        p.check("#project-scope-all")
+        self.page.evaluate("selectProjectFolder('company')")
         self.page.wait_for_timeout(1200)
         self.shot("projects-colleagues")
         self.click("openOrgModal", wait=1200)
@@ -527,17 +524,12 @@ class Shooter:
         self.goto("/", settle=1500)
         self.shot("header-staff", "header", edition="scale")
         # a partner's project, opened by its share code
-        self.answer = self.state.get("project_code") or self.api(
+        code = self.state.get("project_code") or self.api(
             "GET", "/api/projects/%s" % self.project)["code"]
-        self.click("openProjectByCodePrompt", wait=2500)
-        self.answer = None
+        self.click("openProjectByCodePrompt", wait=500)
+        p.fill("#open-code-input", code)
+        self.click("submitOpenByCode", wait=2500)
         self.shot("staff-shared-project", edition="scale")
-        # My Sizings with the retrieve-by-code box
-        self.goto("/", settle=1500)
-        self.click("openSizingsModal", wait=1200)
-        p.fill("#sizings-code-input", "781845344368")
-        self.shot("staff-my-sizings", self.modal("sizings-modal"), edition="scale")
-        self.page.evaluate("closeSizingsModal()")
         # own project: the Salesforce link in Details
         own = self.api("POST", "/api/projects/", {"name": "Fabrikam — edge rollout",
                                                    "customer_name": "Fabrikam"})

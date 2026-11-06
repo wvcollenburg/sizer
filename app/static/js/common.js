@@ -12,6 +12,8 @@
  *   flashStatus(el, msg, ok, ms)    status line that clears itself
  *   withBusy(btn, fn)               disable button(s) while fn() runs
  *   openModal(id, {focus}) / closeModal(id)   .modal-overlay show / hide
+ *   askConfirm(msg, opts) -> Promise<bool>     in-page window.confirm
+ *   askText(msg, opts)    -> Promise<str|null> in-page window.prompt
  *   fmtDateTime(iso, {dateOnly})    locale date(+time); '' when not a date
  *   saveErrorText(status, data, vmCount)      message for a refused save
  */
@@ -194,6 +196,108 @@
         if (isOpen(el)) dismissModal(el);
     });
 
+    // ── confirm / text dialogs ──────────────────────────────────────────────
+    // In-page stand-ins for window.confirm and window.prompt, which block the
+    // page, cannot be styled or translated in their buttons, and look like a
+    // browser warning rather than part of the app. Both return a promise:
+    //
+    //   if (!(await askConfirm(msg, {danger: true, okLabel: t('common.delete')}))) return;
+    //   const name = await askText(msg, {title, value: 'DR site'});   // null = cancelled
+    //
+    // One dialog, built on first use and appended last to <body> so it sits on
+    // top of whatever modal asked. Escape, the backdrop and X all go through
+    // closeAskDialog (the shared dismiss path above), which answers "cancel".
+    // The box carries both .modal (admin.css) and .modal-content (style.css)
+    // so it picks up each page's modal look.
+    let askState = null;    // {resolve, text}: the pending question
+
+    function askEl() {
+        let el = document.getElementById('ask-dialog');
+        if (el) return el;
+        el = document.createElement('div');
+        el.className = 'modal-overlay centered ask-overlay';
+        el.id = 'ask-dialog';
+        el.style.display = 'none';
+        el.innerHTML =
+            '<div class="modal modal-content modal-sm ask-dialog" role="dialog" aria-modal="true" aria-labelledby="ask-dialog-title">' +
+              '<div class="modal-header">' +
+                '<h2 id="ask-dialog-title"></h2>' +
+                '<button class="modal-close" data-click=\'["closeAskDialog"]\' aria-label="Close">' +
+                  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
+                '</button>' +
+              '</div>' +
+              '<div class="modal-body">' +
+                '<label class="ask-msg" id="ask-dialog-msg" for="ask-dialog-input"></label>' +
+                '<input type="text" class="text-input" id="ask-dialog-input" autocomplete="off" data-keydown=\'["onAskDialogKey","$event"]\'>' +
+              '</div>' +
+              '<div class="modal-footer">' +
+                '<button type="button" class="btn btn-muted btn-secondary" id="ask-dialog-cancel" data-click=\'["closeAskDialog"]\'></button>' +
+                '<button type="button" class="btn btn-primary" id="ask-dialog-ok" data-click=\'["submitAskDialog"]\'></button>' +
+              '</div>' +
+            '</div>';
+        document.body.appendChild(el);
+        return el;
+    }
+
+    function tr(key, fallback) {
+        const v = window.t ? window.t(key) : key;
+        return v && v !== key ? v : fallback;
+    }
+
+    function finishAsk(answer) {
+        const st = askState;
+        askState = null;
+        closeModal('ask-dialog');
+        if (st) st.resolve(answer);
+    }
+
+    function ask(message, opts, text) {
+        opts = opts || {};
+        if (askState) finishAsk(askState.text ? null : false);   // a newer question wins
+        const el = askEl();
+        el.querySelector('#ask-dialog-title').textContent =
+            opts.title || (text ? '' : tr('common.confirm_title', 'Please confirm'));
+        el.querySelector('#ask-dialog-msg').textContent = message || '';
+        const input = el.querySelector('#ask-dialog-input');
+        input.hidden = !text;
+        input.type = opts.password ? 'password' : 'text';
+        input.value = text ? (opts.value == null ? '' : String(opts.value)) : '';
+        input.placeholder = opts.placeholder || '';
+        el.querySelector('#ask-dialog-cancel').textContent = opts.cancelLabel || tr('common.cancel', 'Cancel');
+        const ok = el.querySelector('#ask-dialog-ok');
+        ok.textContent = opts.okLabel || tr('common.ok', 'OK');
+        ok.classList.toggle('btn-danger', !!opts.danger);
+        ok.classList.toggle('btn-primary', !opts.danger);
+        return new Promise(function (resolve) {
+            askState = { resolve: resolve, text: text, allowEmpty: !!opts.allowEmpty };
+            openModal(el);
+            setTimeout(function () {
+                if (text) { input.focus(); input.select(); } else ok.focus();
+            }, 30);
+        });
+    }
+
+    function askConfirm(message, opts) { return ask(message, opts, false); }
+    function askText(message, opts) { return ask(message, opts, true); }
+
+    function closeAskDialog() {
+        if (!askState) return closeModal('ask-dialog');
+        finishAsk(askState.text ? null : false);
+    }
+
+    function submitAskDialog() {
+        if (!askState) return closeModal('ask-dialog');
+        if (!askState.text) return finishAsk(true);
+        const input = document.getElementById('ask-dialog-input');
+        const v = input.value;
+        if (!v.trim() && !askState.allowEmpty) { input.focus(); return; }
+        finishAsk(v);
+    }
+
+    function onAskDialogKey(e) {
+        if (e && e.key === 'Enter') { e.preventDefault(); submitAskDialog(); }
+    }
+
     // ── formatting ──────────────────────────────────────────────────────────
     // Locale date and time for an ISO timestamp; '' for an empty or unparsable
     // value (an invalid date is never echoed raw into the page).
@@ -219,5 +323,6 @@
     Object.assign(window, {
         esc, fetchJson, sendJson, setStatus, flashStatus, withBusy,
         openModal, closeModal, fmtDateTime, saveErrorText,
+        askConfirm, askText, closeAskDialog, submitAskDialog, onAskDialogKey,
     });
 })();

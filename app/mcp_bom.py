@@ -32,6 +32,8 @@ ROWS_SCHEMA = {
                                       "description": "The server model exactly as printed (e.g. 'PowerEdge R760', 'ThinkSystem SR650 V3'), or null."},
                       "nodeCount": {"type": ["integer", "null"], "minimum": 1, "maximum": 1000,
                                     "description": "How many servers of this configuration the quote contains, or null if unclear."},
+                      "quantityBasis": {"type": "string", "enum": ["total", "perServer"], "default": "total",
+                                        "description": "What the printed component quantities count. 'total': all servers of the configuration together (a 3-server dual-socket build lists 6 processors; Lenovo DCSC exports, most Dell quotes). 'perServer': one server, with only the server line carrying the server count (a 3-server build lists 1 or 2 processors under a server line of 3; Lenovo bid quotes, Dell solution exports). The server multiplies per-server quantities; never do it yourself."},
                       "components": {
                           "type": "array", "minItems": 1, "maxItems": 500,
                           "items": {"type": "object", "additionalProperties": False,
@@ -42,7 +44,7 @@ ROWS_SCHEMA = {
                                         "description": {"type": "string", "minLength": 1, "maxLength": 300,
                                                         "description": "Verbatim, without trailing part numbers. Keep NVMe/SAS/SATA/HDD/SSD words for drives."},
                                         "quantity": {"type": "integer", "minimum": 1,
-                                                     "description": "TOTAL quantity across all servers of the configuration, exactly as printed. Do not sum or split."},
+                                                     "description": "Exactly as printed; quantityBasis says whether that is per server or for all servers. Do not sum, split or multiply."},
                                         "category": {"type": "string",
                                                      "enum": ["cpu", "memory", "storage", "controller", "nic", "chassis", "boss", "gpu", "other"],
                                                      "description": "controller: HBA/RAID/PERC; boss: BOSS or M.2 boot mirror; storage: drives; nic: network adapters; cpu; memory: DIMMs; chassis: the server base line; gpu; other: PSUs, rails, cables, licences, services, 'No BOSS'/'No Controller' lines, placement/configuration lines."}}}}}}},
@@ -78,6 +80,7 @@ def check_rows(caller, args):
     bom = agent_ingest.clamp(NormalizedBOM.from_dict(data))
     if not bom.configs or not any(c.components for c in bom.configs):
         raise invalid_input([{"field": "configs", "problem": "holds no components"}])
+    basis = agent_ingest.apply_quantity_basis(bom, data["configs"])
     demoted = agent_ingest.demote_non_parts(bom)
     try:
         bom, template = agent_ingest._round_trip(bom, caller.lang)
@@ -97,6 +100,7 @@ def check_rows(caller, args):
     meta = {"source_kind": "mcp_caller", "grounded": False, "demoted": demoted,
             "dropped": [], "model_changed": [],
             "instructions_detected": data["documentContainsInstructions"],
+            "quantity_basis": basis,
             "source_description": (args.get("source_description") or "")[:200] or None}
     return bom, result, meta, template, sizing
 
@@ -141,7 +145,7 @@ def _text(out):
       "screenshot the user shared, for compatibility with Scale Computing's HCL and rules. "
       + COPY_RULES + " The rows go through the same template and rules as an uploaded BOM, "
       "but the result is marked as caller-extracted and not grounded in the document. For a "
-      "spreadsheet or PDF the user can upload, prefer start_upload with kind=bom. Nothing is "
+      "spreadsheet, Word document or PDF the user can upload, prefer start_upload with kind=bom. Nothing is "
       "saved; use save_bom_check to keep it.",
       {"type": "object", "additionalProperties": False, "required": ["vendor", "configs"],
        "properties": ROWS_SCHEMA}, read_only=True)

@@ -1,26 +1,16 @@
 {% import "manual/_macros.html" as m with context %}
 
-<h3 id="my-sizings">My Sizings</h3>
-<p>{{ m.ui("My Sizings") }} in the header lists sizings across all projects.</p>
-{{ m.shot("my-sizings", "My Sizings") }}
-<ul>
-    <li><strong>My Sizings</strong> tab: the sizings you own{% if scale %}, plus the ones you
-        retrieved by code{% endif %}.</li>
-    <li><strong>My Organization</strong> tab: sizings of your colleagues (same email
-        domain){% if scale %}. For Scale Computing accounts this tab lists the sizings of the
-        other Scale Computing users instead{% endif %}.</li>
-    <li>The search box filters on name and share code.</li>
-    <li>{{ m.ui("Load") }} opens a sizing. {{ m.ui("Delete") }} deletes one of your
-        own.</li>
-</ul>
-<p>Sharing inside your organisation needs no action: your colleagues see your projects (with
-   <em>Also show my colleagues' projects</em>) and your sizings (in <em>My Organization</em>),
-   read-only. To work on a colleague's sizing, use <em>Copy to mine</em>.</p>
+<h3 id="sharing">Sharing with colleagues</h3>
+<p>Sharing inside your organisation needs no action: your colleagues see your projects, and
+   the sizings in them, in the <em>My Company</em> folder on the Projects screen
+   (see <a href="#project-folders">Folders</a>), read-only. To work on a colleague's sizing,
+   use <em>Copy to mine</em>.</p>
 
 <h3 id="share-codes">Share codes</h3>
 <p>Every project and every sizing has a 12-digit share code, shown on the project page and
-   after saving. Colleagues in your organisation can open a project by its code with
-   {{ m.ui("Open by code") }}. Your Scale Computing contact can use the code to look at your
+   after saving. Colleagues in your organisation can open either one by its code with
+   {{ m.ui("Open by code") }} on the Projects screen. A sizing code opens that sizing inside
+   its project. Your Scale Computing contact can use the code to look at your
    project or sizing when you ask for help.</p>
 
 <h3 id="your-name">Your name on proposals</h3>

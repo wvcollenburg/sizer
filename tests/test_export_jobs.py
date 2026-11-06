@@ -83,7 +83,7 @@ def _sized(c, project_id, name, **kw):
 def test_a_job_is_claimed_once(app):
     """Several worker threads poll the same table; only one may take a job."""
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(c, project["id"], "Site A")
     c.post(f"/api/projects/{project['id']}/export",
            json={"format": "pptx", "sizing_ids": [sizing["id"]]})
@@ -99,7 +99,7 @@ def test_a_job_is_claimed_once(app):
 
 def test_an_abandoned_job_returns_to_the_queue(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(c, project["id"], "Site A")
     c.post(f"/api/projects/{project['id']}/export",
            json={"format": "pptx", "sizing_ids": [sizing["id"]]})
@@ -119,7 +119,7 @@ def test_an_abandoned_job_returns_to_the_queue(app):
 
 def test_sections_follow_project_order(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Option 1")
     two = _sized(c, project["id"], "Option 2")
     c.post("/api/sizings/reorder",
@@ -135,7 +135,7 @@ def test_sections_follow_project_order(app):
 
 def test_sizings_without_a_proposal_are_skipped_not_fatal(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     good = _sized(c, project["id"], "Site A")
     bare = c.post("/api/configs/", json={
         "name": "Appliance build", "payload": {"mode": "appliance"},
@@ -151,7 +151,7 @@ def test_sizings_without_a_proposal_are_skipped_not_fatal(app):
 
 def test_a_sizing_deleted_after_queueing_does_not_break_the_build(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Site A")
     two = _sized(c, project["id"], "Site B")
 
@@ -168,7 +168,7 @@ def test_a_sizing_deleted_after_queueing_does_not_break_the_build(app):
 
 def test_editable_formats_stay_a_scale_privilege(app):
     c = client_for(app, PARTNER)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(c, project["id"], "Site A")
     for fmt, expected in (("pptx", 403), ("docx", 403), ("pdf", 202)):
         resp = c.post(f"/api/projects/{project['id']}/export",
@@ -178,7 +178,7 @@ def test_editable_formats_stay_a_scale_privilege(app):
 
 def test_export_needs_a_selection_and_a_known_format(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     assert c.post(f"/api/projects/{project['id']}/export",
                   json={"format": "pptx", "sizing_ids": []}).status_code == 400
     assert c.post(f"/api/projects/{project['id']}/export",
@@ -188,7 +188,7 @@ def test_export_needs_a_selection_and_a_known_format(app):
 def test_section_limit_is_enforced_before_the_job_runs(app, monkeypatch):
     monkeypatch.setattr(appmod, "MAX_EXPORT_SECTIONS", 1)
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Site A")
     two = _sized(c, project["id"], "Site B")
     resp = c.post(f"/api/projects/{project['id']}/export",
@@ -215,7 +215,7 @@ def test_a_section_missing_its_projection_is_skipped_not_fatal(app):
     """The generators index projection unconditionally, so one incomplete
     section would otherwise fail the whole bundle."""
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     good = _sized(c, project["id"], "Site A")
     partial = c.post("/api/configs/", json={
         "name": "Half sized", "payload": {"mode": "import"},
@@ -234,7 +234,7 @@ def test_a_section_missing_its_projection_is_skipped_not_fatal(app):
 
 def test_another_user_cannot_download_your_export(app):
     owner = client_for(app, SCALE)
-    project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = owner.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(owner, project["id"], "Site A")
     job = owner.post(f"/api/projects/{project['id']}/export",
                      json={"format": "pptx", "sizing_ids": [sizing["id"]]}).get_json()
@@ -246,7 +246,7 @@ def test_another_user_cannot_download_your_export(app):
 
 def test_an_expired_artifact_is_refused_even_if_the_file_remains(app, tmp_path):
     owner = client_for(app, SCALE)
-    project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = owner.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(owner, project["id"], "Site A")
     job = owner.post(f"/api/projects/{project['id']}/export",
                      json={"format": "pptx", "sizing_ids": [sizing["id"]]}).get_json()
@@ -269,7 +269,7 @@ def test_an_expired_artifact_is_refused_even_if_the_file_remains(app, tmp_path):
 def test_purge_removes_expired_artifacts_and_rows(app, tmp_path):
     from auth import _purge_expired_exports
     owner = client_for(app, SCALE)
-    project = owner.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = owner.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     sizing = _sized(owner, project["id"], "Site A")
     job = owner.post(f"/api/projects/{project['id']}/export",
                      json={"format": "pptx", "sizing_ids": [sizing["id"]]}).get_json()
@@ -292,7 +292,7 @@ def test_purge_removes_expired_artifacts_and_rows(app, tmp_path):
 
 def test_alternatives_are_never_summed(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Option 1", nodes=6)
     two = _sized(c, project["id"], "Option 2", nodes=9)
     for row in (one, two):
@@ -307,7 +307,7 @@ def test_alternatives_are_never_summed(app):
 
 def test_additive_sizings_are_summed(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Site A", nodes=6, cores=100)
     two = _sized(c, project["id"], "Site B", nodes=4, cores=80)
     for row in (one, two):
@@ -322,7 +322,7 @@ def test_additive_sizings_are_summed(app):
 
 def test_mixed_roles_and_stale_rows_are_flagged(app):
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     one = _sized(c, project["id"], "Option 1")
     two = _sized(c, project["id"], "Site B")
     unsized = c.post("/api/configs/", json={
@@ -347,7 +347,7 @@ def test_cluster_count_is_physical_clusters_not_sections(app):
     13-node single-site sizing would report 1 cluster while quoting 2.
     """
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     row = c.post("/api/configs/", json={
         "name": "All in one", "payload": {"mode": "import"},
         "project_id": project["id"]}).get_json()
@@ -368,7 +368,7 @@ def test_cluster_count_is_physical_clusters_not_sections(app):
 def test_two_source_clusters_report_two_clusters(app):
     """The comparison the feature was asked for: 2 clusters vs 1."""
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
 
     separate = c.post("/api/configs/", json={
         "name": "Two clusters", "payload": {"mode": "import"},
@@ -394,7 +394,7 @@ def test_multi_cluster_sizing_reports_one_total_row(app):
     """A sizing with several clusters has no single node count, so its clusters
     are summed into one row and carried as sub-rows."""
     c = client_for(app, SCALE)
-    project = c.post("/api/projects/", json={"name": "Acme"}).get_json()
+    project = c.post("/api/projects/", json={"name": "Acme", "customer_name": "Acme Corp"}).get_json()
     row = c.post("/api/configs/", json={
         "name": "Two sites", "payload": {"mode": "import"},
         "project_id": project["id"]}).get_json()

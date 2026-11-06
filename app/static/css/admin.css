@@ -849,3 +849,19 @@ hr {
     font-weight: 400; font-size: 0.88rem; color: var(--text);
 }
 #bom-agent-card .checkbox-inline.bom-agent-review input { width: auto; height: auto; margin: 0; }
+
+/* askConfirm / askText (common.js): the in-page confirm and prompt, built with
+   the shared modal classes. Above every other overlay (#catalog-modal is 1100),
+   since it is usually asked from inside one. */
+.ask-overlay { z-index: 2000; }
+.ask-dialog { max-width: 460px; }
+/* The message is a <label> (it names the text field); admin.css styles labels
+   as small uppercase form captions, which is wrong for a sentence. */
+.ask-dialog .ask-msg {
+    display: block; margin: 0 0 0.75rem; line-height: 1.45; white-space: pre-line;
+    text-transform: none; letter-spacing: normal; font-size: 0.95rem;
+    font-weight: 400; color: var(--text);
+}
+.ask-dialog .ask-msg:empty { display: none; }
+.ask-dialog input { width: 100%; }
+.ask-dialog input[hidden] { display: none; }

@@ -13,7 +13,6 @@
 // looks up by name, matching the wizard's approach.
 
 let currentProject = null;      // the open project's detail payload
-let projectList = [];
 let selectedSizings = new Set();
 let activeTagFilter = null;
 let panelSizing = null;         // the sizing whose panel is open
@@ -127,74 +126,284 @@ function backToProject() {
     openProject(currentProject.id);
 }
 
-// ── project home ────────────────────────────────────────────────────────────
+// ── project home: the project browser ───────────────────────────────────────
+// Folders on the left, a sortable table on the right. Active and Archived are
+// your own work (projects you created or hold a sizing in) split by whether the
+// project was closed; My Company is everyone in your organization, open and
+// closed alike. Folder, sort and search are per-viewer conveniences, so they
+// live in localStorage and fall back to defaults when it is unavailable.
 
-// Whose projects the home screen lists. Defaults to your own work; the toggle
-// widens it to the whole organization. Remembered across visits, since it is a
-// standing preference rather than a per-visit choice.
-function projectScope() {
+const PROJECT_FOLDERS = ['active', 'archived', 'company'];
+// The sort a folder opens with when the viewer hasn't picked one: newest work
+// first, and in Archived the most recently closed first.
+const FOLDER_DEFAULT_SORT = {
+    active: { key: 'updated', dir: 'desc' },
+    archived: { key: 'archived', dir: 'desc' },
+    company: { key: 'updated', dir: 'desc' },
+};
+let projectFolder = 'active';
+let projectSort = Object.assign({}, FOLDER_DEFAULT_SORT.active);
+let projectSearch = '';
+let myProjects = null;          // scope=mine rows (feeds Active + Archived)
+let companyProjects = null;     // scope=tenant rows, fetched on first visit
+
+function _pref(key, fallback) {
     try {
-        return localStorage.getItem('sizer.projectScope') === 'tenant' ? 'tenant' : 'mine';
+        const v = localStorage.getItem('sizer.' + key);
+        return v === null ? fallback : v;
     } catch (e) {
-        return 'mine';      // private mode / storage disabled
+        return fallback;        // private mode / storage disabled
     }
 }
 
-function toggleProjectScope(on) {
-    try {
-        localStorage.setItem('sizer.projectScope', on ? 'tenant' : 'mine');
-    } catch (e) { /* preference just won't persist */ }
-    loadProjects();
+function _setPref(key, value) {
+    try { localStorage.setItem('sizer.' + key, value); } catch (e) { /* won't persist */ }
+}
+
+function _restoreBrowserPrefs() {
+    let folder = _pref('projectFolder', null);
+    // The old "also show my colleagues' projects" checkbox maps onto the
+    // My Company folder, so a viewer who had it ticked lands there once.
+    if (!folder && _pref('projectScope', 'mine') === 'tenant') folder = 'company';
+    projectFolder = PROJECT_FOLDERS.includes(folder) ? folder : 'active';
+    projectSort = _folderSort(projectFolder);
+}
+
+function _folderSort(folder) {
+    const saved = _pref('projectSort.' + folder, '');
+    const [key, dir] = saved.split(':');
+    if (['name', 'customer', 'owner', 'sizings', 'updated', 'archived'].includes(key)
+        && (dir === 'asc' || dir === 'desc')) {
+        return { key: key, dir: dir };
+    }
+    return Object.assign({}, FOLDER_DEFAULT_SORT[folder]);
 }
 
 async function loadProjects() {
-    const scope = projectScope();
-    const box = document.getElementById('project-scope-all');
-    if (box) box.checked = scope === 'tenant';
-    const { ok, data } = await fetchJson('/api/projects/?scope=' + scope);
-    const host = document.getElementById('project-list');
-    if (!host) return;
+    _restoreBrowserPrefs();
+    const search = document.getElementById('project-search');
+    if (search) search.value = projectSearch;
+    myProjects = null;
+    companyProjects = null;
+    const { ok, data } = await fetchJson('/api/projects/?scope=mine');
     if (!ok) {
-        host.innerHTML = `<p class="project-empty">${esc(tt('project.home.load_failed'))}</p>`;
+        const host = document.getElementById('project-list');
+        if (host) host.innerHTML = `<p class="project-empty">${esc(tt('project.home.load_failed'))}</p>`;
         return;
     }
-    projectList = data || [];
-    if (!projectList.length) {
-        // Distinguish "you have none" from "none of yours, but colleagues have
-        // some" — otherwise the toggle looks broken when the list stays empty.
-        const key = scope === 'tenant' ? 'project.home.empty' : 'project.home.empty_mine';
+    myProjects = data || [];
+    if (projectFolder === 'company') await _loadCompanyProjects();
+    renderProjectBrowser();
+}
+
+async function _loadCompanyProjects() {
+    const { ok, data } = await fetchJson('/api/projects/?scope=tenant');
+    companyProjects = ok ? (data || []) : [];
+}
+
+async function selectProjectFolder(folder) {
+    if (!PROJECT_FOLDERS.includes(folder)) return;
+    projectFolder = folder;
+    projectSort = _folderSort(folder);
+    _setPref('projectFolder', folder);
+    if (folder === 'company' && companyProjects === null) {
+        renderProjectBrowser();         // show the folder as selected right away
+        await _loadCompanyProjects();
+    }
+    renderProjectBrowser();
+}
+
+function onProjectSearch(value) {
+    projectSearch = (value || '').trim();
+    renderProjectTable();
+}
+
+function sortProjectsBy(key) {
+    if (projectSort.key === key) {
+        projectSort.dir = projectSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        // Text columns read A→Z first; dates and counts newest/largest first.
+        projectSort = { key: key, dir: (key === 'name' || key === 'customer' || key === 'owner') ? 'asc' : 'desc' };
+    }
+    _setPref('projectSort.' + projectFolder, projectSort.key + ':' + projectSort.dir);
+    renderProjectTable();
+}
+
+function _folderRows(folder) {
+    if (folder === 'company') return companyProjects || [];
+    const mine = myProjects || [];
+    return folder === 'archived'
+        ? mine.filter(p => p.archived_at)
+        : mine.filter(p => !p.archived_at);
+}
+
+function _sortValue(p, key) {
+    switch (key) {
+        case 'name': return (p.name || '').toLocaleLowerCase();
+        case 'customer': return (p.customer_name || '').toLocaleLowerCase();
+        case 'owner': return (p.owner_name || p.owner_email || '').toLocaleLowerCase();
+        case 'sizings': return p.sizing_count || 0;
+        case 'archived': return p.archived_at || '';
+        default: return p.updated_at || p.created_at || '';
+    }
+}
+
+function _sortedRows(rows) {
+    const { key, dir } = projectSort;
+    const sign = dir === 'asc' ? 1 : -1;
+    return rows.slice().sort((a, b) => {
+        const va = _sortValue(a, key), vb = _sortValue(b, key);
+        // Blanks (no customer, never closed) always sink to the bottom,
+        // whichever way the column is sorted — they are the least informative.
+        const ea = va === '', eb = vb === '';
+        if (ea !== eb) return ea ? 1 : -1;
+        const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb));
+        // Ties fall back to the project name, always A→Z.
+        return c ? c * sign : (a.name || '').localeCompare(b.name || '');
+    });
+}
+
+function renderProjectBrowser() {
+    document.querySelectorAll('.project-folder').forEach(btn => {
+        const on = btn.getAttribute('data-folder') === projectFolder;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-current', on ? 'true' : 'false');
+    });
+    const counts = {
+        active: myProjects ? _folderRows('active').length : null,
+        archived: myProjects ? _folderRows('archived').length : null,
+        company: companyProjects ? companyProjects.length : null,
+    };
+    PROJECT_FOLDERS.forEach(f => {
+        const el = document.getElementById('project-folder-count-' + f);
+        if (el) el.textContent = counts[f] === null ? '' : String(counts[f]);
+    });
+    renderProjectTable();
+}
+
+function renderProjectTable() {
+    const host = document.getElementById('project-list');
+    if (!host) return;
+    if (projectFolder === 'company' && companyProjects === null) {
+        host.innerHTML = `<p class="project-empty">${esc(tt('project.browser.loading'))}</p>`;
+        return;
+    }
+    const all = _folderRows(projectFolder);
+    const q = projectSearch.toLocaleLowerCase();
+    const rows = q ? all.filter(p => [p.name, p.customer_name, p.opportunity_ref, p.code,
+                                      p.owner_name, p.owner_email]
+        .some(v => (v || '').toLocaleLowerCase().includes(q))) : all;
+    if (!rows.length) {
+        const key = q ? 'project.browser.no_match' : 'project.browser.empty_' + projectFolder;
         host.innerHTML = `<p class="project-empty">${esc(tt(key))}</p>`;
         return;
     }
-    host.innerHTML = projectList.map(projectCard).join('');
+
+    const company = projectFolder === 'company';
+    const cols = [
+        ['name', 'project.browser.col_name'],
+        ['customer', 'project.browser.col_customer'],
+        company ? ['owner', 'project.browser.col_owner'] : null,
+        ['sizings', 'project.browser.col_sizings', 'col-num'],
+        ['updated', 'project.browser.col_updated'],
+        ['archived', 'project.browser.col_archived'],
+    ].filter(Boolean);
+    const head = cols.map(([key, label, cls]) => {
+        const on = projectSort.key === key;
+        const aria = on ? (projectSort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+        const arrow = on ? (projectSort.dir === 'asc' ? '▲' : '▼') : '';
+        return `<th class="${cls || ''}" aria-sort="${aria}"><button type="button" class="project-sort-btn${on ? ' is-sorted' : ''}"`
+            + ` data-click='["sortProjectsBy","${key}"]'>${esc(tt(label))}`
+            + `<span class="project-sort-arrow" aria-hidden="true">${arrow}</span></button></th>`;
+    }).join('');
+
+    host.innerHTML = `<table class="sizing-table project-table">
+        <thead><tr>${head}<th class="col-actions"></th></tr></thead>
+        <tbody>${_sortedRows(rows).map(p => projectRow(p, company)).join('')}</tbody>
+    </table>`;
 }
 
-function projectCard(p) {
-    const count = p.sizing_count || 0;
-    const sub = [
-        p.customer_name ? esc(p.customer_name) : '',
-        tt('project.card.sizings', { count: count }),
-        // Only when there is one: most projects have no BOM checked yet.
-        p.bom_count ? tt('project.card.boms', { count: p.bom_count }) : '',
-        fmtDateTime(p.updated_at, { dateOnly: true }),
-    ].filter(Boolean).join(' · ');
+function projectRow(p, company) {
     const badge = p.is_scratch
-        ? `<span class="project-badge" title="${esc(tt('project.card.scratch_hint'))}">${esc(tt('project.card.scratch'))}</span>`
+        ? ` <span class="project-badge" title="${esc(tt('project.card.scratch_hint'))}">${esc(tt('project.card.scratch'))}</span>`
         : '';
-    const shared = p.source && p.source !== 'owned'
-        ? `<span class="project-badge project-badge-shared">${esc(tt('project.card.shared'))}</span>` : '';
-    return `<button class="project-card" data-click='["openProject",${p.id}]'>
-        <span class="project-card-name">${esc(p.name)}${badge}${shared}</span>
-        <span class="project-card-sub">${sub}</span>
-    </button>`;
+    const shared = !company && p.source && p.source !== 'owned'
+        ? ` <span class="project-badge project-badge-shared">${esc(tt('project.card.shared'))}</span>` : '';
+    const boms = p.bom_count
+        ? `<span class="project-row-sub">${esc(tt('project.card.boms', { count: p.bom_count }))}</span>` : '';
+    const archived = p.archived_at
+        ? esc(fmtDateTime(p.archived_at, { dateOnly: true }))
+        : '<span class="project-row-blank">—</span>';
+    const owner = company
+        ? `<td class="project-owner" title="${esc(p.owner_email || '')}">${esc(p.owner_name || p.owner_email || '')}</td>` : '';
+
+    // Close / reopen right on the row, so tidying up a long list doesn't mean
+    // opening each project. Owner-only (the server checks too), never for the
+    // personal project.
+    let action = '';
+    if (p.can_edit && !p.is_scratch) {
+        const fn = p.archived_at ? 'unarchiveProject' : 'archiveProject';
+        const label = esc(tt(p.archived_at ? 'project.archive.reopen' : 'project.archive.close'));
+        action = `<button class="icon-btn" data-click='["${fn}",${p.id}]' title="${label}" aria-label="${label}">`
+            + `${p.archived_at ? ICON_UNARCHIVE : ICON_ARCHIVE}</button>`;
+    }
+
+    return `<tr class="${p.archived_at ? 'is-archived' : ''}">
+        <td class="sizing-name"><button class="sizing-open" data-click='["openProject",${p.id}]'>${esc(p.name)}</button>${badge}${shared}${boms}</td>
+        <td class="project-customer">${p.customer_name ? esc(p.customer_name) : '<span class="project-row-blank">—</span>'}</td>
+        ${owner}
+        <td class="col-num">${p.sizing_count || 0}</td>
+        <td>${esc(fmtDateTime(p.updated_at, { dateOnly: true }))}</td>
+        <td>${archived}</td>
+        <td class="col-actions">${action}</td>
+    </tr>`;
+}
+
+async function _postArchive(projectId, archived) {
+    const url = '/api/projects/' + projectId + (archived ? '/archive' : '/unarchive');
+    const { ok, data } = await fetchJson(url, { method: 'POST' });
+    if (!ok) {
+        if (window.showInfoModal) window.showInfoModal(tt('project.archive.failed'), (data && data.error) || '');
+        return null;
+    }
+    return data;
+}
+
+async function archiveProject(projectId) {
+    const row = await _postArchive(projectId, true);
+    if (!row) return;
+    if (window.toast) window.toast(tt('project.archive.closed_toast', { name: row.name }));
+    loadProjects();
+}
+
+async function unarchiveProject(projectId) {
+    const row = await _postArchive(projectId, false);
+    if (!row) return;
+    if (window.toast) window.toast(tt('project.archive.reopened_toast', { name: row.name }));
+    loadProjects();
+}
+
+// Customers already in use, offered as suggestions in New project so the same
+// customer is spelled the same way and sorts together.
+function _knownCustomers() {
+    const seen = new Map();
+    (myProjects || []).concat(companyProjects || []).forEach(p => {
+        const c = (p.customer_name || '').trim();
+        if (c && !seen.has(c.toLocaleLowerCase())) seen.set(c.toLocaleLowerCase(), c);
+    });
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
 }
 
 // ── new project ─────────────────────────────────────────────────────────────
 
 function openNewProject() {
     const input = document.getElementById('new-project-name');
+    const customer = document.getElementById('new-project-customer');
     hideError('new-project-error');
     if (input) input.value = '';
+    if (customer) customer.value = '';
+    const list = document.getElementById('new-project-customers');
+    if (list) list.innerHTML = _knownCustomers().map(c => `<option value="${esc(c)}"></option>`).join('');
     openModal('new-project-modal');
     if (input) setTimeout(() => input.focus(), 30);
 }
@@ -211,25 +420,64 @@ async function submitNewProject() {
     const input = document.getElementById('new-project-name');
     const name = (input && input.value || '').trim();
     if (!name) return showError('new-project-error', tt('project.new.name_required'));
+    const customerEl = document.getElementById('new-project-customer');
+    const customer = (customerEl && customerEl.value || '').trim();
+    if (!customer) {
+        if (customerEl) customerEl.focus();
+        return showError('new-project-error', tt('project.new.customer_required'));
+    }
 
     // The project remembers the language it was created in, so an export can
     // later ask which language to use when the session differs (decision 25).
-    const { ok, data } = await sendJson('/api/projects/', 'POST', { name: name, lang: window.I18N_ACTIVE || undefined });
+    const { ok, data } = await sendJson('/api/projects/', 'POST', { name: name, customer_name: customer, lang: window.I18N_ACTIVE || undefined });
     if (!ok) return showError('new-project-error', (data && data.error) || tt('auth.generic_error'));
     closeNewProject();
     openProject(data.id);
 }
 
-async function openProjectByCodePrompt() {
-    const code = window.prompt(tt('project.home.code_prompt'));
-    if (!code) return;
-    const { ok, data } = await fetchJson('/api/projects/code/' + encodeURIComponent(code.trim()));
+// One box for both kinds of share code. A project code opens the project; a
+// sizing code opens the sizing — inside its project when you may see that
+// project, otherwise on its own (the server decides, see open_by_code).
+function openProjectByCodePrompt() {
+    const input = document.getElementById('open-code-input');
+    hideError('open-code-error');
+    if (input) input.value = '';
+    openModal('open-code-modal');
+    if (input) setTimeout(() => input.focus(), 30);
+}
+
+function closeOpenByCode() {
+    closeModal('open-code-modal');
+}
+
+function onOpenByCodeKey(e) {
+    if (e && e.key === 'Enter') { e.preventDefault(); submitOpenByCode(); }
+}
+
+async function submitOpenByCode() {
+    const input = document.getElementById('open-code-input');
+    const code = (input && input.value || '').trim();
+    if (!code) { if (input) input.focus(); return; }
+    const { ok, status, data } = await fetchJson('/api/projects/open-code/' + encodeURIComponent(code));
+    // Errors stay in the box, so a typo can be fixed in place.
     if (!ok) {
-        return window.showInfoModal
-            ? window.showInfoModal(tt('project.home.not_found_title'), (data && data.error) || '')
-            : null;
+        return showError('open-code-error', status === 404
+            ? tt('project.home.not_found_title')
+            : (data && data.error) || tt('auth.generic_error'));
     }
-    openProject(data.id);
+    closeOpenByCode();
+    if (data.kind === 'project') return openProject(data.project_id);
+
+    // A sizing. Its project, when visible, becomes the open project so the
+    // sizer shows "In project …" and Back returns there.
+    currentProject = null;
+    if (data.project_id) {
+        const home = await fetchJson('/api/projects/' + data.project_id);
+        if (home.ok) currentProject = home.data;
+    }
+    selectedSizings = new Set();
+    activeTagFilter = null;
+    openSizing(data.sizing_id);
 }
 
 async function startQuickSizing() {
@@ -276,6 +524,7 @@ function renderProject() {
         }
         meta.innerHTML = bits.join(' · ');
     }
+    renderArchivedBar();
     renderTagFilter();
     renderSizingRows();
     renderReplication();
@@ -342,6 +591,9 @@ const ICON_SLIDERS = _svg('<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2
 const ICON_COPY = _svg('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
 const ICON_TRASH = _svg('<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>');
 // Server/rack: "which box does this export describe".
+// Archive box (close a project) and archive-restore (reopen it).
+const ICON_ARCHIVE = _svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>');
+const ICON_UNARCHIVE = _svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>');
 const ICON_SERVER = _svg('<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>');
 
 // "first.xlsx +2" for a sizing built from several files (source_meta.files).
@@ -1127,8 +1379,8 @@ function addSizingToProject() {
 
 async function addDrTarget() {
     if (!currentProject) return;
-    const name = window.prompt(tt('project.view.dr_prompt'), tt('project.view.dr_default'));
-    if (!name) return;
+    const name = await askText(tt('project.view.dr_prompt'), { title: tt('project.view.new_dr'), value: tt('project.view.dr_default'), okLabel: tt('common.add') });
+    if (!name || !name.trim()) return;
     const { ok, data } = await sendJson(`/api/projects/${currentProject.id}/dr-target`, 'POST', { name: name });
     if (!ok) return info(tt('project.view.dr_failed'), (data && data.error) || '');
     openProject(currentProject.id);
@@ -1173,7 +1425,7 @@ async function duplicateSizing(id) {
 }
 
 async function deleteProjectSizing(id) {
-    if (!window.confirm(tt('project.action.delete_confirm'))) return;
+    if (!(await askConfirm(tt('project.action.delete_confirm'), { danger: true, okLabel: tt('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/configs/' + id, { method: 'DELETE' });
     if (!ok) {
         // 409: something replicates into this sizing and would lose its
@@ -1347,6 +1599,14 @@ function openProjectSettings() {
     row.hidden = !hasField;
     if (hasField) document.getElementById('ps-salesforce').value = currentProject.salesforce_url || '';
 
+    // Close / reopen: owner-only, and never for the personal project.
+    const archiveBtn = document.getElementById('ps-archive-btn');
+    if (archiveBtn) {
+        archiveBtn.hidden = !currentProject.can_edit || currentProject.is_scratch;
+        archiveBtn.textContent = tt(currentProject.archived_at
+            ? 'project.archive.reopen' : 'project.archive.close');
+    }
+
     refreshPreparedByHint();
     openModal('project-settings-modal');
 }
@@ -1397,9 +1657,47 @@ async function submitProjectSettings() {
     openProject(currentProject.id);
 }
 
+// "This project is closed" above the sizings, with the way back for its owner.
+function renderArchivedBar() {
+    const bar = document.getElementById('project-archived-bar');
+    if (!bar) return;
+    const closed = !!(currentProject && currentProject.archived_at);
+    bar.hidden = !closed;
+    if (!closed) return;
+    document.getElementById('project-archived-text').textContent = tt('project.archive.banner', {
+        date: fmtDateTime(currentProject.archived_at, { dateOnly: true }),
+    });
+    const reopen = document.getElementById('project-archived-reopen');
+    if (reopen) reopen.hidden = !currentProject.can_edit;
+}
+
+async function toggleArchiveCurrentProject() {
+    if (!currentProject) return;
+    const closing = !currentProject.archived_at;
+    const row = await _postArchive(currentProject.id, closing);
+    if (!row) return;
+    closeProjectSettings();
+    if (closing) {
+        if (window.toast) window.toast(tt('project.archive.closed_toast', { name: row.name }));
+        // Closing is "done with this one": back to the list it just left.
+        backToProjects();
+    } else {
+        if (window.toast) window.toast(tt('project.archive.reopened_toast', { name: row.name }));
+        openProject(currentProject.id, true, false);
+    }
+}
+
+async function unarchiveCurrentProject() {
+    if (!currentProject) return;
+    const row = await _postArchive(currentProject.id, false);
+    if (!row) return;
+    if (window.toast) window.toast(tt('project.archive.reopened_toast', { name: row.name }));
+    openProject(currentProject.id, true, false);
+}
+
 async function deleteCurrentProject() {
     if (!currentProject) return;
-    if (!window.confirm(tt('project.settings.delete_confirm', { name: currentProject.name }))) return;
+    if (!(await askConfirm(tt('project.settings.delete_confirm', { name: currentProject.name }), { danger: true, okLabel: tt('common.delete') }))) return;
     const { ok, data } = await fetchJson('/api/projects/' + currentProject.id, { method: 'DELETE' });
     if (!ok) return showError('project-settings-error', (data && data.error) || '');
     closeProjectSettings();
@@ -1677,14 +1975,16 @@ function info(title, msg) {
 Object.assign(window, {
     openProjectsHome, backToProjects, backToProject, openProject,
     openNewProject, closeNewProject, submitNewProject, onNewProjectKey,
-    openProjectByCodePrompt, startQuickSizing,
+    openProjectByCodePrompt, closeOpenByCode, onOpenByCodeKey, submitOpenByCode, startQuickSizing,
     addSizingToProject, addDrTarget, openSizing, duplicateSizing, deleteProjectSizing,
     openSizingPanel, closeSizingPanel, submitSizingPanel, togglePanelTag,
     onNewTagKey, addTagFromInput,
     openProjectSettings, closeProjectSettings, submitProjectSettings,
     refreshPreparedByHint, usePreparedByMe,
     deleteCurrentProject,
-    toggleSizing, clearSizingSelection, filterByTag, toggleProjectScope,
+    toggleSizing, clearSizingSelection, filterByTag,
+    selectProjectFolder, onProjectSearch, sortProjectsBy, archiveProject, unarchiveProject,
+    toggleArchiveCurrentProject, unarchiveCurrentProject,
     activeProjectId, currentProjectSizings, enterSizer, setSizerSizingName,
     saveAndReturnToProject,
     bootFromUrl,

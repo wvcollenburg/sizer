@@ -1228,7 +1228,7 @@ async function splitLegacySizing() {
         id = parseInt(new URLSearchParams(location.search).get('sizing'), 10) || null;
     }
     if (!id) return;
-    if (!confirm(window.t('legacy.split_confirm'))) return;
+    if (!(await askConfirm(window.t('legacy.split_confirm'), { title: window.t('legacy.split_btn') }))) return;
     try {
         const { ok, data: d } = await fetchJson(`/api/sizings/${id}/split`, {method: 'POST'});
         if (!ok) throw new Error((d && d.error) || window.t('auth.generic_error'));
@@ -1577,11 +1577,11 @@ function mergeKeepBothVms() {
     refreshMerge();
 }
 
-function onMergeTargetChange(i, el) {
+async function onMergeTargetChange(i, el) {
     const g = pendingMerge.result.groups[i];
     let v = el.value;
     if (v === '__new__') {
-        v = (prompt(window.t('merge.new_cluster_prompt'), g.cluster || '') || '').trim();
+        v = ((await askText(window.t('merge.new_cluster_prompt'), { title: window.t('merge.new_cluster').replace(/[\u2026.]+$/, ''), value: g.cluster || '' })) || '').trim();
         if (!v) { renderMergeDialog(); return; }
     }
     pendingMerge.mapping[g.key] = v;

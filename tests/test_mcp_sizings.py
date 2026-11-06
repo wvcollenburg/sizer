@@ -340,8 +340,12 @@ def test_save_sizing_projects_and_refusals(world):
     s = call(c, "save_sizing", {"name": "Quick", "workload": WORKLOAD})["structuredContent"]
     assert s["sizing"]["project"]["name"] == "Unfiled"
     # A new project.
+    r = call(c, "save_sizing", {"name": "Site B", "workload": WORKLOAD,
+                                "new_project_name": "Globex"})
+    assert _err(r)["invalid"][0]["field"] == "new_project_customer"   # customer is required
     s = call(c, "save_sizing", {"name": "Site B", "workload": WORKLOAD,
-                                "new_project_name": "Globex"})["structuredContent"]
+                                "new_project_name": "Globex",
+                                "new_project_customer": "Globex Corp"})["structuredContent"]
     assert s["sizing"]["project"]["created"] is True and s["sizing"]["project"]["name"] == "Globex"
     s2 = call(c, "list_projects", {})["structuredContent"]
     assert "Globex" in [p["name"] for p in s2["projects"]]
@@ -428,9 +432,11 @@ def test_create_project_is_the_new_project_button(world):
     saved = call(c, "save_sizing", {"name": "Site A", "workload": WORKLOAD,
                                     "project_id": p["id"]})["structuredContent"]
     assert saved["sizing"]["project"]["id"] == p["id"] and saved["sizing"]["project"]["created"] is False
-    # Only a name is required, and a blank one is refused.
-    r = call(c, "create_project", {"name": "   "})
+    # A name and a customer are required; blanks are refused.
+    r = call(c, "create_project", {"name": "   ", "customer_name": "Initech"})
     assert _err(r)["code"] == "invalid_input"
+    r = call(c, "create_project", {"name": "No customer", "customer_name": "  "})
+    assert _err(r)["missing"] == ["customer_name"]
     # Invisible to another tenant; visible to a colleague as not editable.
     _as(ids["carol"])
     assert "Initech refresh" not in [q["name"] for q in call(
@@ -443,3 +449,15 @@ def test_create_project_is_the_new_project_button(world):
     with appmod.app.app_context():
         row = AdminAuditLog.query.filter_by(action="mcp.create_project").one()
         assert "Initech refresh" in row.detail and str(p["id"]) in row.detail
+    _as(ids["alice"])
+    # A closed project drops out of list_projects unless asked for.
+    with appmod.app.app_context():
+        from project_models import Project
+        from auth_models import _utcnow
+        closed = db.session.get(Project, p["id"])
+        closed.archived_at = _utcnow()
+        db.session.commit()
+    listed = call(c, "list_projects", {})["structuredContent"]["projects"]
+    assert p["id"] not in [q["id"] for q in listed]
+    listed = call(c, "list_projects", {"include_archived": True})["structuredContent"]["projects"]
+    assert [q["archived_at"] is not None for q in listed if q["id"] == p["id"]] == [True]

@@ -76,6 +76,12 @@ class Project(db.Model):
     # these are competing options or parts of one estate.
     default_role = db.Column(db.String(12))
 
+    # Set when the owner closes the project: it moves to the Archived folder of
+    # the project browser. Purely a filing state — a closed project stays fully
+    # usable and can be reopened, so nothing else keys off it.
+    archived_at = db.Column(db.DateTime(timezone=True))
+    archived_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime(timezone=True))
     deleted_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
@@ -109,6 +115,8 @@ class Project(db.Model):
             "is_scratch": self.is_scratch,
             "default_role": self.default_role,
             "owner_email": self.owner.email if self.owner else None,
+            "owner_name": self.owner.display_name if self.owner else None,
+            "archived_at": _iso(self.archived_at),
             "tenant_domain": self.tenant.domain if self.tenant else None,
             "is_deleted": self.is_deleted,
             "created_at": _iso(self.created_at),

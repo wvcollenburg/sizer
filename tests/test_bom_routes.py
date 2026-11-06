@@ -86,7 +86,7 @@ def promote(app, email):
 
 
 def make_project(c, name="Acme"):
-    r = c.post("/api/projects/", json={"name": name})
+    r = c.post("/api/projects/", json={"name": name, "customer_name": "Acme Corp"})
     assert r.status_code == 201, r.get_data(as_text=True)
     return r.get_json()
 
@@ -152,8 +152,8 @@ def test_capabilities_reports_catalog_and_no_agent_without_a_key(app):
     d = c.get("/api/bom/capabilities").get_json()
     assert d["agent_available"] is False
     # Without the agent only what the local parsers read is accepted
-    # (spreadsheets and PDFs: bom/parsers/pdf_*.py).
-    assert d["accepted_extensions"] == [".xlsx", ".xls", ".csv", ".pdf"]
+    # (spreadsheets, the Lenovo bid quote in Word, and PDFs: bom/parsers/pdf_*.py).
+    assert d["accepted_extensions"] == [".xlsx", ".xls", ".csv", ".docx", ".pdf"]
     assert d["catalog"]["platforms"] == 1 and d["catalog"]["components"] == 4
     assert d["template_url"] == "/api/bom/template"
 

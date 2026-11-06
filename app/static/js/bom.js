@@ -935,7 +935,7 @@
     async function bomDelete() {
         const check = bomState.current;
         if (!check || bomState.busy) return;
-        if (!window.confirm(t('bom.confirm_delete', { name: check.name || '' }))) return;
+        if (!(await askConfirm(t('bom.confirm_delete', { name: check.name || '' }), { danger: true, okLabel: t('common.delete') }))) return;
         const { ok, data } = await busy(() => fetchJson(`/api/bom-checks/${check.id}`, { method: 'DELETE' }));
         if (!ok) {
             bomShowError((data && data.error) || t('bom.err.delete_failed'), []);

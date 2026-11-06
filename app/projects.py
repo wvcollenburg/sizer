@@ -158,8 +158,9 @@ def list_projects():
     Defaults to **their own work**: projects they created, plus any project
     holding a sizing they made — a colleague can own the project while your
     sizing lives in it. ``?scope=tenant`` widens it to everything in the
-    organization, which is the opt-in behind the checkbox rather than the
-    default; a shared tenant would otherwise bury your own engagements.
+    organization: the My Company folder of the project browser. Closed
+    projects are included either way (``archived_at`` set); the browser files
+    them under Archived.
     """
     user = current_user()
     scope = (request.args.get("scope") or "mine").lower()
@@ -175,14 +176,17 @@ def list_projects():
 @projects_bp.route("/", methods=["POST"])
 @login_required
 def create_project():
-    """Creation asks for a name and nothing else (decision 24). Optional detail
-    is filled in later from project settings, so a partner is never required to
-    hand over customer information to use the tool."""
+    """Creation asks for a name and the customer it is for. The customer used to
+    be optional (decision 24), but with many projects open at once the name
+    alone stopped telling them apart, so the project browser sorts and searches
+    on it. Everything else is filled in later from project settings."""
     user = current_user()
     data = json_body()
     name = (data.get("name") or "").strip()
     if not name:
         return jsonify({"error": "A project name is required"}), 400
+    if not (data.get("customer_name") or "").strip():
+        return jsonify({"error": "A customer name is required"}), 400
 
     from i18n import SUPPORTED_LANGS
     lang = (data.get("lang") or "").strip().lower()
@@ -310,6 +314,10 @@ def _apply_optional_fields(project, data, user):
             continue
         value = data.get(field)
         value = (value or "").strip()[:limit] or None
+        if field == "customer_name" and value is None and not project.is_scratch:
+            # Required since the project browser; only the personal scratch
+            # project has no customer.
+            return jsonify({"error": "Customer name cannot be empty"}), 400
         if field == "lang":
             # This is handed straight to the export translator, so an unknown
             # code would silently produce an English document rather than an
@@ -331,6 +339,42 @@ def _apply_optional_fields(project, data, user):
                          "Salesforce domain."
             }), 400
     return None
+
+
+@projects_bp.route("/<int:project_id>/archive", methods=["POST"])
+@login_required
+def archive_project(project_id):
+    """Close a project: it moves to the Archived folder of the project browser.
+
+    A filing state only — the project and its sizings stay usable, and
+    reopening puts it back under Active projects. The personal scratch project
+    is where quick sizings land, so it can't be closed."""
+    return _set_archived(project_id, True)
+
+
+@projects_bp.route("/<int:project_id>/unarchive", methods=["POST"])
+@login_required
+def unarchive_project(project_id):
+    """Reopen a closed project."""
+    return _set_archived(project_id, False)
+
+
+def _set_archived(project_id, archived):
+    user = current_user()
+    project, err = _owned_project_or_error(project_id, user)
+    if err:
+        return err
+    if project.is_scratch:
+        return jsonify({"error": "Your personal project cannot be closed."}), 400
+    if archived and not project.archived_at:
+        project.archived_at = _utcnow()
+        project.archived_by_user_id = user.id
+    elif not archived:
+        project.archived_at = None
+        project.archived_by_user_id = None
+    db.session.commit()
+    return jsonify(project.to_summary(user, _project_source_for(user, project),
+                                      sizing_count=_sizing_count(project.id)))
 
 
 @projects_bp.route("/<int:project_id>", methods=["DELETE"])
@@ -371,6 +415,39 @@ def get_project_by_code(code):
         return jsonify({"error": "No project found for that code"}), 404
     return jsonify(project.to_summary(
         user, source, sizing_count=_sizing_count(project.id)))
+
+
+@projects_bp.route("/open-code/<code>", methods=["GET"])
+@login_required
+@limiter.limit("30 per minute")
+def open_by_code(code):
+    """The Projects screen's one "Open by code" box, for both kinds of code.
+
+    A project code opens the project. A sizing code opens that sizing — inside
+    its project when the user may see the project anyway (``project_id``), or
+    on its own when they may not: a sizing code shares one sizing, and opening
+    it must never hand over the rest of the project (a scale user retrieving a
+    partner's sizing gets a link to that sizing only, as before).
+
+    Visibility and cross-tenant rules are exactly those of the two single-kind
+    routes, which stay for the API and MCP."""
+    from auth_models import ScaleConfigLink
+    user = current_user()
+    code = (code or "").strip()
+
+    project = Project.query.filter_by(code=code).first()
+    if resolve_by_code(user, project, ScaleProjectLink, "project_id"):
+        return jsonify({"kind": "project", "project_id": project.id})
+
+    config = Configuration.query.filter_by(code=code).first()
+    if resolve_by_code(user, config, ScaleConfigLink, "configuration_id") is None:
+        return jsonify({"error": "Nothing found for that code"}), 404
+    project_id = None
+    if config.project_id:
+        home, _ = _visible_project(config.project_id, user)
+        if home is not None and not home.is_deleted:
+            project_id = home.id
+    return jsonify({"kind": "sizing", "sizing_id": config.id, "project_id": project_id})
 
 
 @projects_bp.route("/<int:project_id>/source-check", methods=["POST"])

@@ -45,7 +45,7 @@ def files(tmp_path_factory):
 
 
 def _project(s, name):
-    return s.api("POST", "/api/projects/", {"name": name})["data"]["id"]
+    return s.api("POST", "/api/projects/", {"name": name, "customer_name": "Acme Corp"})["data"]["id"]
 
 
 def _new_import(s, pid):

@@ -44,7 +44,7 @@ def _discard_switch(s, mode):
 def test_discard_from_a_saved_sizing_lands_on_the_target_mode(server, browser):
     s = Session(browser, server, USER)
     try:
-        pid = s.api("POST", "/api/projects/", {"name": "Mode switch"})["data"]["id"]
+        pid = s.api("POST", "/api/projects/", {"name": "Mode switch", "customer_name": "Acme Corp"})["data"]["id"]
         sid = _manual_sizing(s, pid)
         s.goto("/?project=%d&sizing=%d" % (pid, sid), settle=1500)
         assert s.page.evaluate("currentMode") == "manual"
@@ -67,7 +67,7 @@ def test_discard_from_a_saved_sizing_lands_on_the_target_mode(server, browser):
 def test_discard_from_an_unsaved_sizer_stays_in_the_sizer(server, browser):
     s = Session(browser, server, USER)
     try:
-        pid = s.api("POST", "/api/projects/", {"name": "Mode switch 2"})["data"]["id"]
+        pid = s.api("POST", "/api/projects/", {"name": "Mode switch 2", "customer_name": "Acme Corp"})["data"]["id"]
         s.goto("/?project=%d&new=1" % pid, settle=1000)
         s.page.evaluate("void requestSwitchMode('manual')")
         s.page.wait_for_timeout(500)
