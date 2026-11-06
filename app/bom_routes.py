@@ -88,7 +88,7 @@ LOCAL_EXTENSIONS = PARSER_EXTENSIONS + (".pdf",)
 # Files worth keeping to teach the checker a layout: anything with text a
 # parser can be written for. Pictures are not (owner, 2026-09-30: a lost
 # cause — the agent reads them, nobody will write a parser for a photo).
-SHAREABLE_EXTENSIONS = LOCAL_EXTENSIONS + (".docx", ".txt")
+SHAREABLE_EXTENSIONS = tuple(dict.fromkeys(LOCAL_EXTENSIONS + (".docx", ".txt")))
 
 
 def accepted_extensions():

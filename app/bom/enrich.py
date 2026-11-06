@@ -48,6 +48,7 @@ CODE_SINGLE_DISK_MULTI_BAY = "single_disk_multi_bay"
 CODE_HYBRID_RATIO = "hybrid_hdd_ratio"
 CODE_NIC_SPEED_MISMATCH = "nic_speed_mismatch"
 CODE_NIC_PORTS_VLAN = "nic_ports_vlan"
+CODE_NIC_PORTS_UNEVEN = "nic_ports_uneven"
 # Ports per node HyperCore wants for LAN and backplane on their own ports.
 MIN_NODE_PORTS = 4
 
@@ -57,6 +58,7 @@ _RESOLVED_CODES = frozenset()  # type: frozenset
 _NUC_EXEMPT_CODES = frozenset([
     "nic_missing", "nic_not_in_hcl", "nic_lom", "nic_multiple_families",
     "single_flash_drive", "single_hdd", CODE_NIC_SPEED_MISMATCH, CODE_NIC_PORTS_VLAN,
+    CODE_NIC_PORTS_UNEVEN,
 ])
 
 _CATEGORY_KINDS = {"nic": ("nic",), "controller": ("hba",), "gpu": ("gpu",),
@@ -239,7 +241,13 @@ def apply_owner_rules(config: BOMConfig, findings: List[Finding],
 # the owner wants flagged with the fix: two more ports (a 4-port adapter
 # instead, or a second 2-port adapter).
 
-_ONBOARD_RE = re.compile(r"\bLOM\b|\brNDC\b|on-?board|onboard|integrated|integriert", re.I)
+_ONBOARD_RE = re.compile(r"\bLOM\b|\brNDC\b|on-?board|onboard|integrated|integriert"
+                         # A motherboard line naming its own network ports
+                         # ('Supermicro X13SEI-TF-B, … 2x 10Gbase-T, 1x RJ45 for
+                         # IPMI'): those ports are the node's too. The IPMI
+                         # port names no speed, so it never counts.
+                         r"|\bmother-?board\b|\bmainboard\b|\bsystem board\b"
+                         r"|\bSupermicro\s+[XH]\d{2}[A-Z]{2,5}\b", re.I)
 
 
 def _is_onboard(desc: str) -> bool:
@@ -319,15 +327,30 @@ def nic_topology_findings(config: BOMConfig, findings: List[Finding]) -> List[Fi
     total = sum(ports * max(int(c.quantity or 1), 1) for c, ports in quick)
     nodes = _infer_node_count(config, [c for c in config.components
                                        if c.category in ("chassis", "cpu", "memory", "storage", "nic")], [])
+    if nodes and total % nodes:
+        # 2 ports over 3 nodes is no cluster anyone builds: the quantities
+        # are per server read as totals, or the nodes differ. Say that,
+        # instead of "0.7 ports per node".
+        out.append(Finding(
+            severity="warning", component=quick[0][0].description,
+            issue="%d %s GbE port(s) across %d nodes — not the same on every node"
+                  % (total, _gbe(fast), nodes),
+            remediation=("The network ports do not divide evenly over the nodes, so the per-node "
+                         "port count is unknown. Check the NIC quantities: a quote that lists its "
+                         "parts per server reads wrong when they are taken as totals. Every node "
+                         "needs the same adapters, with %d or more ports for separate LAN and "
+                         "backplane pairs." % MIN_NODE_PORTS),
+            code=CODE_NIC_PORTS_UNEVEN))
+        return out
     if nodes:
-        per_node = total / float(nodes)
+        per_node = total // nodes
     elif total < MIN_NODE_PORTS:
         per_node = total                      # below the minimum even on one node
     else:
         return out
     if per_node >= MIN_NODE_PORTS:
         return out
-    shown = int(per_node) if float(per_node).is_integer() else round(per_node, 1)
+    shown = int(per_node)
     why = (" once the slower ports are disabled" if slow else "")
     out.append(Finding(
         severity="warning", component=quick[0][0].description,

@@ -117,7 +117,7 @@ def test_pdf_is_not_detected(tmp_path):
     assert detect_format(str(pdf), "quote.pdf") is None
     with pytest.raises(UnrecognizedFormat) as exc:
         parse_file(str(pdf), "quote.pdf")
-    assert "Only .xlsx, .xls and .csv" in exc.value.hint
+    assert "Only .xlsx, .xls, .csv and .docx" in exc.value.hint
 
 
 def test_wrong_magic_bytes_are_unrecognized(tmp_path):

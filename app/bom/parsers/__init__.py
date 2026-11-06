@@ -47,6 +47,7 @@ FORMAT_LABELS = {
     'mcp_caller': 'Extracted by an assistant (not grounded)',
     'lenovo_dcsc': 'Lenovo DCSC quote export',
     'lenovo_hw_breakdown': 'Lenovo hardware breakdown (feature code / description / qty)',
+    'lenovo_bid_docx': 'Lenovo bid quote (Word)',
     'sheet_guess': 'Spreadsheet read by column shape (best effort)',
     'dell_service_tag': 'Dell service-tag component export',
     'dell_quote': 'Dell quote export',
@@ -64,10 +65,11 @@ FORMAT_LABELS = {
     'supermicro_quote_pdf': 'Supermicro distributor quote (PDF)',
     'dell_arrow_pdf': 'Dell system quote from Arrow (PDF)',
     'lenovo_arrow_pdf': 'Lenovo system quote from Arrow (PDF)',
+    'lenovo_bid_pdf': 'Lenovo bid quote (PDF)',
 }
 
 XLSX_MAGIC = b'PK\x03\x04'
-ACCEPTED_EXTENSIONS = ('.xlsx', '.xls', '.csv')
+ACCEPTED_EXTENSIONS = ('.xlsx', '.xls', '.csv', '.docx')
 
 
 def _extension(filename: Optional[str], path: str) -> str:
@@ -161,6 +163,9 @@ def detect_format(path: str, filename: Optional[str] = None) -> Optional[str]:
         return dell_service_tag.FORMAT if dell_service_tag.detect_csv(path) else None
     if ext == '.xlsx' and _is_xlsx(path):
         return _detect_xlsx(path)
+    if ext == '.docx' and _is_xlsx(path):        # a .docx is a ZIP too
+        from bom.parsers import lenovo_bid
+        return lenovo_bid.FORMAT if lenovo_bid.detect(path) else None
     return None
 
 
@@ -182,7 +187,7 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
     if fmt is None:
         ext = _extension(filename, path)
         if ext not in ACCEPTED_EXTENSIONS:
-            raise UnrecognizedFormat('Only .xlsx, .xls and .csv BOM exports are parsed directly.')
+            raise UnrecognizedFormat('Only .xlsx, .xls, .csv and .docx BOM exports are parsed directly.')
         raise UnrecognizedFormat()
     if fmt == template.FORMAT:
         bom = template.parse_template(path)
@@ -194,6 +199,9 @@ def parse_file(path: str, filename: Optional[str] = None) -> Tuple[NormalizedBOM
             bom.vendor = detect_vendor(bom)
     elif fmt == lenovo_dcsc.FORMAT:
         bom = lenovo_dcsc.parse(path)
+    elif fmt == 'lenovo_bid_docx':
+        from bom.parsers import lenovo_bid
+        bom = lenovo_bid.parse(path)
     elif fmt == lenovo_breakdown.FORMAT:
         bom = lenovo_breakdown.parse(path)
     elif fmt == dell_service_tag.FORMAT:
@@ -269,10 +277,10 @@ class PdfOutcome:
 
 def _pdf_parsers():
     from bom.parsers import (pdf_dell_arrow, pdf_dell_quote, pdf_dell_solution,
-                             pdf_lenovo_arrow, pdf_lenovo_build, pdf_lenovo_list, pdf_scale_quote,
-                             pdf_supermicro_quote)
+                             pdf_lenovo_arrow, pdf_lenovo_bid, pdf_lenovo_build, pdf_lenovo_list,
+                             pdf_scale_quote, pdf_supermicro_quote)
     # The Scale quotation first: it is refused, never parsed as a BOM.
-    return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_dell_solution,
+    return [pdf_scale_quote, pdf_lenovo_build, pdf_lenovo_list, pdf_lenovo_bid, pdf_dell_solution,
             pdf_dell_quote, pdf_dell_arrow, pdf_lenovo_arrow, pdf_supermicro_quote]
 
 

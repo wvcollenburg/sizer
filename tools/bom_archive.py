@@ -73,7 +73,7 @@ def report(paths):
                   else "marked unsupported" if exp else "NOT SIGNED OFF")
         print("%s   [%s]" % (_rel(path), status))
         if not path.lower().endswith(ARCHIVE_EXTENSIONS):
-            print("   not a file the checker reads locally (.xlsx/.xls/.csv/.pdf)")
+            print("   not a file the checker reads locally (.xlsx/.xls/.csv/.docx/.pdf)")
             continue
         try:
             facts = bom_facts(path)
