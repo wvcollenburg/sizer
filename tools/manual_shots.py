@@ -501,9 +501,6 @@ class Shooter:
         self.login(USER)
         self.goto("/", settle=1500)
         self.shot("header", "header", pad=0)
-        self.click("openSizingsModal", wait=1200)
-        self.shot("my-sizings", self.modal("sizings-modal"))
-        self.page.evaluate("closeSizingsModal()")
         self.click("openPrivacyModal", wait=900)
         self.shot("privacy-data", self.modal("privacy-modal"))
         self.page.evaluate("document.getElementById('privacy-modal').style.display='none'")
@@ -533,12 +530,6 @@ class Shooter:
         self.click("openProjectByCodePrompt", wait=2500)
         self.answer = None
         self.shot("staff-shared-project", edition="scale")
-        # My Sizings with the retrieve-by-code box
-        self.goto("/", settle=1500)
-        self.click("openSizingsModal", wait=1200)
-        p.fill("#sizings-code-input", "781845344368")
-        self.shot("staff-my-sizings", self.modal("sizings-modal"), edition="scale")
-        self.page.evaluate("closeSizingsModal()")
         # own project: the Salesforce link in Details
         own = self.api("POST", "/api/projects/", {"name": "Fabrikam — edge rollout",
                                                    "customer_name": "Fabrikam"})

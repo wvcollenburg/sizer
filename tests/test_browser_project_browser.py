@@ -142,3 +142,31 @@ def test_my_company_folder_shows_colleagues_projects(server, browser):
     assert "is-active" in s.page.get_attribute(".project-folder[data-folder='company']", "class")
     assert s.errors == []
     s.close()
+
+
+def test_open_by_code_opens_a_sizing_inside_its_project(server, browser):
+    s = Session(browser, server, USER)
+    pid = s.api("POST", "/api/projects/", {"name": "Code project",
+                                           "customer_name": "Acme Corp"})["data"]["id"]
+    sizing = s.api("POST", "/api/configs/", {"name": "By code", "project_id": pid,
+                                             "payload": {"mode": "manual", "fields": {}}})["data"]
+    s.goto("/", settle=1200)
+    # My Sizings is gone from the header.
+    assert s.page.locator("[data-click='[\"openSizingsModal\"]']").count() == 0
+
+    s.page.once("dialog", lambda d: d.accept(sizing["code"]))
+    s.page.click("button[data-click='[\"openProjectByCodePrompt\"]']")
+    s.page.wait_for_timeout(2000)
+    assert s.page.evaluate("document.body.classList.contains('view-sizer')")
+    assert s.page.is_visible("#sizer-project-bar")
+    assert s.page.inner_text("#sizer-project-name") == "Code project"
+
+    # A project code still opens the project.
+    code = s.api("GET", "/api/projects/%d" % pid)["data"]["code"]
+    s.goto("/", settle=1000)
+    s.page.once("dialog", lambda d: d.accept(code))
+    s.page.click("button[data-click='[\"openProjectByCodePrompt\"]']")
+    s.page.wait_for_timeout(1500)
+    assert s.page.is_visible("#project-view")
+    assert s.errors == []
+    s.close()

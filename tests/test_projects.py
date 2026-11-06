@@ -971,3 +971,53 @@ def test_compare_xlsx_export_matches_both_modes(app):
     assert rows[0][1] == "set-a (1 sizings)"
     by_label = {r[0]: r for r in rows[1:]}
     assert by_label["Sizings in this set"][1] == "PROD"
+
+
+# ── one "Open by code" box for projects and sizings ──────────────────────────
+
+OTHER_TENANT_EMAIL = "pm@otherco.example"
+
+
+def test_open_by_code_takes_a_project_code(app):
+    c = client_for(app, PARTNER_EMAIL)
+    project = make_project(c)
+    r = c.get(f"/api/projects/open-code/{project['code']}")
+    assert r.status_code == 200
+    assert r.get_json() == {"kind": "project", "project_id": project["id"]}
+
+
+def test_open_by_code_takes_a_sizing_code_and_names_its_project(app):
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    # A colleague in the same organisation sees the project too.
+    colleague = client_for(app, COLLEAGUE_EMAIL)
+    body = colleague.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body == {"kind": "sizing", "sizing_id": sizing["id"],
+                    "project_id": project["id"]}
+
+
+def test_a_sizing_code_never_hands_a_scale_user_the_whole_project(app):
+    """A sizing code shares one sizing: the scale user gets that sizing (and a
+    link to it), not its partner's project."""
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    scale = client_for(app, SCALE_EMAIL)
+    body = scale.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body == {"kind": "sizing", "sizing_id": sizing["id"], "project_id": None}
+    assert scale.get(f"/api/configs/{sizing['id']}").status_code == 200
+    assert scale.get(f"/api/projects/{project['id']}").status_code == 404
+    # Once they open the project by its own code, a sizing code finds it too.
+    scale.get(f"/api/projects/open-code/{project['code']}")
+    body = scale.get(f"/api/projects/open-code/{sizing['code']}").get_json()
+    assert body["project_id"] == project["id"]
+
+
+def test_open_by_code_unknown_or_other_tenant_is_not_found(app):
+    owner = client_for(app, PARTNER_EMAIL)
+    project = make_project(owner)
+    sizing = save_sizing(owner, "Opt", project_id=project["id"])
+    stranger = client_for(app, OTHER_TENANT_EMAIL)
+    for code in (project["code"], sizing["code"], "000000000000"):
+        assert stranger.get(f"/api/projects/open-code/{code}").status_code == 404

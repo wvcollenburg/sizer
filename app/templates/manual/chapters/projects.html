@@ -9,10 +9,11 @@
     <tr><th>Control</th><th>What it does</th></tr>
     <tr><td>{{ m.ui("New project") }}</td><td>Asks for a project name and the customer name,
         then opens the new, empty project.</td></tr>
-    <tr><td>{{ m.ui("Open by code") }}</td><td>Opens a project from its 12-digit share code.
-        You can open projects of your own organisation this way{% if scale %}; Scale Computing
-        accounts can open any organisation's project (see
-        <a href="#staff-by-code">Opening a partner's work by code</a>){% endif %}.</td></tr>
+    <tr><td>{{ m.ui("Open by code") }}</td><td>Opens a project or a sizing from its 12-digit
+        share code. A sizing opens in the sizer, inside its project. You can open the work of
+        your own organisation this way{% if scale %}; Scale Computing accounts can open any
+        organisation's (see <a href="#staff-by-code">Opening a partner's work by
+        code</a>){% endif %}.</td></tr>
     <tr><td>{{ m.ui("Quick sizing") }}</td><td>Starts a blank sizing without choosing a
         project. It is filed in your personal scratch project, marked
         <em>Personal</em>.</td></tr>

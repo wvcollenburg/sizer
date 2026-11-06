@@ -435,16 +435,30 @@ async function submitNewProject() {
     openProject(data.id);
 }
 
+// One box for both kinds of share code. A project code opens the project; a
+// sizing code opens the sizing — inside its project when you may see that
+// project, otherwise on its own (the server decides, see open_by_code).
 async function openProjectByCodePrompt() {
     const code = window.prompt(tt('project.home.code_prompt'));
-    if (!code) return;
-    const { ok, data } = await fetchJson('/api/projects/code/' + encodeURIComponent(code.trim()));
+    if (!code || !code.trim()) return;
+    const { ok, data } = await fetchJson('/api/projects/open-code/' + encodeURIComponent(code.trim()));
     if (!ok) {
         return window.showInfoModal
             ? window.showInfoModal(tt('project.home.not_found_title'), (data && data.error) || '')
             : null;
     }
-    openProject(data.id);
+    if (data.kind === 'project') return openProject(data.project_id);
+
+    // A sizing. Its project, when visible, becomes the open project so the
+    // sizer shows "In project …" and Back returns there.
+    currentProject = null;
+    if (data.project_id) {
+        const home = await fetchJson('/api/projects/' + data.project_id);
+        if (home.ok) currentProject = home.data;
+    }
+    selectedSizings = new Set();
+    activeTagFilter = null;
+    openSizing(data.sizing_id);
 }
 
 async function startQuickSizing() {

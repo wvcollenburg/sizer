@@ -1525,46 +1525,6 @@
         </div>
     </div>
 
-    <!-- My Sizings modal -->
-    <div class="modal-overlay" id="sizings-modal" style="display:none">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h2 data-i18n="modal.sizings.title">My Sizings</h2>
-                {{ ui.close_button('closeSizingsModal') }}
-            </div>
-            <div class="modal-toolbar" id="sizings-toolbar">
-                <input type="text" id="sizings-search" class="vm-search"
-                       placeholder="Search by name or code…" data-i18n-ph="modal.sizings.search_ph" data-input='["filterSizings"]'>
-                <div class="modal-actions" id="sizings-code-box">
-                    <input type="text" id="sizings-code-input" class="vm-search" placeholder="Enter 12-digit code" data-i18n-ph="modal.sizings.code_ph">
-                    <button class="btn btn-sm" data-click='["retrieveByCode"]' data-i18n="modal.sizings.retrieve">Retrieve</button>
-                </div>
-            </div>
-            <div class="sizings-tabs">
-                <button class="sizings-tab active" id="sizings-tab-mine" data-click='["setSizingsTab","mine"]' data-i18n="modal.sizings.tab_mine">My Sizings</button>
-                <button class="sizings-tab" id="sizings-tab-org" data-click='["setSizingsTab","org"]' data-i18n="modal.sizings.tab_org">My Organization</button>
-            </div>
-            <div class="modal-body">
-                <div class="sizings-status" id="sizings-status" style="display:none"></div>
-                <div class="vm-table-wrap">
-                    <table class="vm-table" id="sizings-table">
-                        <thead>
-                            <tr>
-                                <th data-i18n="common.name">Name</th>
-                                <th data-i18n="modal.sizings.col_owner">Owner</th>
-                                <th data-i18n="modal.sizings.col_code">Code</th>
-                                <th data-i18n="modal.sizings.col_source">Source</th>
-                                <th data-i18n="modal.sizings.col_updated">Updated</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="sizings-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Organization (tenant admin) modal -->
     <div class="modal-overlay" id="org-modal" style="display:none">
         <div class="modal-content modal-lg">

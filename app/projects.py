@@ -417,6 +417,39 @@ def get_project_by_code(code):
         user, source, sizing_count=_sizing_count(project.id)))
 
 
+@projects_bp.route("/open-code/<code>", methods=["GET"])
+@login_required
+@limiter.limit("30 per minute")
+def open_by_code(code):
+    """The Projects screen's one "Open by code" box, for both kinds of code.
+
+    A project code opens the project. A sizing code opens that sizing — inside
+    its project when the user may see the project anyway (``project_id``), or
+    on its own when they may not: a sizing code shares one sizing, and opening
+    it must never hand over the rest of the project (a scale user retrieving a
+    partner's sizing gets a link to that sizing only, as before).
+
+    Visibility and cross-tenant rules are exactly those of the two single-kind
+    routes, which stay for the API and MCP."""
+    from auth_models import ScaleConfigLink
+    user = current_user()
+    code = (code or "").strip()
+
+    project = Project.query.filter_by(code=code).first()
+    if resolve_by_code(user, project, ScaleProjectLink, "project_id"):
+        return jsonify({"kind": "project", "project_id": project.id})
+
+    config = Configuration.query.filter_by(code=code).first()
+    if resolve_by_code(user, config, ScaleConfigLink, "configuration_id") is None:
+        return jsonify({"error": "Nothing found for that code"}), 404
+    project_id = None
+    if config.project_id:
+        home, _ = _visible_project(config.project_id, user)
+        if home is not None and not home.is_deleted:
+            project_id = home.id
+    return jsonify({"kind": "sizing", "sizing_id": config.id, "project_id": project_id})
+
+
 @projects_bp.route("/<int:project_id>/source-check", methods=["POST"])
 @login_required
 def check_source_duplicate(project_id):
