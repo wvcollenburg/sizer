@@ -345,6 +345,27 @@ def test_same_file_reuses_the_earlier_reading(app, agent_on):
         assert BomAgentJob.query.count() == 1               # no second paid call
 
 
+def test_a_reading_from_an_older_extraction_is_read_again(app, agent_on):
+    """A fix to the agent (prompt, schema, post-processing) bumps
+    EXTRACTION_VERSION; an identical file read before it must not bring the
+    old reading back (the per-server quantities once taken as totals)."""
+    c = client_for(app, PARTNER)
+    p = make_project(c)
+    job = post_file(c, p["id"], unknown_xlsx(), "offer.xlsx").get_json()["job"]
+    run_job(app, job["id"], StubClient(agent_answer()))
+    with app.app_context():
+        check = BomCheck.query.filter_by(file_format=AGENT_FORMAT).one()
+        assert check.ingest_meta["extraction_version"] == agent_ingest.EXTRACTION_VERSION
+        meta = dict(check.ingest_meta)
+        meta.pop("extraction_version")                      # as read before the versioning
+        check.ingest_meta = meta
+        db.session.commit()
+    r = post_file(c, p["id"], unknown_xlsx(), "offer-again.xlsx")
+    assert r.status_code == 202                             # queued for a fresh reading
+    with app.app_context():
+        assert BomAgentJob.query.count() == 2
+
+
 def test_other_organisations_do_not_share_the_cache(app, agent_on):
     c = client_for(app, PARTNER)
     p = make_project(c)

@@ -49,6 +49,12 @@ from bom.normalize import CATEGORIES, NormalizedBOM, VENDORS
 from bom.text import alnum_key, decode_text
 
 DEFAULT_MODEL = "claude-opus-5-5"
+# Bump when the prompt, the schema or the post-processing changes what a
+# reading of the same file would contain. The check route reuses an earlier
+# reading of an identical file only when it carries this version, so a fix
+# here reaches files that were read before it. 2: quantityBasis (per-server
+# quantities multiplied out; before, they were taken as totals).
+EXTRACTION_VERSION = 2
 # Extraction is transcription, not open-ended reasoning: medium is the
 # model's own default, set explicitly so a model change cannot move it.
 EFFORT = "medium"
@@ -667,6 +673,7 @@ def _finish(data, meta, kind, payload, lang) -> AgentOutcome:
         "model_changed": changed,
         "instructions_detected": instructions,
         "quantity_basis": basis,
+        "extraction_version": EXTRACTION_VERSION,
     })
     return AgentOutcome(bom=bom, template=template, meta=meta)
 
