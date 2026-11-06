@@ -3054,6 +3054,7 @@ textarea.text-input:focus {
    them the labels and controls sit flush against the modal border. */
 #sizing-modal .modal-body,
 #new-project-modal .modal-body,
+#open-code-modal .modal-body,
 #project-settings-modal .modal-body {
     padding: 1.25rem 1.5rem 1.25rem;
 }
