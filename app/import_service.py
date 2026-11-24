@@ -169,9 +169,84 @@ def _is_active(vm):
     return bool(vm.get("powered_on")) and not vm.get("is_template")
 
 
+def datastore_list(sources):
+    """The sizing's datastores as one flat list, each with a stable ``key``
+    (``"<source id>|<name>"``, plus ``#2``, ``#3`` … for a repeated name in
+    the same file), the browser's ``sizingDatastores``. ``sources`` are the
+    saved per-file records (``import.sources``); empty for a sizing saved
+    before multi-file import, which therefore has no datastore list."""
+    out = []
+    for src in sources or []:
+        sid = src.get("id") or ""
+        seen = {}
+        for d in src.get("datastores") or []:
+            name = str(d.get("name") or "")
+            n = seen.get(name, 0) + 1
+            seen[name] = n
+            out.append({
+                "key": "%s|%s%s" % (sid, name, "#%d" % n if n > 1 else ""),
+                "name": name, "src": sid,
+                "type": "local" if d.get("type") == "local" else "cluster",
+                "used_gib": _num(d.get("used_gib")),
+                "capacity_gib": _num(d.get("capacity_gib")),
+                "mounts": list(d.get("mounts") or []),
+            })
+    return out
+
+
+def vm_datastore_names(vm):
+    """The datastore names a VM's disks are on. Only the VMware Live Optics
+    and Nutanix Collector exports record them ("ds1, ds2"); else empty."""
+    return [n.strip() for n in str(vm.get("datastore") or "").split(",") if n.strip()]
+
+
+def _datastore_basis(datastores, exclude_datastores, include_datastores,
+                     include_local_storage):
+    """Which datastores are in the storage basis. Shared datastores are in
+    unless excluded; local ones are out unless included (all of them when
+    ``include_local_storage``, the pre-list toggle). Returns the used/capacity
+    change against the import totals (which count shared storage only), the
+    excluded shared datastores, and per (source, name) whether any copy is in
+    the basis and whether the user excluded one."""
+    excl, incl = set(exclude_datastores or ()), set(include_datastores or ())
+    delta_used = delta_total = 0.0
+    excluded, placement = [], {}
+    for d in datastores:
+        local = d["type"] == "local"
+        in_basis = (include_local_storage or d["key"] in incl) if local else d["key"] not in excl
+        if local and in_basis:
+            delta_used += d["used_gib"]
+            delta_total += d["capacity_gib"]
+        elif not local and not in_basis:
+            delta_used -= d["used_gib"]
+            delta_total -= d["capacity_gib"]
+            excluded.append({"name": d["name"],
+                             "used_tb": _js_round(d["used_gib"] / GIB_PER_TB, 2)})
+        ent = placement.setdefault((d["src"], d["name"]), {"in": False, "user": False})
+        ent["in"] = ent["in"] or in_basis
+        ent["user"] = ent["user"] or (not local and not in_basis)
+    return delta_used, delta_total, excluded, placement
+
+
+def _vm_placement(vm, placement, default_src):
+    """``(off_basis, user_excluded)`` for a VM: off when every datastore it is
+    on is out of the basis (its disk is then not in the measured total), user
+    when that is due to an excluded shared datastore. A VM with no recorded
+    datastore, or one not in the list, counts as in the basis."""
+    names = vm_datastore_names(vm)
+    if not names:
+        return False, False
+    src = vm.get("src") or default_src
+    ents = [placement.get((src, n)) for n in names]
+    if any(e is None or e["in"] for e in ents):
+        return False, False
+    return True, any(e["user"] for e in ents)
+
+
 def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
                    include_local_storage=False, vm_config=None,
-                   added=(), removed=()):
+                   added=(), removed=(), datastores=None,
+                   exclude_datastores=(), include_datastores=()):
     """``base`` after leaving VMs out, exactly as the browser computes it
     (``computeAdjustedImportSummary``): compute and RAM totals, the active
     count, the largest VM and the current ratio are rebuilt from the included
@@ -182,7 +257,15 @@ def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
     edits (vcpus, provisioned_memory_gb, vdisk_used_gb); ``added`` and
     ``removed`` are the browser's hand-added VMs and their removal, kept so a
     re-saved UI payload adjusts the same way. With no exclusions this
-    reproduces the import totals."""
+    reproduces the import totals.
+
+    ``datastores`` is ``datastore_list`` of the sizing's sources; with it,
+    ``exclude_datastores`` (shared) and ``include_datastores`` (local) keys
+    set the storage basis, and a storage-excluded VM whose datastores are all
+    out of the basis is not subtracted again. A VM on excluded shared
+    datastores only leaves the VM storage totals as well. Without it (a
+    sizing saved before multi-file import) only ``include_local_storage``
+    applies, as before."""
     exclude_compute = {int(i) for i in exclude_compute}
     exclude_storage = {int(i) for i in exclude_storage}
     added = {int(i) for i in added}
@@ -232,17 +315,37 @@ def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
     adjusted["max_vm_ram_gb"] = _int_if_whole(max_vm_ram)
     adjusted["max_vm_cores"] = _int_if_whole(max_vm_cores)
 
+    datastores = datastores or []
+    ds_used = ds_total = 0.0
+    ds_excluded, placement = [], {}
+    if datastores:
+        ds_used, ds_total, ds_excluded, placement = _datastore_basis(
+            datastores, exclude_datastores, include_datastores, include_local_storage)
+    srcs = {d["src"] for d in datastores}
+    default_src = next(iter(srcs)) if len(srcs) == 1 else None
+
     # Excluded/removed IMPORTED VMs are subtracted from the measured datastore
-    # totals (added VMs aren't in those totals, so they're skipped here).
+    # totals (added VMs aren't in those totals, so they're skipped here),
+    # unless their datastores are out of the basis already. VMs on excluded
+    # shared datastores leave the VM storage totals too.
     excl_all = excl_prov_active = excl_active = 0.0
     for i in exclude_storage:
         if i in added or i >= len(vms):
             continue
         vm = vms[i]
-        excl_all += _num(vm.get("vdisk_used_gb"))
+        off, _ = _vm_placement(vm, placement, default_src)
+        if not off:
+            excl_all += _num(vm.get("vdisk_used_gb"))
         if _is_active(vm):
             excl_active += _num(vm.get("vdisk_used_gb"))
             excl_prov_active += _num(vm.get("vdisk_size_gb"))
+    if placement:
+        for i, vm in enumerate(vms):
+            if i in exclude_storage or i in added or not _is_active(vm):
+                continue
+            if _vm_placement(vm, placement, default_src)[1]:
+                excl_active += _num(vm.get("vdisk_used_gb"))
+                excl_prov_active += _num(vm.get("vdisk_size_gb"))
 
     # Added VMs contribute net-new storage (unless removed or storage-
     # excluded). A new VM has one storage figure, used for both used and
@@ -259,7 +362,8 @@ def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
             add_prov_active += used
 
     adjusted["datastore_used_tb"] = _js_round(
-        _num(base.get("datastore_used_tb")) - excl_all / GIB_PER_TB + add_all / GIB_PER_TB, 2)
+        _num(base.get("datastore_used_tb")) - excl_all / GIB_PER_TB + add_all / GIB_PER_TB
+        + ds_used / GIB_PER_TB, 2)
     prov_gb = _js_round(
         _num(base.get("total_vm_provisioned_storage_gb")) - excl_prov_active + add_prov_active, 1)
     adjusted["total_vm_provisioned_storage_gb"] = prov_gb
@@ -272,9 +376,18 @@ def adjust_summary(base, vms, exclude_compute=(), exclude_storage=(),
     if adjusted["datastore_used_tb"] < 0:
         adjusted["datastore_used_tb"] = 0
 
-    # Per-host local storage (ISOs/templates etc.) — added to the cluster
-    # basis only when the user opts in.
-    if include_local_storage:
+    adjusted.pop("excluded_datastores", None)
+    if datastores:
+        adjusted["datastore_total_tb"] = _js_round(
+            _num(base.get("datastore_total_tb")) + ds_total / GIB_PER_TB, 2)
+        if adjusted["datastore_total_tb"] < 0:
+            adjusted["datastore_total_tb"] = 0
+        if ds_excluded:
+            adjusted["excluded_datastores"] = ds_excluded
+    # No datastore list (a sizing saved before multi-file import): per-host
+    # local storage (ISOs/templates etc.) is added to the cluster basis only
+    # when the user opts in.
+    elif include_local_storage:
         adjusted["datastore_used_tb"] = _js_round(
             adjusted["datastore_used_tb"] + _num(base.get("local_used_tb")), 2)
         adjusted["datastore_total_tb"] = _js_round(

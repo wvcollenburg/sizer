@@ -134,7 +134,7 @@ def manual_payload(summary, params, selected_rank):
 
 
 # VM fields the UI drops before saving (app.js VM_UNSAVED_FIELDS).
-VM_UNSAVED_FIELDS = ("disk_capacity_gb", "disk_used_gb", "used_memory_gb", "datastore", "ref")
+VM_UNSAVED_FIELDS = ("disk_capacity_gb", "disk_used_gb", "used_memory_gb", "ref")
 
 
 def compact_vm(vm, src=None):
@@ -142,6 +142,8 @@ def compact_vm(vm, src=None):
     out = {k: v for k, v in vm.items() if k not in VM_UNSAVED_FIELDS}
     if out.get("uuid") and out.get("bios_uuid"):
         del out["bios_uuid"]
+    if not out.get("datastore"):
+        out.pop("datastore", None)
     if src is not None and not out.get("src"):
         out["src"] = src
     return out
@@ -193,6 +195,7 @@ def import_payload(upload_ctx, summary, params, selected_rank, projection):
     ``(payload, source_meta)``; the second is the Configuration's provenance
     column (``_combinedSourceMeta``)."""
     row, dataset, spec = upload_ctx["row"], upload_ctx["dataset"], upload_ctx["spec"]
+    ds_sel = upload_ctx.get("datastores") or {}
     cluster = spec.get("source_cluster")
     if row.kind == "merged":
         sources, metas = _merged_sources(row, dataset)
@@ -214,7 +217,9 @@ def import_payload(upload_ctx, summary, params, selected_rank, projection):
             "vmConfig": {},
             "exclCompute": sorted({int(i) for i in spec.get("exclude_compute") or []}),
             "exclStorage": sorted({int(i) for i in spec.get("exclude_storage") or []}),
-            "includeLocalStorage": bool(spec.get("include_local_storage")),
+            "includeLocalStorage": False,
+            "exclDatastores": list(ds_sel.get("exclude") or []),
+            "inclDatastores": list(ds_sel.get("include") or []),
             "lastProjection": projection,
             "selectedRec": {"import": selected_rank - 1},
             "wizardStep": None,
@@ -227,7 +232,8 @@ def import_payload(upload_ctx, summary, params, selected_rank, projection):
         "upload_id": row.public_id, "source_cluster": cluster,
         "exclude_compute": payload["import"]["exclCompute"],
         "exclude_storage": payload["import"]["exclStorage"],
-        "include_local_storage": payload["import"]["includeLocalStorage"]}
+        "include_local_storage": bool(spec.get("include_local_storage")),
+        "exclude_datastores": sorted({str(n) for n in spec.get("exclude_datastores") or []})}
     return payload, combined_source_meta(metas, cluster)
 
 

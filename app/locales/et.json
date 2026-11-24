@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Koopiad kasvavad iga kaitstud asukoha enda mõõtmisvalikute järgi: {sources}.",
   "export.docx.dr_growth_source_item": "{name} {growth}% aastas {years} aasta jooksul (salvestus {storage}%, hetktõmmis {snapshot}%)",
   "export.docx.dr_growth_follows": "Koopiad kasvavad iga kaitstud asukoha enda mõõtmisvalikute järgi.",
-  "export.docx.mgmt_overview_intro_split": "See ettepanek koondab praeguse {platform} keskkonna ({hosts} hosti, {vms} aktiivset VM-i, {used_tb} TB kasutuses) Scale Computing HyperCore klastrisse. Soovitame {nodes} {model} klastrit, mis pakub {usable_tb} TB kasutatavat mahtu ja {cores} CPU-tuuma, projekteeritud N-1 vastupidavuse jaoks, nii et terve sõlm võib tõrkuda teenuse katkestuseta. Konfiguratsioon neelab {years}-aastase kasvu {growth}% aastas arvutuses ja {storage}% salvestuses, säilitades samal ajal {ratio}:1 vCPU-tuum-suhte."
+  "export.docx.mgmt_overview_intro_split": "See ettepanek koondab praeguse {platform} keskkonna ({hosts} hosti, {vms} aktiivset VM-i, {used_tb} TB kasutuses) Scale Computing HyperCore klastrisse. Soovitame {nodes} {model} klastrit, mis pakub {usable_tb} TB kasutatavat mahtu ja {cores} CPU-tuuma, projekteeritud N-1 vastupidavuse jaoks, nii et terve sõlm võib tõrkuda teenuse katkestuseta. Konfiguratsioon neelab {years}-aastase kasvu {growth}% aastas arvutuses ja {storage}% salvestuses, säilitades samal ajal {ratio}:1 vCPU-tuum-suhte.",
+  "export.common.excluded_datastores": "Mitoitusest välja jäetud",
+  "export.common.excluded_datastores_note": "Salvestusmitoitusest välja jäetud, sest nende andmed ei koli uude klastrisse: {list} (kokku {tb} TB).",
+  "export.pptx.excluded_datastores_val": "{count} andmehoidlat · {tb} TB"
 }

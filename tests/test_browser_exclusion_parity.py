@@ -129,3 +129,85 @@ def test_browser_and_python_exclusions_agree(server, browser, datasets, kind):
     assert checked == CASES_PER_FILE + 1
     assert not s.errors, s.errors
     s.close()
+
+
+# ── datastore exclusions (storage basis) ─────────────────────────────────────
+
+JS_DS = """([summary, vms, sources, c]) => {
+    originalImportSummary = summary;
+    importVms = vms;
+    lastImportSources = sources;
+    vmExclusions = { compute: new Set(c.compute), storage: new Set(c.storage) };
+    vmConfig = c.config;
+    vmAdded = new Set(c.added);
+    vmRemoved = new Set(c.removed);
+    includeLocalStorage = c.local;
+    dsExcluded = new Set(c.ds_excl);
+    dsIncluded = new Set(c.ds_incl);
+    const out = computeAdjustedImportSummary();
+    lastImportSources = null; dsExcluded = new Set(); dsIncluded = new Set();
+    return out;
+}"""
+
+
+def _with_datastores(data, rnd):
+    """The dataset plus local datastores, a name repeated in one file, and
+    VMs placed on one, two, an unknown or no datastore."""
+    stores = [dict(d) for d in data.get("datastores") or []]
+    stores += [{"name": "local-%d" % i, "type": "local", "capacity_gib": 500 + 10 * i,
+                "used_gib": 37.5 * (i + 1), "mounts": ["esx%d" % i]} for i in range(3)]
+    stores.append({"name": "dup", "type": "cluster", "capacity_gib": 900, "used_gib": 411.3,
+                   "mounts": ["esx1"]})
+    stores.append({"name": "dup", "type": "cluster", "capacity_gib": 700, "used_gib": 123.4,
+                   "mounts": ["esx2"]})
+    names = [d["name"] for d in stores] + ["not-in-list"]
+    vms = []
+    for v in data["vms"]:
+        v = dict(v)
+        pick = rnd.random()
+        if pick < 0.15:
+            v.pop("datastore", None)
+        elif pick < 0.35:
+            v["datastore"] = ", ".join(rnd.sample(names, 2))
+        else:
+            v["datastore"] = rnd.choice(names)
+        if rnd.random() < 0.5:
+            v["src"] = "f1"
+        vms.append(v)
+    return vms, [{"id": "f1", "datastores": stores}]
+
+
+@pytest.mark.parametrize("kind", ["rvtools", "liveoptics", "nutanix"])
+def test_browser_and_python_datastore_exclusions_agree(server, browser, datasets, kind):
+    import import_service
+    data = datasets[kind]
+    s = Session(browser, server, USER)
+    s.goto("/")
+    rnd = random.Random({"rvtools": 11, "liveoptics": 12, "nutanix": 13}[kind])
+    seen_excluded = seen_skip = 0
+    for n, case in enumerate(_cases(data, rnd.randint(0, 999))):
+        vms, sources = _with_datastores(data, rnd)
+        ds = import_service.datastore_list(sources)
+        shared = [d["key"] for d in ds if d["type"] != "local"]
+        local = [d["key"] for d in ds if d["type"] == "local"]
+        case = dict(case, ds_excl=rnd.sample(shared, rnd.randint(0, len(shared))),
+                    ds_incl=rnd.sample(local, rnd.randint(0, len(local))))
+        if n % 5 == 4:
+            vms2, case = _with_added_vm(dict(data, vms=vms), case)
+            vms = vms2
+        js = s.page.evaluate(JS_DS, [data["summary"], vms, sources,
+                                     dict(case, config={str(k): v for k, v in case["config"].items()})])
+        py = import_service.adjust_summary(
+            data["summary"], vms, case["compute"], case["storage"],
+            include_local_storage=case["local"], vm_config=case["config"],
+            added=case["added"], removed=case["removed"], datastores=ds,
+            exclude_datastores=case["ds_excl"], include_datastores=case["ds_incl"])
+        _same(json.loads(json.dumps(js)), json.loads(json.dumps(py)), (kind, n, case))
+        seen_excluded += bool(py.get("excluded_datastores"))
+        seen_skip += any(import_service._vm_placement(
+            vms[i], import_service._datastore_basis(ds, case["ds_excl"], case["ds_incl"],
+                                                    case["local"])[3], "f1")[0]
+            for i in case["storage"] if i < len(vms))
+    assert seen_excluded and seen_skip      # the cases reach both new paths
+    assert not s.errors, s.errors
+    s.close()

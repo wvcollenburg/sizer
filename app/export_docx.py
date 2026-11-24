@@ -25,7 +25,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from export_format import fmt_ram, fmt_num, spare_vcpus, svg_to_png
+from export_format import excluded_datastores, fmt_ram, fmt_num, spare_vcpus, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -628,6 +628,11 @@ def _append_site_sizing(doc, cl, lang, cw):
                        ram=fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
                        used_tb=s.get("datastore_used_tb", 0), years=p["years"]), lang=lang)
 
+    ds_text, ds_tb = excluded_datastores(s)
+    if ds_text and not dedicated:
+        _para(doc, t9n("export.common.excluded_datastores_note", list=ds_text, tb=ds_tb),
+              italic=True, color=MUTED, lang=lang)
+
     # Recommended configuration
     _heading(doc, t9n("export.docx.recommended_configuration"), lang, level=2)
     _spec_table(doc, _rec_spec_rows(r, t9n), total_w=cw, lang=lang)
@@ -844,6 +849,12 @@ def build_bundle_proposal_docx(clusters, lang="en"):
     return _doc_bytes(doc)
 
 
+def _excluded_ds_rows(s, t9n):
+    """The "left out of the sizing" row of the current-environment table."""
+    ds_text, _ = excluded_datastores(s)
+    return [(t9n("export.common.excluded_datastores"), ds_text)] if ds_text else []
+
+
 def _append_proposal_body(doc, summary, recommendation, projection, source_perf=None, lang="en"):
     """Append the full proposal body (management overview → platform sections)
     for one recommendation. Shared by the single- and multi-cluster builders."""
@@ -960,7 +971,7 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
              ram=fmt_ram(s.get("total_vm_provisioned_memory_gb", 0)),
              used_tb=s.get("datastore_used_tb", 0))),
         (t9n("export.docx.measured_ratio"), f"{s.get('vcpu_per_core_ratio', 0):.2f} : 1"),
-    ], total_w=cw, lang=lang)
+    ] + _excluded_ds_rows(s, t9n), total_w=cw, lang=lang)
     _spacer(doc)
 
     # ── Capacity planning ────────────────────────────────────────────────────
@@ -984,6 +995,9 @@ def _append_proposal_body(doc, summary, recommendation, projection, source_perf=
     _bullet(doc, t9n("export.docx.assumption_1", clusters=cl_label), lang)
     _bullet(doc, t9n("export.docx.assumption_2", ratio=f"{r['vcpu_ratio']:.2f}"), lang)
     _bullet(doc, t9n("export.docx.assumption_3"), lang)
+    ds_text, ds_tb = excluded_datastores(s)
+    if ds_text:
+        _bullet(doc, t9n("export.common.excluded_datastores_note", list=ds_text, tb=ds_tb), lang)
 
     # ── HEAT tiering · SCRIBE block engine · AIME ────────────────────────────
     _platform_capabilities(doc, lang, level=1, sections=("heat", "scribe", "aime"))

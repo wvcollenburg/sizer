@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "De replica's groeien met de sizingopties van elke beschermde locatie: {sources}.",
   "export.docx.dr_growth_source_item": "{name} met {growth}% per jaar over {years} jaar (opslag {storage}%, snapshot {snapshot}%)",
   "export.docx.dr_growth_follows": "De replica's groeien met de sizingopties van elke beschermde locatie.",
-  "export.docx.mgmt_overview_intro_split": "Dit voorstel consolideert de huidige {platform}-omgeving ({hosts} hosts, {vms} actieve VM's, {used_tb} TB in gebruik) op een Scale Computing HyperCore-cluster. Wij bevelen een {nodes} {model}-cluster aan dat {usable_tb} TB bruikbare capaciteit en {cores} CPU-cores levert, ontworpen voor N-1-veerkracht zodat een volledige node kan uitvallen zonder onderbreking van de dienst. De configuratie vangt {years} jaar groei op bij {growth}% per jaar voor compute en {storage}% voor opslag en behoudt daarbij een vCPU-op-core-verhouding van {ratio}:1."
+  "export.docx.mgmt_overview_intro_split": "Dit voorstel consolideert de huidige {platform}-omgeving ({hosts} hosts, {vms} actieve VM's, {used_tb} TB in gebruik) op een Scale Computing HyperCore-cluster. Wij bevelen een {nodes} {model}-cluster aan dat {usable_tb} TB bruikbare capaciteit en {cores} CPU-cores levert, ontworpen voor N-1-veerkracht zodat een volledige node kan uitvallen zonder onderbreking van de dienst. De configuratie vangt {years} jaar groei op bij {growth}% per jaar voor compute en {storage}% voor opslag en behoudt daarbij een vCPU-op-core-verhouding van {ratio}:1.",
+  "export.common.excluded_datastores": "Buiten de sizing gelaten",
+  "export.common.excluded_datastores_note": "Buiten de opslagsizing gelaten omdat de data niet meegaat naar het nieuwe cluster: {list} ({tb} TB in totaal).",
+  "export.pptx.excluded_datastores_val": "{count} datastores · {tb} TB"
 }

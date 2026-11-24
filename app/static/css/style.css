@@ -3797,3 +3797,47 @@ textarea.text-input:focus {
 .ask-dialog .ask-msg { display: block; margin: 0 0 0.75rem; line-height: 1.45; white-space: pre-line; }
 .ask-dialog .ask-msg:empty { display: none; }
 .ask-dialog .text-input[hidden] { display: none; }
+
+/* ── Datastore modal / storage basis (app.js openDatastoreModal) ── */
+.modal-intro {
+    margin: 0;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+.ds-col-name { min-width: 220px; }
+.ds-col-type { width: 80px; }
+.ds-src { font-size: var(--fs-xs); color: var(--text-muted); }
+.ds-type {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    padding: 0 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+.ds-type-cluster { color: var(--accent); border-color: var(--accent); }
+.vm-tag.vm-tag-ds { color: var(--orange); border-color: var(--orange); }
+.ds-basis-line {
+    margin-top: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.ds-basis-line .exclusion-active {
+    background: var(--orange-bg);
+    color: var(--orange);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+}

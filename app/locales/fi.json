@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Replikat kasvavat kunkin suojatun kohteen omien mitoitusasetusten mukaan: {sources}.",
   "export.docx.dr_growth_source_item": "{name} {growth} % vuodessa {years} vuoden ajan (tallennus {storage} %, tilannevedos {snapshot} %)",
   "export.docx.dr_growth_follows": "Replikat kasvavat kunkin suojatun kohteen omien mitoitusasetusten mukaan.",
-  "export.docx.mgmt_overview_intro_split": "Tämä ehdotus yhdistää nykyisen {platform}-ympäristön ({hosts} isäntää, {vms} aktiivista VM:ää, {used_tb} TB käytössä) Scale Computing HyperCore -klusteriin. Suosittelemme {nodes} {model} -klusteria, joka tarjoaa {usable_tb} TB käytettävissä olevaa kapasiteettia ja {cores} CPU-ydintä, suunniteltuna N-1-vikasietoisuudelle, jotta kokonainen solmu voi vikaantua ilman palvelukatkoa. Kokoonpano sisällyttää {years} vuoden kasvun laskennan {growth} %:n ja tallennuksen {storage} %:n vuosivauhdilla säilyttäen samalla {ratio}:1 vCPU:ydin-suhteen."
+  "export.docx.mgmt_overview_intro_split": "Tämä ehdotus yhdistää nykyisen {platform}-ympäristön ({hosts} isäntää, {vms} aktiivista VM:ää, {used_tb} TB käytössä) Scale Computing HyperCore -klusteriin. Suosittelemme {nodes} {model} -klusteria, joka tarjoaa {usable_tb} TB käytettävissä olevaa kapasiteettia ja {cores} CPU-ydintä, suunniteltuna N-1-vikasietoisuudelle, jotta kokonainen solmu voi vikaantua ilman palvelukatkoa. Kokoonpano sisällyttää {years} vuoden kasvun laskennan {growth} %:n ja tallennuksen {storage} %:n vuosivauhdilla säilyttäen samalla {ratio}:1 vCPU:ydin-suhteen.",
+  "export.common.excluded_datastores": "Jätetty pois mitoituksesta",
+  "export.common.excluded_datastores_note": "Jätetty pois tallennusmitoituksesta, koska niiden tiedot eivät siirry uuteen klusteriin: {list} (yhteensä {tb} TB).",
+  "export.pptx.excluded_datastores_val": "{count} tietovarastoa · {tb} TB"
 }

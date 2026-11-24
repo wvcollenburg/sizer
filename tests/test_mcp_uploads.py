@@ -281,6 +281,53 @@ def test_save_sizing_from_upload_writes_the_import_payload(world):
     assert g["sizing"]["source_type"] == "rvtools"
 
 
+def test_datastores_listed_and_excluded_by_name(world, tmp_path):
+    c, ids, files = world
+    path = rvtools(str(tmp_path / "ds.xlsx"), HOSTS, VMS,
+                   [("ds1", 2048, 1024), ("archive", 30000, 20000)])
+    uid, _ = _upload(c, path)
+    a = call(c, "get_upload", {"upload_id": uid})["structuredContent"]["assessment"]
+    assert [d["name"] for d in a["datastores"]] == ["archive", "ds1"]     # largest first
+    assert a["datastores"][0]["type"] == "shared" and a["datastores"][0]["in_sizing_by_default"]
+    assert any(w["code"] == "storage_gap" and "exclude_datastores" in w["text"]
+               for w in a["import_warnings"])
+
+    r = call(c, "create_sizing", {"from_upload": {"upload_id": uid,
+                                                   "exclude_datastores": ["archive"]}})
+    assert r["isError"] is False, r["content"][0]["text"]
+    used = r["structuredContent"]["inputs_used"]
+    data = import_service.parse_assessment(path, "ds.xlsx")
+    assert used["workload"]["used_storage_tb"] == round(
+        data["summary"]["datastore_used_tb"] - 20000 / import_service.GIB_PER_TB, 2)
+    assert used["from_upload"]["exclusions"]["datastores_excluded"] == ["archive"]
+
+    r = call(c, "create_sizing", {"from_upload": {"upload_id": uid,
+                                                   "exclude_datastores": ["nope"]}})
+    err = _err(r)["invalid"][0]
+    assert err["field"] == "from_upload.exclude_datastores" and "archive" in err["problem"]
+
+    r = call(c, "save_sizing", {"name": "No archive", "from_upload": {
+        "upload_id": uid, "exclude_datastores": ["archive"]},
+        "new_project_name": "ACME", "new_project_customer": "ACME Corp"})
+    assert r["isError"] is False, r["content"][0]["text"]
+    with appmod.app.app_context():
+        p = db.session.get(Configuration, r["structuredContent"]["sizing"]["id"]).payload
+        im = p["import"]
+        sid = im["sources"][0]["id"]
+        assert im["exclDatastores"] == [sid + "|archive"] and im["inclDatastores"] == []
+        assert im["importSummary"]["excluded_datastores"] == [
+            {"name": "archive", "used_tb": round(20000 / import_service.GIB_PER_TB, 2)}]
+        # What the browser rebuilds on open is what was saved.
+        again = import_service.adjust_summary(
+            im["originalImportSummary"], im["importVms"],
+            datastores=import_service.datastore_list(im["sources"]),
+            exclude_datastores=im["exclDatastores"], include_datastores=im["inclDatastores"])
+        for k in ("datastore_used_tb", "datastore_total_tb", "excluded_datastores",
+                  "total_vm_used_storage_gb", "total_vm_provisioned_storage_gb"):
+            assert again.get(k) == im["importSummary"].get(k), k
+        assert p["canonical"]["from_upload"]["exclude_datastores"] == ["archive"]
+
+
 # ── merging ──────────────────────────────────────────────────────────────────
 
 def test_merge_uploads(world):

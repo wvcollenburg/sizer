@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Replikaerne vokser efter dimensioneringsindstillingerne for hvert beskyttet site: {sources}.",
   "export.docx.dr_growth_source_item": "{name} med {growth}% pr. år over {years} år (lager {storage}%, snapshot {snapshot}%)",
   "export.docx.dr_growth_follows": "Replikaerne vokser efter dimensioneringsindstillingerne for hvert beskyttet site.",
-  "export.docx.mgmt_overview_intro_split": "Dette forslag konsoliderer det nuværende {platform}-miljø ({hosts} værter, {vms} aktive VM'er, {used_tb} TB i brug) på et Scale Computing HyperCore-cluster. Vi anbefaler et {nodes} {model}-cluster, der leverer {usable_tb} TB anvendelig kapacitet og {cores} CPU-kerner, konstrueret til N-1-modstandsdygtighed, så en komplet node kan svigte uden serviceafbrydelse. Konfigurationen absorberer {years}-års vækst på {growth}% årligt for beregning og {storage}% for lager, samtidig med at et vCPU-til-kerne-forhold på {ratio}:1 opretholdes."
+  "export.docx.mgmt_overview_intro_split": "Dette forslag konsoliderer det nuværende {platform}-miljø ({hosts} værter, {vms} aktive VM'er, {used_tb} TB i brug) på et Scale Computing HyperCore-cluster. Vi anbefaler et {nodes} {model}-cluster, der leverer {usable_tb} TB anvendelig kapacitet og {cores} CPU-kerner, konstrueret til N-1-modstandsdygtighed, så en komplet node kan svigte uden serviceafbrydelse. Konfigurationen absorberer {years}-års vækst på {growth}% årligt for beregning og {storage}% for lager, samtidig med at et vCPU-til-kerne-forhold på {ratio}:1 opretholdes.",
+  "export.common.excluded_datastores": "Udeladt af dimensioneringen",
+  "export.common.excluded_datastores_note": "Udeladt af lagerdimensioneringen, fordi deres data ikke flyttes til den nye klynge: {list} ({tb} TB i alt).",
+  "export.pptx.excluded_datastores_val": "{count} datastores · {tb} TB"
 }

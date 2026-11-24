@@ -18,7 +18,7 @@ from pptx.enum.text import MSO_ANCHOR
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.oxml.ns import qn
 
-from export_format import fmt_ram, fmt_num, spare_vcpus, svg_to_png
+from export_format import excluded_datastores, fmt_ram, fmt_num, spare_vcpus, svg_to_png
 from export_gauges import (render_util_bars, util_rows, compute_floor_sentence,
                            license_required_sentence, license_required_short,
                            overview_actual_totals)
@@ -708,6 +708,15 @@ def _slide_workload(prs, s, t, lang="en"):
                     ratio=f"{ratio:.2f}", vcpus=s.get('total_vcpus', 0),
                     cores=s.get('total_host_cores', 0)),
                   accent=True, lang=lang)
+
+    # Datastores the user left out of the storage basis (archives, shares).
+    ds_text, ds_tb = excluded_datastores(s)
+    if ds_text:
+        rows = s.get("excluded_datastores") or []
+        value = (f"{rows[0]['name']} · {ds_tb} TB" if len(rows) == 1
+                 else t("export.pptx.excluded_datastores_val", count=len(rows), tb=ds_tb))
+        _add_card(slide, 6.6, y3, 6.0, 1.0, t("export.common.excluded_datastores"),
+                  value, lang=lang)
 
 
 # ── Slide 3: Proposed Configuration ──────────────────────────────────────────
