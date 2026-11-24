@@ -68,6 +68,8 @@ def _fit_section(bom: NormalizedBOM, sizing) -> Optional[Dict]:
 def run_check(bom: NormalizedBOM, sizing=None, hcl=None, platforms=None) -> Dict:
     """``hcl``/``platforms`` may be injected (tests, eval harness); by default
     both come from the database."""
+    from bom.parsers.common import fix_categories
+    fix_categories(bom)
     hcl = hcl if hcl is not None else _load_hcl()
     if platforms is None:
         from bom.hcl_data import active_platforms

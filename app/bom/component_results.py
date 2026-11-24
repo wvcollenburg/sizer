@@ -96,6 +96,8 @@ def component_results(normalized: Optional[Dict], result: Optional[Dict]) -> Lis
     if not normalized or not result:
         return []
     bom = NormalizedBOM.from_dict(normalized)
+    from bom.parsers.common import fix_categories
+    fix_categories(bom)     # as run_check saw it
     hardware = [c for c in bom.configs if rules.is_hardware_config(c)]
     checked = ((result.get("technical") or {}).get("config_results")
                or (result.get("technical") or {}).get("configResults") or [])

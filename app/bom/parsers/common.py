@@ -556,6 +556,33 @@ def demote_m2(category: str, description: str) -> str:
     return category
 
 
+# An OCP accessory line ("1 OCP - No Cable", "1 OCP – ohne Kabel", "OCP 3.0
+# cable kit"): it names the OCP slot but is a cable/accessory choice, not an
+# adapter. A parser that files it by module ("OCP 3.0 Accessories") or a stored
+# check from before that fix may carry it as a NIC.
+_OCP_WORD = re.compile(r'\bOCP\b', re.I)
+_ACCESSORY_WORD = re.compile(
+    r'(?:cable|kabel|c[âa]ble|cavo|cabo|kit\b|accessor|zubeh[öo]r|acess[óo]rio|bracket)', re.I)
+
+
+def is_ocp_accessory(description: str) -> bool:
+    d = description or ''
+    # No adapter words (the NIC rule itself, not categorize(): there 'other'
+    # wins on "cable", so "E810 OCP NIC with cable" would read as one).
+    nic_rx = next(rx for cat, rx in RULES if cat == 'nic')
+    return (bool(_OCP_WORD.search(d)) and bool(_ACCESSORY_WORD.search(d))
+            and not nic_rx.search(d))
+
+
+def fix_categories(bom) -> None:
+    """Category corrections that hold whatever parser (or parser version)
+    read the BOM; run on every check, so a re-check repairs a stored BOM."""
+    for config in bom.configs:
+        for c in config.components:
+            if c.category == 'nic' and is_ocp_accessory(c.description):
+                c.category = 'other'
+
+
 def categorize_line(description: str) -> str:
     """categorize() with the M.2 demotion applied: what a parser calls on a
     line item. categorize() itself stays the raw nine-way rule."""

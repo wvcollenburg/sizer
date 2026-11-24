@@ -100,3 +100,43 @@ def test_per_node_only_when_it_divides_evenly():
 def test_nothing_without_a_result():
     assert component_results(None, None) == []
     assert component_results(NormalizedBOM(vendor="Dell").to_dict(), {"technical": {}}) == []
+
+
+# ── OCP accessory lines are never a NIC (fix_categories, run on every check) ─
+
+def test_ocp_accessory_lines_are_not_nics():
+    from bom.parsers.common import is_ocp_accessory
+    for d in ("1 OCP - No Cable", "1 OCP – ohne Kabel", "1 OCP – sans câble",
+              "1 OCP - zonder kabel", "OCP 3.0 cable kit", "OCP 3.0-Zubehör"):
+        assert is_ocp_accessory(d), d
+    for d in ("Broadcom 57412, 2 Anschlüsse, 10 GbE, Base-T-Adapter, OCP 3.0 NIC +Sec",
+              "Intel E810-XXV Dual Port 10/25GbE SFP28, OCP NIC 3.0",
+              "Intel E810 OCP NIC with cable", "Riser Config 9, 1 x 16 Onboard OCP"):
+        assert not is_ocp_accessory(d), d
+
+
+def test_a_stored_bom_with_an_ocp_cable_as_nic_rechecks_clean():
+    """A check stored before the Dell solution parser stopped filing
+    '1 OCP – ohne Kabel' under NIC: its re-check (which reuses the stored
+    BOM, no re-parse) must not report that line as an unknown NIC."""
+    from bom import part_notes
+    from bom.check import run_check
+    from bom.rules import HclData
+    stored = NormalizedBOM(vendor="Dell", configs=[BOMConfig(
+        name="R570", server_model="R570", node_count=1, components=[
+            _c("chassis", "PowerEdge R570", 1), _c("cpu", "Intel Xeon 6 6517P", 1),
+            _c("nic", "1 OCP – ohne Kabel", 1, "780-BCZQ"),
+            _c("nic", "Broadcom 57412, 2 Anschlüsse, 10 GbE, Base-T-Adapter, OCP 3.0 NIC", 1),
+        ])])
+    orig = part_notes.load_notes
+    part_notes.load_notes = lambda: []
+    try:
+        res = run_check(NormalizedBOM.from_dict(stored.to_dict()), hcl=HclData(), platforms=[])
+    finally:
+        part_notes.load_notes = orig
+    named = [f["component"] for f in res["technical"]["config_results"][0]["findings"]
+             if f.get("code") == "nic_not_in_hcl"]
+    assert named == ["Broadcom 57412, 2 Anschlüsse, 10 GbE, Base-T-Adapter, OCP 3.0 NIC"]
+    lines = {l["description"]: l for l in component_results(stored.to_dict(), res)[0]["components"]}
+    assert lines["1 OCP – ohne Kabel"]["category"] == "other"
+    assert lines["1 OCP – ohne Kabel"]["status"] == "not_checked"
