@@ -132,7 +132,9 @@ FROM_UPLOAD_SCHEMA = {
         "exclude_storage": {"type": "array", "maxItems": 5000, "items": {"type": "integer", "minimum": 0},
                             "description": "vm_index values whose disk usage is subtracted from used storage. A VM that is not migrating at all usually goes in both lists."},
         "include_local_storage": {"type": "boolean", "default": False,
-                                  "description": "Add per-host local datastore usage (ISOs, templates) to the storage basis. Live Optics only; RVTools has no local split."},
+                                  "description": "Add every per-host local datastore (ISOs, templates, boot disks) to the storage basis; they are left out by default."},
+        "exclude_datastores": {"type": "array", "maxItems": 500, "items": {"type": "string", "minLength": 1, "maxLength": 300},
+                               "description": "Names of shared datastores (from get_upload.datastores) to leave out of the storage basis, e.g. an archive or backup datastore whose data is not moving. Ask the user before leaving one out. VMs whose disks are only on left-out datastores leave the VM storage totals too."},
     },
 }
 
@@ -378,9 +380,11 @@ def _from_upload(caller, spec):
     the upload context save_sizing needs. Returns (workload, upload_ctx)."""
     import mcp_uploads
     row, dataset = mcp_uploads.dataset_for(caller, spec["upload_id"], spec.get("source_cluster"))
-    summary = mcp_uploads.adjusted_summary(dataset, spec)
+    summary = mcp_uploads.adjusted_summary(dataset, spec, row)
+    _, ds_excl, ds_incl = mcp_uploads.datastore_selection(row, dataset, spec)
     workload = svc.summary_to_workload(summary)
     ctx = {"row": row, "dataset": dataset, "summary": summary, "spec": spec,
+           "datastores": {"exclude": ds_excl, "include": ds_incl},
            "exclusions": mcp_uploads.exclusion_stats(dataset, spec, summary)}
     return workload, ctx
 

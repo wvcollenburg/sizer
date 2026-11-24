@@ -18,6 +18,26 @@ def fmt_num(n):
     return f"{n:,}"
 
 
+def excluded_datastores(summary):
+    """The shared datastores the user left out of the storage basis, as
+    ``(text, total)``: "NCS-CameraArchive (642.4 TB), ISO (0.7 TB)" and the
+    formatted TB total, or ``(None, 0)`` when none were (summary["excluded_datastores"], set by the
+    exclusion maths in app.js / import_service.adjust_summary)."""
+    rows = [d for d in (summary or {}).get("excluded_datastores") or []
+            if isinstance(d, dict) and d.get("name")]
+    if not rows:
+        return None, 0
+    rows.sort(key=lambda d: -(d.get("used_tb") or 0))
+    text = ", ".join("%s (%s TB)" % (d["name"], fmt_tb(d.get("used_tb") or 0)) for d in rows)
+    return text, fmt_tb(sum(d.get("used_tb") or 0 for d in rows))
+
+
+def fmt_tb(tb):
+    """TB with one decimal (two below 1 TB), thousands separated."""
+    tb = float(tb or 0)
+    return f"{tb:,.2f}" if tb < 1 else f"{tb:,.1f}"
+
+
 def spare_vcpus(r, projected_vcpus):
     """vCPUs the proposed cluster can still take at the TARGET ratio, beyond
     the projected demand: spare cores (CPU basis minus required cores) times

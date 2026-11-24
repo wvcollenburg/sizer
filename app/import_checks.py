@@ -17,6 +17,13 @@ with those keys when adding a code.
 # issue #35 sat at 0.06.
 MIN_DATASTORE_VM_COVERAGE = 0.5
 
+# Shared datastores holding much more than the VMs' disks usually carry data
+# that is not VM storage (a camera archive, backups, an NFS share used outside
+# the scan), which may not be moving. Warn when used datastore capacity is
+# above this multiple of the VMs' used disk AND the gap is at least this big.
+STORAGE_GAP_RATIO = 2.0
+STORAGE_GAP_MIN_TB = 10.0
+
 
 def import_rejection(data, file_type=None):
     """Return a {code, params} reason when an import is too incomplete to size
@@ -73,9 +80,31 @@ def build_import_warnings(data, file_type=None):
     if blank and blank < len(hosts):
         warnings.append({"code": "unclustered_hosts", "params": {"count": blank}})
 
+    # Shared datastores hold far more than the VMs' disks (all VMs: a powered-
+    # off VM's disk still sits on its datastore). Point at the biggest one.
+    gap = _storage_gap(data or {}, num("datastore_used_tb"))
+    if gap:
+        warnings.append({"code": "storage_gap", "params": gap})
+
     # Only per-host local storage was found (no shared/cluster datastores). It's
     # excluded from the sizing basis unless the user opts in.
     if num("datastore_total_tb") == 0 and num("local_total_tb") > 0:
         warnings.append({"code": "local_only_storage", "params": {}})
 
     return warnings
+
+
+def _storage_gap(data, ds_used_tb):
+    from parser_common import GIB_PER_TB
+    vm_gib = sum(float(v.get("vdisk_used_gb") or 0) for v in data.get("vms") or []
+                 if not v.get("is_template"))
+    vm_tb = vm_gib / GIB_PER_TB
+    if ds_used_tb < STORAGE_GAP_MIN_TB + vm_tb or ds_used_tb < STORAGE_GAP_RATIO * vm_tb:
+        return None
+    shared = [d for d in data.get("datastores") or [] if d.get("type") != "local"]
+    if not shared:
+        return None
+    top = max(shared, key=lambda d: float(d.get("used_gib") or 0))
+    return {"ds_tb": round(ds_used_tb, 1), "vm_tb": round(vm_tb, 1),
+            "name": str(top.get("name") or ""),
+            "name_tb": round(float(top.get("used_gib") or 0) / GIB_PER_TB, 1)}

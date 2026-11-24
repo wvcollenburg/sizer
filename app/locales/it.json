@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Le repliche crescono secondo le opzioni di dimensionamento di ogni sito protetto: {sources}.",
   "export.docx.dr_growth_source_item": "{name} al {growth}% annuo per {years} anni (storage {storage}%, snapshot {snapshot}%)",
   "export.docx.dr_growth_follows": "Le repliche crescono secondo le opzioni di dimensionamento di ogni sito protetto.",
-  "export.docx.mgmt_overview_intro_split": "Questa proposta consolida l'ambiente {platform} attuale ({hosts} host, {vms} VM attive, {used_tb} TB in uso) su un cluster Scale Computing HyperCore. Raccomandiamo un cluster {nodes} {model} che eroga {usable_tb} TB di capacità utilizzabile e {cores} core CPU, progettato per la resilienza N-1 così che un intero nodo possa guastarsi senza interruzione del servizio. La configurazione assorbe la crescita a {years} anni al {growth}% annuo per il calcolo e al {storage}% per lo storage mantenendo un rapporto vCPU:core di {ratio}:1."
+  "export.docx.mgmt_overview_intro_split": "Questa proposta consolida l'ambiente {platform} attuale ({hosts} host, {vms} VM attive, {used_tb} TB in uso) su un cluster Scale Computing HyperCore. Raccomandiamo un cluster {nodes} {model} che eroga {usable_tb} TB di capacità utilizzabile e {cores} core CPU, progettato per la resilienza N-1 così che un intero nodo possa guastarsi senza interruzione del servizio. La configurazione assorbe la crescita a {years} anni al {growth}% annuo per il calcolo e al {storage}% per lo storage mantenendo un rapporto vCPU:core di {ratio}:1.",
+  "export.common.excluded_datastores": "Escluso dal dimensionamento",
+  "export.common.excluded_datastores_note": "Esclusi dal dimensionamento dello storage perché i loro dati non migrano nel nuovo cluster: {list} ({tb} TB in totale).",
+  "export.pptx.excluded_datastores_val": "{count} datastore · {tb} TB"
 }

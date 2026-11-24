@@ -25,7 +25,14 @@ let originalImportSummary = null;
 // counts, parser version). Saved alongside the sizing so a project can show
 // which file each number came from.
 let lastSourceMeta = null;
-let includeLocalStorage = false;   // include per-host local datastores in sizing
+// Include all per-host local datastores in sizing. Only consulted for a sizing
+// with no datastore list (saved before multi-file import); otherwise the
+// per-datastore sets below decide, and a saved `true` maps to "all local in".
+let includeLocalStorage = false;
+// Storage basis per datastore, by sizingDatastores() key: shared datastores
+// count unless in dsExcluded, local ones only when in dsIncluded.
+let dsExcluded = new Set();
+let dsIncluded = new Set();
 let vmExclusions = { compute: new Set(), storage: new Set() };
 // Per-VM edits keyed by index: { [idx]: { model?, vcpus?, provisioned_memory_gb? } }.
 // Lets the user right-size individual workloads (e.g. underused physical servers)
@@ -1159,8 +1166,9 @@ async function uploadFile(file) {
         }
 
         (data.vms || []).forEach(vm => { vm.src = ds.id; });
-        finishImport(data, file.name);
+        // Before finishImport: the screen lists this file's datastores.
         lastImportSources = [_sourceRecord(ds)];
+        finishImport(data, file.name);
         lastImportWarnings = data.import_warnings || [];
     } catch (e) {
         showUploadStatus(window.t('upload.failed', {error: e.message}), true);
@@ -1190,6 +1198,8 @@ function finishImport(data, fileName) {
         lastSourceMeta = data.source_meta || null;
         importVms = data.vms || [];
         includeLocalStorage = false;
+        dsExcluded = new Set();
+        dsIncluded = new Set();
         vmExclusions = { compute: new Set(), storage: new Set() };
         vmConfig = {};
         vmAdded = new Set();
@@ -1262,8 +1272,8 @@ const MERGE_SKIP = '__skip__';
 // Fields the engine and the screen never read: left out of a saved VM list
 // (measured on real exports: ~450 -> ~310 bytes per VM, so 10k VMs stay under
 // the 4 MB payload cap).
-const VM_UNSAVED_FIELDS = ['disk_capacity_gb', 'disk_used_gb', 'used_memory_gb',
-                           'datastore', 'ref'];
+// `datastore` is kept: it places a VM on its datastores for the storage basis.
+const VM_UNSAVED_FIELDS = ['disk_capacity_gb', 'disk_used_gb', 'used_memory_gb', 'ref'];
 
 function _compactVm(vm) {
     const out = {};
@@ -1271,6 +1281,7 @@ function _compactVm(vm) {
         if (VM_UNSAVED_FIELDS.indexOf(k) < 0) out[k] = vm[k];
     });
     if (out.uuid && out.bios_uuid) delete out.bios_uuid;
+    if (!out.datastore) delete out.datastore;
     return out;
 }
 
@@ -1683,6 +1694,8 @@ function _fanoutSnap(target, fields) {
             exclCompute: [],
             exclStorage: [],
             includeLocalStorage: false,
+            exclDatastores: [],
+            inclDatastores: [],
             lastProjection: null,
             selectedRec: null,
             wizardStep: null,
@@ -1773,9 +1786,9 @@ async function createPerClusterSizings() {
 function _finishMergedImport(target) {
     const data = _targetAsImport(target);
     const files = target.sources.length;
+    lastImportSources = _targetSources(target);
     finishImport(data, files > 1 ? window.t('merge.n_files', {count: files})
                                  : ((data.source_meta || {}).file_name || ''));
-    lastImportSources = _targetSources(target);
     lastImportWarnings = target.import_warnings || [];
     recalcRecommendations();
 }
@@ -1859,8 +1872,9 @@ function _applyAppend(target) {
     importVms = next;
 
     originalImportSummary = JSON.parse(JSON.stringify(target.summary));
-    importSummary = computeAdjustedImportSummary();
     lastImportSources = _targetSources(target);
+    _pruneDatastoreSelection();
+    importSummary = computeAdjustedImportSummary();
     lastImportWarnings = target.import_warnings || [];
     const newMetas = target.sources.filter(id => pm.newIds.has(id))
         .map(id => _metaOf(pm.datasets.find(d => d.id === id) || {}));
@@ -4017,6 +4031,13 @@ function renderVmTable() {
         return 0;
     });
 
+    // VMs whose datastores are all out of the storage basis: their disk is
+    // not in the sized storage, whatever the Excl. Storage box says.
+    const dsList = sizingDatastores();
+    const placement = dsList.length ? _datastoreBasis(dsList).placement : new Map();
+    const dsSrcs = new Set(dsList.map(d => d.src));
+    const defaultSrc = dsSrcs.size === 1 ? [...dsSrcs][0] : null;
+
     const tbody = document.getElementById('vm-table-body');
     tbody.innerHTML = sorted.map(vm => {
         const compChecked = vmExclusions.compute.has(vm._idx) ? 'checked' : '';
@@ -4035,9 +4056,13 @@ function renderVmTable() {
         const ram = vmVal(vm, vm._idx, 'provisioned_memory_gb');
         const stor = vmVal(vm, vm._idx, 'vdisk_used_gb');
         const name = vmVal(vm, vm._idx, 'name') || '';
+        const offDs = !isAdded && _vmPlacement(vm, placement, defaultSrc).off;
+        const dsTag = offDs
+            ? ` <span class="vm-tag vm-tag-ds" title="${esc(vmDatastoreNames(vm).join(', '))}">${window.t('import.vm_tag_ds_excluded')}</span>`
+            : '';
         const nameCell = isAdded
             ? `<span class="vm-name-edit"><input type="text" class="vm-edit vm-edit-text" value="${esc(name)}" data-change='["setVmConfig",${vm._idx},"name","$value"]'><span class="vm-tag">${window.t('import.vm_tag_new')}</span></span>`
-            : `<span title="${esc(name)}">${esc(name)}</span>`;
+            : `<span title="${esc(name)}">${esc(name)}</span>${dsTag}`;
         const storCell = isAdded
             ? `<input type="number" class="vm-edit vm-edit-num" min="0" step="1" value="${stor}" data-change='["setVmConfig",${vm._idx},"vdisk_used_gb","$value"]'>`
             : `${(stor || 0).toFixed(1)}`;
@@ -4270,6 +4295,87 @@ function updateExclusionCountBadge() {
         ...Object.keys(vmConfig).map(Number),
     ]).size;
     el.innerHTML = total > 0 ? `<span class="exclusion-active">${total}</span>` : '';
+    // Datastores button: hidden when the sizing has no datastore list.
+    const btn = document.getElementById('btn-datastores');
+    if (btn) btn.style.display = sizingDatastores().length ? '' : 'none';
+    const dsEl = document.getElementById('datastore-count');
+    if (dsEl) {
+        const n = datastoreChangeCount();
+        dsEl.innerHTML = n > 0 ? `<span class="exclusion-active">${n}</span>` : '';
+    }
+}
+
+// ==================== DATASTORES (storage basis) ====================
+// Mirrors import_service.datastore_list / _datastore_basis / _vm_placement —
+// tests/test_browser_exclusion_parity.py holds the two to one answer.
+
+// The sizing's datastores, flat, each with a stable key: "<source id>|<name>"
+// (+ "#2", "#3" for a name repeated in one file). Empty for a sizing saved
+// before multi-file import (no sources), which then has no datastore list.
+function sizingDatastores() {
+    const out = [];
+    (lastImportSources || []).forEach(src => {
+        const sid = src.id || '';
+        const seen = {};
+        (src.datastores || []).forEach(d => {
+            const name = String(d.name == null ? '' : d.name);
+            const n = (seen[name] || 0) + 1;
+            seen[name] = n;
+            out.push({
+                key: `${sid}|${name}${n > 1 ? '#' + n : ''}`,
+                name, src: sid,
+                type: d.type === 'local' ? 'local' : 'cluster',
+                used_gib: Number(d.used_gib) || 0,
+                capacity_gib: Number(d.capacity_gib) || 0,
+                mounts: d.mounts || [],
+            });
+        });
+    });
+    return out;
+}
+
+function vmDatastoreNames(vm) {
+    return String(vm.datastore || '').split(',').map(n => n.trim()).filter(Boolean);
+}
+
+function _datastoreInBasis(d) {
+    return d.type === 'local'
+        ? (includeLocalStorage || dsIncluded.has(d.key))
+        : !dsExcluded.has(d.key);
+}
+
+function _datastoreBasis(datastores) {
+    let dsUsed = 0, dsTotal = 0;
+    const dsExcludedList = [], placement = new Map();
+    datastores.forEach(d => {
+        const local = d.type === 'local';
+        const inBasis = _datastoreInBasis(d);
+        if (local && inBasis) {
+            dsUsed += d.used_gib;
+            dsTotal += d.capacity_gib;
+        } else if (!local && !inBasis) {
+            dsUsed -= d.used_gib;
+            dsTotal -= d.capacity_gib;
+            dsExcludedList.push({ name: d.name, used_tb: Math.round(d.used_gib / GIB_PER_TB * 100) / 100 });
+        }
+        const k = d.src + '\u0000' + d.name;
+        const ent = placement.get(k) || { in: false, user: false };
+        ent.in = ent.in || inBasis;
+        ent.user = ent.user || (!local && !inBasis);
+        placement.set(k, ent);
+    });
+    return { dsUsed, dsTotal, dsExcludedList, placement };
+}
+
+// {off, user}: off when every datastore the VM is on is out of the basis,
+// user when that is due to an excluded shared datastore.
+function _vmPlacement(vm, placement, defaultSrc) {
+    const names = vmDatastoreNames(vm);
+    if (!names.length || !placement.size) return { off: false, user: false };
+    const src = vm.src || defaultSrc;
+    const ents = names.map(n => placement.get(src + '\u0000' + n));
+    if (ents.some(e => !e || e.in)) return { off: false, user: false };
+    return { off: true, user: ents.some(e => e.user) };
 }
 
 // Rebuild the working summary from the pristine import: apply VM exclusions,
@@ -4310,18 +4416,37 @@ function computeAdjustedImportSummary() {
     adjusted.max_vm_ram_gb = maxVmRam;
     adjusted.max_vm_cores = maxVmCores;
 
+    const datastores = sizingDatastores();
+    let dsUsed = 0, dsTotal = 0, dsExcludedList = [], placement = new Map();
+    if (datastores.length) {
+        ({ dsUsed, dsTotal, dsExcludedList, placement } = _datastoreBasis(datastores));
+    }
+    const srcs = new Set(datastores.map(d => d.src));
+    const defaultSrc = srcs.size === 1 ? [...srcs][0] : null;
+
     // Excluded/removed IMPORTED VMs are subtracted from the measured datastore
-    // totals (added VMs aren't in those totals, so they're skipped here).
+    // totals (added VMs aren't in those totals, so they're skipped here),
+    // unless their datastores are out of the basis already. VMs on excluded
+    // shared datastores leave the VM storage totals too.
     let exclStorGbAll = 0, exclProvStorGbActive = 0, exclStorGbActive = 0;
     vmExclusions.storage.forEach(i => {
-        if (vmAdded.has(i)) return;
+        if (vmAdded.has(i) || i >= importVms.length) return;
         const vm = importVms[i];
-        exclStorGbAll += vm.vdisk_used_gb;
+        if (!_vmPlacement(vm, placement, defaultSrc).off) exclStorGbAll += vm.vdisk_used_gb;
         if (vm.powered_on && !vm.is_template) {
             exclStorGbActive += vm.vdisk_used_gb;
             exclProvStorGbActive += vm.vdisk_size_gb;
         }
     });
+    if (placement.size) {
+        importVms.forEach((vm, i) => {
+            if (vmExclusions.storage.has(i) || vmAdded.has(i) || !vm.powered_on || vm.is_template) return;
+            if (_vmPlacement(vm, placement, defaultSrc).user) {
+                exclStorGbActive += vm.vdisk_used_gb;
+                exclProvStorGbActive += vm.vdisk_size_gb;
+            }
+        });
+    }
 
     // Added VMs contribute net-new storage (unless removed or storage-excluded).
     // A new VM is given a single storage figure, used for both used and provisioned.
@@ -4337,7 +4462,8 @@ function computeAdjustedImportSummary() {
         }
     });
 
-    adjusted.datastore_used_tb = Math.round((base.datastore_used_tb - exclStorGbAll / GIB_PER_TB + addStorGbAll / GIB_PER_TB) * 100) / 100;
+    adjusted.datastore_used_tb = Math.round((base.datastore_used_tb - exclStorGbAll / GIB_PER_TB + addStorGbAll / GIB_PER_TB
+        + dsUsed / GIB_PER_TB) * 100) / 100;
     adjusted.total_vm_provisioned_storage_gb = Math.round((base.total_vm_provisioned_storage_gb - exclProvStorGbActive + addProvStorGbActive) * 10) / 10;
     adjusted.total_vm_provisioned_storage_tb = Math.round(adjusted.total_vm_provisioned_storage_gb / GIB_PER_TB * 100) / 100;
     adjusted.total_vm_used_storage_gb = Math.round(((base.total_vm_used_storage_gb || 0) - exclStorGbActive + addStorGbActive) * 10) / 10;
@@ -4345,9 +4471,14 @@ function computeAdjustedImportSummary() {
 
     if (adjusted.datastore_used_tb < 0) adjusted.datastore_used_tb = 0;
 
-    // Per-host local storage (ISOs/templates etc.) — added to the cluster basis
-    // only when the user opts in via the checkbox.
-    if (includeLocalStorage) {
+    delete adjusted.excluded_datastores;
+    if (datastores.length) {
+        adjusted.datastore_total_tb = Math.round(((base.datastore_total_tb || 0) + dsTotal / GIB_PER_TB) * 100) / 100;
+        if (adjusted.datastore_total_tb < 0) adjusted.datastore_total_tb = 0;
+        if (dsExcludedList.length) adjusted.excluded_datastores = dsExcludedList;
+    } else if (includeLocalStorage) {
+        // No datastore list (a sizing saved before multi-file import): per-host
+        // local storage is added to the cluster basis only when opted in.
         adjusted.datastore_used_tb = Math.round((adjusted.datastore_used_tb + (base.local_used_tb || 0)) * 100) / 100;
         adjusted.datastore_total_tb = Math.round(((adjusted.datastore_total_tb || 0) + (base.local_total_tb || 0)) * 100) / 100;
     }
@@ -4364,28 +4495,213 @@ function applyVmExclusions() {
     closeVmExclusionModal();
 }
 
-// Off-by-default toggle to fold per-host local storage into the sizing basis.
+// Legacy toggle (a sizing with no datastore list): fold all per-host local
+// storage into the sizing basis.
 function toggleLocalStorage() {
     const cb = document.getElementById('include-local-cb');
     includeLocalStorage = cb ? cb.checked : false;
+    _applyStorageBasis();
+}
+
+function _applyStorageBasis() {
     if (!originalImportSummary) return;
     importSummary = computeAdjustedImportSummary();
-    displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'] });
+    updateExclusionCountBadge();
+    displayImportResults({ summary: importSummary, recommendations: [], projection: lastProjection['import'],
+                           import_warnings: lastImportWarnings });
     recalcRecommendations();
 }
 
-// Reset per-import selection state from an import response. A fresh upload
-// starts from the top recommendation again; carrying the last import's pick
-// over would silently point at a different platform.
-function initClusters(data) {
-    selectedRec = {};
+// A saved sizing's datastore choices. Before the per-datastore list a sizing
+// carried only includeLocalStorage: true opens with every local datastore in.
+function _restoreDatastoreSelection(im) {
+    const list = sizingDatastores();
+    dsExcluded = new Set(im.exclDatastores || []);
+    dsIncluded = new Set(im.inclDatastores || []);
+    if (list.length && includeLocalStorage) {
+        if (!im.inclDatastores) list.filter(d => d.type === 'local').forEach(d => dsIncluded.add(d.key));
+        includeLocalStorage = false;
+    }
+    _pruneDatastoreSelection();
 }
 
-// Render the "include local storage" checkbox (hidden when there is none, e.g.
-// RVTools imports). Reflects current toggle state across re-renders.
+// Drop choices for datastores the sizing no longer has (after a re-merge).
+function _pruneDatastoreSelection() {
+    const keys = new Set(sizingDatastores().map(d => d.key));
+    if (!keys.size) return;
+    dsExcluded = new Set([...dsExcluded].filter(k => keys.has(k)));
+    dsIncluded = new Set([...dsIncluded].filter(k => keys.has(k)));
+}
+
+// ---- Datastore modal: staged choices, committed on Apply. ----
+let dsStage = null;   // {excl: Set, incl: Set} while the modal is open
+let dsSort = { field: 'used_gib', asc: false };
+
+function _stagedInBasis(d) {
+    return d.type === 'local' ? dsStage.incl.has(d.key) : !dsStage.excl.has(d.key);
+}
+
+function openDatastoreModal() {
+    const list = sizingDatastores();
+    if (!list.length) return;
+    dsStage = { excl: new Set(dsExcluded), incl: new Set(dsIncluded) };
+    const search = document.getElementById('ds-search');
+    if (search) search.value = '';
+    renderDatastoreTable();
+    openModal('datastore-modal');
+}
+
+function closeDatastoreModal() {
+    dsStage = null;
+    closeModal('datastore-modal');
+}
+
+function _fmtTb(gib) {
+    return (gib / GIB_PER_TB).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderDatastoreTable() {
+    if (!dsStage) return;
+    const list = sizingDatastores();
+    // VMs placed on each datastore (only the formats that record placement).
+    // Only names that match a listed datastore count as placement.
+    const listed = new Set(list.map(d => d.src + '\u0000' + d.name));
+    const vmCount = new Map();
+    importVms.forEach((vm, i) => {
+        if (vmRemoved.has(i)) return;
+        const src = vm.src || (list.length ? list[0].src : '');
+        vmDatastoreNames(vm).forEach(n => {
+            const k = src + '\u0000' + n;
+            if (listed.has(k)) vmCount.set(k, (vmCount.get(k) || 0) + 1);
+        });
+    });
+    const note = document.getElementById('ds-no-placement');
+    if (note) note.style.display = vmCount.size ? 'none' : '';
+    const multiSrc = new Set(list.map(d => d.src)).size > 1;
+    const fileName = sid => {
+        const src = (lastImportSources || []).find(x => x.id === sid);
+        return (src && src.source_meta && src.source_meta.file_name) || sid;
+    };
+    const rows = list.map(d => Object.assign({}, d, {
+        hosts: (d.mounts || []).length,
+        vms: vmCount.get(d.src + '\u0000' + d.name),
+        in_basis: _stagedInBasis(d),
+    }));
+    rows.sort((a, b) => {
+        let va = a[dsSort.field], vb = b[dsSort.field];
+        if (typeof va === 'string') { va = va.toLowerCase(); vb = String(vb || '').toLowerCase(); }
+        if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+        va = va == null ? -1 : va; vb = vb == null ? -1 : vb;
+        if (va < vb) return dsSort.asc ? -1 : 1;
+        if (va > vb) return dsSort.asc ? 1 : -1;
+        return 0;
+    });
+    const q = ((document.getElementById('ds-search') || {}).value || '').toLowerCase();
+    document.getElementById('ds-table-body').innerHTML = rows.map(d => {
+        const typeLabel = window.t(d.type === 'local' ? 'modal.ds.type_local' : 'modal.ds.type_shared');
+        const pct = d.capacity_gib > 0 ? Math.round(d.used_gib / d.capacity_gib * 100) : null;
+        const hidden = q && !d.name.toLowerCase().includes(q) ? ' vm-hidden' : '';
+        return `<tr class="${d.in_basis ? '' : 'vm-excluded'}${hidden}" data-key="${esc(d.key)}">
+            <td class="vm-col-check"><input type="checkbox" ${d.in_basis ? 'checked' : ''}
+                data-change='["toggleDatastoreRow","$this","$checked"]'></td>
+            <td class="ds-col-name"><span title="${esc(d.name)}">${esc(d.name)}</span>${multiSrc
+                ? `<div class="ds-src">${esc(fileName(d.src))}</div>` : ''}</td>
+            <td class="ds-col-type"><span class="ds-type ds-type-${d.type}">${esc(typeLabel)}</span></td>
+            <td class="vm-col-num">${_fmtTb(d.used_gib)}</td>
+            <td class="vm-col-num">${_fmtTb(d.capacity_gib)}</td>
+            <td class="vm-col-num">${pct == null ? '–' : pct + '%'}</td>
+            <td class="vm-col-num">${d.hosts || '–'}</td>
+            <td class="vm-col-num">${d.vms == null ? '–' : d.vms}</td>
+        </tr>`;
+    }).join('');
+    renderSortArrows(document.getElementById('ds-table'), dsSort.field, dsSort.asc);
+    updateDatastoreSummary();
+}
+
+function sortDatastoreTable(field) {
+    if (dsSort.field === field) dsSort.asc = !dsSort.asc;
+    else { dsSort.field = field; dsSort.asc = field === 'name' || field === 'type'; }
+    renderDatastoreTable();
+}
+
+function filterDatastoreTable() {
+    const q = (document.getElementById('ds-search').value || '').toLowerCase();
+    document.querySelectorAll('#ds-table-body tr').forEach(row => {
+        const name = row.children[1].textContent.toLowerCase();
+        row.classList.toggle('vm-hidden', !!q && !name.includes(q));
+    });
+}
+
+// The row carries the key (a datastore name is user data, so it stays out of
+// the delegate spec).
+function toggleDatastoreRow(el, checked) {
+    const row = el.closest('tr');
+    if (row) toggleDatastore(row.getAttribute('data-key'), checked);
+}
+
+function toggleDatastore(key, checked) {
+    if (!dsStage) return;
+    const d = sizingDatastores().find(x => x.key === key);
+    if (!d) return;
+    if (d.type === 'local') { if (checked) dsStage.incl.add(key); else dsStage.incl.delete(key); }
+    else if (checked) dsStage.excl.delete(key);
+    else dsStage.excl.add(key);
+    const row = document.querySelector(`#ds-table-body tr[data-key="${CSS.escape(key)}"]`);
+    if (row) row.classList.toggle('vm-excluded', !checked);
+    updateDatastoreSummary();
+}
+
+// Default basis: every shared datastore in, every local one out.
+function resetDatastoreSelection() {
+    if (!dsStage) return;
+    dsStage = { excl: new Set(), incl: new Set() };
+    renderDatastoreTable();
+}
+
+function updateDatastoreSummary() {
+    const el = document.getElementById('ds-summary');
+    if (!el || !dsStage) return;
+    let n = 0, used = 0, cap = 0, outN = 0, outUsed = 0;
+    const list = sizingDatastores();
+    list.forEach(d => {
+        if (_stagedInBasis(d)) { n++; used += d.used_gib; cap += d.capacity_gib; }
+        else if (d.type !== 'local') { outN++; outUsed += d.used_gib; }
+    });
+    let txt = window.t('modal.ds.summary', { n, total: list.length, used: _fmtTb(used), cap: _fmtTb(cap) });
+    if (outN) txt += ' · ' + window.t('modal.ds.summary_excluded', { count: outN, tb: _fmtTb(outUsed) });
+    el.textContent = txt;
+}
+
+function applyDatastoreSelection() {
+    if (!dsStage) return;
+    dsExcluded = dsStage.excl;
+    dsIncluded = dsStage.incl;
+    closeDatastoreModal();
+    _applyStorageBasis();
+}
+
+// Datastores changed from the default basis (shared in, local out).
+function datastoreChangeCount() {
+    return dsExcluded.size + dsIncluded.size;
+}
+
+// Sizing-options line: the storage basis and the way to change it. A sizing
+// without a datastore list keeps the old "include local storage" checkbox.
 function renderLocalStorageOption(s) {
     const el = document.getElementById('local-storage-option');
     if (!el) return;
+    const list = sizingDatastores();
+    if (list.length) {
+        const n = list.filter(_datastoreInBasis).length;
+        const changed = datastoreChangeCount();
+        el.innerHTML = `
+            <div class="ds-basis-line">
+                <span>${esc(window.t('storage.basis_line', { n, total: list.length, tb: s.datastore_used_tb }))}</span>
+                <button class="btn btn-sm btn-link" data-click='["openDatastoreModal"]'>${esc(window.t('storage.choose_datastores'))}</button>
+                ${changed ? `<span class="exclusion-active">${changed}</span>` : ''}
+            </div>`;
+        return;
+    }
     const localGb = s.local_used_gb || 0;
     if (localGb <= 0) { el.innerHTML = ''; return; }
     el.innerHTML = `
@@ -4394,6 +4710,13 @@ function renderLocalStorageOption(s) {
                    data-change='["toggleLocalStorage"]'>
             ${window.t('storage.include_local', {gb: localGb.toLocaleString()})}
         </label>`;
+}
+
+// Reset per-import selection state from an import response. A fresh upload
+// starts from the top recommendation again; carrying the last import's pick
+// over would silently point at a different platform.
+function initClusters(data) {
+    selectedRec = {};
 }
 
 
@@ -4511,6 +4834,8 @@ function captureSizingState() {
             exclCompute: [...vmExclusions.compute],
             exclStorage: [...vmExclusions.storage],
             includeLocalStorage,
+            exclDatastores: [...dsExcluded],
+            inclDatastores: [...dsIncluded],
             lastProjection: lastProjection['import'] || null,
             // Which listed option this sizing settled on. Saved with the
             // inputs so reopening — or a background refresh — rebuilds the
@@ -4602,6 +4927,7 @@ async function restoreSizingState(snap) {
         vmConfig = im.vmConfig || {};
         vmExclusions = { compute: new Set(im.exclCompute || []), storage: new Set(im.exclStorage || []) };
         includeLocalStorage = !!im.includeLocalStorage;
+        _restoreDatastoreSelection(im);
         lastProjection['import'] = im.lastProjection || null;
         selectedRec = im.selectedRec || {};
         importSummary = computeAdjustedImportSummary();

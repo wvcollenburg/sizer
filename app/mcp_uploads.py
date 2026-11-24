@@ -32,6 +32,7 @@ import import_merge
 import import_service
 from mcp_registry import SCHEMA_VERSION, ToolError, audit_event, invalid_input, tool
 import mcp_payload
+from parser_common import GIB_PER_TB
 import sizing_service as svc
 
 LINK_MINUTES = 15
@@ -306,7 +307,61 @@ def dataset_for(caller, upload_id, source_cluster=None):
     return row, sub
 
 
-def adjusted_summary(dataset, spec):
+def dataset_datastores(row, dataset):
+    """``import_service.datastore_list`` of a from_upload dataset, keyed the
+    way the saved sizing's sources key them (``mcp_payload``): a single file
+    by its dataset id, a merge target's records by their ``src``."""
+    sid = None if row.kind == KIND_MERGED else ((row.data or {}).get("id") or "f" + row.token[:10])
+    groups, order = {}, []
+    for d in dataset.get("datastores") or []:
+        src = d.get("src") or sid or ""
+        if src not in groups:
+            groups[src] = []
+            order.append(src)
+        groups[src].append(d)
+    return import_service.datastore_list([{"id": s, "datastores": groups[s]} for s in order])
+
+
+def datastore_selection(row, dataset, spec):
+    """``(datastores, exclude_keys, include_keys)`` for a from_upload block:
+    ``exclude_datastores`` names shared datastores (every copy of a name, in
+    a merge of several files); ``include_local_storage`` brings in every local
+    one."""
+    datastores = dataset_datastores(row, dataset)
+    names = [str(n) for n in spec.get("exclude_datastores") or []]
+    shared = {d["name"] for d in datastores if d["type"] != "local"}
+    local = {d["name"] for d in datastores if d["type"] == "local"} - shared
+    problems = []
+    unknown = [n for n in names if n not in shared and n not in local]
+    if unknown:
+        problems.append({"field": "from_upload.exclude_datastores",
+                         "problem": "names datastores this upload does not have (%s); its shared "
+                         "datastores are: %s" % (", ".join(unknown[:5]),
+                                                 ", ".join(sorted(shared)[:20]) or "none")})
+    is_local = [n for n in names if n in local]
+    if is_local:
+        problems.append({"field": "from_upload.exclude_datastores",
+                         "problem": "names local datastores (%s), which are out of the sizing "
+                         "unless include_local_storage is true" % ", ".join(is_local[:5])})
+    if problems:
+        raise invalid_input(problems)
+    excl = [d["key"] for d in datastores if d["type"] != "local" and d["name"] in set(names)]
+    incl = ([d["key"] for d in datastores if d["type"] == "local"]
+            if spec.get("include_local_storage") else [])
+    return datastores, excl, incl
+
+
+def datastore_rows(datastores, limit=50):
+    """Datastores as get_upload lists them, largest used first."""
+    rows = sorted(datastores, key=lambda d: -d["used_gib"])
+    return [{"name": d["name"], "type": "shared" if d["type"] != "local" else "local",
+             "used_tb": round(d["used_gib"] / GIB_PER_TB, 2),
+             "capacity_tb": round(d["capacity_gib"] / GIB_PER_TB, 2),
+             "hosts": len(d["mounts"]),
+             "in_sizing_by_default": d["type"] != "local"} for d in rows[:limit]]
+
+
+def adjusted_summary(dataset, spec, row=None):
     """The dataset's summary after the exclusions of a from_upload block."""
     vms = dataset.get("vms") or []
     for field in ("exclude_compute", "exclude_storage"):
@@ -315,9 +370,15 @@ def adjusted_summary(dataset, spec):
             raise invalid_input([{"field": "from_upload." + field,
                                   "problem": "has vm_index values out of range (%s); the upload "
                                   "has %d VMs" % (", ".join(map(str, bad[:5])), len(vms))}])
+    if row is None:
+        return import_service.adjust_summary(
+            dataset["summary"], vms, spec.get("exclude_compute") or [],
+            spec.get("exclude_storage") or [], bool(spec.get("include_local_storage")))
+    datastores, excl, incl = datastore_selection(row, dataset, spec)
     return import_service.adjust_summary(
         dataset["summary"], vms, spec.get("exclude_compute") or [],
-        spec.get("exclude_storage") or [], bool(spec.get("include_local_storage")))
+        spec.get("exclude_storage") or [], datastores=datastores,
+        exclude_datastores=excl, include_datastores=incl)
 
 
 def exclusion_stats(dataset, spec, summary):
@@ -329,7 +390,8 @@ def exclusion_stats(dataset, spec, summary):
                                     - (summary.get("total_vm_provisioned_memory_gb") or 0), 1),
             "storage_tb_removed": round((base.get("datastore_used_tb") or 0)
                                         - (summary.get("datastore_used_tb") or 0), 2),
-            "include_local_storage": bool(spec.get("include_local_storage"))}
+            "include_local_storage": bool(spec.get("include_local_storage")),
+            "datastores_excluded": [d.get("name") for d in summary.get("excluded_datastores") or []]}
 
 
 # ── tools ────────────────────────────────────────────────────────────────────
@@ -442,13 +504,21 @@ def _largest_vms(vms, n=5):
 _WARNING_TEXT_OVERRIDES = {
     "no_iops": "No IOPS data was found in this import: the IOPS check cannot run (demand unknown); "
                "options still report their per-drive IOPS capability.",
+    # The wizard's wording points at a button; a caller has an argument.
+    "storage_gap": "Shared datastores hold {ds_tb} TB used, but the VMs' disks only {vm_tb} TB; "
+                   "the largest datastore, {name}, holds {name_tb} TB. Ask the user whether that "
+                   "data is moving to the new cluster; if not, leave it out with "
+                   "from_upload.exclude_datastores.",
 }
 
 
 def _warning_text(warning, lang):
     code = (warning or {}).get("code")
     if code in _WARNING_TEXT_OVERRIDES:
-        return _WARNING_TEXT_OVERRIDES[code]
+        try:
+            return _WARNING_TEXT_OVERRIDES[code].format(**((warning or {}).get("params") or {}))
+        except (KeyError, IndexError, ValueError):
+            return _WARNING_TEXT_OVERRIDES[code]
     return mcp_payload.import_warning_text(warning, lang)
 
 
@@ -458,8 +528,10 @@ def _assessment_body(row, lang):
     clusters = []
     for c in data.get("clusters") or []:
         ci, cm = _summary_inputs(c["summary"], data)
+        sub = import_service.cluster_dataset(data, c["name"]) or {}
         clusters.append({"name": c["name"], "host_count": c.get("host_count"),
-                         "vm_count": c.get("vm_count"), "inputs": ci, "missing_for_sizing": cm})
+                         "vm_count": c.get("vm_count"), "inputs": ci, "missing_for_sizing": cm,
+                         "datastores": datastore_rows(dataset_datastores(row, sub))})
     meta = data.get("source_meta") or {}
     return {
         "source": {k: meta.get(k) for k in ("file_name", "file_type", "collected_at",
@@ -468,6 +540,7 @@ def _assessment_body(row, lang):
         "import_warnings": [dict(w, text=_warning_text(w, lang))
                             for w in data.get("import_warnings") or []],
         "largest_vms": _largest_vms(data.get("vms") or []),
+        "datastores": datastore_rows(dataset_datastores(row, data)),
         "clusters": clusters,
     }
 
@@ -480,6 +553,7 @@ def _merged_body(row, lang):
         targets.append({"name": t["name"], "sources": t.get("sources"),
                         "host_count": len(t.get("hosts") or []), "vm_count": len(t.get("vms") or []),
                         "inputs": ti, "missing_for_sizing": tm,
+                        "datastores": datastore_rows(dataset_datastores(row, t)),
                         "import_warnings": [dict(w, text=_warning_text(w, lang))
                                             for w in t.get("import_warnings") or []]})
     return {"source": {"file_type": "merged", "files": len(data.get("sources") or [])},
@@ -488,6 +562,7 @@ def _merged_body(row, lang):
             "import_warnings": [dict(w, text=_warning_text(w, lang))
                                 for w in data.get("import_warnings") or []],
             "largest_vms": _largest_vms(targets and (data["targets"][0].get("vms") or []) or []),
+            "datastores": targets[0]["datastores"] if len(targets) == 1 else None,
             "clusters": targets}
 
 
@@ -511,7 +586,9 @@ def _bom_body(row):
       "Returns the status and result of an upload started with start_upload. For an assessment, "
       "size it by passing from_upload: {upload_id} to create_sizing. Use list_upload_vms to review "
       "VMs with the user and exclude some. The result also has the summary inputs and data-quality "
-      "warnings about the file. If the export held several vSphere clusters, clusters has inputs "
+      "warnings about the file, and its datastores (largest first): a shared datastore whose data "
+      "is not moving (an archive, backups) can be left out with from_upload.exclude_datastores. "
+      "If the export held several vSphere clusters, clusters has inputs "
       "per cluster: ask the user whether to size them together or separately. For a BOM the "
       "result is the compatibility check. If status is waiting, the user has not uploaded yet.",
       {"type": "object", "additionalProperties": False, "required": ["upload_id"], "properties": {
@@ -626,7 +703,9 @@ def list_upload_vms(caller, args):
                  "is_template": bool(v.get("is_template")), "vcpus": v.get("vcpus"),
                  "ram_gb": v.get("provisioned_memory_gb"), "ram_used_gb": v.get("consumed_memory_gb"),
                  "storage_provisioned_gb": v.get("vdisk_size_gb"),
-                 "storage_used_gb": v.get("vdisk_used_gb"), "suggested_exclusion": flag}
+                 "storage_used_gb": v.get("vdisk_used_gb"),
+                 "datastores": import_service.vm_datastore_names(v) or None,
+                 "suggested_exclusion": flag}
                 for i, v, flag in page]
     out = {"schema_version": SCHEMA_VERSION, "vms": out_rows, "total_matching": len(rows),
            "next_offset": offset + limit if offset + limit < len(rows) else None, "estate": estate}

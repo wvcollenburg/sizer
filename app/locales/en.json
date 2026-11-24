@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "The replicas are grown at each protected site's own sizing options: {sources}.",
   "export.docx.dr_growth_source_item": "{name} at {growth}% per year over {years} years (storage {storage}%, snapshot {snapshot}%)",
   "export.docx.dr_growth_follows": "The replicas are grown at each protected site's own sizing options.",
-  "export.docx.mgmt_overview_intro_split": "This proposal consolidates the current {platform} environment ({hosts} hosts, {vms} active VMs, {used_tb} TB in use) onto a Scale Computing HyperCore cluster. We recommend a {nodes} {model} cluster delivering {usable_tb} TB usable capacity and {cores} CPU cores, engineered for N-1 resilience so a complete node can fail without service interruption. The configuration absorbs {years}-year growth at {growth}% annually for compute and {storage}% for storage while maintaining a {ratio}:1 vCPU-to-core ratio."
+  "export.docx.mgmt_overview_intro_split": "This proposal consolidates the current {platform} environment ({hosts} hosts, {vms} active VMs, {used_tb} TB in use) onto a Scale Computing HyperCore cluster. We recommend a {nodes} {model} cluster delivering {usable_tb} TB usable capacity and {cores} CPU cores, engineered for N-1 resilience so a complete node can fail without service interruption. The configuration absorbs {years}-year growth at {growth}% annually for compute and {storage}% for storage while maintaining a {ratio}:1 vCPU-to-core ratio.",
+  "export.common.excluded_datastores": "Left out of the sizing",
+  "export.common.excluded_datastores_note": "Left out of the storage sizing because their data is not moving to the new cluster: {list} ({tb} TB in total).",
+  "export.pptx.excluded_datastores_val": "{count} datastores · {tb} TB"
 }

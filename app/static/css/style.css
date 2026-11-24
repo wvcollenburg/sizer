@@ -3797,3 +3797,71 @@ textarea.text-input:focus {
 .ask-dialog .ask-msg { display: block; margin: 0 0 0.75rem; line-height: 1.45; white-space: pre-line; }
 .ask-dialog .ask-msg:empty { display: none; }
 .ask-dialog .text-input[hidden] { display: none; }
+
+/* ── Datastore modal / storage basis (app.js openDatastoreModal) ── */
+.modal-intro {
+    margin: 0;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+.ds-col-name { min-width: 220px; }
+.ds-col-type { width: 80px; }
+.ds-src { font-size: var(--fs-xs); color: var(--text-muted); }
+.ds-type {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    padding: 0 0.35rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+.ds-type-cluster { color: var(--accent); border-color: var(--accent); }
+.vm-tag.vm-tag-ds { color: var(--orange); border-color: var(--orange); }
+.ds-basis-line {
+    margin-top: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.ds-basis-line .exclusion-active {
+    background: var(--orange-bg);
+    color: var(--orange);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+}
+.ds-note {
+    margin: 0;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.85rem;
+    color: var(--orange);
+    background: var(--orange-bg);
+    border-bottom: 1px solid var(--border);
+}
+
+/* Full validation results (bom.js openBomFullResults). */
+.bom-modal .bom-full-open { margin-top: 0.6rem; }
+.bom-full-modal .bom-full-counts { font-size: 0.82rem; color: var(--text-muted); }
+.bom-full-modal .bom-full-nodes { margin: 0.2rem 0 0.5rem; }
+.bom-full-modal .sizing-table.bom-full-table td { vertical-align: top; }
+.bom-full-modal .sizing-table.bom-full-table th { white-space: nowrap; }
+.bom-full-modal .bom-full-table .bom-col-sev { width: 1%; white-space: nowrap; }
+.bom-full-modal .bom-full-table .bom-col-cat { white-space: nowrap; color: var(--text-muted); }
+.bom-full-modal .bom-full-table .bom-num { text-align: right; white-space: nowrap; }
+.bom-full-modal .bom-line-not_checked td { color: var(--text-muted); }
+.bom-full-modal .bom-line-notes { margin: 0.25rem 0 0; padding-left: 1rem; font-size: 0.8rem; }
+.bom-full-modal .bom-line-note { cursor: help; }
+.bom-full-modal .bom-line-note-error { color: var(--red, #b91c1c); }
+.bom-full-modal .bom-line-note-warning { color: var(--orange); }
+.bom-full-modal .bom-line-note-info { color: var(--text-muted); }

@@ -359,7 +359,14 @@ def _finalize(summary, parts):
         if plat:
             platforms[plat] += max(1, p["hosts"])
     if platforms:
-        summary["current_platform"] = platforms.most_common(1)[0][0]
+        plat = platforms.most_common(1)[0][0]
+        # "VMware vSphere (26 hosts)" counts the whole file; restate it for
+        # the hosts this target actually has.
+        m = re.match(r"^(.*) \((\d+) (host|server)s?\)$", plat)
+        if m:
+            n = summary.get("host_count", 0)
+            plat = "%s (%d %s%s)" % (m.group(1), n, m.group(3), "" if n == 1 else "s")
+        summary["current_platform"] = plat
     types = {p["file_type"] for p in parts}
     if len(types) == 1 and next(iter(types)) in ("rvtools", "nutanix", "azure"):
         summary["source"] = next(iter(types))
@@ -367,7 +374,9 @@ def _finalize(summary, parts):
 
 def _target_warnings(data, summary, parts, extrapolated):
     types = sorted({p["file_type"] for p in parts})
-    warns = build_import_warnings({"summary": summary, "hosts": data["hosts"]},
+    warns = build_import_warnings({"summary": summary, "hosts": data["hosts"],
+                                   "vms": data.get("vms") or [],
+                                   "datastores": data.get("datastores") or []},
                                   types[0] if len(types) == 1 else None)
     extra = []
     if len(types) > 1:

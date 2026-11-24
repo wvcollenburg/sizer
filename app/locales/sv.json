@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Replikerna växer enligt dimensioneringsalternativen för varje skyddad plats: {sources}.",
   "export.docx.dr_growth_source_item": "{name} med {growth} % per år över {years} år (lagring {storage} %, ögonblicksbild {snapshot} %)",
   "export.docx.dr_growth_follows": "Replikerna växer enligt dimensioneringsalternativen för varje skyddad plats.",
-  "export.docx.mgmt_overview_intro_split": "Detta förslag konsoliderar den nuvarande {platform}-miljön ({hosts} värdar, {vms} aktiva VM:ar, {used_tb} TB i bruk) på ett Scale Computing HyperCore-kluster. Vi rekommenderar ett {nodes} {model}-kluster som levererar {usable_tb} TB användbar kapacitet och {cores} CPU-kärnor, konstruerat för N-1-resiliens så att en hel nod kan sluta fungera utan avbrott i tjänsten. Konfigurationen absorberar {years}-års tillväxt på {growth} % årligen för beräkning och {storage} % för lagring samtidigt som ett {ratio}:1 vCPU-till-kärna-förhållande bibehålls."
+  "export.docx.mgmt_overview_intro_split": "Detta förslag konsoliderar den nuvarande {platform}-miljön ({hosts} värdar, {vms} aktiva VM:ar, {used_tb} TB i bruk) på ett Scale Computing HyperCore-kluster. Vi rekommenderar ett {nodes} {model}-kluster som levererar {usable_tb} TB användbar kapacitet och {cores} CPU-kärnor, konstruerat för N-1-resiliens så att en hel nod kan sluta fungera utan avbrott i tjänsten. Konfigurationen absorberar {years}-års tillväxt på {growth} % årligen för beräkning och {storage} % för lagring samtidigt som ett {ratio}:1 vCPU-till-kärna-förhållande bibehålls.",
+  "export.common.excluded_datastores": "Utelämnat ur dimensioneringen",
+  "export.common.excluded_datastores_note": "Utelämnade ur lagringsdimensioneringen eftersom deras data inte flyttas till det nya klustret: {list} ({tb} TB totalt).",
+  "export.pptx.excluded_datastores_val": "{count} datalager · {tb} TB"
 }

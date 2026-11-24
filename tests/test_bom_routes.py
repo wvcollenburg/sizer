@@ -198,9 +198,14 @@ def test_upload_runs_the_check_and_stores_no_file(app):
     assert cr["platform"]["sc_models"] == ["HC1450D"]
     assert d["normalized"]["configs"][0]["nodeCount"] == 3
     assert d["history"] and d["history"][0]["technical_verdict"] == "PASS"
+    # Every line with its own result, for the full validation results view.
+    full = d["component_results"][0]
+    assert len(full["components"]) == len(d["normalized"]["configs"][0]["components"])
+    assert {l["status"] for l in full["components"]} <= {"pass", "warning", "fail", "not_checked"}
+    assert c.get(f"/api/bom-checks/{d['id']}").get_json()["component_results"] == d["component_results"]
     listed = c.get(f"/api/projects/{project['id']}/bom-checks").get_json()
     assert [x["id"] for x in listed] == [d["id"]]
-    assert "normalized" not in listed[0]
+    assert "normalized" not in listed[0] and "component_results" not in listed[0]
 
 
 def test_upload_against_a_sizing_adds_the_fit_verdict(app):

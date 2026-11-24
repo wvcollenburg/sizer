@@ -284,5 +284,8 @@
   "export.docx.dr_growth_sources": "Replikos auga pagal kiekvienos saugomos vietos dydžio parinkimo nustatymus: {sources}.",
   "export.docx.dr_growth_source_item": "{name} po {growth}% per metus {years} m. (saugykla {storage}%, momentinė kopija {snapshot}%)",
   "export.docx.dr_growth_follows": "Replikos auga pagal kiekvienos saugomos vietos dydžio parinkimo nustatymus.",
-  "export.docx.mgmt_overview_intro_split": "Šis pasiūlymas konsoliduoja dabartinę {platform} aplinką ({hosts} prieglobos serverių, {vms} aktyvių VM, {used_tb} TB naudojama) į Scale Computing HyperCore klasterį. Rekomenduojame {nodes} {model} klasterį, teikiantį {usable_tb} TB naudojamos talpos ir {cores} CPU branduolius, suprojektuotą N-1 atsparumui, kad visas mazgas galėtų sugesti nepertraukiant paslaugos. Konfigūracija sugeria {years} metų augimą po {growth}% per metus skaičiavimui ir {storage}% saugyklai, išlaikydama {ratio}:1 vCPU ir branduolio santykį."
+  "export.docx.mgmt_overview_intro_split": "Šis pasiūlymas konsoliduoja dabartinę {platform} aplinką ({hosts} prieglobos serverių, {vms} aktyvių VM, {used_tb} TB naudojama) į Scale Computing HyperCore klasterį. Rekomenduojame {nodes} {model} klasterį, teikiantį {usable_tb} TB naudojamos talpos ir {cores} CPU branduolius, suprojektuotą N-1 atsparumui, kad visas mazgas galėtų sugesti nepertraukiant paslaugos. Konfigūracija sugeria {years} metų augimą po {growth}% per metus skaičiavimui ir {storage}% saugyklai, išlaikydama {ratio}:1 vCPU ir branduolio santykį.",
+  "export.common.excluded_datastores": "Neįtraukta į skaičiavimą",
+  "export.common.excluded_datastores_note": "Neįtraukta į saugojimo skaičiavimą, nes jų duomenys nebus perkelti į naują klasterį: {list} (iš viso {tb} TB).",
+  "export.pptx.excluded_datastores_val": "{count} saugyklos · {tb} TB"
 }

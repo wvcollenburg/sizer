@@ -207,6 +207,13 @@ class BomCheck(db.Model):
             d["normalized"] = self.normalized
             d["result"] = self.result
             d["history"] = self.history or []
+            # Every BOM line with its own result (the "full validation
+            # results" view), derived from the two above on each read.
+            try:
+                from bom.component_results import component_results
+                d["component_results"] = component_results(self.normalized, self.result)
+            except Exception:  # never let the extra view break the check
+                d["component_results"] = []
         return d
 
 

@@ -168,8 +168,12 @@
         var w = window._wizImportWarnings || [];
         // More files for this site (plan B): the classic header button is not
         // portaled into the wizard, so the step carries its own.
+        // The storage basis (which datastores count) is chosen here too.
+        var ds = (window.sizingDatastores && window.sizingDatastores().length)
+            ? ' <button class="btn btn-sm btn-muted" data-click=\'["openDatastoreModal"]\'>' +
+              esc(t('import.datastores')) + '</button>' : '';
         var add = '<div class="wiz-env-actions"><button class="btn btn-sm btn-muted" ' +
-            'data-click=\'["startAppendFiles"]\'>' + esc(t('merge.add_files')) + '</button></div>';
+            'data-click=\'["startAppendFiles"]\'>' + esc(t('merge.add_files')) + '</button>' + ds + '</div>';
         if (!w.length) { after.innerHTML = add; return; }
         // Each item is {code, params} from import_checks.py; translate here.
         after.innerHTML = add + '<div class="wiz-caveats"><div class="wiz-caveats-title">' +

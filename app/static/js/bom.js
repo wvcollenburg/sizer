@@ -33,6 +33,7 @@
         jobs: [],               // agent jobs queued/running/failed for the open project
         checksProjectId: null,
         current: null,          // full check shown in the result step
+        fullCheck: null,        // check behind the full validation results view
         file: null,             // File chosen for the check
         uploadedCheckId: null,  // check made from bomState.file in this session
         sizingId: '',           // '' = compatibility only; otherwise sizing id as string
@@ -739,9 +740,88 @@
         return `<p class="bom-review"><span class="state-badge ${cls}">${esc(t('bom.review.reviewed'))}: ${esc(label)}</span>${note}${when}</p>`;
     }
 
+    // ── full validation results (every BOM line with its own result) ────────
+
+    const LINE_CLASS = { pass: 'badge-pass', warning: 'badge-warn', fail: 'badge-fail', not_checked: 'badge-neutral' };
+
+    function lineChip(status) {
+        const s = LINE_CLASS[status] ? status : 'not_checked';
+        return `<span class="state-badge bom-chip-sm ${LINE_CLASS[s]}" title="${esc(t('bom.full.status_title.' + s))}">${esc(t('bom.full.status.' + s))}</span>`;
+    }
+
+    function lineNotes(findings) {
+        if (!findings || !findings.length) return '';
+        return `<ul class="bom-line-notes">${findings.map(f => {
+            const sev = String(f.severity || 'info').toLowerCase();
+            return `<li class="bom-line-note bom-line-note-${esc(sev)}" title="${esc(f.remediation || '')}">${esc(f.issue || '')}</li>`;
+        }).join('')}</ul>`;
+    }
+
+    function fullConfigBlock(cr, checkedOnly) {
+        const lines = (cr.components || []).filter(l => !checkedOnly || l.status !== 'not_checked');
+        const c = cr.counts || {};
+        const countBits = ['pass', 'warning', 'fail', 'not_checked']
+            .filter(s => c[s]).map(s => `${c[s]} ${esc(t('bom.full.status.' + s).toLowerCase())}`);
+        const nodes = cr.node_count
+            ? esc(t('bom.full.nodes_note', { n: cr.node_count }))
+            : esc(t('bom.full.nodes_unknown'));
+        const rows = lines.map(l => `<tr class="bom-line bom-line-${esc(l.status)}">
+            <td class="bom-col-sev">${lineChip(l.status)}</td>
+            <td class="bom-num">${esc(fmtNum(l.quantity))}</td>
+            <td class="bom-num">${l.per_node == null ? '<span class="muted">—</span>' : esc(fmtNum(l.per_node))}</td>
+            <td><code class="sizing-code">${esc(l.part_number || '')}</code></td>
+            <td class="bom-col-desc">${esc(l.description || '')}${lineNotes(l.findings)}</td>
+            <td class="bom-col-cat">${esc(t('bom.full.cat.' + (l.category || 'other')))}</td>
+        </tr>`).join('');
+        const general = (cr.config_findings || []).length
+            ? `<h4 class="rep-heading">${esc(t('bom.full.config_checks'))}</h4>${findingsTable(cr.config_findings)}` : '';
+        return `<section class="bom-section bom-config">
+            <div class="bom-config-head">
+                <h3 class="bom-config-name">${esc(cr.config_name || t('bom.result.config_unnamed'))}</h3>
+                ${verdictChip(cr.verdict)}
+                <span class="bom-full-counts">${countBits.join(' · ')}</span>
+            </div>
+            <p class="import-info muted bom-full-nodes">${nodes}</p>
+            ${lines.length ? `<div class="compare-scroll"><table class="sizing-table bom-full-table">
+                <thead><tr>
+                    <th>${esc(t('bom.full.col_result'))}</th>
+                    <th class="bom-num">${esc(t('bom.full.col_qty'))}</th>
+                    <th class="bom-num">${esc(t('bom.full.col_per_node'))}</th>
+                    <th>${esc(t('bom.full.col_part'))}</th>
+                    <th>${esc(t('bom.full.col_description'))}</th>
+                    <th>${esc(t('bom.full.col_category'))}</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>` : `<p class="import-info muted">${esc(t('bom.full.none_shown'))}</p>`}
+            ${general}
+        </section>`;
+    }
+
+    function renderBomFullResults() {
+        const host = $('bom-full-body');
+        const check = bomState.fullCheck;
+        if (!host || !check) return;
+        const checkedOnly = !!($('bom-full-checked-only') || {}).checked;
+        const configs = check.component_results || [];
+        host.innerHTML = `<p class="import-info muted">${esc(t('bom.full.intro'))}</p>` +
+            (configs.length ? configs.map(cr => fullConfigBlock(cr, checkedOnly)).join('')
+                            : `<p class="import-info muted">${esc(t('bom.result.no_configs'))}</p>`);
+    }
+
+    function openBomFullResults() {
+        if (!bomState.fullCheck) return;
+        const title = $('bom-full-title');
+        if (title) title.textContent = t('bom.full.title_named', { name: bomState.fullCheck.name || bomState.fullCheck.filename || '' });
+        renderBomFullResults();
+        openModal('bom-full-modal');
+    }
+
+    function closeBomFullResults() { closeModal('bom-full-modal'); }
+
     function renderResult(check) {
         const host = $('bom-result');
         if (!host || !check) return;
+        bomState.fullCheck = check;
         const result = check.result || {};
         const tech = result.technical || {};
         const techVerdict = check.technical_verdict || tech.verdict;
@@ -791,6 +871,9 @@
                     ${fit ? `<span class="bom-chip-label">${esc(t('bom.result.fit'))}</span>${fitChip(check.fit_verdict || fit.verdict, '')}` : ''}
                 </div>
             </div>
+            ${(check.component_results || []).length ? `<div class="bom-full-open">
+                <button class="btn btn-soft btn-sm" id="bom-full-btn" data-click='["openBomFullResults"]'>${esc(t('bom.full.open'))}</button>
+            </div>` : ''}
             ${configBlocks || `<p class="import-info muted">${esc(t('bom.result.no_configs'))}</p>`}
             ${orphan.length ? `<section class="bom-section">${suggestionCards(orphan)}</section>` : ''}
             ${fitSection(fit)}
@@ -952,6 +1035,6 @@
         bomPickSizing, bomFileChosen, bomRunCheck,
         bomShareRejected, bomDismissRetain, bomAgentNotify,
         openBomCheckResult, bomRecheck, bomRecheckSizingChanged, bomDelete,
-        loadBomChecks,
+        loadBomChecks, openBomFullResults, closeBomFullResults, renderBomFullResults,
     });
 })();

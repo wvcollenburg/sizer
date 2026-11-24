@@ -463,6 +463,10 @@
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                                 <span data-i18n="import.configure_vms">Configure VMs</span> <span id="vm-exclusion-count"></span>
                             </button>
+                            <button class="btn btn-advanced" id="btn-datastores" style="display:none" data-click='["openDatastoreModal"]'>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
+                                <span data-i18n="import.datastores">Datastores</span> <span id="datastore-count"></span>
+                            </button>
                         </div>
                     </div>
                     <div class="summary-grid" id="env-summary"></div>
@@ -1286,7 +1290,78 @@
         </div>
     </div>
 
+    <!-- Full validation results: every BOM line with its own result, opened
+         from the BOM check result (bom.js openBomFullResults). After the BOM
+         modal so it stacks on top of it. -->
+    <div class="modal-overlay" id="bom-full-modal" style="display:none">
+        <div class="modal-content cmp-modal bom-modal bom-full-modal" style="max-width:1100px" role="dialog" aria-modal="true" aria-labelledby="bom-full-title">
+            <div class="modal-header">
+                <h2 id="bom-full-title" data-i18n="bom.full.title">Full validation results</h2>
+                {{ ui.close_button('closeBomFullResults', 'common.close') }}
+            </div>
+            <div class="modal-toolbar">
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="bom-full-checked-only" data-change='["renderBomFullResults"]'>
+                    <span data-i18n="bom.full.checked_only">Only parts the checker validates</span>
+                </label>
+            </div>
+            <div class="modal-body" id="bom-full-body"></div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["closeBomFullResults"]' data-i18n="common.close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
+    <!-- Storage basis: which datastores the sizing counts. Shared ones are in
+         by default, per-host local ones out (app.js openDatastoreModal). -->
+    <div class="modal-overlay" id="datastore-modal" style="display:none">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 data-i18n="modal.ds.title">Datastores in the sizing</h2>
+                {{ ui.close_button('closeDatastoreModal') }}
+            </div>
+            <p class="modal-intro" data-i18n="modal.ds.intro">Untick a datastore whose data is not moving to the new cluster (an archive, backups, a share used outside the VMs). Its used capacity leaves the storage basis. Local (per-host) datastores are left out unless you tick them.</p>
+            <!-- Shown when the export records no VM-to-datastore placement, so an
+                 empty VMs column is not read as a partly-read file. -->
+            <p class="ds-note" id="ds-no-placement" style="display:none" data-i18n="modal.ds.no_vm_placement">This export does not record which datastore each VM is on, so the VMs column stays empty. The rest of the file was read in full.</p>
+            <div class="modal-toolbar">
+                <input type="text" id="ds-search" class="vm-search" placeholder="Search datastores..." data-i18n-ph="modal.ds.search_ph" data-input='["filterDatastoreTable"]'>
+                <div class="modal-actions">
+                    <button class="btn btn-sm btn-muted" data-click='["resetDatastoreSelection"]' data-i18n="modal.ds.reset">Reset to default</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="vm-table-wrap">
+                    <table class="vm-table" id="ds-table">
+                        <thead>
+                            <tr>
+                                <th class="vm-col-check" data-i18n="modal.ds.col_in">In sizing</th>
+                                <th class="ds-col-name sortable" data-click='["sortDatastoreTable","name"]' data-i18n="modal.ds.col_name">Datastore</th>
+                                <th class="ds-col-type sortable" data-click='["sortDatastoreTable","type"]' data-i18n="modal.ds.col_type">Type</th>
+                                <th class="vm-col-num sortable" data-click='["sortDatastoreTable","used_gib"]' data-i18n="modal.ds.col_used">Used (TB)</th>
+                                <th class="vm-col-num sortable" data-click='["sortDatastoreTable","capacity_gib"]' data-i18n="modal.ds.col_capacity">Capacity (TB)</th>
+                                <th class="vm-col-num" data-i18n="modal.ds.col_full">Full</th>
+                                <th class="vm-col-num sortable" data-click='["sortDatastoreTable","hosts"]' data-i18n="modal.ds.col_hosts">Hosts</th>
+                                <th class="vm-col-num sortable" data-click='["sortDatastoreTable","vms"]' data-i18n-title="modal.ds.col_vms_title" title="VMs with disks on this datastore (only where the export records it)" data-i18n="modal.ds.col_vms">VMs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ds-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="vm-exclusion-summary" id="ds-summary"></div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-muted" data-click='["closeDatastoreModal"]' data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary" data-click='["applyDatastoreSelection"]' data-i18n="modal.vmexcl.apply_changes">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="vm-exclusion-modal" style="display:none">
         <div class="modal-content modal-lg">
             <div class="modal-header">
