@@ -276,6 +276,24 @@ class Shooter:
         self.click("wizardNext", wait=2500)
         self.shot("wizard-recs", "#import-wizard", pad=12)
 
+    def stage_datastores(self):
+        """The Datastores dialog on the wizard's environment step, with one
+        shared datastore left out, and the storage-basis line it leaves in
+        the sizing options."""
+        p = self.login(USER)
+        self.open_sizing("Remote-Office")
+        self.click("openDatastoreModal", within="#wiz-after-2", wait=600)
+        # Leave out the second-largest shared datastore (sorted by used).
+        rows = p.locator("#ds-table-body tr:not(.vm-excluded)")
+        rows.nth(1).locator("input[type=checkbox]").uncheck()
+        self.page.wait_for_timeout(300)
+        self.shot("datastore-modal", self.modal("datastore-modal"))
+        self.click("applyDatastoreSelection", wait=2500)
+        self.click("wizardNext", wait=1200)
+        self.click("wizardNext", wait=2500)
+        self.click("wizardToggleAdvanced", wait=800)
+        self.shot("storage-basis", "#local-storage-option", pad=10)
+
     def stage_results(self):
         """Continues on step 5 of the wizard stage's sizing."""
         p = self.login(USER)
@@ -556,7 +574,7 @@ class Shooter:
 # In this order: each stage builds on what the previous ones created.
 STAGES = ("signin", "projects", "import_fanout", "wizard", "results", "populate",
           "alternative", "project_view", "compare", "exports", "dr", "modes",
-          "classic", "bom", "account", "tenant_admin", "staff", "admin")
+          "datastores", "classic", "bom", "account", "tenant_admin", "staff", "admin")
 
 
 def main():

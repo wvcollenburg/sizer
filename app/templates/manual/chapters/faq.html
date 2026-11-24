@@ -17,8 +17,17 @@
 
     <dt>The recommendation looks too small.</dt>
     <dd>Check that the ratio is realistic for the workload (databases want close to 1:1),
-        that no VMs were excluded by mistake, and whether local storage should be included.
+        that no VMs were excluded by mistake, and that the right datastores are in the storage
+        basis (see <a href="#datastores">Choosing the datastores</a>): a datastore left out by
+        mistake, or a local datastore whose data must move, lowers the storage.
         Remember that CPU and RAM are already sized for one node down.</dd>
+
+    <dt>The datastores hold far more than the VMs use. Why?</dt>
+    <dd>Usually because a datastore holds data that is not in the VMs' disks: an archive, a
+        backup target, an NFS share that something outside the VMs writes to. The import then
+        warns you and names the largest datastore. Ask the customer whether that data is moving;
+        if it is not, leave the datastore out under
+        <a href="#datastores">Choosing the datastores</a>.</dd>
 
     <dt>What is the difference between <em>Alternative</em> and <em>Part of the total</em>?</dt>
     <dd>Parts of the total add up to one estate (sites, clusters, phases). Alternatives

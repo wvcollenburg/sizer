@@ -48,10 +48,14 @@
         more nodes than compute does, the extra nodes (beyond two full nodes per cluster)
         become storage-only nodes: no VMs, a single small CPU and minimal RAM, but full storage
         and IOPS. This lowers compute licensing for storage-heavy workloads.</td></tr>
-    <tr><td>Include … GB found on local storage <em>(advanced)</em></td><td>Off</td><td>Only
-        shown when the import found VM data on the hosts' local disks. Tick it to size that
-        data as well. RVTools exports do not report local storage.</td></tr>
+    <tr><td>Storage basis <em>(advanced)</em></td><td>All shared datastores</td><td>Which
+        datastores the storage is sized from, for example <em>3 of 7 datastores, 9.57 TB
+        used</em>. {{ m.ui("Choose datastores…") }} opens the list described in
+        <a href="#datastores">Choosing the datastores</a>; a badge shows how many you changed
+        from the default. Sizings saved before the datastore list show the older
+        <em>Include … GB found on local storage</em> checkbox here instead.</td></tr>
 </table>
+{{ m.shot("storage-basis", "The storage basis line: one datastore changed from the default") }}
 
 <h3 id="opt-growth">Growth Projection</h3>
 <table class="manual-table">

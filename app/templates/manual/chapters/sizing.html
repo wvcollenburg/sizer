@@ -108,9 +108,41 @@
     <li>A box headed <em>A few things to be aware of about this import</em> appears when the
         data has gaps: for example no performance data, no IOPS data, storage that is only on
         local disks, hosts that are not in a cluster, or a vCPU ratio that had to be assumed
-        (physical-server scans).</li>
+        (physical-server scans). It also warns when the datastores hold far more than the
+        VMs' disks, and names the largest datastore. That usually means a datastore holds
+        data that is not VM storage; see <a href="#datastores">Choosing the datastores</a>.</li>
+    <li>{{ m.ui("Datastores") }} (next to {{ m.ui("Add files") }}) opens the list of
+        datastores in the sizing, explained below.</li>
 </ul>
 {{ m.shot("source-cpu", "Source CPU performance: benchmark scores per detected CPU") }}
+
+<h4 id="datastores">Choosing the datastores</h4>
+<p>The storage the sizer sizes for is the used capacity of the datastores in the
+   <em>storage basis</em>. By default that is every shared datastore. Per-host local
+   datastores (boot disks, ISO stores) are left out. {{ m.ui("Datastores") }} opens the list,
+   so you can change that for this sizing.</p>
+{{ m.shot("datastore-modal", "The datastores in the sizing, with one shared datastore left out") }}
+<ul>
+    <li>Untick a shared datastore whose data is <strong>not moving</strong> to the new
+        cluster: an archive, backups, a share that is used outside the VMs. Its used capacity
+        leaves the storage basis.</li>
+    <li>Tick a local datastore when its data <strong>does</strong> need to move.</li>
+    <li>Each row shows the type (shared or local), used and total capacity, how full it is,
+        how many hosts mount it, and how many VMs have disks on it. The line under the table
+        adds up what is in the sizing and what you left out. {{ m.ui("Reset to default") }}
+        goes back to all shared datastores in, all local ones out.</li>
+    <li>Nothing changes until you choose {{ m.ui("Apply Changes") }}. Your choice is saved with
+        the sizing.</li>
+</ul>
+<p>The VMs column is only filled in when the export records which datastore each VM is on
+   (VMware Live Optics and Nutanix Collector exports). When it does not, a note above the
+   table says so; the rest of the file was still read in full.</p>
+<p>VMs whose disks are only on left-out datastores are marked
+   <em>datastore out</em> in the VM list (step 3), and their disks leave the VM storage
+   totals too. Excluding such a VM's storage as well does not subtract it a second time.
+   The Word and PowerPoint exports list the datastores you left out and how much they held.</p>
+{% call m.tip() %}Ask before you leave a datastore out. A large archive datastore that the
+   customer does want on the new cluster is exactly the storage you must size for.{% endcall %}
 
 <h4 id="wizard-vms">Step 3: Review VMs</h4>
 <p>Every VM in the export, so you can leave out what should not be sized and correct what is
@@ -122,7 +154,9 @@
         powered-off VMs.</td></tr>
     <tr><td>Excl. Compute / Excl. Storage</td><td>Leave a VM's CPU and RAM out of the sizing,
         or its storage, or both. For example, a VM that is being retired excludes both. A VM
-        whose data moves elsewhere excludes only storage.</td></tr>
+        whose data moves elsewhere excludes only storage. A VM marked <em>datastore out</em>
+        sits only on datastores you left out (see <a href="#datastores">Choosing the
+        datastores</a>); its storage is already out of the sizing.</td></tr>
     <tr><td>{{ m.ui("Select powered off") }}</td><td>Excludes every powered-off VM. With
         {{ m.ui("Include storage in exclusions") }} ticked (the default) their storage is
         excluded too. Untick it to keep sizing their disks.</td></tr>
@@ -158,7 +192,8 @@
 <p>{{ m.ui("Switch to classic view") }} (top right of the wizard) shows everything on one page:
    upload, environment summary, sizing options on the left and recommendations on the right.
    Experienced users often prefer it. The VM review is then behind a {{ m.ui("Configure VMs") }}
-   button, which opens the same list in a dialog. Its {{ m.ui("Apply Changes") }} button
+   button, which opens the same list in a dialog. The {{ m.ui("Datastores") }} button next to
+   it opens the datastore list. Its {{ m.ui("Apply Changes") }} button
    applies your exclusions. {{ m.ui("Switch to guided wizard") }} goes back. Both views share
    the same data, so switching never loses work. Your choice is remembered.</p>
 {{ m.shot("classic-view", "The classic view: everything on one page") }}

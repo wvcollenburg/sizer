@@ -100,7 +100,12 @@ def scrub(src, out):
                 v = cell.value
                 if not isinstance(v, str) or col is None:
                     continue
-                if col in KIND:
+                if col in KIND and KIND[col] == "ds" and "," in v:
+                    # A VM on several datastores lists them "ds1, ds2": map
+                    # each, so it still points at the datastores it is on.
+                    cell.value = ", ".join(mapper("ds", p.strip()) for p in v.split(",")
+                                           if p.strip())
+                elif col in KIND:
                     cell.value = mapper(KIND[col], v)
                 elif col == "Disk":
                     # a guest drive letter is harmless; a mount path can name
