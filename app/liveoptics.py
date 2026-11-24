@@ -11,8 +11,9 @@ def parse_liveoptics(file_path):
     #   * the VMware/vSphere collector ("ESX Hosts" + "VMs" + perf sheets),
     #   * the GENERAL server collector (a single "Servers" sheet, one row per
     #     OS instance) used for physical/mixed estates, and
-    #   * the Hyper-V collector ("Hypervisors" host sheet + a "VMs" guest sheet),
-    #     which — unlike GENERAL — keeps a real host/guest split (so it has real
+    #   * the hypervisor collector ("Hypervisors" host sheet + a "VMs" guest
+    #     sheet; Hyper-V *or* ESXi hosts — the GENERAL export uses it for both),
+    #     which — unlike "Servers" — keeps a real host/guest split (so it has real
     #     overcommit and behaves like the VMware path, not the 1:1 server path).
     # Each gets its own parser; all return the same dict shape so everything
     # downstream (summary, recommend, UI) is format-blind.
@@ -192,6 +193,7 @@ def _parse_hyperv(wb):
     recorded as cluster (primary) capacity rather than excludable local capacity.
     """
     hosts, perfs, vms, datastores = [], [], [], []
+    local_stores, host_os = [], []
 
     # Per-host disk roll-up, used as a fallback when a Hypervisors row omits its
     # capacity totals (some collectors only fill the Server Disks sheet).
@@ -261,14 +263,49 @@ def _parse_hyperv(wb):
             "avg_throughput_mbs": _float(r.get("Avg. Throughput MB/s", 0)),
         })
 
-        datastores.append({
+        host_os.append(str(r.get("OS", "") or ""))
+        local_stores.append({
             "name": name,
             "type": "cluster",
             "capacity_gib": local_cap,
             "used_gib": used_cap,
             "free_gib": free_cap,
             "vm_count": _int(r.get("Guest VM Count", 0)),
+            "mounts": [name],
         })
+
+    # Shared storage (vSAN/HyperFlex/SAN datastores, Hyper-V CSVs) is on the
+    # "Cluster Disks" sheet, one row per host that mounts it. Count each once,
+    # recording every mounting host so it can be attributed to its source
+    # cluster(s) — same dedup as the VMware "Host Devices" path.
+    shared_by_sig = {}
+    for r in _sheet_rows(wb, "Cluster Disks"):
+        dev = str(r.get("Device Name", "")).strip()
+        server = str(r.get("Server Name", "")).strip()
+        cap = _float(r.get("Capacity (GiB)", 0))
+        if not dev or cap <= 0:
+            continue
+        used = _float(r.get("Used Capacity (GiB)", 0))
+        free = _float(r.get("Free Capacity (GiB)", 0))
+        sig = (dev, round(cap), round(used), round(free))
+        d = shared_by_sig.get(sig)
+        if d is None:
+            d = shared_by_sig[sig] = {
+                "name": dev, "type": "cluster", "capacity_gib": cap,
+                "used_gib": used, "free_gib": free, "vm_count": 0, "mounts": [],
+            }
+            datastores.append(d)
+        if server and server not in d["mounts"]:
+            d["mounts"].append(server)
+
+    if datastores:
+        # With real shared storage the per-host disks are boot/controller
+        # devices, not workload capacity: keep them as excludable local storage.
+        for d in local_stores:
+            d["type"] = "local"
+    # Without a Cluster Disks sheet the host-local disks/CSVs are all there is,
+    # and all of it moves to the new shared pool, so it stays cluster capacity.
+    datastores.extend(local_stores)
 
     for r in _sheet_rows(wb, "VMs"):
         name = str(r.get("Guest VM Name", "")).strip()
@@ -308,6 +345,7 @@ def _parse_hyperv(wb):
     return {
         "project": _parse_details(wb),
         "scan_type": "hyperv",
+        "hypervisor": _hypervisor_name(host_os),
         "hosts": hosts,
         "host_performance": perfs,
         "datastores": datastores,
@@ -316,13 +354,26 @@ def _parse_hyperv(wb):
     }
 
 
+def _hypervisor_name(host_os):
+    """Name the hypervisor from the hosts' OS strings. Despite the name, the
+    "Hypervisors"-sheet collector is not Hyper-V only: Live Optics' GENERAL
+    export uses the same shape for ESXi hosts ("VMware ESXi 7.0.3 build-…")."""
+    named = [o.lower() for o in host_os if o.strip()]
+    vmware = sum(1 for o in named if "esx" in o or "vmware" in o)
+    if vmware and vmware * 2 >= len(named):
+        return "VMware vSphere"
+    return "Hyper-V"
+
+
 def _finalize_hyperv_summary(result):
-    """Label the platform for a Hyper-V estate (hosts may be mixed hardware, so
-    the first host's model isn't representative). Keeps the measured vCPU:core
-    ratio — unlike the GENERAL path, Hyper-V has a real host/guest split."""
+    """Label the platform for a "Hypervisors"-sheet estate (hosts may be mixed
+    hardware, so the first host's model isn't representative). Keeps the
+    measured vCPU:core ratio — unlike the GENERAL path, this collector has a
+    real host/guest split."""
     summary = result["summary"]
     n = summary.get("host_count", 0)
-    summary["current_platform"] = f"Hyper-V ({n} host{'s' if n != 1 else ''})"
+    name = result.get("hypervisor") or "Hyper-V"
+    summary["current_platform"] = f"{name} ({n} host{'s' if n != 1 else ''})"
     summary["scan_type"] = "hyperv"
 
 
