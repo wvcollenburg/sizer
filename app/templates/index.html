@@ -1290,6 +1290,30 @@
         </div>
     </div>
 
+    <!-- Full validation results: every BOM line with its own result, opened
+         from the BOM check result (bom.js openBomFullResults). After the BOM
+         modal so it stacks on top of it. -->
+    <div class="modal-overlay" id="bom-full-modal" style="display:none">
+        <div class="modal-content cmp-modal bom-modal bom-full-modal" style="max-width:1100px" role="dialog" aria-modal="true" aria-labelledby="bom-full-title">
+            <div class="modal-header">
+                <h2 id="bom-full-title" data-i18n="bom.full.title">Full validation results</h2>
+                {{ ui.close_button('closeBomFullResults', 'common.close') }}
+            </div>
+            <div class="modal-toolbar">
+                <label class="checkbox-inline">
+                    <input type="checkbox" id="bom-full-checked-only" data-change='["renderBomFullResults"]'>
+                    <span data-i18n="bom.full.checked_only">Only parts the checker validates</span>
+                </label>
+            </div>
+            <div class="modal-body" id="bom-full-body"></div>
+            <div class="modal-footer">
+                <div class="modal-footer-actions">
+                    <button class="btn btn-secondary" data-click='["closeBomFullResults"]' data-i18n="common.close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- VM Exclusion Modal -->
     <!-- Storage basis: which datastores the sizing counts. Shared ones are in
          by default, per-host local ones out (app.js openDatastoreModal). -->
