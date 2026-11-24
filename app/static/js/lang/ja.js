@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "共有 {count} 個を除外（{tb} TB）",
   "storage.basis_line": "ストレージ基準：{total} 個中 {n} 個のデータストア、使用量 {tb} TB",
   "storage.choose_datastores": "データストアを選択…",
-  "wizard.warn.storage_gap": "共有データストアには {ds_tb} TB ありますが、VM のディスクは {vm_tb} TB のみです。最大の {name} には {name_tb} TB あります。このデータを移行しない場合は「データストア」で除外してください。"
+  "wizard.warn.storage_gap": "共有データストアには {ds_tb} TB ありますが、VM のディスクは {vm_tb} TB のみです。最大の {name} には {name_tb} TB あります。このデータを移行しない場合は「データストア」で除外してください。",
+  "modal.ds.no_vm_placement": "このエクスポートには各 VM がどのデータストアにあるかが記録されていないため、VM 列は空欄になります。ファイルのその他の内容はすべて読み込まれています。"
 };

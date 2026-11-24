@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} jagatud välja jäetud ({tb} TB)",
   "storage.basis_line": "Salvestusbaas: {n} andmehoidlat {total}-st, {tb} TB kasutatud",
   "storage.choose_datastores": "Vali andmehoidlad…",
-  "wizard.warn.storage_gap": "Jagatud andmehoidlates on {ds_tb} TB, kuid virtuaalmasinate ketastel ainult {vm_tb} TB. Suurimas, {name}, on {name_tb} TB. Kui need andmed ei koli, jäta see jaotises Andmehoidlad välja."
+  "wizard.warn.storage_gap": "Jagatud andmehoidlates on {ds_tb} TB, kuid virtuaalmasinate ketastel ainult {vm_tb} TB. Suurimas, {name}, on {name_tb} TB. Kui need andmed ei koli, jäta see jaotises Andmehoidlad välja.",
+  "modal.ds.no_vm_placement": "See eksport ei salvesta, millisel andmehoidlal iga virtuaalmasin asub, seega jääb veerg VM-id tühjaks. Ülejäänud fail loeti täielikult sisse."
 };

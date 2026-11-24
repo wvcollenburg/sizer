@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} koplietotas izslēgtas ({tb} TB)",
   "storage.basis_line": "Krātuves bāze: {n} no {total} krātuvēm, aizņemti {tb} TB",
   "storage.choose_datastores": "Izvēlēties krātuves…",
-  "wizard.warn.storage_gap": "Koplietotajās krātuvēs ir {ds_tb} TB, bet VM diskos tikai {vm_tb} TB. Lielākajā, {name}, ir {name_tb} TB. Ja šie dati netiks pārvietoti, izslēdziet to sadaļā Datu krātuves."
+  "wizard.warn.storage_gap": "Koplietotajās krātuvēs ir {ds_tb} TB, bet VM diskos tikai {vm_tb} TB. Lielākajā, {name}, ir {name_tb} TB. Ja šie dati netiks pārvietoti, izslēdziet to sadaļā Datu krātuves.",
+  "modal.ds.no_vm_placement": "Šis eksports nereģistrē, kurā krātuvē atrodas katra VM, tāpēc kolonna VM paliek tukša. Pārējais fails ir nolasīts pilnībā."
 };

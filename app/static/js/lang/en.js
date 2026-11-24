@@ -1786,5 +1786,6 @@
   "modal.ds.summary_excluded": "{count} shared left out ({tb} TB)",
   "storage.basis_line": "Storage basis: {n} of {total} datastores, {tb} TB used",
   "storage.choose_datastores": "Choose datastores…",
-  "wizard.warn.storage_gap": "Shared datastores hold {ds_tb} TB, but the VMs’ disks only {vm_tb} TB. The largest, {name}, holds {name_tb} TB. If that data is not moving, leave it out under Datastores."
+  "wizard.warn.storage_gap": "Shared datastores hold {ds_tb} TB, but the VMs’ disks only {vm_tb} TB. The largest, {name}, holds {name_tb} TB. If that data is not moving, leave it out under Datastores.",
+  "modal.ds.no_vm_placement": "This export does not record which datastore each VM is on, so the VMs column stays empty. The rest of the file was read in full."
 };

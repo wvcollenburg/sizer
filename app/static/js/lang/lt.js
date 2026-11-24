@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} bendrų neįtraukta ({tb} TB)",
   "storage.basis_line": "Saugojimo bazė: {n} iš {total} saugyklų, užimta {tb} TB",
   "storage.choose_datastores": "Pasirinkti saugyklas…",
-  "wizard.warn.storage_gap": "Bendrose saugyklose yra {ds_tb} TB, o VM diskuose tik {vm_tb} TB. Didžiausioje, {name}, yra {name_tb} TB. Jei šie duomenys nebus perkelti, neįtraukite jos skiltyje Duomenų saugyklos."
+  "wizard.warn.storage_gap": "Bendrose saugyklose yra {ds_tb} TB, o VM diskuose tik {vm_tb} TB. Didžiausioje, {name}, yra {name_tb} TB. Jei šie duomenys nebus perkelti, neįtraukite jos skiltyje Duomenų saugyklos.",
+  "modal.ds.no_vm_placement": "Šis eksportas neįrašo, kurioje saugykloje yra kiekviena VM, todėl stulpelis VM lieka tuščias. Likusi failo dalis nuskaityta visa."
 };

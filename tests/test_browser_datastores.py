@@ -55,6 +55,9 @@ def test_exclude_a_datastore_and_reopen(server, browser, lo_file):
     wiz_btn.click()
     s.page.wait_for_timeout(300)
     assert _rows(s) == [{"name": "archive", "checked": True}, {"name": "san", "checked": True}]
+    # The fixture's VMs name a datastore ("ds") the list does not have: no
+    # placement to count, so the modal says the export lacks it.
+    assert s.page.is_visible("#ds-no-placement")
     _uncheck(s, "archive")
     assert "1 shared left out" in s.page.inner_text("#ds-summary")
     # Cancel throws the staged change away.
@@ -106,5 +109,22 @@ def test_old_include_local_storage_opens_with_local_datastores_in(server, browse
     assert s.page.evaluate("includeLocalStorage") is False
     assert s.page.evaluate("importSummary.datastore_used_tb") == pytest.approx(
         base + 450 / GIB_PER_TB, abs=0.011)
+    assert not s.errors, s.errors
+    s.close()
+
+
+def test_vm_counts_shown_when_the_export_places_vms(server, browser, tmp_path):
+    # The fixture's VMs all sit on a datastore named "ds".
+    path = F.liveoptics(tmp_path / "placed.xlsx", [F.host("esx1")],
+                        [F.vm("vm%d" % k, "esx1") for k in range(3)],
+                        [("ds", 4000, 900, ["esx1"])])
+    s = Session(browser, server, USER)
+    pid = _project(s, "Placed")
+    _new_import(s, pid)
+    _upload(s, [path])
+    s.page.evaluate("openDatastoreModal()")
+    s.page.wait_for_timeout(300)
+    assert not s.page.is_visible("#ds-no-placement")
+    assert s.page.inner_text("#ds-table-body tr td:last-child").strip() == "3"
     assert not s.errors, s.errors
     s.close()

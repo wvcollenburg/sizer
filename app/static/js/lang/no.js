@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} delte utelatt ({tb} TB)",
   "storage.basis_line": "Lagringsgrunnlag: {n} av {total} datastorer, {tb} TB brukt",
   "storage.choose_datastores": "Velg datastorer…",
-  "wizard.warn.storage_gap": "Delte datastorer inneholder {ds_tb} TB, men VM-enes disker bare {vm_tb} TB. Den største, {name}, inneholder {name_tb} TB. Hvis de dataene ikke flyttes, utelat den under Datastorer."
+  "wizard.warn.storage_gap": "Delte datastorer inneholder {ds_tb} TB, men VM-enes disker bare {vm_tb} TB. Den største, {name}, inneholder {name_tb} TB. Hvis de dataene ikke flyttes, utelat den under Datastorer.",
+  "modal.ds.no_vm_placement": "Denne eksporten registrerer ikke hvilken datastore hver VM ligger på, så kolonnen VM-er forblir tom. Resten av filen er lest inn i sin helhet."
 };

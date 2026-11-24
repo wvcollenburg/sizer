@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} compartilhados excluídos ({tb} TB)",
   "storage.basis_line": "Base de armazenamento: {n} de {total} datastores, {tb} TB usados",
   "storage.choose_datastores": "Escolher datastores…",
-  "wizard.warn.storage_gap": "Os datastores compartilhados contêm {ds_tb} TB, mas os discos das VMs apenas {vm_tb} TB. O maior, {name}, contém {name_tb} TB. Se esses dados não forem migrados, exclua-o em Datastores."
+  "wizard.warn.storage_gap": "Os datastores compartilhados contêm {ds_tb} TB, mas os discos das VMs apenas {vm_tb} TB. O maior, {name}, contém {name_tb} TB. Se esses dados não forem migrados, exclua-o em Datastores.",
+  "modal.ds.no_vm_placement": "Esta exportação não registra em qual datastore cada VM está, por isso a coluna VMs fica vazia. O restante do arquivo foi lido por completo."
 };

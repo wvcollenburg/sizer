@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} delade uteslutna ({tb} TB)",
   "storage.basis_line": "Lagringsunderlag: {n} av {total} datalager, {tb} TB använt",
   "storage.choose_datastores": "Välj datalager…",
-  "wizard.warn.storage_gap": "Delade datalager rymmer {ds_tb} TB, men VM:arnas diskar bara {vm_tb} TB. Det största, {name}, rymmer {name_tb} TB. Om de data inte flyttas, uteslut det under Datalager."
+  "wizard.warn.storage_gap": "Delade datalager rymmer {ds_tb} TB, men VM:arnas diskar bara {vm_tb} TB. Det största, {name}, rymmer {name_tb} TB. Om de data inte flyttas, uteslut det under Datalager.",
+  "modal.ds.no_vm_placement": "Den här exporten registrerar inte vilket datalager varje VM ligger på, så kolumnen VM:ar förblir tom. Resten av filen har lästs in helt."
 };

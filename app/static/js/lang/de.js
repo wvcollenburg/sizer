@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} gemeinsame ausgelassen ({tb} TB)",
   "storage.basis_line": "Speicherbasis: {n} von {total} Datastores, {tb} TB belegt",
   "storage.choose_datastores": "Datastores auswählen…",
-  "wizard.warn.storage_gap": "Gemeinsame Datastores enthalten {ds_tb} TB, die Festplatten der VMs jedoch nur {vm_tb} TB. Der größte, {name}, enthält {name_tb} TB. Ziehen diese Daten nicht mit um, lassen Sie ihn unter Datastores weg."
+  "wizard.warn.storage_gap": "Gemeinsame Datastores enthalten {ds_tb} TB, die Festplatten der VMs jedoch nur {vm_tb} TB. Der größte, {name}, enthält {name_tb} TB. Ziehen diese Daten nicht mit um, lassen Sie ihn unter Datastores weg.",
+  "modal.ds.no_vm_placement": "Dieser Export erfasst nicht, auf welchem Datastore jede VM liegt, daher bleibt die Spalte VMs leer. Der Rest der Datei wurde vollständig eingelesen."
 };

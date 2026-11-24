@@ -3841,3 +3841,11 @@ textarea.text-input:focus {
     font-size: var(--fs-xs);
     font-weight: 600;
 }
+.ds-note {
+    margin: 0;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.85rem;
+    color: var(--orange);
+    background: var(--orange-bg);
+    border-bottom: 1px solid var(--border);
+}

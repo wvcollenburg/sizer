@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} delte udeladt ({tb} TB)",
   "storage.basis_line": "Lagergrundlag: {n} af {total} datastores, {tb} TB brugt",
   "storage.choose_datastores": "Vælg datastores…",
-  "wizard.warn.storage_gap": "Delte datastores rummer {ds_tb} TB, men VM’ernes diske kun {vm_tb} TB. Den største, {name}, rummer {name_tb} TB. Hvis de data ikke flyttes, så udelad den under Datastores."
+  "wizard.warn.storage_gap": "Delte datastores rummer {ds_tb} TB, men VM’ernes diske kun {vm_tb} TB. Den største, {name}, rummer {name_tb} TB. Hvis de data ikke flyttes, så udelad den under Datastores.",
+  "modal.ds.no_vm_placement": "Denne eksport registrerer ikke, hvilken datastore hver VM ligger på, så kolonnen VM’er forbliver tom. Resten af filen er læst fuldt ud."
 };

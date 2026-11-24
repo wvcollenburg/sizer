@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} jaettua jätetty pois ({tb} TB)",
   "storage.basis_line": "Tallennuspohja: {n}/{total} tietovarastoa, {tb} TB käytetty",
   "storage.choose_datastores": "Valitse tietovarastot…",
-  "wizard.warn.storage_gap": "Jaetuissa tietovarastoissa on {ds_tb} TB, mutta virtuaalikoneiden levyillä vain {vm_tb} TB. Suurimmassa, {name}, on {name_tb} TB. Jos nämä tiedot eivät siirry, jätä se pois kohdassa Tietovarastot."
+  "wizard.warn.storage_gap": "Jaetuissa tietovarastoissa on {ds_tb} TB, mutta virtuaalikoneiden levyillä vain {vm_tb} TB. Suurimmassa, {name}, on {name_tb} TB. Jos nämä tiedot eivät siirry, jätä se pois kohdassa Tietovarastot.",
+  "modal.ds.no_vm_placement": "Tämä vienti ei kirjaa, missä tietovarastossa kukin virtuaalikone on, joten VM:t-sarake jää tyhjäksi. Muu tiedosto luettiin kokonaan."
 };

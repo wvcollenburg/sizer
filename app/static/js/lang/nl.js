@@ -1785,5 +1785,6 @@
   "modal.ds.summary_excluded": "{count} gedeelde weggelaten ({tb} TB)",
   "storage.basis_line": "Opslagbasis: {n} van {total} datastores, {tb} TB gebruikt",
   "storage.choose_datastores": "Datastores kiezen…",
-  "wizard.warn.storage_gap": "Gedeelde datastores bevatten {ds_tb} TB, maar de schijven van de VM's maar {vm_tb} TB. De grootste, {name}, bevat {name_tb} TB. Gaat die data niet mee, laat hem dan weg onder Datastores."
+  "wizard.warn.storage_gap": "Gedeelde datastores bevatten {ds_tb} TB, maar de schijven van de VM's maar {vm_tb} TB. De grootste, {name}, bevat {name_tb} TB. Gaat die data niet mee, laat hem dan weg onder Datastores.",
+  "modal.ds.no_vm_placement": "Deze export legt niet vast op welke datastore elke VM staat, dus de kolom VM's blijft leeg. De rest van het bestand is volledig ingelezen."
 };

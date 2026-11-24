@@ -1300,6 +1300,9 @@
                 {{ ui.close_button('closeDatastoreModal') }}
             </div>
             <p class="modal-intro" data-i18n="modal.ds.intro">Untick a datastore whose data is not moving to the new cluster (an archive, backups, a share used outside the VMs). Its used capacity leaves the storage basis. Local (per-host) datastores are left out unless you tick them.</p>
+            <!-- Shown when the export records no VM-to-datastore placement, so an
+                 empty VMs column is not read as a partly-read file. -->
+            <p class="ds-note" id="ds-no-placement" style="display:none" data-i18n="modal.ds.no_vm_placement">This export does not record which datastore each VM is on, so the VMs column stays empty. The rest of the file was read in full.</p>
             <div class="modal-toolbar">
                 <input type="text" id="ds-search" class="vm-search" placeholder="Search datastores..." data-i18n-ph="modal.ds.search_ph" data-input='["filterDatastoreTable"]'>
                 <div class="modal-actions">

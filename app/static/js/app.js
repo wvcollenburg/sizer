@@ -4564,15 +4564,19 @@ function renderDatastoreTable() {
     if (!dsStage) return;
     const list = sizingDatastores();
     // VMs placed on each datastore (only the formats that record placement).
+    // Only names that match a listed datastore count as placement.
+    const listed = new Set(list.map(d => d.src + '\u0000' + d.name));
     const vmCount = new Map();
     importVms.forEach((vm, i) => {
         if (vmRemoved.has(i)) return;
         const src = vm.src || (list.length ? list[0].src : '');
         vmDatastoreNames(vm).forEach(n => {
             const k = src + '\u0000' + n;
-            vmCount.set(k, (vmCount.get(k) || 0) + 1);
+            if (listed.has(k)) vmCount.set(k, (vmCount.get(k) || 0) + 1);
         });
     });
+    const note = document.getElementById('ds-no-placement');
+    if (note) note.style.display = vmCount.size ? 'none' : '';
     const multiSrc = new Set(list.map(d => d.src)).size > 1;
     const fileName = sid => {
         const src = (lastImportSources || []).find(x => x.id === sid);
